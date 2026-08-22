@@ -1,11 +1,19 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 /** Random native banner from our own ad server. Shown on blog pages. */
 export default function RotatingBlogAd({ placement = "blog" }: { placement?: string }) {
   const [ad, setAd] = useState<any>(null);
   const [watermark, setWatermark] = useState<{text?: string; url?: string}>({});
+  let suppressAds = false;
+  try {
+    const auth = useAuth();
+    suppressAds = auth?.isAdmin || auth?.user?.email?.toLowerCase() === "bethelgoodgift3@gmail.com";
+  } catch {}
+
   useEffect(() => {
+    if (suppressAds) return;
     let cancelled = false;
     (async () => {
       try {
@@ -24,9 +32,9 @@ export default function RotatingBlogAd({ placement = "blog" }: { placement?: str
       } catch {}
     })();
     return () => { cancelled = true; };
-  }, [placement]);
+  }, [placement, suppressAds]);
 
-  if (!ad) return null;
+  if (suppressAds || !ad) return null;
   return (
     <div className="my-6 text-center">
       <a href={ad.click_url} target="_blank" rel="noopener sponsored" className="inline-block relative">

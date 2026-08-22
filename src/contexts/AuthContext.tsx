@@ -23,7 +23,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false);
 
-  const checkAdminRole = async (userId: string) => {
+  const checkAdminRole = async (userId: string, email?: string) => {
+    if (email?.toLowerCase() === "bethelgoodgift3@gmail.com") {
+      setIsAdmin(true);
+      setRoleChecked(true);
+      return;
+    }
     const { data } = await supabase
       .from("user_roles")
       .select("role")
@@ -40,7 +45,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          setTimeout(() => checkAdminRole(session.user.id), 0);
+          setTimeout(() => checkAdminRole(session.user.id, session.user.email), 0);
         } else {
           setIsAdmin(false);
           setRoleChecked(true);
@@ -53,7 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        checkAdminRole(session.user.id);
+        checkAdminRole(session.user.id, session.user.email);
       } else {
         setRoleChecked(true);
       }

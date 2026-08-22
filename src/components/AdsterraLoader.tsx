@@ -2,11 +2,18 @@ import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 /** Injects Adsterra head scripts (site-verification / anti-adblock / social bar) when the admin has added code. */
 export default function AdsterraLoader() {
   const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
+  let suppressAds = false;
+  try {
+    const auth = useAuth();
+    suppressAds = auth?.isAdmin || auth?.user?.email?.toLowerCase() === "bethelgoodgift3@gmail.com";
+  } catch {}
+
+  const isAdmin = suppressAds || location.pathname.startsWith("/admin");
   const { data: settings } = useQuery({
     queryKey: ["site-settings-adsterra"],
     queryFn: async () => {

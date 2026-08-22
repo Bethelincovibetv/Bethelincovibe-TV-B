@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
  * Renders an Adsterra ad unit inside a sandboxed iframe.
@@ -31,7 +32,13 @@ export default function AdsterraAd({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
+  let suppressAds = false;
+  try {
+    const auth = useAuth();
+    suppressAds = auth?.isAdmin || auth?.user?.email?.toLowerCase() === "bethelgoodgift3@gmail.com";
+  } catch {}
+
+  const isAdmin = suppressAds || location.pathname.startsWith("/admin");
 
   const settingKey = `adsterra_show_${slot}`;
 

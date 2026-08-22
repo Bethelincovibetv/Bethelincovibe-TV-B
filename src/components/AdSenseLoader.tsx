@@ -6,15 +6,15 @@ import { useLocation } from "react-router-dom";
 export default function AdSenseLoader() {
   const [client, setClient] = useState<string | null>(null);
   const location = useLocation();
-  let isAdmin = false;
+  let suppressAds = false;
   try {
     const auth = useAuth();
-    isAdmin = auth?.isAdmin ?? false;
+    suppressAds = auth?.isAdmin || auth?.user?.email?.toLowerCase() === "bethelgoodgift3@gmail.com";
   } catch {
     // ignore
   }
 
-  const isInAdminPortal = isAdmin || location.pathname.startsWith("/admin");
+  const isInAdminPortal = suppressAds || location.pathname.startsWith("/admin");
 
   useEffect(() => {
     const fetchSetting = async () => {

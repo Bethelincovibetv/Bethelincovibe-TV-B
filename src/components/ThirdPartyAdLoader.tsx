@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CACHE_KEY = "thirdparty_ads_cache_v1";
 
@@ -43,7 +44,13 @@ function injectHtml(html: string, target: HTMLElement, marker: string) {
 
 export default function ThirdPartyAdLoader() {
   const location = useLocation();
-  const isAdmin = location.pathname.startsWith("/admin");
+  let suppressAds = false;
+  try {
+    const auth = useAuth();
+    suppressAds = auth?.isAdmin || auth?.user?.email?.toLowerCase() === "bethelgoodgift3@gmail.com";
+  } catch {}
+
+  const isAdmin = suppressAds || location.pathname.startsWith("/admin");
 
   // Synchronously inject the last-known verification/head snippets from
   // localStorage before React Query fetches — so Monetag/Adsterra crawlers
