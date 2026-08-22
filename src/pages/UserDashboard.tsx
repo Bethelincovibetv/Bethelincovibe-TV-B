@@ -1,0 +1,177 @@
+import { useEffect, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell
+} from "lucide-react";
+
+import ReferralCard from "@/components/ReferralCard";
+
+export default function UserDashboard() {
+  const { user, loading } = useAuth();
+  const { flags } = useFeatureFlags();
+  const [wallet, setWallet] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [favCount, setFavCount] = useState(0);
+  const [submissions, setSubmissions] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const [{ data: w }, { data: p }, { count }, { data: subs }] = await Promise.all([
+        supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+        supabase.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+        supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      ]);
+      setWallet(w);
+      setProfile(p);
+      setFavCount(count || 0);
+      setSubmissions(subs || []);
+    })();
+  }, [user]);
+
+  if (loading) return <div className="min-h-[50vh] flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+
+  const balance = wallet?.balance ?? 0;
+  const displayName = profile?.display_name || user.email?.split("@")[0];
+
+  const tiles = [
+    { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
+    { to: "/dashboard/wallet", label: "Wallet", icon: Wallet, color: "from-emerald-500 to-teal-500", show: flags.wallet },
+    { to: "/dashboard/ad-earnings", label: "Ad Earnings", icon: MousePointerClick, color: "from-green-500 to-emerald-600", show: flags.ad_earnings },
+    { to: "/dashboard/coach", label: "AI Coach", icon: Briefcase, color: "from-violet-500 to-fuchsia-500", show: flags.coach },
+    { to: "/dashboard/inventory", label: "Inventory", icon: Package, color: "from-orange-500 to-red-500", show: flags.inventory },
+    { to: "/dashboard/sales-pages", label: "Sales Pages", icon: Rocket, color: "from-purple-600 to-fuchsia-600", show: true },
+    { to: "/dashboard/products", label: "My Products", icon: Package, color: "from-sky-500 to-blue-600", show: true },
+    { to: "/dashboard/payments", label: "Payments", icon: CreditCard, color: "from-slate-600 to-slate-800", show: true },
+    { to: "/dashboard/purchases", label: "My Purchases", icon: ShoppingBag, color: "from-lime-500 to-green-600", show: true },
+    { to: "/dashboard/leads", label: "My Leads", icon: Mail, color: "from-pink-600 to-rose-500", show: true },
+    { to: "/dashboard/ads", label: "Run Ad", icon: Megaphone, color: "from-fuchsia-500 to-purple-600", show: flags.advertise },
+    { to: "/dashboard/favorites", label: "Saved Blogs", icon: Heart, color: "from-rose-500 to-orange-500", show: flags.favorites },
+    { to: "/dashboard/submit-blog", label: "Submit Business", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
+    { to: "/dashboard/businesses", label: "My Businesses", icon: Building2, color: "from-amber-500 to-yellow-500", show: flags.businesses },
+    { to: "/dashboard/messages", label: "Messages", icon: Mail, color: "from-pink-500 to-rose-500", show: flags.businesses },
+    { to: "/dashboard/settings/notifications", label: "Notifications", icon: Bell, color: "from-rose-500 to-red-600", show: true },
+    { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, color: "from-cyan-500 to-sky-500", show: flags.tools },
+    { to: "/learn", label: "Learning Hub", icon: GraduationCap, color: "from-blue-500 to-indigo-600", show: flags.learn },
+    { to: "/forum", label: "Community", icon: MessageSquare, color: "from-teal-500 to-cyan-600", show: true },
+  ].filter((t) => t.show);
+
+
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 pb-12">
+      <Helmet><title>My Dashboard | Bethelincovibe TV</title></Helmet>
+
+      {/* Mobile-app style header */}
+      <div className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground px-4 py-6 sm:py-8 rounded-b-3xl shadow-lg">
+        <div className="container mx-auto max-w-5xl">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0 flex-1">
+              <p className="text-xs opacity-80">Welcome back</p>
+              <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
+            </div>
+            <Button asChild size="sm" variant="secondary" className="shrink-0">
+              <Link to="/dashboard/profile-edit"><Settings className="h-4 w-4 mr-1" />Edit</Link>
+            </Button>
+          </div>
+
+          {/* Wallet card */}
+          <Card className="mt-5 bg-background/95 text-foreground shadow-xl">
+            <CardContent className="p-4 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" />Wallet Balance</p>
+                <p className="text-2xl font-extrabold">₦{balance.toLocaleString()}</p>
+              </div>
+              <Button asChild size="sm">
+                <Link to="/dashboard/wallet"><Plus className="h-4 w-4 mr-1" />Top Up</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
+        {/* Tile grid — app style */}
+        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+          {tiles.map((t) => (
+            <Link
+              key={t.to}
+              to={t.to}
+              className="group flex flex-col items-center gap-2 rounded-2xl border bg-card p-3 text-center hover:shadow-lg transition-all active:scale-95"
+            >
+              <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center text-white shadow`}>
+                <t.icon className="h-5 w-5" />
+              </div>
+              <span className="text-xs font-medium leading-tight">{t.label}</span>
+            </Link>
+          ))}
+        </div>
+
+        <ReferralCard />
+
+        {/* Stats row */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Saved Posts</p><p className="text-2xl font-bold">{favCount}</p></CardContent></Card>
+          <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Blog Submissions</p><p className="text-2xl font-bold">{submissions.length}</p></CardContent></Card>
+          <Card className="col-span-2 sm:col-span-1"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Profile Status</p><p className="text-sm font-semibold">{profile?.username ? <Badge variant="secondary">@{profile.username}</Badge> : <Badge variant="outline">Set username</Badge>}</p></CardContent></Card>
+        </div>
+
+        {/* My business submissions */}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between">
+            <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> My Business Submissions</CardTitle>
+            <Button asChild size="sm" variant="ghost"><Link to="/dashboard/submit-blog">New <Plus className="h-3 w-3 ml-1" /></Link></Button>
+          </CardHeader>
+          <CardContent>
+            {submissions.length === 0 ? (
+              <div className="text-center py-6 text-sm text-muted-foreground">
+                <p>No submissions yet.</p>
+                <Button asChild className="mt-3"><Link to="/dashboard/submit-blog">Submit Your Business <ChevronRight className="h-4 w-4 ml-1" /></Link></Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {submissions.map((s) => (
+                  <div key={s.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-sm truncate">{s.business_name}</p>
+                      <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <StatusBadge status={s.status} />
+                    {s.status === "published" && s.generated_post_id && (
+                      <Button size="sm" variant="ghost" asChild>
+                        <Link to={`/blog`}><ExternalLink className="h-3 w-3" /></Link>
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const map: Record<string, { label: string; variant: any }> = {
+    pending_payment: { label: "Pending Payment", variant: "outline" },
+    paid: { label: "Paid", variant: "secondary" },
+    generating: { label: "Generating", variant: "secondary" },
+    review: { label: "In Review", variant: "secondary" },
+    approved: { label: "Approved", variant: "default" },
+    published: { label: "Published", variant: "default" },
+    rejected: { label: "Rejected", variant: "destructive" },
+  };
+  const m = map[status] || { label: status, variant: "outline" };
+  return <Badge variant={m.variant} className="text-xs shrink-0">{m.label}</Badge>;
+}

@@ -1,0 +1,423 @@
+import { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Phone, MapPin, Globe, Mail, MessageCircle, Share2, Sparkles,
+  CheckCircle2, Building2, Navigation, ChevronLeft, ExternalLink,
+  Instagram, Facebook, Twitter, Linkedin, Briefcase,
+} from "lucide-react";
+import BusinessChatDialog from "@/components/BusinessChatDialog";
+import ServicePreviewDialog from "@/components/ServicePreviewDialog";
+import Breadcrumbs from "@/components/Breadcrumbs";
+import BusinessCard from "@/components/directory/BusinessCard";
+import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
+
+type Biz = any;
+
+function track(businessId: string, type: string) {
+  // fire-and-forget
+  supabase.from("business_events").insert({
+    business_id: businessId,
+    type,
+    referrer: typeof document !== "undefined" ? document.referrer.slice(0, 200) : null,
+  });
+}
+
+export default function BusinessProfile() {
+  const { slug } = useParams();
+  const [biz, setBiz] = useState<Biz | null>(null);
+  const [images, setImages] = useState<any[]>([]);
+  const [related, setRelated] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    (async () => {
+      setLoading(true);
+      setRelated([]);
+      const { data } = await supabase
+        .from("suppliers")
+        .select("*, categories(name, slug)")
+        .eq("slug", slug!)
+        .eq("active", true)
+        .eq("status", "approved")
+        .maybeSingle();
+      setBiz(data);
+      if (data?.id) {
+        const { data: imgs } = await supabase
+          .from("supplier_images")
+          .select("*")
+          .eq("supplier_id", data.id)
+          .order("display_order");
+        setImages(imgs ?? []);
+        track(data.id, "view");
+
+        if (data.category_id) {
+          const { data: rel } = await supabase
+            .from("suppliers")
+            .select("*, categories(name, slug)")
+            .eq("active", true)
+            .eq("status", "approved")
+            .eq("category_id", data.category_id)
+            .neq("id", data.id)
+            .order("boosted_until", { ascending: false, nullsFirst: false })
+            .limit(6);
+          setRelated(rel ?? []);
+        }
+      }
+      setLoading(false);
+    })();
+  }, [slug]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-6 max-w-4xl">
+        <Skeleton className="h-44 w-full rounded-2xl mb-4" />
+        <Skeleton className="h-8 w-2/3 mb-2" />
+        <Skeleton className="h-4 w-full mb-1" />
+        <Skeleton className="h-4 w-5/6" />
+      </div>
+    );
+  }
+
+  if (!biz) {
+    return (
+      <div className="container mx-auto px-4 py-16 text-center">
+        <Building2 className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+        <h1 className="text-xl font-semibold">Business not found</h1>
+        <p className="text-sm text-muted-foreground mt-1">It may have been removed or is awaiting approval.</p>
+        <Button asChild className="mt-4"><Link to="/businesses">Back to directory</Link></Button>
+      </div>
+    );
+  }
+
+  const sl = biz.social_links || {};
+  const isBoosted = biz.boosted_until && new Date(biz.boosted_until) > new Date();
+  const phoneClean = biz.phone?.replace(/\D/g, "");
+  const waClean = (sl.whatsapp || biz.phone)?.replace(/\D/g, "");
+  const seoTitle = `${biz.name}${biz.categories?.name ? ` — ${biz.categories.name}` : ""} | Lagos Business Directory`;
+  const seoDesc = (biz.description?.slice(0, 155)) ||
+    `Contact ${biz.name} — ${biz.categories?.name || "Lagos business"}${biz.address ? ` located at ${biz.address}` : ""}. View phone, address, website and more.`;
+
+  const canonical = absUrl(`/businesses/${biz.slug}`);
+  const heroImage = biz.cover_url || biz.logo_url || images[0]?.image_url;
+  const ogImage = ogImageUrl({
+    title: biz.name,
+    subtitle: biz.categories?.name ? `${biz.categories.name} · Lagos` : "Lagos business",
+    image: heroImage,
+    badge: "Verified Listing",
+  });
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LocalBusiness",
+    "@id": canonical,
+    name: biz.name,
+    description: biz.description,
+    image: [heroImage, ...images.map((i: any) => i.image_url)].filter(Boolean).slice(0, 6),
+    telephone: biz.phone,
+    address: biz.address
+      ? { "@type": "PostalAddress", streetAddress: biz.address, addressLocality: "Lagos", addressCountry: "NG" }
+      : undefined,
+    url: canonical,
+    ...(biz.website ? { hasMap: undefined, sameAs: [biz.website, ...Object.values(sl)].filter(Boolean) } : { sameAs: Object.values(sl).filter(Boolean) }),
+    ...(biz.categories?.name ? { additionalType: biz.categories.name } : {}),
+  };
+
+  const onShare = async () => {
+    track(biz.id, "share");
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (navigator.share) { try { await navigator.share({ title: biz.name, url }); } catch {} }
+    else { await navigator.clipboard?.writeText(url); }
+  };
+
+  const services: any[] = Array.isArray(biz.services) ? biz.services : [];
+
+  return (
+    <>
+      <Helmet>
+        <title>{seoTitle}</title>
+        <meta name="description" content={seoDesc} />
+        <meta name="robots" content="index, follow, max-image-preview:large" />
+        <meta property="og:site_name" content={SITE_NAME} />
+        <meta property="og:title" content={biz.name} />
+        <meta property="og:description" content={seoDesc} />
+        <meta property="og:type" content="business.business" />
+        <meta property="og:url" content={canonical} />
+        <meta property="og:image" content={ogImage} />
+        <meta property="og:image:width" content="1200" />
+        <meta property="og:image:height" content="630" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={biz.name} />
+        <meta name="twitter:description" content={seoDesc} />
+        <meta name="twitter:image" content={ogImage} />
+        <link rel="canonical" href={canonical} />
+        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
+      </Helmet>
+
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 pb-32 md:pb-12">
+        {/* Hero / Cover */}
+        <div className={`relative h-52 sm:h-72 overflow-hidden ${
+          biz.cover_template === "emerald" ? "bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-600" :
+          biz.cover_template === "sunset"  ? "bg-gradient-to-br from-orange-500 via-pink-500 to-rose-600" :
+          biz.cover_template === "ocean"   ? "bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-700" :
+          biz.cover_template === "noir"    ? "bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" :
+          biz.cover_template === "gold"    ? "bg-gradient-to-br from-amber-400 via-yellow-500 to-orange-600" :
+          "bg-gradient-to-br from-primary via-primary/80 to-accent"
+        }`}>
+          {(biz.cover_url || images[0]?.image_url) && (
+            <img src={biz.cover_url || images[0].image_url} alt={biz.name} className="absolute inset-0 w-full h-full object-cover opacity-35" />
+          )}
+          <div className="absolute inset-0 bg-gradient-to-t from-background/40 to-transparent" />
+          <Button asChild size="sm" variant="secondary" className="absolute top-3 left-3 shadow-md h-9">
+            <Link to="/businesses"><ChevronLeft className="h-4 w-4 mr-1" />Directory</Link>
+          </Button>
+          {isBoosted && (
+            <Badge className="absolute top-3 right-3 bg-amber-500 hover:bg-amber-500 text-white shadow-md gap-1">
+              <Sparkles className="h-3 w-3" />Sponsored
+            </Badge>
+          )}
+        </div>
+
+        <div className="container mx-auto max-w-5xl px-4 -mt-14 relative">
+          {/* Identity card */}
+          <Card className="overflow-hidden shadow-xl border-0">
+            <CardContent className="p-5 sm:p-6">
+              <div className="flex items-start gap-4">
+                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl ring-4 ring-background bg-muted overflow-hidden flex items-center justify-center text-2xl font-bold text-primary shadow-lg flex-shrink-0 -mt-12 sm:-mt-14">
+                  {biz.logo_url ? <img src={biz.logo_url} alt={biz.name} className="w-full h-full object-contain p-1" /> : biz.name[0]}
+                </div>
+                <div className="flex-1 min-w-0 pt-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h1 className="text-xl sm:text-2xl font-bold leading-tight truncate">{biz.name}</h1>
+                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+                  </div>
+                  {biz.categories && (
+                    <Link to={`/businesses?category=${biz.categories.slug}`} className="text-sm text-primary font-medium hover:underline">
+                      {biz.categories.name}
+                    </Link>
+                  )}
+                  {biz.address && (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                      <MapPin className="h-3 w-3" />{biz.address}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Quick action chips (desktop) */}
+              <div className="mt-5 hidden md:grid grid-cols-5 gap-2">
+                {biz.phone && <ActionBtn icon={Phone} label="Call" onClick={() => { track(biz.id, "call"); window.location.href = `tel:${biz.phone}`; }} />}
+                {waClean && <ActionBtn icon={MessageCircle} label="WhatsApp" onClick={() => { track(biz.id, "whatsapp"); window.open(`https://wa.me/${waClean}`); }} />}
+                <BusinessChatDialog businessId={biz.id} businessName={biz.name} trigger={
+                  <button className="flex flex-col items-center gap-1 p-3 rounded-xl border bg-card hover:bg-secondary transition active:scale-95">
+                    <MessageCircle className="h-5 w-5 text-primary" /><span className="text-xs font-medium">Message</span>
+                  </button>
+                } />
+                {biz.website && <ActionBtn icon={Globe} label="Website" onClick={() => { track(biz.id, "website"); window.open(biz.website, "_blank"); }} />}
+                <ActionBtn icon={Share2} label="Share" onClick={onShare} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* About */}
+          {biz.description && (
+            <Card className="mt-4">
+              <CardContent className="p-5">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">About</h2>
+                <p className="text-[15px] leading-relaxed whitespace-pre-wrap">{biz.description}</p>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Services - clickable to chat */}
+          {services.length > 0 && (
+            <Card className="mt-4">
+              <CardContent className="p-5">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
+                  <Briefcase className="h-3.5 w-3.5" /> Services — tap to inquire
+                </h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {services.map((svc: any, i: number) => (
+                    svc?.link_url ? (
+                      <ServicePreviewDialog key={i} service={svc} />
+                    ) : (
+                      <BusinessChatDialog
+                        key={i}
+                        businessId={biz.id}
+                        businessName={biz.name}
+                        serviceTitle={svc.title}
+                        trigger={
+                          <button className="group text-left rounded-xl border bg-card hover:border-primary hover:shadow-md transition overflow-hidden active:scale-95">
+                            {svc.image_url ? (
+                              <div className="aspect-video bg-muted overflow-hidden">
+                                <img src={svc.image_url} alt={svc.title} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+                              </div>
+                            ) : (
+                              <div className="aspect-video bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
+                                <Briefcase className="h-7 w-7 text-primary/70" />
+                              </div>
+                            )}
+                            <div className="p-2.5">
+                              <p className="font-semibold text-sm truncate">{svc.title}</p>
+                              {svc.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{svc.description}</p>}
+                              <p className="text-[11px] text-primary font-medium mt-1.5 flex items-center gap-1">
+                                <MessageCircle className="h-3 w-3" /> Chat now
+                              </p>
+                            </div>
+                          </button>
+                        }
+                      />
+                    )
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Gallery */}
+          {images.length > 0 && (
+            <Card className="mt-4">
+              <CardContent className="p-5">
+                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Gallery</h2>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {images.map((img: any) => (
+                    <a key={img.id} href={img.image_url} target="_blank" rel="noopener" className="block aspect-square rounded-xl overflow-hidden bg-muted">
+                      <img src={img.image_url} alt={img.caption || biz.name} className="w-full h-full object-cover hover:scale-105 transition" loading="lazy" />
+                    </a>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Contact */}
+          <Card className="mt-4">
+            <CardContent className="p-5">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Contact & Location</h2>
+              <div className="grid gap-2">
+                {biz.phone && <InfoRow icon={Phone} label="Phone" value={biz.phone} href={`tel:${biz.phone}`} onClick={() => track(biz.id, "call")} />}
+                {sl.email && <InfoRow icon={Mail} label="Email" value={sl.email} href={`mailto:${sl.email}`} onClick={() => track(biz.id, "email")} />}
+                {biz.website && <InfoRow icon={Globe} label="Website" value={biz.website} href={biz.website} external onClick={() => track(biz.id, "website")} />}
+                {biz.address && (
+                  <InfoRow
+                    icon={Navigation} label="Address" value={biz.address}
+                    href={`https://maps.google.com/?q=${encodeURIComponent(biz.address)}`} external
+                    onClick={() => track(biz.id, "directions")}
+                  />
+                )}
+              </div>
+
+              {/* Socials */}
+              {(sl.instagram || sl.facebook || sl.twitter || sl.linkedin) && (
+                <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
+                  {sl.instagram && <SocialBtn href={sl.instagram} icon={Instagram} label="Instagram" />}
+                  {sl.facebook && <SocialBtn href={sl.facebook} icon={Facebook} label="Facebook" />}
+                  {sl.twitter && <SocialBtn href={sl.twitter} icon={Twitter} label="Twitter" />}
+                  {sl.linkedin && <SocialBtn href={sl.linkedin} icon={Linkedin} label="LinkedIn" />}
+                </div>
+              )}
+
+              {biz.address && (
+                <div className="mt-4 overflow-hidden rounded-xl border">
+                  <iframe
+                    title={`Map showing ${biz.name}`}
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="h-56 w-full border-0"
+                    src={`https://maps.google.com/maps?q=${encodeURIComponent(biz.address)}&output=embed`}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {related.length > 0 && (
+            <section className="mt-8" aria-labelledby="related-biz">
+              <h2 id="related-biz" className="mb-3 text-lg font-bold">
+                More {biz.categories?.name?.toLowerCase() || "businesses"} in Lagos
+              </h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {related.map((r: any) => <BusinessCard key={r.id} business={r} />)}
+              </div>
+              {biz.categories?.slug && (
+                <div className="mt-4 text-center">
+                  <Button asChild variant="outline">
+                    <Link to={`/businesses/category/${biz.categories.slug}`}>
+                      View all {biz.categories.name} businesses
+                    </Link>
+                  </Button>
+                </div>
+              )}
+            </section>
+          )}
+
+          <Breadcrumbs
+            className="mt-8 justify-center"
+            items={[
+              { label: "Businesses", href: "/businesses" },
+              ...(biz.categories ? [{ label: biz.categories.name, href: `/businesses/category/${biz.categories.slug}` }] : []),
+              { label: biz.name },
+            ]}
+          />
+
+          <p className="text-center text-xs text-muted-foreground mt-4">
+            Are you the owner? <Link to="/dashboard/businesses" className="text-primary underline">Manage this listing</Link>
+          </p>
+        </div>
+
+        {/* Sticky mobile CTA bar */}
+        <div className="md:hidden fixed bottom-16 left-0 right-0 z-40 px-3">
+          <div className="bg-card/95 backdrop-blur border shadow-xl rounded-2xl p-2 flex gap-2 max-w-md mx-auto">
+            {biz.phone && (
+              <Button className="flex-1" size="sm" onClick={() => { track(biz.id, "call"); window.location.href = `tel:${biz.phone}`; }}>
+                <Phone className="h-4 w-4 mr-1" />Call
+              </Button>
+            )}
+            {waClean && (
+              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" size="sm" onClick={() => { track(biz.id, "whatsapp"); window.open(`https://wa.me/${waClean}`); }}>
+                <MessageCircle className="h-4 w-4 mr-1" />Chat
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={onShare}><Share2 className="h-4 w-4" /></Button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ActionBtn({ icon: Icon, label, onClick }: any) {
+  return (
+    <button onClick={onClick} className="flex flex-col items-center gap-1 p-3 rounded-xl border bg-card hover:bg-secondary transition active:scale-95">
+      <Icon className="h-5 w-5 text-primary" />
+      <span className="text-xs font-medium">{label}</span>
+    </button>
+  );
+}
+
+function InfoRow({ icon: Icon, label, value, href, external, onClick }: any) {
+  const content = (
+    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/60 transition">
+      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><Icon className="h-4 w-4" /></div>
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-muted-foreground">{label}</p>
+        <p className="text-sm font-medium truncate">{value}</p>
+      </div>
+      {external && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />}
+    </div>
+  );
+  return href ? <a href={href} target={external ? "_blank" : undefined} rel="noopener" onClick={onClick}>{content}</a> : content;
+}
+
+function SocialBtn({ href, icon: Icon, label }: any) {
+  return (
+    <Button asChild size="sm" variant="outline" className="rounded-full">
+      <a href={href} target="_blank" rel="noopener"><Icon className="h-4 w-4 mr-1" />{label}</a>
+    </Button>
+  );
+}

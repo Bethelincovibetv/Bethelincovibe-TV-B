@@ -1,0 +1,360 @@
+import { useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2, Sparkles, RefreshCw } from "lucide-react";
+
+const naira = (n: number) =>
+  new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(
+    Number.isFinite(n) ? n : 0,
+  );
+
+function Shell({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+  return (
+    <Card className="card-premium my-6 overflow-hidden p-0">
+      <div className="bg-gradient-primary px-4 py-3 text-primary-foreground">
+        <p className="text-sm font-bold leading-tight">{title}</p>
+        {subtitle && <p className="text-xs opacity-90">{subtitle}</p>}
+      </div>
+      <div className="space-y-3 p-4 not-prose">{children}</div>
+    </Card>
+  );
+}
+
+function Field({ label, value, onChange, suffix }: { label: string; value: string; onChange: (v: string) => void; suffix?: string }) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-semibold">{label}</Label>
+      <div className="flex items-center gap-2">
+        <Input inputMode="decimal" value={value} onChange={(e) => onChange(e.target.value)} className="h-10" />
+        {suffix && <span className="text-xs text-muted-foreground">{suffix}</span>}
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------- ROI ------------------------------- */
+function RoiCalculator({ title }: { title: string }) {
+  const [cost, setCost] = useState("100000");
+  const [revenue, setRevenue] = useState("160000");
+  const c = parseFloat(cost) || 0;
+  const r = parseFloat(revenue) || 0;
+  const profit = r - c;
+  const roi = c > 0 ? (profit / c) * 100 : 0;
+  return (
+    <Shell title={title} subtitle="See if the numbers actually work before you spend">
+      <Field label="Total investment / cost" value={cost} onChange={setCost} suffix="₦" />
+      <Field label="Expected revenue" value={revenue} onChange={setRevenue} suffix="₦" />
+      <div className="rounded-xl bg-secondary p-3">
+        <p className="text-sm">Profit: <strong>{naira(profit)}</strong></p>
+        <p className="text-sm">Return on investment: <strong className={roi >= 0 ? "text-success" : "text-destructive"}>{roi.toFixed(1)}%</strong></p>
+      </div>
+    </Shell>
+  );
+}
+
+/* ------------------------------- Loan ------------------------------ */
+function LoanCalculator({ title }: { title: string }) {
+  const [amount, setAmount] = useState("500000");
+  const [rate, setRate] = useState("24");
+  const [months, setMonths] = useState("12");
+  const p = parseFloat(amount) || 0;
+  const annual = parseFloat(rate) || 0;
+  const n = parseInt(months) || 1;
+  const i = annual / 100 / 12;
+  const monthly = i > 0 ? (p * i) / (1 - Math.pow(1 + i, -n)) : p / n;
+  const total = monthly * n;
+  return (
+    <Shell title={title} subtitle="Monthly repayment and true cost of borrowing">
+      <Field label="Loan amount" value={amount} onChange={setAmount} suffix="₦" />
+      <Field label="Annual interest rate" value={rate} onChange={setRate} suffix="%" />
+      <Field label="Tenure" value={months} onChange={setMonths} suffix="months" />
+      <div className="rounded-xl bg-secondary p-3 text-sm">
+        <p>Monthly repayment: <strong>{naira(monthly)}</strong></p>
+        <p>Total repaid: <strong>{naira(total)}</strong></p>
+        <p>Total interest: <strong>{naira(total - p)}</strong></p>
+      </div>
+    </Shell>
+  );
+}
+
+/* ------------------------- Currency converter ---------------------- */
+const CURRENCIES = ["NGN", "USD", "GBP", "EUR", "GHS", "ZAR", "CAD", "CNY"];
+function CurrencyConverter({ title }: { title: string }) {
+  const [amount, setAmount] = useState("100");
+  const [from, setFrom] = useState("USD");
+  const [to, setTo] = useState("NGN");
+  const [rates, setRates] = useState<Record<string, number> | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const load = async (base: string) => {
+    setLoading(true);
+    try {
+      const res = await fetch(`https://open.er-api.com/v6/latest/${base}`);
+      const json = await res.json();
+      setRates(json?.rates || null);
+    } catch {
+      setRates(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+  useEffect(() => { load(from); }, [from]);
+
+  const rate = rates?.[to];
+  const converted = rate ? (parseFloat(amount) || 0) * rate : null;
+  return (
+    <Shell title={title} subtitle="Live mid-market rates">
+      <Field label="Amount" value={amount} onChange={setAmount} />
+      <div className="grid grid-cols-2 gap-3">
+        {[["From", from, setFrom], ["To", to, setTo]].map(([label, val, set]: any) => (
+          <div key={label} className="space-y-1.5">
+            <Label className="text-xs font-semibold">{label}</Label>
+            <select value={val} onChange={(e) => set(e.target.value)} className="h-10 w-full rounded-md border bg-background px-3 text-sm">
+              {CURRENCIES.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center justify-between rounded-xl bg-secondary p-3 text-sm">
+        <span>{loading ? "Fetching rates…" : converted !== null ? <strong>{converted.toLocaleString(undefined, { maximumFractionDigits: 2 })} {to}</strong> : "Rate unavailable"}</span>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => load(from)} aria-label="Refresh rates"><RefreshCw className="h-4 w-4" /></Button>
+      </div>
+    </Shell>
+  );
+}
+
+/* ---------------------- Break-even / startup cost ------------------ */
+function BreakEvenCalculator({ title }: { title: string }) {
+  const [fixed, setFixed] = useState("200000");
+  const [price, setPrice] = useState("5000");
+  const [unitCost, setUnitCost] = useState("3000");
+  const f = parseFloat(fixed) || 0;
+  const p = parseFloat(price) || 0;
+  const u = parseFloat(unitCost) || 0;
+  const margin = p - u;
+  const units = margin > 0 ? Math.ceil(f / margin) : null;
+  return (
+    <Shell title={title} subtitle="How many sales before you start making profit">
+      <Field label="Monthly fixed costs (rent, staff, data)" value={fixed} onChange={setFixed} suffix="₦" />
+      <Field label="Selling price per unit" value={price} onChange={setPrice} suffix="₦" />
+      <Field label="Cost per unit" value={unitCost} onChange={setUnitCost} suffix="₦" />
+      <div className="rounded-xl bg-secondary p-3 text-sm">
+        <p>Margin per unit: <strong>{naira(margin)}</strong></p>
+        <p>Break-even: <strong>{units !== null ? `${units.toLocaleString()} units/month` : "Not possible — price is below cost"}</strong></p>
+      </div>
+    </Shell>
+  );
+}
+
+/* ------------------------------- Poll ------------------------------ */
+function Poll({ title, options, storageKey }: { title: string; options: string[]; storageKey: string }) {
+  const [votes, setVotes] = useState<number[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`${storageKey}:v`) || "null") || options.map(() => 0); }
+    catch { return options.map(() => 0); }
+  });
+  const [choice, setChoice] = useState<number | null>(() => {
+    const s = localStorage.getItem(`${storageKey}:c`);
+    return s === null ? null : Number(s);
+  });
+  const total = votes.reduce((a, b) => a + b, 0) || 1;
+
+  const vote = (i: number) => {
+    if (choice !== null) return;
+    const next = votes.map((v, idx) => (idx === i ? v + 1 : v));
+    setVotes(next); setChoice(i);
+    localStorage.setItem(`${storageKey}:v`, JSON.stringify(next));
+    localStorage.setItem(`${storageKey}:c`, String(i));
+  };
+
+  return (
+    <Shell title={title} subtitle="Tap to vote">
+      {options.map((o, i) => (
+        <button key={o} onClick={() => vote(i)} disabled={choice !== null} className="tap w-full text-left">
+          <div className={`relative overflow-hidden rounded-xl border p-3 text-sm ${choice === i ? "border-primary" : ""}`}>
+            <div className="absolute inset-y-0 left-0 bg-primary/15 transition-all duration-500" style={{ width: choice !== null ? `${(votes[i] / total) * 100}%` : "0%" }} />
+            <div className="relative flex justify-between font-medium">
+              <span>{o}</span>
+              {choice !== null && <span>{Math.round((votes[i] / total) * 100)}%</span>}
+            </div>
+          </div>
+        </button>
+      ))}
+    </Shell>
+  );
+}
+
+/* ------------------------------- Quiz ------------------------------ */
+type QuizQ = { q: string; options: string[]; answer: number };
+function Quiz({ title, questions }: { title: string; questions: QuizQ[] }) {
+  const [picked, setPicked] = useState<Record<number, number>>({});
+  const [done, setDone] = useState(false);
+  const score = questions.reduce((s, q, i) => (picked[i] === q.answer ? s + 1 : s), 0);
+  return (
+    <Shell title={title} subtitle={`${questions.length} quick questions`}>
+      {questions.map((q, qi) => (
+        <div key={qi} className="space-y-2">
+          <p className="text-sm font-semibold">{qi + 1}. {q.q}</p>
+          <div className="grid gap-1.5">
+            {q.options.map((o, oi) => {
+              const isPicked = picked[qi] === oi;
+              const correct = done && oi === q.answer;
+              const wrong = done && isPicked && oi !== q.answer;
+              return (
+                <button key={oi} onClick={() => !done && setPicked({ ...picked, [qi]: oi })}
+                  className={`tap rounded-xl border px-3 py-2 text-left text-sm ${correct ? "border-success bg-success/10" : wrong ? "border-destructive bg-destructive/10" : isPicked ? "border-primary bg-primary/5" : ""}`}>
+                  {o}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      ))}
+      {!done ? (
+        <Button className="w-full" onClick={() => setDone(true)} disabled={Object.keys(picked).length < questions.length}>See my score</Button>
+      ) : (
+        <div className="rounded-xl bg-secondary p-3 text-center text-sm font-semibold">
+          You scored {score} / {questions.length}
+        </div>
+      )}
+    </Shell>
+  );
+}
+
+/* ---------------------------- Checklist ---------------------------- */
+function ChecklistApp({ title, items, storageKey }: { title: string; items: string[]; storageKey: string }) {
+  const [checked, setChecked] = useState<boolean[]>(() => {
+    try { return JSON.parse(localStorage.getItem(storageKey) || "null") || items.map(() => false); }
+    catch { return items.map(() => false); }
+  });
+  const toggle = (i: number) => {
+    const next = checked.map((c, idx) => (idx === i ? !c : c));
+    setChecked(next);
+    localStorage.setItem(storageKey, JSON.stringify(next));
+  };
+  const done = checked.filter(Boolean).length;
+  return (
+    <Shell title={title} subtitle={`${done} of ${items.length} completed — saved on this device`}>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div className="h-full bg-gradient-primary transition-all duration-500" style={{ width: `${(done / items.length) * 100}%` }} />
+      </div>
+      {items.map((it, i) => (
+        <label key={i} className="tap flex cursor-pointer items-start gap-3 rounded-xl border p-3 text-sm">
+          <Checkbox checked={checked[i]} onCheckedChange={() => toggle(i)} className="mt-0.5" />
+          <span className={checked[i] ? "line-through opacity-60" : ""}>{it}</span>
+        </label>
+      ))}
+    </Shell>
+  );
+}
+
+/* ------------------------------- Form ------------------------------ */
+function LeadForm({ title, subject }: { title: string; subject: string }) {
+  const [form, setForm] = useState({ name: "", email: "", message: "" });
+  const [sent, setSent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const { error } = await supabase.from("contact_submissions").insert({
+      name: form.name, email: form.email, subject, message: form.message,
+    });
+    setBusy(false);
+    if (!error) setSent(true);
+  };
+  if (sent) return <Shell title={title}><p className="text-sm">Thank you — we have received your message and will reply by email.</p></Shell>;
+  return (
+    <Shell title={title} subtitle="We reply within 24 hours">
+      <form onSubmit={submit} className="space-y-3">
+        <Input placeholder="Your name" value={form.name} required onChange={(e) => setForm({ ...form, name: e.target.value })} />
+        <Input type="email" placeholder="Email address" value={form.email} required onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <textarea className="min-h-24 w-full rounded-md border bg-background p-3 text-sm" placeholder="What do you need help with?" value={form.message} required onChange={(e) => setForm({ ...form, message: e.target.value })} />
+        <Button type="submit" className="w-full" disabled={busy}>{busy ? "Sending…" : "Send"}</Button>
+      </form>
+    </Shell>
+  );
+}
+
+/* --------------------------- AI assistant -------------------------- */
+function AiAssistant({ title, topic }: { title: string; topic: string }) {
+  const [q, setQ] = useState("");
+  const [answer, setAnswer] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+
+  const ask = async (question: string) => {
+    if (!question.trim()) return;
+    setBusy(true); setErr(""); setAnswer("");
+    const { data, error } = await supabase.functions.invoke("blog-assistant", {
+      body: { question, topic },
+    });
+    setBusy(false);
+    if (error) { setErr("The assistant is unavailable right now. Please try again shortly."); return; }
+    if ((data as any)?.error) { setErr((data as any).message || "Assistant unavailable."); return; }
+    setAnswer((data as any)?.answer || "");
+  };
+
+  return (
+    <Shell title={title} subtitle={`Ask anything about ${topic}`}>
+      <form onSubmit={(e) => { e.preventDefault(); ask(q); }} className="flex gap-2">
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Ask a question…" className="h-10" />
+        <Button type="submit" disabled={busy} className="h-10 shrink-0">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+        </Button>
+      </form>
+      {err && <p className="text-sm text-destructive">{err}</p>}
+      {answer && <div className="whitespace-pre-wrap rounded-xl bg-secondary p-3 text-sm leading-relaxed">{answer}</div>}
+    </Shell>
+  );
+}
+
+/* --------------------------- Dispatcher ---------------------------- */
+export type MiniAppProps = Record<string, string>;
+
+export default function MiniApp({ type, props, contextTitle }: { type: string; props: MiniAppProps; contextTitle: string }) {
+  const key = (type || "").toLowerCase().trim();
+  const title = props.title || undefined;
+  const list = useMemo(
+    () => (props.items || props.options || "").split("|").map((s) => s.trim()).filter(Boolean),
+    [props.items, props.options],
+  );
+  const storageKey = `miniapp:${key}:${(props.id || title || contextTitle || "default").slice(0, 60)}`;
+
+  switch (key) {
+    case "roi":
+    case "roi-calculator":
+      return <RoiCalculator title={title || "ROI Calculator"} />;
+    case "loan":
+    case "loan-calculator":
+      return <LoanCalculator title={title || "Loan Repayment Calculator"} />;
+    case "currency":
+    case "converter":
+      return <CurrencyConverter title={title || "Currency Converter"} />;
+    case "breakeven":
+    case "break-even":
+    case "startup-cost":
+      return <BreakEvenCalculator title={title || "Break-even Calculator"} />;
+    case "poll":
+      return <Poll title={title || "Quick poll"} options={list.length ? list : ["Yes", "No"]} storageKey={storageKey} />;
+    case "checklist":
+      return <ChecklistApp title={title || "Action checklist"} items={list.length ? list : ["Define your offer", "Set your price", "Get your first customer"]} storageKey={storageKey} />;
+    case "form":
+    case "lead-form":
+      return <LeadForm title={title || "Talk to our team"} subject={props.subject || contextTitle || "Blog enquiry"} />;
+    case "quiz": {
+      let questions: QuizQ[] = [];
+      try { questions = JSON.parse(props.data || "[]"); } catch { questions = []; }
+      if (!questions.length) return null;
+      return <Quiz title={title || "Test yourself"} questions={questions} />;
+    }
+    case "ai":
+    case "assistant":
+    case "ai-assistant":
+      return <AiAssistant title={title || "Ask the AI business assistant"} topic={props.topic || contextTitle} />;
+    default:
+      return null;
+  }
+}

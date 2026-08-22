@@ -1,0 +1,54 @@
+import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useLocation } from "react-router-dom";
+
+/** Injects Adsterra head scripts (site-verification / anti-adblock / social bar) when the admin has added code. */
+export default function AdsterraLoader() {
+  const location = useLocation();
+  const isAdmin = location.pathname.startsWith("/admin");
+  const { data: settings } = useQuery({
+    queryKey: ["site-settings-adsterra"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", ["adsterra_head", "adsterra_body"]);
+      const map: Record<string, string> = {};
+      data?.forEach((s: any) => { map[s.key] = s.value || ""; });
+      return map;
+    },
+    staleTime: 1000 * 60 * 10,
+    enabled: !isAdmin,
+  });
+
+  useEffect(() => {
+    if (isAdmin) return;
+    const head = settings?.adsterra_head;
+    if (!head) return;
+    if (document.querySelector('script[data-adsterra="head"]')) return;
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(head, "text/html");
+    doc.querySelectorAll("script").forEach((s) => {
+      const script = document.createElement("script");
+      if (s.src) script.src = s.src;
+      if (s.type) script.type = s.type;
+      Array.from(s.attributes).forEach((attr) => {
+        if (!["src", "type"].includes(attr.name)) script.setAttribute(attr.name, attr.value);
+      });
+      if (s.textContent) script.textContent = s.textContent;
+      script.async = true;
+      script.dataset.adsterra = "head";
+      document.head.appendChild(script);
+    });
+    doc.querySelectorAll("meta").forEach((m) => {
+      const meta = document.createElement("meta");
+      Array.from(m.attributes).forEach((a) => meta.setAttribute(a.name, a.value));
+      meta.dataset.adsterra = "head";
+      document.head.appendChild(meta);
+    });
+  }, [settings?.adsterra_head, isAdmin]);
+
+  return null;
+}

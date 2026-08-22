@@ -1,0 +1,193 @@
+import { useEffect, useState } from "react";
+import { Link, Navigate } from "react-router-dom";
+import { Helmet } from "react-helmet-async";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2 } from "lucide-react";
+import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
+
+export default function UserBusinesses() {
+  const { user, loading } = useAuth();
+  const [items, setItems] = useState<any[]>([]);
+  const [stats, setStats] = useState<Record<string, any>>({});
+  const [busy, setBusy] = useState(true);
+
+  const removeListing = async (id: string) => {
+    await supabase.from("supplier_images").delete().eq("supplier_id", id);
+    const { error } = await supabase.from("suppliers").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setItems((prev) => prev.filter((b) => b.id !== id));
+    toast.success("Listing deleted");
+  };
+
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("suppliers")
+        .select("*, categories(name)")
+        .eq("submitted_by", user.id)
+        .order("created_at", { ascending: false });
+      const list = data ?? [];
+      setItems(list);
+
+      if (list.length) {
+        const ids = list.map((s) => s.id);
+        const since = new Date(Date.now() - 30 * 86400000).toISOString();
+        const { data: evs } = await supabase
+          .from("business_events")
+          .select("business_id,type,created_at")
+          .in("business_id", ids)
+          .gte("created_at", since);
+        const map: Record<string, any> = {};
+        ids.forEach((id) => (map[id] = { views: 0, clicks: 0, daily: {} as Record<string, { views: number; clicks: number }> }));
+        (evs ?? []).forEach((e: any) => {
+          const day = e.created_at.slice(5, 10);
+          map[e.business_id].daily[day] ??= { views: 0, clicks: 0, date: day };
+          if (e.type === "view") { map[e.business_id].views++; map[e.business_id].daily[day].views++; }
+          else { map[e.business_id].clicks++; map[e.business_id].daily[day].clicks++; }
+        });
+        Object.keys(map).forEach((k) => {
+          map[k].daily = Object.values(map[k].daily).sort((a: any, b: any) => a.date.localeCompare(b.date));
+        });
+        setStats(map);
+      }
+      setBusy(false);
+    })();
+  }, [user]);
+
+  if (loading || busy) return <div className="min-h-[50vh] flex items-center justify-center"><div className="animate-spin h-8 w-8 rounded-full border-b-2 border-primary" /></div>;
+  if (!user) return <Navigate to="/login" replace />;
+
+  return (
+    <>
+      <Helmet><title>My Businesses | Bethelincovibe TV</title></Helmet>
+      <div className="container mx-auto max-w-5xl px-4 py-6">
+        <div className="flex items-center justify-between mb-5">
+          <div>
+            <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6 text-primary" />My Businesses</h1>
+            <p className="text-sm text-muted-foreground">Manage listings, track views and boost visibility.</p>
+          </div>
+          <Button asChild size="sm"><Link to="/businesses/list"><Plus className="h-4 w-4 mr-1" />New</Link></Button>
+        </div>
+
+        {items.length === 0 ? (
+          <Card><CardContent className="py-12 text-center">
+            <Building2 className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
+            <p className="font-medium">No business listings yet</p>
+            <Button asChild className="mt-4"><Link to="/businesses/list">List Your Business</Link></Button>
+          </CardContent></Card>
+        ) : (
+          <div className="space-y-4">
+            {items.map((b) => {
+              const s = stats[b.id] || { views: 0, clicks: 0, daily: [] };
+              const isBoosted = b.boosted_until && new Date(b.boosted_until) > new Date();
+              const approved = b.status === "approved" && b.active;
+              return (
+                <Card key={b.id} className="overflow-hidden">
+                  <CardHeader className="flex flex-row items-start gap-3 pb-3">
+                    {b.logo_url ? (
+                      <img src={b.logo_url} className="h-12 w-12 rounded-xl object-cover" alt="" />
+                    ) : <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>}
+                    <div className="flex-1 min-w-0">
+                      <CardTitle className="text-base truncate flex items-center gap-2">
+                        {b.name}
+                        {isBoosted && <Badge className="bg-amber-500 text-white"><Sparkles className="h-3 w-3 mr-0.5" />Sponsored</Badge>}
+                      </CardTitle>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                        <Badge variant={approved ? "default" : b.status === "rejected" ? "destructive" : "secondary"} className="text-[10px]">{b.status}</Badge>
+                        {b.categories && <span className="text-xs text-muted-foreground">{b.categories.name}</span>}
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Stats */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <Stat icon={Eye} label="Views (30d)" value={s.views} />
+                      <Stat icon={MousePointerClick} label="Clicks (30d)" value={s.clicks} />
+                      <Stat icon={TrendingUp} label="CTR" value={s.views ? `${Math.round((s.clicks / s.views) * 100)}%` : "—"} />
+                    </div>
+
+                    {/* Chart */}
+                    {s.daily.length > 1 && (
+                      <div className="h-24">
+                        <ResponsiveContainer>
+                          <AreaChart data={s.daily}>
+                            <defs>
+                              <linearGradient id={`g-${b.id}`} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.4} />
+                                <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                              </linearGradient>
+                            </defs>
+                            <XAxis dataKey="date" hide />
+                            <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                            <Area type="monotone" dataKey="views" stroke="hsl(var(--primary))" fill={`url(#g-${b.id})`} />
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                    {/* Actions */}
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {approved && (
+                        <Button asChild size="sm" variant="outline"><Link to={`/businesses/${b.slug}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />View</Link></Button>
+                      )}
+                      <Button asChild size="sm" variant="outline"><Link to={`/dashboard/businesses/${b.id}/edit`}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Link></Button>
+                      {approved && (
+                        <Button asChild size="sm" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white">
+                          <Link to={`/dashboard/businesses/${b.id}/boost`}><Sparkles className="h-3.5 w-3.5 mr-1" />{isBoosted ? "Extend Boost" : "Boost"}</Link>
+                        </Button>
+                      )}
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                            <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete “{b.name}”?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This permanently removes the listing and its photos from the directory. This cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => removeListing(b.id)}>Delete listing</AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+
+                    {b.status === "rejected" && b.rejection_reason && (
+                      <p className="text-xs text-destructive">Reason: {b.rejection_reason}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+function Stat({ icon: Icon, label, value }: any) {
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground"><Icon className="h-3 w-3" />{label}</div>
+      <p className="text-lg font-bold mt-0.5">{value}</p>
+    </div>
+  );
+}

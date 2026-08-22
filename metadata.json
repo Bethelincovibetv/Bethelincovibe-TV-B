@@ -1,0 +1,6 @@
+{
+  "name": "Bethelincovibe TV",
+  "description": "Business information platform, directory, startup guides, and marketing tips for Lagos entrepreneurs.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

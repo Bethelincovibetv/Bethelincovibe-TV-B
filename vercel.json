@@ -1,0 +1,63 @@
+{
+  "rewrites": [
+    {
+      "source": "/blog/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|bingbot|Googlebot).*"
+        }
+      ],
+      "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/og-prerender?type=blog&slug=:slug"
+    },
+    {
+      "source": "/businesses/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|bingbot|Googlebot).*"
+        }
+      ],
+      "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/og-prerender?type=business&slug=:slug"
+    },
+    {
+      "source": "/u/:username",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|bingbot|Googlebot).*"
+        }
+      ],
+      "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/og-prerender?type=profile&slug=:username"
+    },
+    {
+      "source": "/sales/:slug",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|bingbot|Googlebot).*"
+        }
+      ],
+      "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/og-prerender?type=sales&slug=:slug"
+    },
+    {
+      "source": "/",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": ".*(facebookexternalhit|Facebot|Twitterbot|LinkedInBot|WhatsApp|Slackbot|TelegramBot|Discordbot|Pinterest|redditbot|Applebot|bingbot|Googlebot).*"
+        }
+      ],
+      "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/og-prerender?type=home&slug=_"
+    },
+    { "source": "/sitemap.xml", "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/sitemap" },
+    { "source": "/rss.xml", "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/rss" },
+    { "source": "/feed", "destination": "https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/rss" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

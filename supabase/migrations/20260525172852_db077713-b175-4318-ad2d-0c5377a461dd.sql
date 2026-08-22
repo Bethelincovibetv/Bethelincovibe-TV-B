@@ -1,0 +1,2 @@
+INSERT INTO public.user_roles (user_id, role) VALUES ('d65eddde-7ad5-4856-aa81-f4f2e4d54a5d', 'admin') ON CONFLICT DO NOTHING;
+INSERT INTO public.profiles (user_id, email, display_name) VALUES ('d65eddde-7ad5-4856-aa81-f4f2e4d54a5d', 'bethelgoodgift3@gmail.com', 'Bethel') ON CONFLICT DO NOTHING;
