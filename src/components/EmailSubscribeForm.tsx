@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { sendSubscriberWelcomeEmail, getCachedGmailToken } from "@/lib/gmail";
 
 export default function EmailSubscribeForm() {
   const [email, setEmail] = useState("");
@@ -11,29 +12,68 @@ export default function EmailSubscribeForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!email.includes("@")) return toast.error("Enter a valid email");
+    const cleanEmail = email.toLowerCase().trim();
+    if (!cleanEmail.includes("@")) return toast.error("Enter a valid email address");
+
     setLoading(true);
-    const { error } = await supabase.from("email_subscribers").insert({ email: email.toLowerCase().trim() });
-    setLoading(false);
+
+    // 1. Insert into email_subscribers database
+    const { error } = await supabase.from("email_subscribers").insert({ email: cleanEmail });
+
     if (error) {
-      if (error.code === "23505") toast.success("You're already subscribed!");
-      else toast.error("Could not subscribe. Try again.");
+      setLoading(false);
+      if (error.code === "23505") {
+        toast.info("You're already subscribed to Bethelincovibe TV updates!");
+      } else {
+        toast.error("Could not complete subscription. Please try again.");
+      }
       return;
     }
-    toast.success("Subscribed! You'll get new posts in your inbox.");
+
+    // 2. Trigger automated welcome email via Gmail API
+    const token = getCachedGmailToken();
+    let emailSent = false;
+
+    if (token) {
+      try {
+        emailSent = await sendSubscriberWelcomeEmail(cleanEmail, token);
+      } catch (err) {
+        console.warn("Welcome email trigger note:", err);
+      }
+    } else {
+      // Fire-and-forget attempt
+      sendSubscriberWelcomeEmail(cleanEmail).catch(() => {});
+    }
+
+    setLoading(false);
+
+    if (emailSent) {
+      toast.success("Subscribed! Confirmation email sent via Gmail.", {
+        description: `A welcome message was dispatched to ${cleanEmail}.`,
+      });
+    } else {
+      toast.success("Subscribed successfully!", {
+        description: `You will now receive new blog posts and updates at ${cleanEmail}.`,
+      });
+    }
+
     setEmail("");
   };
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl border bg-card p-4 space-y-3">
+    <form onSubmit={handleSubmit} className="rounded-2xl border bg-card/90 p-4 shadow-sm space-y-3">
       <div className="flex items-center gap-2">
-        <Mail className="h-4 w-4 text-primary" />
-        <p className="font-semibold text-sm">Get new posts in your inbox</p>
+        <div className="h-7 w-7 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+          <Mail className="h-4 w-4" />
+        </div>
+        <p className="font-extrabold text-sm">Get new posts in your inbox</p>
       </div>
-      <p className="text-xs text-muted-foreground">Subscribe to receive an email whenever we publish a new article.</p>
+      <p className="text-xs text-muted-foreground">Subscribe to receive automated email updates whenever we publish new business articles.</p>
       <div className="flex gap-2">
-        <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-9" />
-        <Button type="submit" size="sm" disabled={loading}>{loading ? "..." : "Subscribe"}</Button>
+        <Input type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required className="h-9 rounded-xl text-xs" />
+        <Button type="submit" size="sm" disabled={loading} className="h-9 rounded-xl font-bold text-xs shrink-0">
+          {loading ? "Subscribing..." : "Subscribe"}
+        </Button>
       </div>
     </form>
   );

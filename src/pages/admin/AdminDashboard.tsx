@@ -50,7 +50,7 @@ export default function AdminDashboard() {
   ];
 
   const manageLinks = [
-    { label: "Analytics", desc: "Post views, reads, engagement", icon: BarChart3, link: "/admin/blog-analytics" },
+    { label: "Platform Analytics", desc: "Direct visits, top products, businesses & blogs", icon: BarChart3, link: "/admin/analytics" },
     { label: "Categories", desc: "Blog & directory taxonomy", icon: FolderTree, link: "/admin/blog-categories" },
     { label: "Messages", desc: `${stats?.unreadContacts ?? 0} unread inquiries`, icon: Mail, link: "/admin/contacts" },
     { label: "Settings", desc: "Site config, integrations, keys", icon: Settings, link: "/admin/settings" },

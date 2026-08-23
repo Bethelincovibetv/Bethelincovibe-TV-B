@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Building2, FolderTree, ArrowLeft, Tv, Image as ImageIcon,
-  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart,
+  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 const allLinks = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, group: "Overview" },
   { to: "/admin/ai-admin", label: "AI Administrator", icon: Bot, group: "Overview" },
-  { to: "/admin/blog-analytics", label: "Analytics", icon: BarChart3, group: "Overview" },
+  { to: "/admin/analytics", label: "Platform Analytics", icon: BarChart3, group: "Overview" },
 
   { to: "/admin/posts", label: "Posts", icon: FileText, group: "Content" },
   { to: "/admin/ai-blogger", label: "AI Blogger", icon: Bot, group: "Content" },
@@ -31,6 +31,7 @@ const allLinks = [
   { to: "/admin/sales-templates", label: "Sales Templates", icon: Rocket, group: "Directory" },
 
   { to: "/admin/users", label: "Users", icon: Users, group: "People" },
+  { to: "/admin/broadcast", label: "Broadcast Email", icon: Send, group: "People" },
   { to: "/admin/leads", label: "All Leads", icon: Users, group: "People" },
   { to: "/admin/contacts", label: "Messages", icon: Mail, group: "People" },
   { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "People" },
@@ -46,7 +47,7 @@ const allLinks = [
 const bottomTabs = [
   { to: "/admin", label: "Home", icon: LayoutDashboard, end: true },
   { to: "/admin/posts", label: "Posts", icon: FileText },
-  { to: "/admin/blog-analytics", label: "Stats", icon: BarChart3 },
+  { to: "/admin/analytics", label: "Stats", icon: BarChart3 },
   { to: "/admin/users", label: "Users", icon: Users },
 ];
 

@@ -87,6 +87,7 @@ import AdminAds from "./pages/admin/AdminAds";
 import AdminJingles from "./pages/admin/AdminJingles";
 import AdminCourses from "./pages/admin/AdminCourses";
 import AdminAmazon from "./pages/admin/AdminAmazon";
+import AdminBroadcast from "./pages/admin/AdminBroadcast";
 import Learn from "./pages/Learn";
 import Forum from "./pages/Forum";
 import ForumPost from "./pages/ForumPost";
@@ -212,6 +213,7 @@ const App = () => (
               <Route path="guest-blogs" element={<AdminGuestBlogs />} />
               <Route path="custom-code" element={<AdminCustomCode />} />
               <Route path="blog-analytics" element={<AdminBlogAnalytics />} />
+              <Route path="analytics" element={<AdminBlogAnalytics />} />
               <Route path="notifications" element={<AdminNotifications />} />
               <Route path="ads" element={<AdminAds />} />
               <Route path="jingles" element={<AdminJingles />} />
@@ -220,6 +222,7 @@ const App = () => (
               <Route path="sales-templates" element={<AdminSalesTemplates />} />
               <Route path="leads" element={<AdminLeads />} />
               <Route path="amazon" element={<AdminAmazon />} />
+              <Route path="broadcast" element={<AdminBroadcast />} />
             </Route>
 
             {/* Standalone public sales pages (no layout chrome) */}

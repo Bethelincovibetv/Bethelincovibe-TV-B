@@ -10,6 +10,7 @@ import { formatPrice } from "@/components/directory/ProductCard";
 import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
 import ProductVideo from "@/components/directory/ProductVideo";
 import BuyDigitalProduct from "@/components/directory/BuyDigitalProduct";
+import { recordPageView } from "@/lib/analyticsTracker";
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -37,6 +38,7 @@ export default function ProductDetail() {
           .maybeSingle();
         setSeller(p);
         supabase.from("directory_products").update({ views_count: (data.views_count || 0) + 1 }).eq("id", data.id).then(() => {}, () => {});
+        recordPageView({ path: window.location.pathname, title: data.name, featureType: "product", entityId: data.id });
       }
       setLoading(false);
     })();
