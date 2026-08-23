@@ -31,14 +31,24 @@ import {
   XCircle,
   Star,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+
+interface ProviderHealth {
+  status: "idle" | "testing" | "healthy" | "unhealthy" | "no_key" | "disabled";
+  message?: string;
+  latency?: number;
+  testedAt?: string;
+}
 
 export default function AdminEmailSettings() {
   const [providers, setProviders] = useState<EmailProviderConfig[]>([]);
   const [visibleKeys, setVisibleKeys] = useState<Record<string, boolean>>({});
   const [isTesting, setIsTesting] = useState<string | null>(null);
+  const [isTestingAll, setIsTestingAll] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [healthState, setHealthState] = useState<Record<string, ProviderHealth>>({});
 
   // Load stored providers on mount
   useEffect(() => {
@@ -134,10 +144,24 @@ export default function AdminEmailSettings() {
 
   const handleTestSingle = async (prov: EmailProviderConfig) => {
     if (!prov.apiKey.trim()) {
+      setHealthState((prev) => ({
+        ...prev,
+        [prov.id]: {
+          status: "no_key",
+          message: "API Key missing",
+          testedAt: new Date().toLocaleTimeString(),
+        },
+      }));
       return toast.error(`Please enter an API Key for ${prov.name} first.`);
     }
 
     setIsTesting(prov.id);
+    setHealthState((prev) => ({
+      ...prev,
+      [prov.id]: { status: "testing" },
+    }));
+
+    const startTime = performance.now();
     try {
       const msgId = await sendViaSpecificProvider(
         prov,
@@ -149,14 +173,25 @@ export default function AdminEmailSettings() {
           <p>Sender: <code>${prov.fromEmail}</code> | Priority Rank: <code>#${prov.priority}</code></p>
         </div>`
       );
+      const latency = Math.round(performance.now() - startTime);
 
       toast.success(`${prov.name} API Verification Passed! 🎉`, {
-        description: `Delivered test message ID: ${msgId}. Credentials are working!`,
+        description: `Delivered test message ID: ${msgId} in ${latency}ms. Credentials are working!`,
       });
 
+      setHealthState((prev) => ({
+        ...prev,
+        [prov.id]: {
+          status: "healthy",
+          message: `Verified (Msg ID: ${msgId})`,
+          latency,
+          testedAt: new Date().toLocaleTimeString(),
+        },
+      }));
+
       // Update provider sent count
-      setProviders((prev) =>
-        prev.map((p) =>
+      setProviders((prev) => {
+        const updated = prev.map((p) =>
           p.id === prov.id
             ? {
                 ...p,
@@ -165,18 +200,31 @@ export default function AdminEmailSettings() {
                 lastError: undefined,
               }
             : p
-        )
-      );
+        );
+        saveEmailProviders(updated);
+        return updated;
+      });
     } catch (err: any) {
       console.error(`Test failed for ${prov.name}:`, err);
+      const latency = Math.round(performance.now() - startTime);
       const errMsg = err?.message || String(err);
 
       toast.error(`${prov.name} Test Failed ❌`, {
         description: errMsg,
       });
 
-      setProviders((prev) =>
-        prev.map((p) =>
+      setHealthState((prev) => ({
+        ...prev,
+        [prov.id]: {
+          status: "unhealthy",
+          message: errMsg,
+          latency,
+          testedAt: new Date().toLocaleTimeString(),
+        },
+      }));
+
+      setProviders((prev) => {
+        const updated = prev.map((p) =>
           p.id === prov.id
             ? {
                 ...p,
@@ -184,10 +232,135 @@ export default function AdminEmailSettings() {
                 lastError: errMsg,
               }
             : p
-        )
-      );
+        );
+        saveEmailProviders(updated);
+        return updated;
+      });
     } finally {
       setIsTesting(null);
+    }
+  };
+
+  const handleTestAllEnabled = async () => {
+    const enabledProviders = providers.filter((p) => p.enabled);
+    if (enabledProviders.length === 0) {
+      return toast.info("No providers are currently enabled to test.", {
+        description: "Toggle a provider's switch to Enabled before running a health check.",
+      });
+    }
+
+    setIsTestingAll(true);
+    toast.info(`🚀 Running Batch Health Check across ${enabledProviders.length} enabled provider(s)...`);
+
+    // Set status to testing
+    setHealthState((prev) => {
+      const next = { ...prev };
+      enabledProviders.forEach((p) => {
+        next[p.id] = { status: "testing" };
+      });
+      return next;
+    });
+
+    let healthyCount = 0;
+    let failedCount = 0;
+    let missingKeyCount = 0;
+
+    await Promise.all(
+      enabledProviders.map(async (prov) => {
+        if (!prov.apiKey.trim()) {
+          missingKeyCount++;
+          setHealthState((prev) => ({
+            ...prev,
+            [prov.id]: {
+              status: "no_key",
+              message: "API Key missing",
+              testedAt: new Date().toLocaleTimeString(),
+            },
+          }));
+          return;
+        }
+
+        const startTime = performance.now();
+        try {
+          const msgId = await sendViaSpecificProvider(
+            prov,
+            prov.fromEmail || "bethelchukwunyere1@gmail.com",
+            `🧪 ${prov.name} Health Check Test`,
+            `<div style="font-family:sans-serif; padding:24px; border:1px solid #e2e8f0; border-radius:16px;">
+              <h2 style="color:#4f46e5; margin-top:0;">${prov.name} Health Check Passed! ✅</h2>
+              <p>Batch Health Check completed successfully at ${new Date().toLocaleTimeString()}.</p>
+            </div>`
+          );
+          const latency = Math.round(performance.now() - startTime);
+          healthyCount++;
+
+          setHealthState((prev) => ({
+            ...prev,
+            [prov.id]: {
+              status: "healthy",
+              message: `Verified (Msg ID: ${msgId})`,
+              latency,
+              testedAt: new Date().toLocaleTimeString(),
+            },
+          }));
+
+          setProviders((prev) =>
+            prev.map((p) =>
+              p.id === prov.id
+                ? {
+                    ...p,
+                    totalSent: p.totalSent + 1,
+                    lastUsed: new Date().toISOString(),
+                    lastError: undefined,
+                  }
+                : p
+            )
+          );
+        } catch (err: any) {
+          const latency = Math.round(performance.now() - startTime);
+          const errMsg = err?.message || String(err);
+          failedCount++;
+
+          setHealthState((prev) => ({
+            ...prev,
+            [prov.id]: {
+              status: "unhealthy",
+              message: errMsg,
+              latency,
+              testedAt: new Date().toLocaleTimeString(),
+            },
+          }));
+
+          setProviders((prev) =>
+            prev.map((p) =>
+              p.id === prov.id
+                ? {
+                    ...p,
+                    totalFailed: p.totalFailed + 1,
+                    lastError: errMsg,
+                  }
+                : p
+            )
+          );
+        }
+      })
+    );
+
+    setIsTestingAll(false);
+
+    setProviders((curr) => {
+      saveEmailProviders(curr);
+      return curr;
+    });
+
+    if (failedCount === 0 && missingKeyCount === 0) {
+      toast.success(`Health Check Complete: All ${healthyCount} Enabled Provider(s) are HEALTHY! 🎉`, {
+        description: "All enabled API keys are active and responding.",
+      });
+    } else {
+      toast.warning(`Health Check Summary`, {
+        description: `✅ ${healthyCount} Healthy | ❌ ${failedCount} Failed | ⚠️ ${missingKeyCount} Missing API Key`,
+      });
     }
   };
 
@@ -208,14 +381,29 @@ export default function AdminEmailSettings() {
           </p>
         </div>
 
-        <Button
-          onClick={handleSaveAll}
-          disabled={isSaving}
-          className="h-11 px-6 rounded-2xl bg-white text-indigo-900 hover:bg-amber-300 hover:text-indigo-950 font-black text-sm shrink-0 shadow-lg transition-all gap-2"
-        >
-          {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-          Save All Settings
-        </Button>
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            onClick={handleTestAllEnabled}
+            disabled={isTestingAll || activeCount === 0}
+            className="h-11 px-5 rounded-2xl bg-amber-400 text-indigo-950 hover:bg-amber-300 font-black text-sm shrink-0 shadow-lg transition-all gap-2"
+          >
+            {isTestingAll ? (
+              <RefreshCw className="h-4 w-4 animate-spin" />
+            ) : (
+              <Activity className="h-4 w-4" />
+            )}
+            Test All Enabled Providers
+          </Button>
+
+          <Button
+            onClick={handleSaveAll}
+            disabled={isSaving}
+            className="h-11 px-5 rounded-2xl bg-white text-indigo-900 hover:bg-slate-100 font-black text-sm shrink-0 shadow-lg transition-all gap-2"
+          >
+            {isSaving ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+            Save All Settings
+          </Button>
+        </div>
       </div>
 
       {/* Top Stats Cards */}
@@ -293,14 +481,31 @@ export default function AdminEmailSettings() {
             </CardDescription>
           </div>
 
-          <Button
-            onClick={handleSaveAll}
-            disabled={isSaving}
-            size="sm"
-            className="h-9 px-4 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5 self-start sm:self-auto"
-          >
-            <Save className="h-3.5 w-3.5" /> Save Changes
-          </Button>
+          <div className="flex items-center gap-2 flex-wrap self-start sm:self-auto">
+            <Button
+              onClick={handleTestAllEnabled}
+              disabled={isTestingAll || activeCount === 0}
+              size="sm"
+              variant="outline"
+              className="h-9 px-4 rounded-xl font-bold text-xs border-indigo-500/40 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 gap-1.5"
+            >
+              {isTestingAll ? (
+                <RefreshCw className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+              ) : (
+                <Activity className="h-3.5 w-3.5 text-indigo-600" />
+              )}
+              Test All Enabled
+            </Button>
+
+            <Button
+              onClick={handleSaveAll}
+              disabled={isSaving}
+              size="sm"
+              className="h-9 px-4 rounded-xl font-bold text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+            >
+              <Save className="h-3.5 w-3.5" /> Save Changes
+            </Button>
+          </div>
         </CardHeader>
 
         <CardContent className="p-0 divide-y">
@@ -360,6 +565,51 @@ export default function AdminEmailSettings() {
                       <div className="flex items-center gap-2 flex-wrap min-w-0">
                         <h4 className="font-black text-base text-foreground break-words">{prov.name}</h4>
 
+                        {/* Health Status Indicator Badge */}
+                        {(() => {
+                          const health = healthState[prov.id];
+                          if (!prov.enabled) {
+                            return (
+                              <Badge variant="secondary" className="text-[10px] font-bold">
+                                DISABLED
+                              </Badge>
+                            );
+                          }
+                          if (health?.status === "testing") {
+                            return (
+                              <Badge className="bg-blue-500/15 text-blue-600 dark:text-blue-400 border-blue-500/30 text-[10px] font-extrabold animate-pulse flex items-center gap-1">
+                                <RefreshCw className="h-3 w-3 animate-spin" /> TESTING HEALTH...
+                              </Badge>
+                            );
+                          }
+                          if (health?.status === "healthy") {
+                            return (
+                              <Badge className="bg-emerald-500 text-white border-emerald-500 text-[10px] font-extrabold flex items-center gap-1 shadow-2xs" title={`Tested at ${health.testedAt}`}>
+                                <CheckCircle2 className="h-3 w-3 fill-current" /> HEALTHY ({health.latency}ms)
+                              </Badge>
+                            );
+                          }
+                          if (health?.status === "unhealthy") {
+                            return (
+                              <Badge className="bg-destructive text-white border-destructive text-[10px] font-extrabold flex items-center gap-1 shadow-2xs" title={health.message}>
+                                <XCircle className="h-3 w-3 fill-current" /> HEALTH CHECK FAILED
+                              </Badge>
+                            );
+                          }
+                          if (health?.status === "no_key" || !prov.apiKey.trim()) {
+                            return (
+                              <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40 font-bold flex items-center gap-1">
+                                <AlertTriangle className="h-3 w-3" /> KEY REQUIRED
+                              </Badge>
+                            );
+                          }
+                          return (
+                            <Badge variant="outline" className="text-[10px] text-muted-foreground/80 font-medium">
+                              Untested
+                            </Badge>
+                          );
+                        })()}
+
                         {isPrimary && (
                           <Badge className="bg-amber-500 text-white border-amber-500 text-[10px] font-extrabold flex items-center gap-1 shadow-2xs">
                             <Star className="h-3 w-3 fill-current" /> #1 PRIMARY DISPATCHER
@@ -369,18 +619,6 @@ export default function AdminEmailSettings() {
                         {prov.enabled && !isPrimary && !!prov.apiKey.trim() && (
                           <Badge className="bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 text-[10px] font-extrabold">
                             ACTIVE FALLBACK (#{prov.priority})
-                          </Badge>
-                        )}
-
-                        {!prov.enabled && (
-                          <Badge variant="secondary" className="text-[10px] font-bold">
-                            DISABLED
-                          </Badge>
-                        )}
-
-                        {prov.enabled && !prov.apiKey.trim() && (
-                          <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/40 font-bold">
-                            KEY REQUIRED
                           </Badge>
                         )}
 
