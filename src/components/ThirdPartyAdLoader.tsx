@@ -58,8 +58,9 @@ export default function ThirdPartyAdLoader() {
   useLayoutEffect(() => {
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
-      if (cached.monetag_head) injectHtml(cached.monetag_head, document.head, "monetag-head");
-      if (cached.startio_head) injectHtml(cached.startio_head, document.head, "startio-head");
+      if (cached.ads_global_enabled === "false") return;
+      if (cached.ads_provider_monetag !== "false" && cached.monetag_head) injectHtml(cached.monetag_head, document.head, "monetag-head");
+      if (cached.ads_provider_startio !== "false" && cached.startio_head) injectHtml(cached.startio_head, document.head, "startio-head");
     } catch {}
   }, []);
 
@@ -69,22 +70,40 @@ export default function ThirdPartyAdLoader() {
       const { data } = await supabase
         .from("site_settings")
         .select("key, value")
-        .in("key", KEYS as unknown as string[]);
+        .in("key", [...KEYS, "ads_global_enabled", "ads_provider_monetag", "ads_provider_startio"] as string[]);
       const map: Record<string, string> = {};
       data?.forEach((s: any) => { map[s.key] = s.value || ""; });
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(map)); } catch {}
       return map;
     },
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 2,
   });
+
+  const globalDisabled = settings?.ads_global_enabled === "false";
+  const monetagDisabled = globalDisabled || settings?.ads_provider_monetag === "false";
+  const startioDisabled = globalDisabled || settings?.ads_provider_startio === "false";
 
   useEffect(() => {
     if (!settings) return;
-    if (settings.monetag_head) injectHtml(settings.monetag_head, document.head, "monetag-head");
-    if (settings.startio_head) injectHtml(settings.startio_head, document.head, "startio-head");
-    if (!isAdmin && settings.monetag_body) injectHtml(settings.monetag_body, document.body, "monetag-body");
-    if (!isAdmin && settings.startio_body) injectHtml(settings.startio_body, document.body, "startio-body");
-  }, [settings, isAdmin]);
+    if (globalDisabled) {
+      document.querySelectorAll('[data-thirdparty-ad]').forEach((n) => n.remove());
+      return;
+    }
+
+    if (!monetagDisabled) {
+      if (settings.monetag_head) injectHtml(settings.monetag_head, document.head, "monetag-head");
+      if (!isAdmin && settings.monetag_body) injectHtml(settings.monetag_body, document.body, "monetag-body");
+    } else {
+      document.querySelectorAll('[data-thirdparty-ad*="monetag"]').forEach((n) => n.remove());
+    }
+
+    if (!startioDisabled) {
+      if (settings.startio_head) injectHtml(settings.startio_head, document.head, "startio-head");
+      if (!isAdmin && settings.startio_body) injectHtml(settings.startio_body, document.body, "startio-body");
+    } else {
+      document.querySelectorAll('[data-thirdparty-ad*="startio"]').forEach((n) => n.remove());
+    }
+  }, [settings, isAdmin, globalDisabled, monetagDisabled, startioDisabled]);
 
   return null;
 }

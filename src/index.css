@@ -255,3 +255,41 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* ============ Responsive & Mobile-Friendly Blog Tables ============ */
+.prose table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  margin: 1rem 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  border: 1px solid hsl(var(--border));
+  background: hsl(var(--card));
+  font-size: 0.875rem;
+}
+.prose thead {
+  background: hsl(var(--muted));
+  color: hsl(var(--foreground));
+}
+.prose th {
+  padding: 0.75rem 1rem;
+  font-weight: 700;
+  text-align: left;
+  border-bottom: 2px solid hsl(var(--border));
+  white-space: nowrap;
+}
+.prose td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid hsl(var(--border) / 0.6);
+  vertical-align: middle;
+}
+.prose tr:last-child td {
+  border-bottom: none;
+}
+.prose tr:nth-child(even) {
+  background: hsl(var(--muted) / 0.35);
+}
+.prose tr:hover {
+  background: hsl(var(--primary) / 0.05);
+}

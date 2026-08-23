@@ -17,16 +17,28 @@ export default function RotatingBlogAd({ placement = "blog" }: { placement?: str
     let cancelled = false;
     (async () => {
       try {
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-server?placement=${placement}&page=${encodeURIComponent(window.location.pathname)}`;
-        const [res, wm] = await Promise.all([
-          fetch(url),
-          supabase.from("site_settings").select("key,value").in("key", ["ad_watermark_text","ad_watermark_url"]),
+        const [wmRes, adRes] = await Promise.all([
+          supabase.from("site_settings").select("key,value").in("key", [
+            "ad_watermark_text",
+            "ad_watermark_url",
+            "ads_global_enabled",
+            "ads_provider_native",
+            "ad_server_enabled"
+          ]),
+          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-server?placement=${placement}&page=${encodeURIComponent(window.location.pathname)}`),
         ]);
-        const d = await res.json();
+
+        const m: Record<string, string> = {};
+        (wmRes.data || []).forEach((r: any) => { m[r.key] = r.value || ""; });
+
+        if (m.ads_global_enabled === "false" || m.ads_provider_native === "false" || m.ad_server_enabled === "false") {
+          if (!cancelled) setAd(null);
+          return;
+        }
+
+        const d = await adRes.json();
         if (!cancelled && d?.ad) setAd(d.ad);
         if (!cancelled) {
-          const m: any = {};
-          (wm.data || []).forEach((r:any)=>{ m[r.key] = r.value; });
           setWatermark({ text: m.ad_watermark_text, url: m.ad_watermark_url });
         }
       } catch {}

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
@@ -16,28 +17,32 @@ export default function AdSenseLoader() {
 
   const isInAdminPortal = suppressAds || location.pathname.startsWith("/admin");
 
-  useEffect(() => {
-    const fetchSetting = async () => {
-      try {
-        const { data } = await supabase
-          .from("site_settings")
-          .select("value")
-          .eq("key", "adsense_client_id")
-          .single();
+  const { data: adSettings } = useQuery({
+    queryKey: ["ad-settings-adsense"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", ["adsense_client_id", "ads_global_enabled", "ads_provider_adsense"]);
+      const map: Record<string, string> = {};
+      data?.forEach((s: any) => { map[s.key] = s.value || ""; });
+      return map;
+    },
+    staleTime: 1000 * 60 * 2,
+  });
 
-        if (data?.value && typeof data.value === "string" && data.value.trim().length > 0) {
-          setClient(data.value.trim());
-        }
-      } catch {
-        // Ignore
-      }
-    };
-
-    fetchSetting();
-  }, []);
+  const globalDisabled = adSettings?.ads_global_enabled === "false";
+  const providerDisabled = adSettings?.ads_provider_adsense === "false";
+  const isAdActive = !!adSettings && !globalDisabled && !providerDisabled && !isInAdminPortal;
 
   useEffect(() => {
-    if (isInAdminPortal) {
+    if (adSettings?.adsense_client_id && adSettings.adsense_client_id.trim().length > 0) {
+      setClient(adSettings.adsense_client_id.trim());
+    }
+  }, [adSettings]);
+
+  useEffect(() => {
+    if (!isAdActive) {
       const existing = document.getElementById("adsense-script") || document.querySelector('script[data-adsense="true"]');
       if (existing) existing.remove();
       return;
@@ -55,7 +60,8 @@ export default function AdSenseLoader() {
       script.dataset.adsense = "true";
       document.head.appendChild(script);
     }
-  }, [client, isInAdminPortal]);
+  }, [client, isAdActive]);
 
   return null;
 }
+

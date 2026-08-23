@@ -9,13 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
 
 export default function UserDashboard() {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const { flags } = useFeatureFlags();
   const [wallet, setWallet] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -45,6 +45,7 @@ export default function UserDashboard() {
   const displayName = profile?.display_name || user.email?.split("@")[0];
 
   const tiles = [
+    { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet, color: "from-emerald-500 to-teal-500", show: flags.wallet },
     { to: "/dashboard/ad-earnings", label: "Ad Earnings", icon: MousePointerClick, color: "from-green-500 to-emerald-600", show: flags.ad_earnings },
@@ -76,12 +77,22 @@ export default function UserDashboard() {
         <div className="container mx-auto max-w-5xl">
           <div className="flex items-center justify-between gap-4">
             <div className="min-w-0 flex-1">
-              <p className="text-xs opacity-80">Welcome back</p>
+              <div className="flex items-center gap-2">
+                <p className="text-xs opacity-80">Welcome back</p>
+                {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px]">Admin User</Badge>}
+              </div>
               <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
             </div>
-            <Button asChild size="sm" variant="secondary" className="shrink-0">
-              <Link to="/dashboard/profile-edit"><Settings className="h-4 w-4 mr-1" />Edit</Link>
-            </Button>
+            <div className="flex items-center gap-2 shrink-0">
+              {isAdmin && (
+                <Button asChild size="sm" variant="secondary" className="bg-amber-400 hover:bg-amber-300 text-amber-950 font-semibold shadow">
+                  <Link to="/admin"><ShieldCheck className="h-4 w-4 mr-1" />Admin Portal</Link>
+                </Button>
+              )}
+              <Button asChild size="sm" variant="secondary" className="shrink-0">
+                <Link to="/dashboard/profile-edit"><Settings className="h-4 w-4 mr-1" />Edit</Link>
+              </Button>
+            </div>
           </div>
 
           {/* Wallet card */}

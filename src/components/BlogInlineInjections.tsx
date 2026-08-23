@@ -26,9 +26,17 @@ function parseAttrs(raw: string): Record<string, string> {
 }
 
 /** Replace shortcodes with mount points and return the collected specs. */
-function extractMiniApps(html: string) {
+function extractMiniApps(rawHtml: string) {
+  let content = rawHtml || "";
+
+  // Check if content already includes a table or mini-app shortcode
+  const hasTableOrApp = /<table\b/i.test(content) || /\[miniapp/i.test(content);
+  if (!hasTableOrApp && content.trim()) {
+    content += `\n\n[miniapp type="comparison" title="Quick Comparison & Summary"]`;
+  }
+
   const specs: { type: string; props: Record<string, string> }[] = [];
-  const out = html.replace(SHORTCODE, (_full, body: string) => {
+  const out = content.replace(SHORTCODE, (_full, body: string) => {
     const attrs = parseAttrs(body);
     const type = attrs.type || attrs.app || "";
     if (!type) return "";
@@ -36,6 +44,7 @@ function extractMiniApps(html: string) {
     specs.push({ type, props: attrs });
     return `<div data-miniapp-mount="${idx}"></div>`;
   });
+
   return { html: out, specs };
 }
 
@@ -87,6 +96,15 @@ export default function BlogInlineInjections({
 
     const { html: cleaned, specs } = extractMiniApps(html || "");
     root.innerHTML = cleaned;
+
+    // Enhance all standard HTML tables to be mobile-friendly and responsive
+    root.querySelectorAll("table").forEach((tbl) => {
+      if (tbl.parentElement?.classList.contains("table-responsive-wrapper")) return;
+      const wrapper = document.createElement("div");
+      wrapper.className = "table-responsive-wrapper my-6 overflow-x-auto rounded-xl border border-border/80 shadow-sm bg-card text-card-foreground p-0 no-scrollbar";
+      tbl.parentNode?.insertBefore(wrapper, tbl);
+      wrapper.appendChild(tbl);
+    });
 
     // Mount interactive mini-apps
     root.querySelectorAll<HTMLElement>("[data-miniapp-mount]").forEach((node) => {

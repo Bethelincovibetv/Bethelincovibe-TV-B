@@ -20,17 +20,23 @@ export default function AdsterraLoader() {
       const { data } = await supabase
         .from("site_settings")
         .select("key, value")
-        .in("key", ["adsterra_head", "adsterra_body"]);
+        .in("key", ["adsterra_head", "adsterra_body", "ads_global_enabled", "ads_provider_adsterra"]);
       const map: Record<string, string> = {};
       data?.forEach((s: any) => { map[s.key] = s.value || ""; });
       return map;
     },
-    staleTime: 1000 * 60 * 10,
-    enabled: !isAdmin,
+    staleTime: 1000 * 60 * 2,
   });
 
+  const globalDisabled = settings?.ads_global_enabled === "false";
+  const providerDisabled = settings?.ads_provider_adsterra === "false";
+  const shouldRun = !isAdmin && !!settings && !globalDisabled && !providerDisabled;
+
   useEffect(() => {
-    if (isAdmin) return;
+    if (!shouldRun) {
+      document.querySelectorAll('script[data-adsterra="head"], meta[data-adsterra="head"]').forEach((n) => n.remove());
+      return;
+    }
     const head = settings?.adsterra_head;
     if (!head) return;
     if (document.querySelector('script[data-adsterra="head"]')) return;
@@ -55,7 +61,7 @@ export default function AdsterraLoader() {
       meta.dataset.adsterra = "head";
       document.head.appendChild(meta);
     });
-  }, [settings?.adsterra_head, isAdmin]);
+  }, [settings?.adsterra_head, isAdmin, shouldRun]);
 
   return null;
 }

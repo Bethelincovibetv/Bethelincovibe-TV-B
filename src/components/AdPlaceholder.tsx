@@ -20,17 +20,26 @@ export default function AdPlaceholder({ placement, className = "" }: Props) {
   }
   const isAdmin = isUserAdmin || location.pathname.startsWith("/admin");
 
-  const { data: adHtml } = useQuery({
+  const { data: settings } = useQuery({
     queryKey: ["ad-placement", settingKey],
     queryFn: async () => {
-      const { data } = await supabase.from("site_settings").select("value").eq("key", settingKey).maybeSingle();
-      return data?.value || "";
+      const { data } = await supabase
+        .from("site_settings")
+        .select("key, value")
+        .in("key", [settingKey, "ads_global_enabled", "ads_provider_custom"]);
+      const map: Record<string, string> = {};
+      data?.forEach((r: any) => { map[r.key] = r.value || ""; });
+      return map;
     },
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 2,
     enabled: !isAdmin,
   });
 
-  if (isAdmin || !adHtml) return null;
+  const globalDisabled = settings?.ads_global_enabled === "false";
+  const providerDisabled = settings?.ads_provider_custom === "false";
+  const adHtml = settings?.[settingKey] || "";
+
+  if (isAdmin || !settings || globalDisabled || providerDisabled || !adHtml) return null;
 
   return (
     <div className={className} dangerouslySetInnerHTML={{ __html: adHtml }} />

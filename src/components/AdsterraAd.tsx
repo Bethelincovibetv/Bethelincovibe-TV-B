@@ -48,20 +48,25 @@ export default function AdsterraAd({
       const { data } = await supabase
         .from("site_settings")
         .select("key, value")
-        .in("key", ["adsterra_body", settingKey]);
+        .in("key", ["adsterra_body", settingKey, "ads_global_enabled", "ads_provider_adsterra"]);
       const map: Record<string, string> = {};
       data?.forEach((r: any) => { map[r.key] = r.value || ""; });
       return map;
     },
-    staleTime: 1000 * 60 * 10,
+    staleTime: 1000 * 60 * 2,
     enabled: !isAdmin,
   });
 
+  const globalDisabled = data?.ads_global_enabled === "false";
+  const providerDisabled = data?.ads_provider_adsterra === "false";
   const adHtml = data?.adsterra_body || "";
   const toggleValue = data?.[settingKey];
-  const enabled = toggleValue === undefined || toggleValue === ""
+  const slotDisabled = toggleValue === "false" || toggleValue === "off" || toggleValue === "0";
+  const slotEnabled = toggleValue === undefined || toggleValue === ""
     ? DEFAULT_ON.includes(slot)
     : ["true", "on", "1"].includes(toggleValue);
+
+  const enabled = !!data && !globalDisabled && !providerDisabled && !slotDisabled && slotEnabled && !!adHtml;
 
   useEffect(() => {
     if (isAdmin || !enabled || !adHtml || !iframeRef.current) return;

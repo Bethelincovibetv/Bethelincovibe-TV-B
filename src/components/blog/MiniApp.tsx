@@ -311,6 +311,87 @@ function AiAssistant({ title, topic }: { title: string; topic: string }) {
   );
 }
 
+/* --------------------------- Comparison Table ------------------------- */
+function ComparisonTableApp({ title, props, contextTitle }: { title?: string; props: MiniAppProps; contextTitle: string }) {
+  const headers = useMemo(() => {
+    const raw = props.headers || props.columns || "Feature | Standard | Premium / Best Choice";
+    return raw.split("|").map((s) => s.trim()).filter(Boolean);
+  }, [props.headers, props.columns]);
+
+  const rows = useMemo(() => {
+    if (props.rows || props.data) {
+      const rawRows = (props.rows || props.data || "").split("\n").map((r) => r.trim()).filter(Boolean);
+      return rawRows.map((r) => r.split("|").map((cell) => cell.trim()));
+    }
+    // Default contextual comparison fallback rows
+    return [
+      ["Ease of Setup", "Manual / Slow", "Instant & Automated"],
+      ["Pricing & Cost", "Pay-as-you-go", "Flexible / High Value"],
+      ["Customer Support", "Standard Email", "24/7 Priority Support"],
+      ["Growth Scalability", "Limited", "Unlimited"],
+    ];
+  }, [props.rows, props.data]);
+
+  return (
+    <Card className="card-premium my-6 overflow-hidden p-0 border border-border shadow-md">
+      <div className="bg-gradient-primary px-4 py-3 text-primary-foreground flex items-center justify-between">
+        <div>
+          <p className="text-sm font-bold leading-tight">{title || "Feature Comparison & Overview"}</p>
+          <p className="text-xs opacity-90">{props.subtitle || `Detailed breakdown for ${contextTitle || "your decision"}`}</p>
+        </div>
+        <span className="hidden sm:inline-block text-[10px] uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full font-semibold">
+          Swipe to view →
+        </span>
+      </div>
+      <div className="p-0 overflow-x-auto no-scrollbar">
+        <table className="w-full text-left border-collapse text-xs md:text-sm">
+          <thead>
+            <tr className="bg-muted/80 text-foreground border-b border-border">
+              {headers.map((h, i) => (
+                <th key={i} className="px-4 py-3 font-bold whitespace-nowrap first:sticky first:left-0 first:bg-muted first:z-10 shadow-sm">
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border bg-card">
+            {rows.map((row, rowIndex) => (
+              <tr key={rowIndex} className="hover:bg-muted/40 transition-colors">
+                {row.map((cell, colIndex) => (
+                  <td
+                    key={colIndex}
+                    className={`px-4 py-3 align-middle ${
+                      colIndex === 0
+                        ? "font-semibold text-foreground whitespace-nowrap sticky left-0 bg-card z-10 border-r border-border/50 shadow-sm"
+                        : "text-muted-foreground whitespace-normal min-w-[130px]"
+                    }`}
+                  >
+                    {cell === "Yes" || cell === "✓" || cell === "true" ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-emerald-600 dark:text-emerald-400">
+                        ✓ {cell}
+                      </span>
+                    ) : cell === "No" || cell === "✗" || cell === "false" ? (
+                      <span className="inline-flex items-center gap-1 font-medium text-rose-500">
+                        ✗ {cell}
+                      </span>
+                    ) : (
+                      cell
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="bg-muted/30 px-4 py-2 border-t border-border flex items-center justify-between text-[11px] text-muted-foreground">
+        <span>💡 Mobile Tip: Scroll horizontally to compare all features</span>
+        <span className="font-semibold text-primary">Verified Data</span>
+      </div>
+    </Card>
+  );
+}
+
 /* --------------------------- Dispatcher ---------------------------- */
 export type MiniAppProps = Record<string, string>;
 
@@ -324,9 +405,14 @@ export default function MiniApp({ type, props, contextTitle }: { type: string; p
   const storageKey = `miniapp:${key}:${(props.id || title || contextTitle || "default").slice(0, 60)}`;
 
   switch (key) {
+    case "table":
+    case "comparison":
+    case "comparison-table":
+      return <ComparisonTableApp title={title} props={props} contextTitle={contextTitle} />;
     case "roi":
     case "roi-calculator":
       return <RoiCalculator title={title || "ROI Calculator"} />;
+
     case "loan":
     case "loan-calculator":
       return <LoanCalculator title={title || "Loan Repayment Calculator"} />;

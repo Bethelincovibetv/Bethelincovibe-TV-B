@@ -5,8 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Check, X, Copy, Key, Megaphone, Pause, Play, Power, Pencil, Trash2 } from "lucide-react";
+import { Check, X, Copy, Key, Megaphone, Pause, Play, Power, Pencil, Trash2, ShieldAlert, SlidersHorizontal, Globe } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,54 @@ export default function AdminAds() {
   const [newKeyScopes, setNewKeyScopes] = useState<string[]>(["read"]);
   const [revealedKey, setRevealedKey] = useState<string | null>(null);
   const [editAd, setEditAd] = useState<any | null>(null);
+
+  // Load master ad switches
+  const { data: adControlSettings } = useQuery({
+    queryKey: ["admin-site-settings-ads"],
+    queryFn: async () => {
+      const { data } = await supabase.from("site_settings").select("key, value").in("key", [
+        "ads_global_enabled",
+        "ads_provider_adsense",
+        "ads_provider_adsterra",
+        "ads_provider_monetag",
+        "ads_provider_startio",
+        "ads_provider_native",
+        "ads_provider_custom"
+      ]);
+      const map: Record<string, string> = {};
+      data?.forEach((s: any) => { map[s.key] = s.value || ""; });
+      return map;
+    },
+  });
+
+  const isGlobalAdsEnabled = adControlSettings?.ads_global_enabled !== "false";
+  const isAdSenseEnabled = adControlSettings?.ads_provider_adsense !== "false";
+  const isAdsterraEnabled = adControlSettings?.ads_provider_adsterra !== "false";
+  const isMonetagEnabled = adControlSettings?.ads_provider_monetag !== "false";
+  const isStartIoEnabled = adControlSettings?.ads_provider_startio !== "false";
+  const isNativeAdsEnabled = adControlSettings?.ads_provider_native !== "false";
+  const isCustomAdsEnabled = adControlSettings?.ads_provider_custom !== "false";
+
+  const toggleAdSetting = async (key: string, currentValue: boolean) => {
+    const newValue = currentValue ? "false" : "true";
+    const { data: existing } = await supabase.from("site_settings").select("id").eq("key", key).maybeSingle();
+    let err = null;
+    if (existing) {
+      const res = await supabase.from("site_settings").update({ value: newValue }).eq("key", key);
+      err = res.error;
+    } else {
+      const res = await supabase.from("site_settings").insert({ key, value: newValue });
+      err = res.error;
+    }
+
+    if (err) {
+      toast.error(err.message);
+    } else {
+      toast.success("Ad switch updated successfully");
+      try { localStorage.removeItem("bethel_thirdparty_ads_cache"); } catch {}
+      qc.invalidateQueries();
+    }
+  };
 
   const setStatus = async (id: string, status: string, successMsg: string) => {
     const { error } = await supabase.from("user_ads").update({ status }).eq("id", id);
@@ -115,10 +164,154 @@ export default function AdminAds() {
   const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success("Copied"); };
 
   return (
-    <div className="space-y-4 max-w-5xl">
-      <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2"><Megaphone className="h-5 w-5" />Ad Network</h1>
+    <div className="space-y-6 max-w-5xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Megaphone className="h-6 w-6 text-primary" /> Global Ad Network & Controls
+          </h1>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Manage user campaign ads, API developer keys, and global advertisement switches per provider.
+          </p>
+        </div>
+        <Badge variant={isGlobalAdsEnabled ? "default" : "destructive"} className="self-start sm:self-auto px-3 py-1 text-xs">
+          {isGlobalAdsEnabled ? "🟢 Platform Ads ONLINE" : "🔴 Platform Ads DISABLED"}
+        </Badge>
+      </div>
+
+      {/* Global Master Switch Panel */}
+      <Card className={`border-2 transition-colors ${isGlobalAdsEnabled ? "border-emerald-500/30 bg-emerald-50/20 dark:bg-emerald-950/10" : "border-rose-500/50 bg-rose-50/30 dark:bg-rose-950/20"}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="space-y-1">
+              <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+                <Globe className={`h-5 w-5 ${isGlobalAdsEnabled ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`} />
+                Master Advertisement Switch
+              </CardTitle>
+              <CardDescription className="text-xs sm:text-sm">
+                Globally switch on or off all advertisements across the platform (AdSense, Adsterra, Monetag, Start.io, Native Ads, and Custom Placements).
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2 bg-background/80 p-2 rounded-xl border shadow-sm">
+              <span className={`text-xs font-bold ${isGlobalAdsEnabled ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                {isGlobalAdsEnabled ? "ENABLED" : "DISABLED"}
+              </span>
+              <Switch
+                checked={isGlobalAdsEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_global_enabled", isGlobalAdsEnabled)}
+              />
+            </div>
+          </div>
+        </CardHeader>
+        {!isGlobalAdsEnabled && (
+          <CardContent className="pt-0">
+            <div className="rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5 text-xs text-rose-700 dark:text-rose-300 flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4 shrink-0" />
+              <span>All ad banners, popups, and network scripts are currently suppressed site-wide.</span>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Provider-Specific Controls */}
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base flex items-center gap-2">
+            <SlidersHorizontal className="h-4 w-4 text-primary" /> Provider Specific Ad Switches
+          </CardTitle>
+          <CardDescription className="text-xs">
+            Turn off individual ad networks while keeping others active. (Disabled when Master Switch is OFF).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {/* AdSense */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition">
+              <div>
+                <p className="font-semibold text-xs">Google AdSense</p>
+                <p className="text-[10px] text-muted-foreground">Banner & display ads</p>
+              </div>
+              <Switch
+                disabled={!isGlobalAdsEnabled}
+                checked={isAdSenseEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_provider_adsense", isAdSenseEnabled)}
+              />
+            </div>
+
+            {/* Adsterra */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition">
+              <div>
+                <p className="font-semibold text-xs">Adsterra Network</p>
+                <p className="text-[10px] text-muted-foreground">Social bar, native & banners</p>
+              </div>
+              <Switch
+                disabled={!isGlobalAdsEnabled}
+                checked={isAdsterraEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_provider_adsterra", isAdsterraEnabled)}
+              />
+            </div>
+
+            {/* Monetag */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition">
+              <div>
+                <p className="font-semibold text-xs">Monetag Ads</p>
+                <p className="text-[10px] text-muted-foreground">Popunder & web push</p>
+              </div>
+              <Switch
+                disabled={!isGlobalAdsEnabled}
+                checked={isMonetagEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_provider_monetag", isMonetagEnabled)}
+              />
+            </div>
+
+            {/* Start.io */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition">
+              <div>
+                <p className="font-semibold text-xs">Start.io (StartApp)</p>
+                <p className="text-[10px] text-muted-foreground">Mobile & banner SDK</p>
+              </div>
+              <Switch
+                disabled={!isGlobalAdsEnabled}
+                checked={isStartIoEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_provider_startio", isStartIoEnabled)}
+              />
+            </div>
+
+            {/* Platform Native Ads */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition">
+              <div>
+                <p className="font-semibold text-xs">Bethelincovibe Ad Server</p>
+                <p className="text-[10px] text-muted-foreground">User campaigns & rotating ads</p>
+              </div>
+              <Switch
+                disabled={!isGlobalAdsEnabled}
+                checked={isNativeAdsEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_provider_native", isNativeAdsEnabled)}
+              />
+            </div>
+
+            {/* Custom Placements */}
+            <div className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-muted/40 transition">
+              <div>
+                <p className="font-semibold text-xs">Custom HTML Placements</p>
+                <p className="text-[10px] text-muted-foreground">Header, footer & sidebar HTML</p>
+              </div>
+              <Switch
+                disabled={!isGlobalAdsEnabled}
+                checked={isCustomAdsEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_provider_custom", isCustomAdsEnabled)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Tabs defaultValue="ads">
-        <TabsList><TabsTrigger value="ads">Ads</TabsTrigger><TabsTrigger value="keys">API Keys</TabsTrigger><TabsTrigger value="embed">Embed</TabsTrigger></TabsList>
+        <TabsList>
+          <TabsTrigger value="ads">User Campaign Ads</TabsTrigger>
+          <TabsTrigger value="keys">API Keys</TabsTrigger>
+          <TabsTrigger value="embed">Embed Snippet</TabsTrigger>
+        </TabsList>
 
         <TabsContent value="ads" className="space-y-3 mt-4">
           {(ads || []).map((a: any) => (
