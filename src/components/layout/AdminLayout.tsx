@@ -50,6 +50,14 @@ const bottomTabs = [
   { to: "/admin/users", label: "Users", icon: Users },
 ];
 
+const groupGradients: Record<string, string> = {
+  Overview: "from-blue-500 via-indigo-500 to-purple-600",
+  Content: "from-purple-500 via-fuchsia-500 to-pink-600",
+  Directory: "from-amber-500 via-orange-500 to-rose-600",
+  People: "from-emerald-500 via-teal-500 to-cyan-600",
+  System: "from-slate-700 via-zinc-800 to-slate-900",
+};
+
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
   const groups = useMemo(() => {
@@ -59,30 +67,46 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   }, []);
 
   return (
-    <nav className="flex flex-col gap-4 p-3">
+    <nav className="flex flex-col gap-5 p-3.5">
       {Object.entries(groups).map(([group, links]) => (
         <div key={group}>
-          <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+          <p className="px-3 pb-2 text-xs font-extrabold uppercase tracking-wider text-primary/80 flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             {group}
           </p>
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-1.5">
             {links.map((l) => {
               const active = l.end ? location.pathname === l.to : location.pathname.startsWith(l.to);
+              const gradient = groupGradients[l.group] || "from-primary to-accent";
               return (
-                <Link key={l.to} to={l.to} onClick={onNavigate}>
+                <Link key={l.to} to={l.to} onClick={onNavigate} className="group block">
                   <Button
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      "w-full justify-start gap-2.5 h-10 rounded-xl transition-all",
+                      "w-full justify-start gap-3 h-11 px-3 rounded-2xl transition-all duration-200",
                       active
-                        ? "bg-gradient-to-r from-primary/15 via-primary/10 to-transparent text-primary font-semibold shadow-sm"
-                        : "hover:bg-secondary/60",
+                        ? "bg-primary/10 border border-primary/20 text-primary font-extrabold shadow-sm"
+                        : "hover:bg-secondary/70 hover:shadow-xs",
                     )}
                   >
-                    <l.icon className={cn("h-4 w-4 shrink-0", active && "text-primary")} />
-                    <span className="truncate">{l.label}</span>
-                    {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-primary" />}
+                    {/* 3D Elevated Icon Badge */}
+                    <div
+                      className={cn(
+                        "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white",
+                        "shadow-[0_4px_10px_-2px_rgba(0,0,0,0.35),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-1 ring-white/25",
+                        "transition-transform group-hover:scale-110 duration-200",
+                        gradient
+                      )}
+                    >
+                      <l.icon className="h-4 w-4 drop-shadow-sm" strokeWidth={2.2} />
+                    </div>
+
+                    <span className={cn("truncate font-bold text-sm sm:text-base leading-tight", active ? "text-primary font-extrabold" : "text-foreground/90")}>
+                      {l.label}
+                    </span>
+
+                    {active && <span className="ml-auto h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary))]" />}
                   </Button>
                 </Link>
               );
@@ -139,18 +163,18 @@ export default function AdminLayout() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-muted/40 via-background to-muted/30 flex">
       {/* Desktop Sidebar */}
-      <aside className="hidden md:flex flex-col w-64 border-r bg-background/80 backdrop-blur sticky top-0 h-screen">
-        <div className="flex items-center gap-2.5 p-4 border-b bg-gradient-to-br from-primary/15 via-accent/10 to-transparent">
-          <img src="/logo.png" alt="Admin" className="h-10 w-10 rounded-xl ring-2 ring-primary/30 shadow-sm" />
+      <aside className="hidden md:flex flex-col w-72 border-r bg-background/80 backdrop-blur sticky top-0 h-screen">
+        <div className="flex items-center gap-3 p-4 border-b bg-gradient-to-br from-primary/15 via-accent/10 to-transparent">
+          <img src="/logo.png" alt="Admin" className="h-11 w-11 rounded-2xl ring-2 ring-primary/40 shadow-md object-contain" />
           <div className="min-w-0">
-            <p className="font-bold text-sm leading-tight">Admin Console</p>
-            <p className="text-[10px] text-muted-foreground truncate">Bethelincovibe TV</p>
+            <p className="font-extrabold text-base leading-tight text-foreground">Admin Console</p>
+            <p className="text-xs font-semibold text-muted-foreground truncate">Bethelincovibe TV</p>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto"><SidebarNav /></div>
-        <div className="p-3 border-t">
-          <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2">
-            <Link to="/"><ArrowLeft className="h-4 w-4" />Back to Site</Link>
+        <div className="p-3.5 border-t bg-card/50">
+          <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2.5 h-11 text-sm font-bold rounded-xl">
+            <Link to="/"><ArrowLeft className="h-4 w-4 text-primary" />Back to Site</Link>
           </Button>
         </div>
       </aside>

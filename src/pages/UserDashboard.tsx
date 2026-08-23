@@ -111,18 +111,21 @@ export default function UserDashboard() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
-        {/* Tile grid — app style */}
-        <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+        {/* Quick Link Tile Grid — 3D Glossy App Style */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
           {tiles.map((t) => (
             <Link
               key={t.to}
               to={t.to}
-              className="group flex flex-col items-center gap-2 rounded-2xl border bg-card p-3 text-center hover:shadow-lg transition-all active:scale-95"
+              className="group flex flex-col items-center justify-center gap-2.5 rounded-2xl border border-border/80 bg-card p-3.5 text-center shadow-xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 active:scale-95"
             >
-              <div className={`h-11 w-11 rounded-xl bg-gradient-to-br ${t.color} flex items-center justify-center text-white shadow`}>
-                <t.icon className="h-5 w-5" />
+              {/* 3D Elevated Icon Badge */}
+              <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${t.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.32),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-2 ring-white/25 transition-transform group-hover:scale-110 duration-300`}>
+                <t.icon className="h-6 w-6 drop-shadow-sm" strokeWidth={2.2} />
               </div>
-              <span className="text-xs font-medium leading-tight">{t.label}</span>
+              <span className="text-xs sm:text-sm font-bold leading-snug tracking-tight text-foreground/90 group-hover:text-primary transition-colors line-clamp-2">
+                {t.label}
+              </span>
             </Link>
           ))}
         </div>
