@@ -136,13 +136,13 @@ export default function BlogPost() {
           )}
         </div>
 
-        <div className="flex items-start justify-between gap-3 mb-5">
-          <h1 className="text-3xl md:text-5xl font-bold leading-tight tracking-tight">{post.title}</h1>
+        <div className="flex items-start justify-between gap-3 mb-5 min-w-0">
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight tracking-tight break-words min-w-0">{post.title}</h1>
           <FavoriteButton postId={post.id} />
         </div>
 
         {post.excerpt && (
-          <p className="mb-6 text-lg md:text-xl leading-relaxed text-muted-foreground">{post.excerpt}</p>
+          <p className="mb-6 text-base sm:text-lg md:text-xl leading-relaxed text-muted-foreground break-words min-w-0">{post.excerpt}</p>
         )}
 
         <ArticleUtilityBar html={post.content || ""} url={postUrl} />

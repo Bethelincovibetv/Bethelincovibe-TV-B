@@ -78,16 +78,16 @@ export default function Blog() {
           ))}
         </div>
       ) : posts && posts.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {posts.map((post: any) => (
-            <Link key={post.id} to={`/blog/${post.slug}`}>
-              <Card className="h-full hover:shadow-md transition-shadow overflow-hidden">
-                {post.featured_image && <img src={post.featured_image} alt={post.title} className="w-full h-48 object-cover" loading="lazy" />}
-                <CardHeader>
-                  {post.categories && <span className="text-xs text-primary font-medium">{post.categories.name}</span>}
-                  <CardTitle className="text-lg line-clamp-2">{post.title}</CardTitle>
+            <Link key={post.id} to={`/blog/${post.slug}`} className="block h-full group min-w-0">
+              <Card className="h-full hover:shadow-md transition-all overflow-hidden rounded-2xl border min-w-0">
+                {post.featured_image && <img src={post.featured_image} alt={post.title} className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300" loading="lazy" />}
+                <CardHeader className="p-4 sm:p-5">
+                  {post.categories && <span className="text-xs text-primary font-bold uppercase tracking-wider">{post.categories.name}</span>}
+                  <CardTitle className="text-base sm:text-lg font-bold line-clamp-2 break-words leading-snug mt-1 min-w-0">{post.title}</CardTitle>
                 </CardHeader>
-                {post.excerpt && <CardContent><p className="text-sm text-muted-foreground line-clamp-3">{post.excerpt}</p></CardContent>}
+                {post.excerpt && <CardContent className="px-4 sm:px-5 pb-5 pt-0"><p className="text-xs sm:text-sm text-muted-foreground line-clamp-3 break-words min-w-0 leading-relaxed">{post.excerpt}</p></CardContent>}
               </Card>
             </Link>
           ))}

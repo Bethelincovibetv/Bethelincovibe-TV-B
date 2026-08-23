@@ -92,43 +92,43 @@ export default function AdminGuestBlogs() {
         {submissions?.length === 0 && <Card><CardContent className="p-8 text-center text-sm text-muted-foreground">No submissions yet.</CardContent></Card>}
 
         {submissions?.map((s: any) => (
-          <Card key={s.id} className="overflow-hidden">
+          <Card key={s.id} className="overflow-hidden min-w-0">
             {s.banner_url && <img src={s.banner_url} alt="" className="w-full h-32 object-cover" />}
-            <CardHeader>
-              <div className="flex items-start justify-between gap-3 flex-wrap">
-                <div>
-                  <CardTitle className="text-base">{s.business_name}</CardTitle>
-                  <p className="text-xs text-muted-foreground mt-1">
+            <CardHeader className="p-4 sm:p-6">
+              <div className="flex items-start justify-between gap-3 flex-wrap min-w-0">
+                <div className="min-w-0 flex-1">
+                  <CardTitle className="text-base font-extrabold break-words min-w-0 leading-snug">{s.business_name}</CardTitle>
+                  <p className="text-xs text-muted-foreground mt-1 break-words">
                     by {s.profiles?.display_name || s.profiles?.email} · {new Date(s.created_at).toLocaleDateString()} · ₦{Number(s.cost_credits).toLocaleString()}
                   </p>
                 </div>
                 <StatusBadge status={s.status} />
               </div>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <p className="text-sm">{s.description}</p>
+            <CardContent className="p-4 sm:p-6 pt-0 space-y-3 min-w-0">
+              <p className="text-sm break-words leading-relaxed text-foreground/90">{s.description}</p>
 
-              <div className="text-xs text-muted-foreground space-y-1">
-                {s.website && <p>🌐 <a href={s.website} target="_blank" rel="noopener" className="text-primary underline">{s.website}</a></p>}
+              <div className="text-xs text-muted-foreground space-y-1.5 min-w-0 break-all">
+                {s.website && <p className="truncate">🌐 <a href={s.website} target="_blank" rel="noopener" className="text-primary underline hover:text-primary/80 break-all">{s.website}</a></p>}
                 {s.contact_phone && <p>📞 {s.contact_phone}</p>}
                 {s.contact_whatsapp && <p>💬 {s.contact_whatsapp}</p>}
-                {s.contact_email && <p>✉️ {s.contact_email}</p>}
+                {s.contact_email && <p className="break-all">✉️ {s.contact_email}</p>}
               </div>
 
               {s.guest_submission_photos?.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-2">
                   {s.guest_submission_photos.map((p: any) => (
-                    <img key={p.id} src={p.image_url} alt="" className="h-16 w-16 object-cover rounded shrink-0" />
+                    <img key={p.id} src={p.image_url} alt="" className="h-16 w-16 object-cover rounded-xl shrink-0 border" />
                   ))}
                 </div>
               )}
 
-              {s.rejection_reason && <p className="text-xs text-destructive bg-destructive/10 p-2 rounded">Reason: {s.rejection_reason}</p>}
+              {s.rejection_reason && <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-xl break-words">Reason: {s.rejection_reason}</p>}
 
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground">Category:</span>
+              <div className="flex items-center gap-2 flex-wrap min-w-0 pt-1">
+                <span className="text-xs text-muted-foreground shrink-0 font-bold">Category:</span>
                 <Select value={s.category_id || "none"} onValueChange={(v) => setCategory(s.id, v)}>
-                  <SelectTrigger className="h-8 w-[200px] text-xs"><SelectValue placeholder="Select category" /></SelectTrigger>
+                  <SelectTrigger className="h-8 w-full sm:w-[200px] text-xs rounded-xl"><SelectValue placeholder="Select category" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">— None —</SelectItem>
                     {categories?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
@@ -136,36 +136,36 @@ export default function AdminGuestBlogs() {
                 </Select>
               </div>
 
-              <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-2 flex-wrap pt-2">
                 {(s.status === "paid" || s.status === "review") && (
-                  <Button size="sm" onClick={() => triggerAI(s)} disabled={generatingId === s.id}>
+                  <Button size="sm" onClick={() => triggerAI(s)} disabled={generatingId === s.id} className="rounded-xl font-bold text-xs">
                     {generatingId === s.id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Sparkles className="h-4 w-4 mr-1" />}
                     Generate Blog with AI
                   </Button>
                 )}
                 {s.status === "published" && s.generated_post_id && (
                   <>
-                    <Button size="sm" variant="outline" asChild>
+                    <Button size="sm" variant="outline" asChild className="rounded-xl font-bold text-xs">
                       <a href={`/blog`} target="_blank" rel="noopener"><ExternalLink className="h-4 w-4 mr-1" />View Blog</a>
                     </Button>
-                    <Button size="sm" variant="secondary" onClick={() => toggleFeatured(s)}>
+                    <Button size="sm" variant="secondary" onClick={() => toggleFeatured(s)} className="rounded-xl font-bold text-xs">
                       <Star className="h-4 w-4 mr-1" />Toggle Featured
                     </Button>
                   </>
                 )}
                 {!["rejected", "published"].includes(s.status) && (
-                  <Button size="sm" variant="destructive" onClick={() => setRejectId(s.id)}>
+                  <Button size="sm" variant="destructive" onClick={() => setRejectId(s.id)} className="rounded-xl font-bold text-xs">
                     <X className="h-4 w-4 mr-1" />Reject & Refund
                   </Button>
                 )}
               </div>
 
               {rejectId === s.id && (
-                <div className="border rounded-lg p-3 space-y-2 bg-muted/40">
-                  <Textarea placeholder="Rejection reason (shown to user)" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={2} />
-                  <div className="flex gap-2">
-                    <Button size="sm" variant="destructive" onClick={reject}>Confirm Reject & Refund</Button>
-                    <Button size="sm" variant="ghost" onClick={() => { setRejectId(null); setRejectReason(""); }}>Cancel</Button>
+                <div className="border rounded-2xl p-3 space-y-2 bg-muted/40 min-w-0">
+                  <Textarea placeholder="Rejection reason (shown to user)" value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={2} className="rounded-xl text-xs min-w-0" />
+                  <div className="flex gap-2 flex-wrap">
+                    <Button size="sm" variant="destructive" onClick={reject} className="rounded-xl text-xs font-bold">Confirm Reject & Refund</Button>
+                    <Button size="sm" variant="ghost" onClick={() => { setRejectId(null); setRejectReason(""); }} className="rounded-xl text-xs font-bold">Cancel</Button>
                   </div>
                 </div>
               )}
