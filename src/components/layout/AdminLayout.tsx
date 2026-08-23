@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Building2, FolderTree, ArrowLeft, Tv, Image as ImageIcon,
-  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send,
+  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,7 @@ const allLinks = [
 
   { to: "/admin/users", label: "Users", icon: Users, group: "People" },
   { to: "/admin/broadcast", label: "Broadcast Email", icon: Send, group: "People" },
+  { to: "/admin/email-settings", label: "Email Providers", icon: Server, group: "People" },
   { to: "/admin/leads", label: "All Leads", icon: Users, group: "People" },
   { to: "/admin/contacts", label: "Messages", icon: Mail, group: "People" },
   { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "People" },

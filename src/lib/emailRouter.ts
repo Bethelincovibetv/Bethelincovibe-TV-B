@@ -145,19 +145,54 @@ export const DEFAULT_PROVIDER_PRESETS: Array<{
 const STORAGE_KEY = "bethel_universal_email_providers";
 
 /**
- * Get all configured email providers sorted by priority ascending
+ * Get all configured email providers sorted by priority ascending.
+ * Automatically seeds default definitions for all 9 supported providers if missing.
  */
 export function getStoredEmailProviders(): EmailProviderConfig[] {
+  let list: EmailProviderConfig[] = [];
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
-      const parsed: EmailProviderConfig[] = JSON.parse(saved);
-      return parsed.sort((a, b) => a.priority - b.priority);
+      list = JSON.parse(saved);
     }
   } catch {
     // Ignore storage parse errors
   }
-  return [];
+
+  // Ensure all 9 providers exist in the list
+  const existingTypes = new Set(list.map((p) => p.type));
+  let changed = false;
+
+  DEFAULT_PROVIDER_PRESETS.forEach((preset, idx) => {
+    if (!existingTypes.has(preset.type)) {
+      list.push({
+        id: `prov_${preset.type}_default`,
+        name: preset.name,
+        type: preset.type,
+        apiKey: "",
+        fromEmail: "bethelchukwunyere1@gmail.com",
+        fromName: "Bethelincovibe TV",
+        domainOrRegion: preset.type === "mailgun" ? "mg.bethelincovibe.tv" : preset.type === "amazonses" ? "us-east-1" : undefined,
+        enabled: idx === 0, // Enable first by default, others ready to toggle
+        priority: list.length + 1,
+        totalSent: 0,
+        totalFailed: 0,
+      });
+      changed = true;
+    }
+  });
+
+  // Normalize priorities 1..N if needed
+  list = list.sort((a, b) => a.priority - b.priority).map((p, index) => ({
+    ...p,
+    priority: index + 1,
+  }));
+
+  if (changed) {
+    saveEmailProviders(list);
+  }
+
+  return list;
 }
 
 /**

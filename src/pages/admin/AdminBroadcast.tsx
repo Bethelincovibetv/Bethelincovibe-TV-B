@@ -94,6 +94,8 @@ Stay empowered!`,
   },
 ];
 
+import AdminEmailSettings from "@/components/admin/AdminEmailSettings";
+
 export default function AdminBroadcast() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
@@ -871,6 +873,11 @@ export default function AdminBroadcast() {
             </CardContent>
           </Card>
         </div>
+      </div>
+
+      {/* Failover Engine Settings Section */}
+      <div className="pt-6 border-t border-border">
+        <AdminEmailSettings />
       </div>
 
       {/* Confirmation Modal before Dispatching Bulk Email */}

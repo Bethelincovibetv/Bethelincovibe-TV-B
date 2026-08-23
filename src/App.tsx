@@ -88,6 +88,7 @@ import AdminJingles from "./pages/admin/AdminJingles";
 import AdminCourses from "./pages/admin/AdminCourses";
 import AdminAmazon from "./pages/admin/AdminAmazon";
 import AdminBroadcast from "./pages/admin/AdminBroadcast";
+import AdminEmailSettingsPage from "./pages/admin/AdminEmailSettings";
 import Learn from "./pages/Learn";
 import Forum from "./pages/Forum";
 import ForumPost from "./pages/ForumPost";
@@ -223,6 +224,7 @@ const App = () => (
               <Route path="leads" element={<AdminLeads />} />
               <Route path="amazon" element={<AdminAmazon />} />
               <Route path="broadcast" element={<AdminBroadcast />} />
+              <Route path="email-settings" element={<AdminEmailSettingsPage />} />
             </Route>
 
             {/* Standalone public sales pages (no layout chrome) */}
