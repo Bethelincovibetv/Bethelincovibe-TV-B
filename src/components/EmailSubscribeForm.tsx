@@ -77,7 +77,15 @@ export default function EmailSubscribeForm() {
       // Ignore storage errors
     }
 
-    // 3. Trigger automated personalized welcome email via Gmail API
+    // 3. Trigger Edge Function welcome-subscriber & personalized welcome email
+    try {
+      await supabase.functions.invoke("welcome-subscriber", {
+        body: { email: cleanEmail, name: cleanName },
+      });
+    } catch (edgeErr) {
+      console.warn("Welcome subscriber edge function notice:", edgeErr);
+    }
+
     const token = getCachedGmailToken();
     let emailSent = false;
 

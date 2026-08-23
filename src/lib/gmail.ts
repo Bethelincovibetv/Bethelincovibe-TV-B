@@ -162,16 +162,21 @@ export async function sendSubscriberWelcomeEmail(
     <html>
       <head>
         <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f6f9; margin: 0; padding: 20px; color: #1e293b; }
-          .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
-          .header { background: linear-gradient(135deg, #6366f1, #8b5cf6); padding: 32px 24px; text-align: center; color: #ffffff; }
-          .header h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
-          .header p { margin: 8px 0 0; opacity: 0.9; font-size: 14px; }
-          .content { padding: 32px 24px; line-height: 1.6; }
-          .welcome-badge { display: inline-block; background: #e0e7ff; color: #4338ca; font-weight: 700; font-size: 12px; padding: 6px 12px; border-radius: 20px; margin-bottom: 16px; }
-          .btn { display: inline-block; background: #6366f1; color: #ffffff; font-weight: 700; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin-top: 20px; text-align: center; }
-          .footer { background: #f8fafc; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+          body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+          .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+          .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%); padding: 36px 24px; text-align: center; color: #ffffff; }
+          .header h1 { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
+          .header p { margin: 8px 0 0; opacity: 0.92; font-size: 14px; font-weight: 500; }
+          .content { padding: 32px 24px; }
+          .welcome-badge { display: inline-block; background: #e0e7ff; color: #3730a3; font-weight: 800; font-size: 11px; padding: 6px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+          .btn { display: inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff !important; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin-top: 20px; text-align: center; box-shadow: 0 4px 14px rgba(79,70,229,0.3); }
+          .blog-card { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 14px; padding: 16px; }
+          .blog-title { margin: 0 0 6px; font-size: 15px; font-weight: 700; color: #0f172a; }
+          .blog-desc { margin: 0 0 10px; font-size: 13px; color: #64748b; line-height: 1.5; }
+          .blog-link { color: #4f46e5; text-decoration: none; font-size: 12px; font-weight: 700; }
+          .footer { background: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
         </style>
       </head>
       <body>
@@ -182,17 +187,33 @@ export async function sendSubscriberWelcomeEmail(
           </div>
           <div class="content">
             <span class="welcome-badge">🎉 Subscription Confirmed</span>
-            <h2 style="margin-top:0; color:#0f172a;">${greetingHeading}</h2>
-            <p>Thank you for subscribing to <strong>Bethelincovibe TV</strong>. You are now officially part of our vibrant community of entrepreneurs, business leaders, and creators.</p>
-            <p>Here is what you can look forward to directly in your inbox:</p>
-            <ul style="padding-left: 20px;">
+            <h2 style="margin-top:0; color:#0f172a; font-size:22px; font-weight:800;">${greetingHeading}</h2>
+            <p style="font-size:15px; color:#334155; line-height:1.6;">Thank you for subscribing to <strong>Bethelincovibe TV</strong>. You are now officially part of our vibrant community of entrepreneurs, business leaders, and creators.</p>
+            
+            <p style="font-size:15px; color:#334155; line-height:1.6;">Here is what you can look forward to directly in your inbox:</p>
+            <ul style="padding-left: 20px; font-size: 14px; color: #334155; line-height: 1.6;">
               <li style="margin-bottom: 8px;"><strong>Exclusive Startup & Business Guides</strong> tailored for growing enterprises</li>
               <li style="margin-bottom: 8px;"><strong>Marketplace Highlights & Verified Directory Updates</strong></li>
               <li style="margin-bottom: 8px;"><strong>Funding, Investment & Loan Opportunities</strong></li>
               <li style="margin-bottom: 8px;"><strong>Expert Marketing Strategies & Growth Hacks</strong></li>
             </ul>
-            <p style="text-align:center;">
-              <a href="${origin}/blog" class="btn">Explore Latest Articles</a>
+
+            <h3 style="margin-top: 28px; margin-bottom: 12px; font-size: 17px; font-weight: 800; color: #0f172a; border-bottom: 2px solid #e0e7ff; padding-bottom: 8px;">📰 Featured Blog Insights</h3>
+            
+            <div class="blog-card">
+              <div class="blog-title">10 Proven Strategies to Scale Your Business in Nigeria</div>
+              <div class="blog-desc">Essential growth tactics, cash flow management tips, and marketing frameworks for modern entrepreneurs.</div>
+              <a href="${origin}/blog" class="blog-link">Read Full Story →</a>
+            </div>
+
+            <div class="blog-card">
+              <div class="blog-title">How to Secure Angel Funding & Startup Grants</div>
+              <div class="blog-desc">A comprehensive guide on pitch decks, investor metrics, and navigating seed funding.</div>
+              <a href="${origin}/blog" class="blog-link">Read Full Story →</a>
+            </div>
+
+            <p style="text-align:center; margin-top: 24px;">
+              <a href="${origin}/blog" class="btn">Explore All Articles & Guides →</a>
             </p>
           </div>
           <div class="footer">
