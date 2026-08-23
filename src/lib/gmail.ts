@@ -146,10 +146,16 @@ export async function sendGmailEmail(params: {
  */
 export async function sendSubscriberWelcomeEmail(
   subscriberEmail: string,
+  subscriberName?: string,
   accessToken?: string
 ): Promise<boolean> {
-  const subject = "Welcome to Bethelincovibe TV! 🚀 Your Business Insights Hub";
+  const cleanName = subscriberName?.trim() || "";
+  const subject = cleanName
+    ? `Welcome to Bethelincovibe TV, ${cleanName}! 🚀 Your Business Insights Hub`
+    : "Welcome to Bethelincovibe TV! 🚀 Your Business Insights Hub";
   const origin = typeof window !== "undefined" ? window.location.origin : "https://bethelincovibe.tv";
+
+  const greetingHeading = cleanName ? `Welcome aboard, ${cleanName}! 👋` : "Welcome aboard! 👋";
 
   const htmlBody = `
     <!DOCTYPE html>
@@ -176,7 +182,7 @@ export async function sendSubscriberWelcomeEmail(
           </div>
           <div class="content">
             <span class="welcome-badge">🎉 Subscription Confirmed</span>
-            <h2 style="margin-top:0; color:#0f172a;">Welcome aboard!</h2>
+            <h2 style="margin-top:0; color:#0f172a;">${greetingHeading}</h2>
             <p>Thank you for subscribing to <strong>Bethelincovibe TV</strong>. You are now officially part of our vibrant community of entrepreneurs, business leaders, and creators.</p>
             <p>Here is what you can look forward to directly in your inbox:</p>
             <ul style="padding-left: 20px;">

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -18,12 +18,20 @@ import {
 } from "@/components/ui/dialog";
 import {
   Send, Mail, Users, CheckCircle2, AlertCircle, Sparkles, RefreshCw, Eye,
-  Lock, Check, Trash2, History, Layers, ExternalLink, ShieldCheck, CornerDownRight
+  Check, History, ShieldCheck, UserCheck, Filter, UserPlus
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   signInWithGoogleGmail, getCachedGmailToken, sendGmailEmail, setCachedGmailToken
 } from "@/lib/gmail";
+
+interface Recipient {
+  id: string;
+  email: string;
+  name: string;
+  source: "subscriber" | "platform_user" | "both";
+  createdAt: string;
+}
 
 interface BroadcastLog {
   id: string;
@@ -33,14 +41,15 @@ interface BroadcastLog {
   successCount: number;
   failCount: number;
   senderEmail?: string;
+  targetGroup?: string;
 }
 
 const TEMPLATES = [
   {
     id: "weekly-digest",
     title: "📰 Weekly Business Digest",
-    subject: "🔥 Weekly Highlights: Top Business & Startup Guides on Bethelincovibe TV",
-    body: `Hello Dear Reader,
+    subject: "🔥 Weekly Highlights for {{name}}: Top Business & Startup Guides",
+    body: `Hello {{name}},
 
 Here are the top business articles and marketplace insights published this week on Bethelincovibe TV:
 
@@ -56,8 +65,8 @@ The Bethelincovibe TV Team`,
   {
     id: "new-article",
     title: "⚡ New Article Announcement",
-    subject: "📢 New Article Published: Read the latest insights on Bethelincovibe TV",
-    body: `Hi there!
+    subject: "📢 New Article Published: Read the latest insights, {{name}}",
+    body: `Hi {{name}}!
 
 We just published a brand new article that you don't want to miss!
 
@@ -73,7 +82,7 @@ Happy reading!`,
     id: "marketplace-spotlight",
     title: "🛍️ Marketplace Spotlight",
     subject: "🌟 Featured Products & Verified Businesses of the Week",
-    body: `Greetings Entrepreneur!
+    body: `Greetings {{name}}!
 
 Discover top rated products and verified suppliers added to the Bethelincovibe TV Directory this week.
 
@@ -93,7 +102,9 @@ export default function AdminBroadcast() {
   const [token, setToken] = useState<string | null>(getCachedGmailToken());
   const [isAuthenticating, setIsAuthenticating] = useState(false);
 
-  const [selectedSubscribers, setSelectedSubscribers] = useState<string[]>([]);
+  // Recipient Target Group: "all" | "subscribers" | "platform_users"
+  const [targetGroup, setTargetGroup] = useState<"all" | "subscribers" | "platform_users">("all");
+  const [selectedEmails, setSelectedEmails] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
@@ -109,31 +120,153 @@ export default function AdminBroadcast() {
     }
   });
 
-  // Fetch all subscribed emails from Supabase
-  const { data: subscribers = [], refetch, isLoading: isLoadingSubs } = useQuery({
-    queryKey: ["admin-email-subscribers"],
+  // Query both email_subscribers AND profiles (platform users)
+  const { data: recipients = [], refetch, isLoading: isLoadingRecipients } = useQuery({
+    queryKey: ["admin-broadcast-recipients-v2"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // 1. Fetch email_subscribers from Supabase
+      const { data: subData } = await supabase
         .from("email_subscribers")
-        .select("id, email, created_at")
-        .order("created_at", { ascending: false });
+        .select("id, email, name, created_at, subscribed_at");
 
-      if (error) throw error;
-      const list = data || [];
-      // Initialize all selected by default
-      if (selectedSubscribers.length === 0 && list.length > 0) {
-        setSelectedSubscribers(list.map((s) => s.email));
-      }
-      return list;
+      // Read local subscribers fallback
+      let localSubs: any[] = [];
+      try {
+        const saved = localStorage.getItem("bethel_local_subscribers");
+        if (saved) localSubs = JSON.parse(saved);
+      } catch {}
+
+      // 2. Fetch profiles (Platform User accounts)
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("id, email, display_name, username, created_at");
+
+      const map = new Map<string, Recipient>();
+
+      // Process DB Subscribers
+      (subData || []).forEach((s: any) => {
+        if (!s.email) return;
+        const cleanEmail = s.email.toLowerCase().trim();
+        map.set(cleanEmail, {
+          id: s.id || cleanEmail,
+          email: cleanEmail,
+          name: s.name || "Subscriber",
+          source: "subscriber",
+          createdAt: s.subscribed_at || s.created_at || new Date().toISOString(),
+        });
+      });
+
+      // Process Local Subscribers
+      localSubs.forEach((s: any) => {
+        if (!s.email) return;
+        const cleanEmail = s.email.toLowerCase().trim();
+        if (!map.has(cleanEmail)) {
+          map.set(cleanEmail, {
+            id: s.id || cleanEmail,
+            email: cleanEmail,
+            name: s.name || "Subscriber",
+            source: "subscriber",
+            createdAt: s.created_at || new Date().toISOString(),
+          });
+        }
+      });
+
+      // Process Profiles (Platform Users)
+      (profileData || []).forEach((p: any) => {
+        if (!p.email) return;
+        const cleanEmail = p.email.toLowerCase().trim();
+        const pName = p.display_name || p.username || "Platform Member";
+        if (map.has(cleanEmail)) {
+          const existing = map.get(cleanEmail)!;
+          existing.source = "both";
+          if (!existing.name || existing.name === "Subscriber") {
+            existing.name = pName;
+          }
+        } else {
+          map.set(cleanEmail, {
+            id: p.id || cleanEmail,
+            email: cleanEmail,
+            name: pName,
+            source: "platform_user",
+            createdAt: p.created_at || new Date().toISOString(),
+          });
+        }
+      });
+
+      return Array.from(map.values());
     },
   });
 
-  // Filtered subscribers list
-  const filteredSubscribers = useMemo(() => {
-    if (!searchQuery.trim()) return subscribers;
-    const q = searchQuery.toLowerCase();
-    return subscribers.filter((s) => s.email.toLowerCase().includes(q));
-  }, [subscribers, searchQuery]);
+  // Auto-initialize selected emails once recipients load
+  useEffect(() => {
+    if (recipients.length > 0 && selectedEmails.length === 0) {
+      setSelectedEmails(recipients.map((r) => r.email));
+    }
+  }, [recipients, selectedEmails.length]);
+
+  // Counts breakdown
+  const subscriberCount = useMemo(
+    () => recipients.filter((r) => r.source === "subscriber" || r.source === "both").length,
+    [recipients]
+  );
+
+  const platformUserCount = useMemo(
+    () => recipients.filter((r) => r.source === "platform_user" || r.source === "both").length,
+    [recipients]
+  );
+
+  // Filtered recipients according to Target Group & Search Query
+  const filteredRecipients = useMemo(() => {
+    return recipients.filter((r) => {
+      // Group Filter
+      if (targetGroup === "subscribers" && r.source === "platform_user") return false;
+      if (targetGroup === "platform_users" && r.source === "subscriber") return false;
+
+      // Search Query
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const nameMatch = r.name?.toLowerCase().includes(q);
+        const emailMatch = r.email.toLowerCase().includes(q);
+        return nameMatch || emailMatch;
+      }
+
+      return true;
+    });
+  }, [recipients, targetGroup, searchQuery]);
+
+  // Switch Target Group & auto select matching recipients
+  const handleSelectTargetGroup = (group: "all" | "subscribers" | "platform_users") => {
+    setTargetGroup(group);
+    const matching = recipients.filter((r) => {
+      if (group === "subscribers") return r.source === "subscriber" || r.source === "both";
+      if (group === "platform_users") return r.source === "platform_user" || r.source === "both";
+      return true;
+    });
+    setSelectedEmails(matching.map((r) => r.email));
+    toast.info(`Target group set to ${group.replace("_", " ").toUpperCase()}`, {
+      description: `${matching.length} recipients selected.`,
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const currentEmails = filteredRecipients.map((r) => r.email);
+    const allCurrentSelected = currentEmails.every((e) => selectedEmails.includes(e));
+
+    if (allCurrentSelected) {
+      setSelectedEmails(selectedEmails.filter((e) => !currentEmails.includes(e)));
+    } else {
+      const merged = Array.from(new Set([...selectedEmails, ...currentEmails]));
+      setSelectedEmails(merged);
+    }
+  };
+
+  const toggleRecipient = (email: string) => {
+    if (selectedEmails.includes(email)) {
+      setSelectedEmails(selectedEmails.filter((e) => e !== email));
+    } else {
+      setSelectedEmails([...selectedEmails, email]);
+    }
+  };
 
   // Connect Google / Gmail Account
   const handleConnectGmail = async () => {
@@ -162,32 +295,27 @@ export default function AdminBroadcast() {
     toast.info("Gmail account disconnected.");
   };
 
-  const toggleSelectAll = () => {
-    if (selectedSubscribers.length === subscribers.length) {
-      setSelectedSubscribers([]);
-    } else {
-      setSelectedSubscribers(subscribers.map((s) => s.email));
-    }
-  };
-
-  const toggleSubscriber = (email: string) => {
-    if (selectedSubscribers.includes(email)) {
-      setSelectedSubscribers(selectedSubscribers.filter((e) => e !== email));
-    } else {
-      setSelectedSubscribers([...selectedSubscribers, email]);
-    }
-  };
-
   const applyTemplate = (tpl: typeof TEMPLATES[0]) => {
     setSubject(tpl.subject);
     setBody(tpl.body);
     toast.success(`Loaded "${tpl.title}" template`);
   };
 
-  // Convert plain body or html into formatted email HTML
-  const formattedHtmlBody = useMemo(() => {
+  const insertTag = (tag: string) => {
+    setBody((prev) => `${prev} ${tag}`);
+    toast.info(`Inserted variable ${tag} into email body`);
+  };
+
+  // Build Personalized HTML Email for Preview
+  const buildFormattedHtml = useCallback((subjectText: string, bodyText: string, recipientName = "Valued Reader", recipientEmail = "reader@example.com") => {
     const origin = typeof window !== "undefined" ? window.location.origin : "https://bethelincovibe.tv";
-    const bodyContent = body
+    const nameToDisplay = recipientName && recipientName !== "Subscriber" ? recipientName : "";
+
+    const processedText = bodyText
+      .replace(/\{\{name\}\}/gi, nameToDisplay || "Valued Reader")
+      .replace(/\{\{email\}\}/gi, recipientEmail);
+
+    const bodyContent = processedText
       .split("\n\n")
       .map((para) => `<p style="margin-bottom: 16px; line-height: 1.6; font-size: 15px; color: #334155;">${para.replace(/\n/g, "<br/>")}</p>`)
       .join("");
@@ -212,7 +340,7 @@ export default function AdminBroadcast() {
           <div class="container">
             <div class="header">
               <h1>${fromName}</h1>
-              <p>Official Subscriber Update</p>
+              <p>Official Subscriber & Member Update</p>
             </div>
             <div class="content">
               ${bodyContent || "<p>Your email body message will appear here...</p>"}
@@ -222,15 +350,20 @@ export default function AdminBroadcast() {
             </div>
             <div class="footer">
               <p>© ${new Date().getFullYear()} ${fromName}. All rights reserved.</p>
-              <p>You received this email because you subscribed to Bethelincovibe TV updates.</p>
+              <p>You received this email because you are a registered member or subscriber of Bethelincovibe TV.</p>
             </div>
           </div>
         </body>
       </html>
     `;
-  }, [body, fromName]);
+  }, [fromName]);
 
-  // Execute Batch Broadcast Send via Gmail API
+  const previewHtml = useMemo(
+    () => buildFormattedHtml(subject, body, "Bethel", "bethel@example.com"),
+    [subject, body, buildFormattedHtml]
+  );
+
+  // Execute Batch Personalized Broadcast Send via Gmail API
   const handleExecuteBroadcast = async () => {
     if (!token) {
       toast.error("Gmail Account not connected", {
@@ -244,25 +377,34 @@ export default function AdminBroadcast() {
       return;
     }
 
-    if (selectedSubscribers.length === 0) {
-      toast.error("No subscribers selected for this broadcast");
+    if (selectedEmails.length === 0) {
+      toast.error("No recipients selected for this broadcast");
       return;
     }
 
     setConfirmModalOpen(false);
     setIsSending(true);
-    setSendProgress({ current: 0, total: selectedSubscribers.length });
+    setSendProgress({ current: 0, total: selectedEmails.length });
 
     let successCount = 0;
     let failCount = 0;
 
-    for (let i = 0; i < selectedSubscribers.length; i++) {
-      const email = selectedSubscribers[i];
+    for (let i = 0; i < selectedEmails.length; i++) {
+      const email = selectedEmails[i];
+      const rec = recipients.find((r) => r.email === email);
+      const recName = rec?.name && rec.name !== "Subscriber" ? rec.name : "";
+
+      const personalizedSubject = subject
+        .replace(/\{\{name\}\}/gi, recName || "Valued Reader")
+        .replace(/\{\{email\}\}/gi, email);
+
+      const personalizedHtml = buildFormattedHtml(subject, body, recName || "Valued Reader", email);
+
       try {
         await sendGmailEmail({
           to: email,
-          subject: subject.trim(),
-          htmlBody: formattedHtmlBody,
+          subject: personalizedSubject,
+          htmlBody: personalizedHtml,
           accessToken: token,
           fromName,
         });
@@ -272,7 +414,7 @@ export default function AdminBroadcast() {
         failCount++;
       }
 
-      setSendProgress({ current: i + 1, total: selectedSubscribers.length });
+      setSendProgress({ current: i + 1, total: selectedEmails.length });
     }
 
     setIsSending(false);
@@ -282,10 +424,11 @@ export default function AdminBroadcast() {
       id: Math.random().toString(36).substring(2, 9),
       subject: subject.trim(),
       sentAt: new Date().toISOString(),
-      recipientCount: selectedSubscribers.length,
+      recipientCount: selectedEmails.length,
       successCount,
       failCount,
       senderEmail: userGmail || "Connected Gmail",
+      targetGroup: targetGroup.toUpperCase(),
     };
 
     const updatedLogs = [newLog, ...historyLogs];
@@ -298,7 +441,7 @@ export default function AdminBroadcast() {
 
     if (successCount > 0) {
       toast.success("Broadcast Dispatched Successfully! 🎉", {
-        description: `Delivered to ${successCount} subscriber(s) via Gmail API.${failCount > 0 ? ` (${failCount} failed)` : ""}`,
+        description: `Delivered to ${successCount} recipient(s) via Gmail API.${failCount > 0 ? ` (${failCount} failed)` : ""}`,
       });
       setSubject("");
       setBody("");
@@ -319,18 +462,18 @@ export default function AdminBroadcast() {
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-              Gmail Broadcast Email Automation
+              Gmail Broadcast & Email Automation
               <Badge className="bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 text-[10px] font-bold">
                 Connected OAuth
               </Badge>
             </h1>
             <p className="text-xs text-muted-foreground font-medium mt-0.5">
-              Compose & send automated newsletter updates to all subscribed readers directly via connected Gmail API.
+              Broadcast personalized updates to email subscribers, platform users, or all combined members via connected Gmail API.
             </p>
           </div>
         </div>
 
-        {/* Gmail API OAuth Connection Card */}
+        {/* Gmail API OAuth Connection Status */}
         <div className="flex items-center gap-3 bg-card/90 border p-2.5 rounded-2xl shadow-xs shrink-0">
           {token ? (
             <div className="flex items-center gap-2.5">
@@ -360,7 +503,6 @@ export default function AdminBroadcast() {
                 size="sm"
                 className="h-9 px-4 rounded-xl font-extrabold text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm"
               >
-                {/* Official Google Icon SVG */}
                 <svg className="h-4 w-4" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -382,7 +524,7 @@ export default function AdminBroadcast() {
             <CardHeader className="py-3.5 px-5 border-b flex flex-row items-center justify-between">
               <div>
                 <CardTitle className="text-base font-extrabold flex items-center gap-2">
-                  <Send className="h-4 w-4 text-indigo-600" /> Broadcast Composer & Templates
+                  <Send className="h-4 w-4 text-indigo-600" /> Broadcast Composer & Personalization
                 </CardTitle>
                 <CardDescription className="text-xs font-medium">
                   Draft newsletter updates with custom subject, body text, and live HTML preview.
@@ -411,7 +553,7 @@ export default function AdminBroadcast() {
                     <Send className="h-3.5 w-3.5" /> Composer
                   </TabsTrigger>
                   <TabsTrigger value="preview" className="rounded-xl text-xs font-bold gap-1.5 py-1.5">
-                    <Eye className="h-3.5 w-3.5" /> Live Email Preview
+                    <Eye className="h-3.5 w-3.5" /> Live Personalized Preview
                   </TabsTrigger>
                 </TabsList>
 
@@ -428,22 +570,33 @@ export default function AdminBroadcast() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-foreground">Target Recipients</label>
+                      <label className="text-xs font-bold text-foreground">Target Recipients Selected</label>
                       <div className="h-10 px-3 rounded-xl border bg-muted/20 flex items-center justify-between text-xs font-extrabold">
-                        <span className="text-muted-foreground">Selected:</span>
+                        <span className="text-muted-foreground">Target:</span>
                         <Badge className="bg-primary/15 text-primary border-primary/20 text-xs">
-                          {selectedSubscribers.length} of {subscribers.length} Subscribers
+                          {selectedEmails.length} of {recipients.length} Selected
                         </Badge>
                       </div>
                     </div>
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-foreground">Email Subject Line</label>
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-foreground">Email Subject Line</label>
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setSubject((s) => s + " {{name}}")}
+                          className="text-[10px] font-bold text-primary hover:underline"
+                        >
+                          + Add {"{{name}}"}
+                        </button>
+                      </div>
+                    </div>
                     <Input
                       value={subject}
                       onChange={(e) => setSubject(e.target.value)}
-                      placeholder="e.g., 🔥 Latest Business Insights & Growth Strategies on Bethelincovibe TV"
+                      placeholder="e.g., 🔥 Latest Business Insights for {{name}} on Bethelincovibe TV"
                       className="h-11 rounded-xl text-xs font-bold"
                     />
                   </div>
@@ -451,12 +604,32 @@ export default function AdminBroadcast() {
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-foreground">Email Body Message</label>
-                      <span className="text-[10px] text-muted-foreground font-medium">Paragraphs will format cleanly automatically</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] text-muted-foreground font-medium">Personalize:</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => insertTag("{{name}}")}
+                          className="h-6 px-2 text-[10px] font-bold rounded-lg"
+                        >
+                          + {"{{name}}"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => insertTag("{{email}}")}
+                          className="h-6 px-2 text-[10px] font-bold rounded-lg"
+                        >
+                          + {"{{email}}"}
+                        </Button>
+                      </div>
                     </div>
                     <Textarea
                       value={body}
                       onChange={(e) => setBody(e.target.value)}
-                      placeholder="Type your newsletter update or article summary here..."
+                      placeholder="Type your email update here. Use {{name}} to personalize with the recipient's name..."
                       className="min-h-[220px] rounded-2xl text-xs font-medium leading-relaxed p-4"
                     />
                   </div>
@@ -465,7 +638,7 @@ export default function AdminBroadcast() {
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t">
                     <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
                       <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                      Emails are dispatched directly using your Google Gmail credentials.
+                      Dispatched personalized via connected Google Gmail account.
                     </p>
 
                     <Button
@@ -480,7 +653,7 @@ export default function AdminBroadcast() {
                       className="w-full sm:w-auto h-11 px-6 rounded-2xl font-black text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
                     >
                       <Send className="h-4 w-4" />
-                      {token ? `Broadcast to ${selectedSubscribers.length} Subscribers` : "Connect Gmail & Send"}
+                      {token ? `Broadcast to ${selectedEmails.length} Recipients` : "Connect Gmail & Send"}
                     </Button>
                   </div>
                 </TabsContent>
@@ -491,14 +664,14 @@ export default function AdminBroadcast() {
                     <div className="flex items-center justify-between pb-2 border-b mb-3">
                       <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
                         <Eye className="h-4 w-4 text-indigo-600" />
-                        <span>Subject: <strong className="text-foreground">{subject || "(No Subject Set)"}</strong></span>
+                        <span>Subject Preview: <strong className="text-foreground">{subject || "(No Subject Set)"}</strong></span>
                       </div>
-                      <Badge variant="outline" className="text-[10px] font-extrabold">Desktop/Mobile HTML Frame</Badge>
+                      <Badge variant="outline" className="text-[10px] font-extrabold">Personalized Sample</Badge>
                     </div>
 
                     <div className="bg-background rounded-xl p-2 border shadow-inner max-h-[450px] overflow-y-auto">
                       <iframe
-                        srcDoc={formattedHtmlBody}
+                        srcDoc={previewHtml}
                         title="Email Preview"
                         className="w-full h-[400px] rounded-lg border-0 bg-white"
                       />
@@ -557,7 +730,7 @@ export default function AdminBroadcast() {
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-foreground truncate">{log.subject}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Sent on {new Date(log.sentAt).toLocaleString()} • via {log.senderEmail || "Gmail"}
+                        Sent on {new Date(log.sentAt).toLocaleString()} • Target: {log.targetGroup || "ALL"} • via {log.senderEmail || "Gmail"}
                       </p>
                     </div>
 
@@ -578,64 +751,111 @@ export default function AdminBroadcast() {
           </Card>
         </div>
 
-        {/* Right 1 Col: Subscriber Management List */}
+        {/* Right 1 Col: Recipient Target Manager */}
         <div className="space-y-4">
           <Card className="border-border/80 shadow-sm">
-            <CardHeader className="py-3.5 px-5 border-b flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-extrabold flex items-center gap-2">
-                  <Users className="h-4 w-4 text-emerald-600" /> Subscribers ({subscribers.length})
-                </CardTitle>
-                <CardDescription className="text-xs font-medium">
-                  Select target readers for email delivery.
-                </CardDescription>
+            <CardHeader className="py-3.5 px-5 border-b space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-base font-extrabold flex items-center gap-2">
+                    <Users className="h-4 w-4 text-emerald-600" /> Recipients ({recipients.length})
+                  </CardTitle>
+                  <CardDescription className="text-xs font-medium">
+                    Select recipient groups or individual members.
+                  </CardDescription>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleSelectAll}
+                  className="h-8 text-[11px] font-extrabold rounded-xl"
+                >
+                  Select / Deselect
+                </Button>
               </div>
 
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleSelectAll}
-                className="h-8 text-[11px] font-extrabold rounded-xl"
-              >
-                {selectedSubscribers.length === subscribers.length ? "Deselect All" : "Select All"}
-              </Button>
+              {/* Target Group Selector Buttons */}
+              <div className="grid grid-cols-3 gap-1 p-1 bg-muted/40 rounded-xl border text-[11px] font-extrabold">
+                <button
+                  onClick={() => handleSelectTargetGroup("all")}
+                  className={`py-1.5 rounded-lg transition-all ${
+                    targetGroup === "all"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  All ({recipients.length})
+                </button>
+
+                <button
+                  onClick={() => handleSelectTargetGroup("subscribers")}
+                  className={`py-1.5 rounded-lg transition-all ${
+                    targetGroup === "subscribers"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Subscribers ({subscriberCount})
+                </button>
+
+                <button
+                  onClick={() => handleSelectTargetGroup("platform_users")}
+                  className={`py-1.5 rounded-lg transition-all ${
+                    targetGroup === "platform_users"
+                      ? "bg-primary text-primary-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Users ({platformUserCount})
+                </button>
+              </div>
             </CardHeader>
 
             <CardContent className="p-3 space-y-3">
               <Input
-                placeholder="Search subscriber emails..."
+                placeholder="Search by name or email..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-9 rounded-xl text-xs font-medium"
               />
 
               <div className="max-h-[480px] overflow-y-auto space-y-1.5 pr-1">
-                {isLoadingSubs ? (
+                {isLoadingRecipients ? (
                   <div className="py-8 text-center text-xs text-muted-foreground font-medium flex items-center justify-center gap-2">
-                    <RefreshCw className="h-4 w-4 animate-spin text-primary" /> Loading subscribers...
+                    <RefreshCw className="h-4 w-4 animate-spin text-primary" /> Loading recipients...
                   </div>
-                ) : filteredSubscribers.length === 0 ? (
+                ) : filteredRecipients.length === 0 ? (
                   <div className="py-8 text-center text-xs text-muted-foreground font-medium">
-                    No subscribers found matching query.
+                    No recipients found matching target group or query.
                   </div>
                 ) : (
-                  filteredSubscribers.map((s) => {
-                    const isSelected = selectedSubscribers.includes(s.email);
+                  filteredRecipients.map((r) => {
+                    const isSelected = selectedEmails.includes(r.email);
                     return (
                       <div
-                        key={s.id}
-                        onClick={() => toggleSubscriber(s.email)}
+                        key={r.id}
+                        onClick={() => toggleRecipient(r.email)}
                         className={`p-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 cursor-pointer transition-all ${
                           isSelected
                             ? "bg-primary/10 border-primary/30 text-foreground font-bold shadow-xs"
                             : "bg-card hover:bg-muted/50 border-border text-muted-foreground font-medium"
                         }`}
                       >
-                        <div className="min-w-0 flex-1 truncate">
-                          <p className="truncate text-xs">{s.email}</p>
-                          <p className="text-[10px] text-muted-foreground font-normal">
-                            Subscribed: {new Date(s.created_at).toLocaleDateString()}
-                          </p>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <p className="font-extrabold text-xs text-foreground truncate">{r.name}</p>
+                            <Badge className={`text-[9px] px-1.5 py-0 h-4 font-bold border ${
+                              r.source === "platform_user"
+                                ? "bg-purple-500/15 text-purple-600 border-purple-500/30"
+                                : r.source === "subscriber"
+                                ? "bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
+                                : "bg-blue-500/15 text-blue-600 border-blue-500/30"
+                            }`}>
+                              {r.source === "platform_user" ? "User" : r.source === "subscriber" ? "Subscriber" : "User+Sub"}
+                            </Badge>
+                          </div>
+                          <p className="truncate text-[11px] text-muted-foreground mt-0.5">{r.email}</p>
                         </div>
 
                         <div className={`h-5 w-5 rounded-md border flex items-center justify-center shrink-0 ${
@@ -658,7 +878,7 @@ export default function AdminBroadcast() {
         <DialogContent className="sm:max-w-md rounded-3xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-black flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-indigo-600" /> Confirm Broadcast Email Dispatch
+              <AlertCircle className="h-5 w-5 text-indigo-600" /> Confirm Broadcast Dispatch
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
               Are you sure you want to send this broadcast email using your connected Gmail API account?
@@ -671,9 +891,9 @@ export default function AdminBroadcast() {
               <span className="text-foreground truncate max-w-[200px]">{subject}</span>
             </div>
             <div className="flex justify-between font-bold">
-              <span className="text-muted-foreground">Total Recipients:</span>
+              <span className="text-muted-foreground">Target Group:</span>
               <Badge className="bg-indigo-500/15 text-indigo-600 border-indigo-500/30 text-xs font-black">
-                {selectedSubscribers.length} Subscribers
+                {targetGroup.toUpperCase()} ({selectedEmails.length} Recipients)
               </Badge>
             </div>
             <div className="flex justify-between font-bold">
