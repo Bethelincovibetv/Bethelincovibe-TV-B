@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import AdsterraAd from "@/components/AdsterraAd";
 import AmazonProductGrid from "@/components/AmazonProductGrid";
+import CategoryTile from "@/components/directory/CategoryTile";
 
 const features = [
   { icon: BookOpen, title: "Startup Guides", desc: "Step-by-step guides to launch your business in Lagos", link: "/blog/category/startup-guides", color: "text-primary", feature: "blog" },
@@ -151,23 +152,19 @@ export default function Index() {
         </section>
       )}
 
-      {/* Business Categories - icon row right after Latest Articles */}
+      {/* Business Categories - photo category grid right after Latest Articles */}
       {flags.businesses && businessCategories && businessCategories.length > 0 && (
         <section className="container mx-auto px-4 py-10">
           <div className="flex items-center justify-between mb-5">
-            <h2 className="text-xl md:text-2xl font-bold">Browse Businesses by Category</h2>
+            <div>
+              <h2 className="text-xl md:text-2xl font-bold tracking-tight">Browse Businesses by Category</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">Explore Lagos local services, products, and enterprises</p>
+            </div>
             <Button variant="ghost" size="sm" asChild><Link to="/businesses">View All <ArrowRight className="ml-1 h-4 w-4" /></Link></Button>
           </div>
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
             {businessCategories.map((cat: any) => (
-              <Link key={cat.id} to={`/businesses?category=${cat.slug}`} className="group">
-                <Card className="hover:shadow-lg transition-all hover:-translate-y-0.5 text-center p-4 active:scale-95">
-                  <div className="h-12 w-12 mx-auto mb-2 rounded-2xl bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white shadow-md">
-                    <Building2 className="h-6 w-6" />
-                  </div>
-                  <p className="font-medium text-xs leading-tight line-clamp-2">{cat.name}</p>
-                </Card>
-              </Link>
+              <CategoryTile key={cat.id} name={cat.name} slug={cat.slug} />
             ))}
           </div>
         </section>
