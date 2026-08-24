@@ -99,6 +99,7 @@ import BackgroundJingle from "./components/BackgroundJingle";
 import ErrorBoundary from "./components/ErrorBoundary";
 import FcmPermissionPrompt from "./components/FcmPermissionPrompt";
 import FcmForegroundListener from "./components/FcmForegroundListener";
+import AdBlocker from "./components/AdBlocker";
 import UserNotificationSettingsPage from "./pages/UserNotificationSettingsPage";
 import UserNotificationsPage from "./pages/UserNotificationsPage";
 const queryClient = new QueryClient();
@@ -108,6 +109,7 @@ function FeatureAwareServices() {
   const isHome = useLocation().pathname === "/";
   return (
     <ErrorBoundary label="Services" fallback={null}>
+      <AdBlocker />
       <ScrollToTop />
       <GoogleAnalytics />
       <AdSenseLoader />

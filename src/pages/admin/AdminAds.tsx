@@ -52,7 +52,7 @@ export default function AdminAds() {
 
   const isGlobalAdsEnabled = adControlSettings?.ads_global_enabled !== "false";
   const isAdSenseEnabled = adControlSettings?.ads_provider_adsense !== "false";
-  const isAdsterraEnabled = adControlSettings?.ads_provider_adsterra !== "false";
+  const isAdsterraEnabled = adControlSettings?.ads_provider_adsterra === "true";
   const isMonetagEnabled = adControlSettings?.ads_provider_monetag !== "false";
   const isStartIoEnabled = adControlSettings?.ads_provider_startio !== "false";
   const isNativeAdsEnabled = adControlSettings?.ads_provider_native !== "false";

@@ -13,7 +13,7 @@ const allTabs = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: (p: string) => p.startsWith("/dashboard"), feature: null, requiresAuth: true as const },
 ];
 
-/** YouTube-style bottom bar: hides on scroll down, slides back in on scroll up. */
+/** Ultra-responsive mobile bottom bar: hides immediately on scroll down, slides back in immediately on scroll up. */
 function useHideOnScroll() {
   const [hidden, setHidden] = useState(false);
   const lastY = useRef(0);
@@ -27,10 +27,16 @@ function useHideOnScroll() {
       requestAnimationFrame(() => {
         const y = window.scrollY;
         const delta = y - lastY.current;
-        if (y < 80) setHidden(false);
-        else if (delta > 8) setHidden(true);
-        else if (delta < -8) setHidden(false);
-        if (Math.abs(delta) > 4) lastY.current = y;
+        if (y < 40) {
+          setHidden(false);
+        } else if (delta > 3) {
+          // Immediately hide when user drags down
+          setHidden(true);
+        } else if (delta < -3) {
+          // Immediately reveal when user drags up
+          setHidden(false);
+        }
+        if (Math.abs(delta) > 2) lastY.current = y;
         ticking = false;
       });
     };
@@ -62,13 +68,13 @@ export default function MobileTabBar() {
 
   return (
     <nav
-      className={`md:hidden fixed bottom-0 inset-x-0 z-40 px-3 transition-transform duration-300 ease-out will-change-transform ${
+      className={`md:hidden fixed bottom-0 inset-x-0 z-40 px-3 transition-transform duration-200 ease-out will-change-transform ${
         hidden ? "translate-y-[140%]" : "translate-y-0"
       }`}
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
       aria-label="Primary"
     >
-      <div className="rounded-3xl border bg-background/85 backdrop-blur-xl shadow-lift">
+      <div className="rounded-3xl border border-border/80 bg-background/90 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
         <div
           className="grid px-1.5 py-2"
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}
@@ -80,18 +86,20 @@ export default function MobileTabBar() {
                 key={t.to}
                 to={t.to}
                 aria-current={active ? "page" : undefined}
-                className={`tap flex flex-col items-center justify-center gap-1 rounded-2xl py-1 text-[10px] font-semibold transition-colors ${
-                  active ? "text-primary" : "text-muted-foreground"
+                className={`tap flex flex-col items-center justify-center gap-1 rounded-2xl py-1 text-[10px] font-bold transition-all duration-200 active:scale-90 ${
+                  active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 <span
-                  className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-all duration-300 ${
-                    active ? "icon-3d scale-105" : "bg-muted/60 text-muted-foreground"
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-2xl transition-all duration-300 ${
+                    active
+                      ? "icon-3d scale-105"
+                      : "bg-gradient-to-br from-muted/80 to-muted/40 text-muted-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.2)]"
                   }`}
                 >
-                  <t.icon className="h-[18px] w-[18px]" />
+                  <t.icon className="h-5 w-5 drop-shadow-xs" strokeWidth={active ? 2.3 : 2} />
                 </span>
-                <span className="leading-none">{t.label}</span>
+                <span className="leading-none tracking-tight">{t.label}</span>
               </Link>
             );
           })}

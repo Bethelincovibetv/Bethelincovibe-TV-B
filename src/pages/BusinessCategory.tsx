@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Building2, Plus, BookOpen } from "lucide-react";
-import { getCategoryIcon } from "@/lib/categoryIcons";
+import { getCategoryIcon, Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
 import BusinessCard from "@/components/directory/BusinessCard";
 import CategoryTile from "@/components/directory/CategoryTile";
 import Breadcrumbs from "@/components/Breadcrumbs";
@@ -181,8 +181,8 @@ export default function BusinessCategory() {
 
         <header className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent p-6 text-primary-foreground shadow-[0_18px_40px_-24px_hsl(var(--primary)/0.9)] md:p-10">
           <div className="relative z-10 max-w-3xl">
-            <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-white/15 backdrop-blur">
-              <Icon className="h-7 w-7" />
+            <div className="mb-4 inline-flex items-center justify-center">
+              <Category3DVisual name={category.name} size="lg" />
             </div>
             <h1 className="mb-2 text-2xl font-extrabold leading-tight md:text-4xl">{title}</h1>
             <p className="mb-5 text-sm opacity-90 md:text-base">{description}</p>

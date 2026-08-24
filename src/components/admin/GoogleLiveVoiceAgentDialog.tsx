@@ -80,7 +80,7 @@ export default function GoogleLiveVoiceAgentDialog({
     const agent = new GoogleLiveVoiceAgent(
       {
         voiceName: "Kore",
-        silenceTimeoutMs: 2200, // 2.2s natural pause detection
+        silenceTimeoutMs: 1100, // Instant real-time response turnaround
         continuous: continuousMode,
         lang: "en-US",
       },

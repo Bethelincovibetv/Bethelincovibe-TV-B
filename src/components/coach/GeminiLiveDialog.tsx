@@ -55,7 +55,7 @@ export default function GeminiLiveDialog({
     const agent = new GoogleLiveVoiceAgent(
       {
         voiceName: "Kore", // Google Kore Voice
-        silenceTimeoutMs: 2200, // 2.2s natural conversation pause detection
+        silenceTimeoutMs: 1100, // Instant real-time response turnaround
         continuous: continuousMode,
         lang: "en-US",
       },

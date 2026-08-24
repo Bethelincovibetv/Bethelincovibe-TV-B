@@ -33,7 +33,19 @@ import {
   Send,
   Loader2,
   RefreshCw,
+  Volume2,
+  Play,
+  Music,
 } from "lucide-react";
+import {
+  isNotificationSoundEnabled,
+  setNotificationSoundEnabled,
+  getCachedSoundPreference,
+  setCachedSoundPreference,
+  previewNotificationSound,
+  NOTIFICATION_SOUND_PRESETS,
+  NotificationSoundPreset,
+} from "@/lib/notificationSound";
 import { formatDistanceToNow } from "date-fns";
 
 function safeFormatLastActive(dateVal?: string): string {
@@ -369,6 +381,73 @@ export default function NotificationSettings() {
               onCheckedChange={(val) => handlePrefChange("system", val)}
               disabled={!prefs.enabled}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Sound & Chimes Card */}
+      <Card className="border-border shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between pb-3 space-y-0">
+          <div>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Volume2 className="h-5 w-5 text-primary" /> Audio Alerts & Chimes
+            </CardTitle>
+            <CardDescription className="mt-0.5">
+              Choose your personal notification sound style when active on the platform.
+            </CardDescription>
+          </div>
+          <Switch
+            checked={isNotificationSoundEnabled()}
+            onCheckedChange={(val) => {
+              setNotificationSoundEnabled(val);
+              toast.success(val ? "Sound alerts enabled" : "Sound alerts muted");
+              if (val) previewNotificationSound();
+            }}
+          />
+        </CardHeader>
+        <CardContent className="pt-0 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+            {NOTIFICATION_SOUND_PRESETS.map((preset) => {
+              const { preset: currentPreset, customUrl } = getCachedSoundPreference();
+              const isSelected = currentPreset === preset.id && !customUrl;
+              return (
+                <div
+                  key={preset.id}
+                  onClick={() => {
+                    setCachedSoundPreference(preset.id, "");
+                    previewNotificationSound(preset.id);
+                    toast.success(`Sound set to ${preset.name}`);
+                  }}
+                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-2 ${
+                    isSelected
+                      ? "border-primary bg-primary/10"
+                      : "hover:bg-muted/40 border-border"
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold flex items-center gap-1.5">
+                      <Music className="h-3.5 w-3.5 text-primary" />
+                      {preset.name}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">
+                      {preset.description}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 rounded-full shrink-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      previewNotificationSound(preset.id);
+                    }}
+                  >
+                    <Play className="h-3.5 w-3.5 fill-current text-primary" />
+                  </Button>
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>

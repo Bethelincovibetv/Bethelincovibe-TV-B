@@ -1,9 +1,9 @@
 import { Link } from "react-router-dom";
-import { getCategoryIcon } from "@/lib/categoryIcons";
+import { getCategoryIcon, Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
 import { getCategoryImage } from "@/lib/categoryImages";
 
 /**
- * Modern app-style category tile with category photo thumbnail and overlay badge.
+ * Modern app-style category tile with 3D AI visual icon, category photo thumbnail and overlay badge.
  */
 export default function CategoryTile({
   name,
@@ -16,8 +16,8 @@ export default function CategoryTile({
   count?: number;
   imageUrl?: string;
 }) {
-  const Icon = getCategoryIcon(name);
   const imgSrc = imageUrl || getCategoryImage(slug || name);
+  const theme = getCategoryTheme(name);
 
   return (
     <Link
@@ -47,9 +47,9 @@ export default function CategoryTile({
 
       {/* Content */}
       <div className="relative z-10 flex flex-col items-center p-3 w-full">
-        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/20 backdrop-blur-md ring-1 ring-white/30 text-white shadow-md mb-1.5 transition-transform group-hover:scale-110">
-          <Icon className="h-5 w-5" strokeWidth={2} />
-        </span>
+        <div className="mb-1.5 transition-transform group-hover:scale-110 drop-shadow-lg">
+          <Category3DVisual name={name} size="sm" className="!w-9 !h-9 !rounded-xl" />
+        </div>
         <span className="text-xs font-bold leading-tight text-white drop-shadow-md line-clamp-2">{name}</span>
         {typeof count === "number" && (
           <span className="text-[10px] font-medium text-white/80 mt-0.5">{count} listed</span>

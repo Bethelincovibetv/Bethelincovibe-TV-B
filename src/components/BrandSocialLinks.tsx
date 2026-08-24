@@ -96,7 +96,7 @@ export default function BrandSocialLinks({ className = "" }: { className?: strin
   if (items.length === 0) return null;
 
   return (
-    <div className={`flex flex-wrap items-center justify-center gap-2 ${className}`}>
+    <div className={`flex flex-wrap items-center justify-center gap-2.5 ${className}`}>
       {items.map((k) => {
         const m = ICONS[k];
         return (
@@ -107,15 +107,17 @@ export default function BrandSocialLinks({ className = "" }: { className?: strin
             rel="noopener noreferrer"
             aria-label={m.label}
             title={m.label}
-            className="h-9 w-9 rounded-full flex items-center justify-center text-white shadow-sm transition-transform hover:scale-110"
+            className="group relative flex h-10 w-10 sm:h-11 sm:w-11 items-center justify-center rounded-2xl text-white transition-all duration-300 hover:scale-110 hover:-translate-y-1 active:scale-95 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3),inset_0_1.5px_0_rgba(255,255,255,0.4)] ring-1 ring-white/25 overflow-hidden"
             style={{ backgroundColor: m.brand }}
           >
+            {/* 3D Gloss Highlight */}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/30 pointer-events-none" />
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 24 24"
-              className="h-4.5 w-4.5"
-              width="18"
-              height="18"
+              className="relative z-10 h-5 w-5 sm:h-5.5 sm:w-5.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)] transition-transform group-hover:scale-110"
+              width="22"
+              height="22"
               fill="currentColor"
             >
               {m.path}

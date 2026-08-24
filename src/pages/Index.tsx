@@ -11,7 +11,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
-import AdsterraAd from "@/components/AdsterraAd";
 import AmazonProductGrid from "@/components/AmazonProductGrid";
 import CategoryTile from "@/components/directory/CategoryTile";
 
@@ -98,12 +97,6 @@ export default function Index() {
 
       {/* Featured Businesses Slider */}
       {flags.businesses && <FeaturedBusinessSlider />}
-
-      <div className="container mx-auto px-4"><AdsterraAd slot="home_top" /></div>
-
-
-
-
 
       {/* Features */}
       <section className="container mx-auto px-4 py-16">
@@ -209,7 +202,6 @@ export default function Index() {
       )}
 
       <div className="container mx-auto px-4"><AmazonProductGrid limit={4} heading="Editor's Picks on Amazon" /></div>
-      <div className="container mx-auto px-4"><AdsterraAd slot="home_bottom" /></div>
     </>
   );
 }

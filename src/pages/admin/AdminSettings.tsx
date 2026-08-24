@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -8,7 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles } from "lucide-react";
+import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2 } from "lucide-react";
+import { NOTIFICATION_SOUND_PRESETS, previewNotificationSound, uploadNotificationAudio, setCachedSoundPreference, NotificationSoundPreset } from "@/lib/notificationSound";
 
 const SOCIAL_KEYS = [
   "social_facebook","social_x","social_instagram","social_tiktok","social_youtube",
@@ -45,6 +46,7 @@ const KEYS = [
   "ad_rotation_style", "ai_interactive_ads_enabled",
   "whatsapp_community_url", "referral_signup_bonus", "referral_purchase_pct",
   "sales_page_first_free", "sales_page_price", "leads_enabled_global",
+  "notification_sound_enabled", "notification_sound_preset", "notification_sound_url",
   ...SOCIAL_KEYS,
 ] as const;
 
@@ -60,8 +62,39 @@ export default function AdminSettings() {
     },
   });
   const [values, setValues] = useState<Record<string, string>>({});
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const audioInputRef = useRef<HTMLInputElement>(null);
+
   const get = (k: string) => values[k] ?? settings?.[k] ?? "";
   const set = (k: string, v: string) => setValues((p) => ({ ...p, [k]: v }));
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Audio file size must be less than 10MB");
+      return;
+    }
+    setUploadingAudio(true);
+    try {
+      const res = await uploadNotificationAudio(file);
+      if (res.error || !res.url) {
+        throw new Error(res.error || "Failed to upload audio");
+      }
+      set("notification_sound_url", res.url);
+      setCachedSoundPreference(
+        (get("notification_sound_preset") as NotificationSoundPreset) || "bethel_vibe",
+        res.url
+      );
+      toast.success("Notification sound uploaded & linked!");
+      previewNotificationSound(res.url);
+    } catch (err: any) {
+      toast.error(err.message || "Failed to upload sound");
+    } finally {
+      setUploadingAudio(false);
+      if (audioInputRef.current) audioInputRef.current.value = "";
+    }
+  };
 
   const save = useMutation({
     mutationFn: async ({ key, value }: { key: string; value: string }) => {
@@ -99,12 +132,13 @@ export default function AdminSettings() {
       </div>
 
       <Tabs defaultValue="ads" className="w-full">
-        <TabsList className="grid grid-cols-5 h-auto p-1">
+        <TabsList className="grid grid-cols-3 sm:grid-cols-6 h-auto p-1 gap-1">
           <TabsTrigger value="ads" className="flex flex-col gap-1 py-2 text-[11px]"><Megaphone className="h-4 w-4" />Ads</TabsTrigger>
           <TabsTrigger value="rewards" className="flex flex-col gap-1 py-2 text-[11px]"><Wallet className="h-4 w-4" />Rewards</TabsTrigger>
           <TabsTrigger value="payments" className="flex flex-col gap-1 py-2 text-[11px]"><CreditCard className="h-4 w-4" />Payments</TabsTrigger>
           <TabsTrigger value="analytics" className="flex flex-col gap-1 py-2 text-[11px]"><BarChart3 className="h-4 w-4" />Analytics</TabsTrigger>
           <TabsTrigger value="community" className="flex flex-col gap-1 py-2 text-[11px]"><Users className="h-4 w-4" />Social</TabsTrigger>
+          <TabsTrigger value="notifications" className="flex flex-col gap-1 py-2 text-[11px]"><Volume2 className="h-4 w-4 text-primary" />Sounds</TabsTrigger>
         </TabsList>
 
         <TabsContent value="ads" className="space-y-4 mt-4">
@@ -510,6 +544,162 @@ export default function AdminSettings() {
                   <Input value={get(k)} onChange={(e)=>set(k,e.target.value)} placeholder={ph} className="font-mono text-xs h-9" />
                 </div>
               ))}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Volume2 className="h-5 w-5 text-primary" /> Notification Sound & Jingle Engine
+              </CardTitle>
+              <CardDescription>
+                Configure the global notification audio. Choose from rich synthesized musical jingles or upload a custom audio jingle (MP3, WAV, OGG) to play across the site and PWA notifications.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/40">
+                <div className="space-y-0.5">
+                  <Label htmlFor="notification_sound_enabled" className="text-sm font-semibold cursor-pointer">
+                    Enable Notification Sounds
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Play an audio chime or jingle when users receive foreground push alerts, orders, leads, or chat messages.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="notification_sound_enabled"
+                  checked={get("notification_sound_enabled") !== "false"}
+                  onChange={(e) => {
+                    const val = e.target.checked ? "true" : "false";
+                    set("notification_sound_enabled", val);
+                  }}
+                  className="h-5 w-5 accent-primary cursor-pointer"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-sm font-semibold">Select Built-In Melodic Jingle Preset</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {NOTIFICATION_SOUND_PRESETS.map((preset) => {
+                    const isSelected = (get("notification_sound_preset") || "bethel_vibe") === preset.id && !get("notification_sound_url");
+                    return (
+                      <div
+                        key={preset.id}
+                        onClick={() => {
+                          set("notification_sound_preset", preset.id);
+                          set("notification_sound_url", "");
+                          setCachedSoundPreference(preset.id, "");
+                          previewNotificationSound(preset.id);
+                        }}
+                        className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                          isSelected
+                            ? "border-primary bg-primary/10 shadow-sm"
+                            : "hover:bg-muted/50 border-border"
+                        }`}
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold flex items-center gap-1.5">
+                            <Music className="h-4 w-4 text-primary shrink-0" />
+                            {preset.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                            {preset.description}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant={isSelected ? "default" : "outline"}
+                          size="sm"
+                          className="h-8 px-2.5 shrink-0 rounded-lg"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            set("notification_sound_preset", preset.id);
+                            set("notification_sound_url", "");
+                            setCachedSoundPreference(preset.id, "");
+                            previewNotificationSound(preset.id);
+                          }}
+                        >
+                          <Play className="h-3.5 w-3.5 mr-1 fill-current" />
+                          Test
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-4 border-t space-y-4">
+                <div>
+                  <Label className="text-sm font-semibold flex items-center gap-2">
+                    <Upload className="h-4 w-4 text-primary" /> Custom Audio Jingle Upload
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1 mb-3">
+                    Upload your brand's unique MP3, WAV, or OGG audio file. It will be stored in Supabase storage and played automatically.
+                  </p>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                  <input
+                    type="file"
+                    ref={audioInputRef}
+                    accept="audio/mp3,audio/wav,audio/ogg,audio/m4a,audio/aac,audio/*"
+                    onChange={handleAudioUpload}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={uploadingAudio}
+                    onClick={() => audioInputRef.current?.click()}
+                    className="h-10 border-dashed rounded-xl gap-2 font-medium"
+                  >
+                    {uploadingAudio ? (
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    ) : (
+                      <Upload className="h-4 w-4 text-primary" />
+                    )}
+                    {uploadingAudio ? "Uploading Audio..." : "Upload Audio File (MP3 / WAV)"}
+                  </Button>
+
+                  {get("notification_sound_url") && (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => previewNotificationSound(get("notification_sound_url"))}
+                      className="h-10 rounded-xl gap-1.5"
+                    >
+                      <Play className="h-4 w-4 text-primary fill-primary" /> Test Custom Jingle
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Custom Sound Public URL (optional)</Label>
+                  <Input
+                    value={get("notification_sound_url")}
+                    onChange={(e) => {
+                      set("notification_sound_url", e.target.value);
+                      if (e.target.value) {
+                        setCachedSoundPreference(
+                          (get("notification_sound_preset") as NotificationSoundPreset) || "bethel_vibe",
+                          e.target.value
+                        );
+                      }
+                    }}
+                    placeholder="https://your-bucket-url.com/sound.mp3"
+                    className="font-mono text-xs h-9"
+                  />
+                  {get("notification_sound_url") && (
+                    <p className="text-[11px] text-primary flex items-center gap-1 font-medium">
+                      ✓ Active: Custom audio file will override synthesized presets.
+                    </p>
+                  )}
+                </div>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

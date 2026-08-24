@@ -25,7 +25,7 @@ export interface VoiceAgentCallbacks {
 
 /**
  * Explicitly request user microphone access via navigator.mediaDevices.getUserMedia
- * with echo cancellation, noise suppression, and automatic gain control
+ * with echo cancellation, noise suppression, automatic gain control, and highpass/lowpass filtering
  */
 export async function requestMicrophoneAccess(): Promise<{ granted: boolean; error?: string; stream?: MediaStream }> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -36,12 +36,24 @@ export async function requestMicrophoneAccess(): Promise<{ granted: boolean; err
   }
 
   try {
+    const audioConstraints: MediaTrackConstraints = {
+      echoCancellation: { ideal: true },
+      noiseSuppression: { ideal: true },
+      autoGainControl: { ideal: true },
+      channelCount: { ideal: 1 },
+      sampleRate: { ideal: 48000 },
+      // Advanced browser vendor noise reduction constraints
+      ...({
+        googEchoCancellation: { ideal: true },
+        googAutoGainControl: { ideal: true },
+        googNoiseSuppression: { ideal: true },
+        googHighpassFilter: { ideal: true },
+        googNoiseReduction: { ideal: true },
+      } as any),
+    };
+
     const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: { ideal: true },
-        noiseSuppression: { ideal: true },
-        autoGainControl: { ideal: true },
-      },
+      audio: audioConstraints,
     });
     return { granted: true, stream };
   } catch (err: any) {
@@ -88,17 +100,36 @@ export function buildWavFromPcm(pcm: Uint8Array, sampleRate = 24000, channels = 
 }
 
 /**
+ * Format and sanitize response text into clean, natural spoken speech
+ * Eliminates markdown artifacts, URLs, code, and symbols while pronouncing currencies properly.
+ */
+export function cleanTextForSpeech(text: string): string {
+  if (!text) return "";
+  return text
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/https?:\/\/\S+/gi, " ")
+    .replace(/₦\s*([0-9,.]+)/g, "$1 Naira")
+    .replace(/\$\s*([0-9,.]+)/g, "$1 dollars")
+    .replace(/%/g, " percent ")
+    .replace(/&/g, " and ")
+    .replace(/[@#]/g, " ")
+    .replace(/^[#*>-]+\s+/gm, "")
+    .replace(/[*_~[\]()<>{}|\\]/g, " ")
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 4000);
+}
+
+/**
  * Synthesize speech using Google Gemini TTS with Google Kore Voice
  */
 export async function synthesizeGoogleVoice(
   text: string,
   voiceName: "Kore" | "Puck" | "Charon" | "Fenrir" | "Zephyr" = "Kore"
 ): Promise<ArrayBuffer | null> {
-  const clean = text
-    .replace(/[*_#`~[\]()]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 4000);
+  const clean = cleanTextForSpeech(text);
 
   if (!clean) return null;
 
@@ -190,11 +221,14 @@ export class GoogleLiveVoiceAgent {
   private currentTranscript = "";
   private accumulatedFinalTranscript = "";
 
-  // Hardware Audio Stream & Analyser
+  // Hardware Audio Stream, DSP Filters & Analyser
   private micStream: MediaStream | null = null;
   private micAudioCtx: AudioContext | null = null;
   private micAnalyser: AnalyserNode | null = null;
   private micSourceNode: MediaStreamAudioSourceNode | null = null;
+  private highPassFilter: BiquadFilterNode | null = null;
+  private lowPassFilter: BiquadFilterNode | null = null;
+  private ambientNoiseFloor = 0.02; // Initial calibrated noise floor
 
   // Playback Audio Context
   private audioCtx: AudioContext | null = null;
@@ -207,7 +241,7 @@ export class GoogleLiveVoiceAgent {
     this.options = {
       voiceName: options.voiceName || "Kore",
       lang: options.lang || "en-US",
-      silenceTimeoutMs: options.silenceTimeoutMs || 2000, // Base natural breathing pause
+      silenceTimeoutMs: options.silenceTimeoutMs || 1200, // Snappy real-time conversation turnaround
       continuous: options.continuous ?? true,
       pitch: options.pitch || 1.05,
       rate: options.rate || 1.0,
@@ -247,7 +281,7 @@ export class GoogleLiveVoiceAgent {
 
   /**
    * Calculate real-time RMS audio volume from the microphone analyser
-   * Returns a value between 0 and 1
+   * with adaptive noise floor tracking (rejects ambient store/room noise)
    */
   private getCurrentMicRms(): number {
     if (!this.micAnalyser) return 0;
@@ -259,7 +293,13 @@ export class GoogleLiveVoiceAgent {
         const norm = (buffer[i] - 128) / 128;
         sumSquares += norm * norm;
       }
-      return Math.sqrt(sumSquares / buffer.length);
+      const rms = Math.sqrt(sumSquares / buffer.length);
+      
+      // Update running ambient noise floor during low volume states
+      if (rms < 0.05) {
+        this.ambientNoiseFloor = this.ambientNoiseFloor * 0.95 + rms * 0.05;
+      }
+      return rms;
     } catch {
       return 0;
     }
@@ -275,15 +315,32 @@ export class GoogleLiveVoiceAgent {
         this.micAudioCtx.resume().catch(() => {});
       }
 
+      // 1. Highpass filter to eliminate desk bumps, AC/fan hum, and low-frequency store rumble (85 Hz cutoff)
+      this.highPassFilter = this.micAudioCtx.createBiquadFilter();
+      this.highPassFilter.type = "highpass";
+      this.highPassFilter.frequency.setValueAtTime(85, this.micAudioCtx.currentTime);
+      this.highPassFilter.Q.setValueAtTime(0.7, this.micAudioCtx.currentTime);
+
+      // 2. Lowpass filter to eliminate microphone hiss, electrical buzz, and high-pitch noise (7200 Hz cutoff)
+      this.lowPassFilter = this.micAudioCtx.createBiquadFilter();
+      this.lowPassFilter.type = "lowpass";
+      this.lowPassFilter.frequency.setValueAtTime(7200, this.micAudioCtx.currentTime);
+      this.lowPassFilter.Q.setValueAtTime(0.7, this.micAudioCtx.currentTime);
+
+      // 3. Analyser for speech energy visualizer and real-time noise-gating
       this.micAnalyser = this.micAudioCtx.createAnalyser();
       this.micAnalyser.fftSize = 64;
       this.micAnalyser.smoothingTimeConstant = 0.75;
 
       this.micSourceNode = this.micAudioCtx.createMediaStreamSource(stream);
-      // Connect to analyser ONLY to compute RMS levels, NOT to audio destination (avoids feedback)
-      this.micSourceNode.connect(this.micAnalyser);
+      
+      // Connect pipeline: StreamSource -> HighPass -> LowPass -> Analyser
+      // DO NOT connect to destination to avoid acoustic loopback / audio feedback
+      this.micSourceNode.connect(this.highPassFilter);
+      this.highPassFilter.connect(this.lowPassFilter);
+      this.lowPassFilter.connect(this.micAnalyser);
     } catch (e) {
-      console.warn("Could not attach mic audio analyser:", e);
+      console.warn("Could not attach mic audio analyser DSP chain:", e);
     }
   }
 
@@ -465,16 +522,22 @@ export class GoogleLiveVoiceAgent {
         }
 
         if (activeDisplay.length >= 2) {
-          // Calculate dynamic silence window based on utterance length & conversational flow:
-          // - Short fragments (<= 3 words): Allow extra pause (+600ms) for user to finish their thought without being cut off
-          // - Long/complete statements (>= 8 words): Snappier response (-300ms) once they stop talking
-          const wordCount = activeDisplay.split(/\s+/).filter(Boolean).length;
-          let dynamicTimeout = this.options.silenceTimeoutMs;
+          const trimmed = activeDisplay.trim();
+          const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
+          const endsWithPunctuation = /[.?!]$/.test(trimmed);
+          const isQuestion = /\b(what|how|why|when|where|who|can|could|will|would|is|are|tell me|explain|suggest|help)\b/i.test(trimmed);
 
-          if (wordCount <= 3) {
-            dynamicTimeout = Math.max(2200, this.options.silenceTimeoutMs + 500);
-          } else if (wordCount >= 8) {
-            dynamicTimeout = Math.min(1800, this.options.silenceTimeoutMs);
+          let dynamicTimeout = this.options.silenceTimeoutMs; // default 1200ms
+
+          if (endsWithPunctuation || (isQuestion && wordCount >= 4)) {
+            // Completed question or sentence: trigger instant reply
+            dynamicTimeout = 850;
+          } else if (wordCount <= 3) {
+            // Short fragment: allow user natural breathing pause to finish thought
+            dynamicTimeout = 1600;
+          } else {
+            // Standard conversational utterance: snappy turnaround
+            dynamicTimeout = 1100;
           }
 
           this.silenceTimer = setTimeout(() => {
@@ -537,7 +600,7 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Verify audio energy (RMS) before committing silence to ensure user isn't trailing off mid-word
+   * Verify audio energy (RMS) against dynamic ambient noise floor before committing silence
    */
   private evaluateAndTriggerSilence() {
     if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
@@ -545,11 +608,15 @@ export class GoogleLiveVoiceAgent {
     }
 
     const currentRms = this.getCurrentMicRms();
-    // If the mic RMS is noticeably active (> 0.08) and time since last speech is short, defer by 600ms
-    if (currentRms > 0.08 && Date.now() - this.lastSpeechTimestamp < 1500) {
+    // Dynamic speech threshold above ambient noise floor
+    const isSpeechActive = currentRms > (this.ambientNoiseFloor * 1.6 + 0.035);
+    const timeSinceSpeech = Date.now() - this.lastSpeechTimestamp;
+
+    // If user is still actively vocalizing above noise floor and within last 1.2s, wait a moment
+    if (isSpeechActive && timeSinceSpeech < 1200) {
       this.silenceTimer = setTimeout(() => {
         this.evaluateAndTriggerSilence();
-      }, 600);
+      }, 400);
       return;
     }
 
@@ -761,7 +828,7 @@ export class GoogleLiveVoiceAgent {
 
       try {
         window.speechSynthesis.cancel();
-        const clean = text.replace(/[*_#`~[\]()]/g, " ").replace(/\s+/g, " ").slice(0, 3000);
+        const clean = cleanTextForSpeech(text).slice(0, 3000);
         const utterance = new SpeechSynthesisUtterance(clean);
 
         const voices = window.speechSynthesis.getVoices();

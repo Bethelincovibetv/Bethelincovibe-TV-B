@@ -20,7 +20,6 @@ export default function PublicLayout() {
   return (
     <div className="flex flex-col min-h-screen">
       <ErrorBoundary label="Header" fallback={null}><Header /></ErrorBoundary>
-      {flags.advertise && !clean && <AdPlaceholder placement="header" className="container mx-auto px-4 mt-2" />}
       <main className="flex-1 pb-28 md:pb-0">
         <ErrorBoundary label="Route"><Outlet /></ErrorBoundary>
       </main>

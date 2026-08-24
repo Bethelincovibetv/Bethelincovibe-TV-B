@@ -45,13 +45,13 @@ export default function VoiceInputButton({
   const resetSilenceTimer = () => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
     
-    // Auto-detect when user finishes talking after 1.5s of silence
+    // Auto-detect when user finishes talking after 1.1s of silence for fast voice entry
     silenceTimerRef.current = setTimeout(() => {
-      if (isListening && accumulatedTextRef.current.trim().length > 3) {
+      if (isListening && accumulatedTextRef.current.trim().length > 2) {
         // User stopped talking, auto-finalize speech input
         stopListening(true);
       }
-    }, 1500);
+    }, 1100);
   };
 
   const startListening = async () => {

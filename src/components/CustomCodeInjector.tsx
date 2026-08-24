@@ -53,6 +53,8 @@ export default function CustomCodeInjector() {
       if (!matchRoute(r.route_pattern, pathname)) return;
       const target = r.location === "body" ? document.body : document.head;
       if (!target || !r.code) return;
+      // Block Adsterra ad scripts
+      if (/adsterra|alwingulla|highperformancegate/i.test(r.code)) return;
       injectHTML(r.code, target, `cci-${r.id}`);
     });
   }, [rules, pathname]);

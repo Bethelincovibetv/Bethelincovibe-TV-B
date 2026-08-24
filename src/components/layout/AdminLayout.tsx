@@ -95,13 +95,13 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                     {/* 3D Elevated Icon Badge */}
                     <div
                       className={cn(
-                        "relative flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white",
-                        "shadow-[0_4px_10px_-2px_rgba(0,0,0,0.35),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-1 ring-white/25",
+                        "relative flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white",
+                        "shadow-[0_4px_12px_-2px_rgba(0,0,0,0.38),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-1 ring-white/25",
                         "transition-transform group-hover:scale-110 duration-200",
                         gradient
                       )}
                     >
-                      <l.icon className="h-4 w-4 drop-shadow-sm" strokeWidth={2.2} />
+                      <l.icon className="h-5 w-5 drop-shadow-sm" strokeWidth={2.2} />
                     </div>
 
                     <span className={cn("truncate font-bold text-sm sm:text-base leading-tight", active ? "text-primary font-extrabold" : "text-foreground/90")}>
@@ -283,15 +283,15 @@ export default function AdminLayout() {
             </Button>
           )}
 
-          <Link to="/admin/contacts" className="relative shrink-0">
-            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">
-              <Bell className="h-5 w-5" />
+          <Link to="/admin/contacts" className="relative shrink-0 group">
+            <div className="relative flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300/35 via-amber-500/20 to-orange-600/30 border border-amber-300/60 shadow-[0_4px_12px_rgba(245,158,11,0.25),inset_0_1px_1px_rgba(255,255,255,0.7)] group-hover:scale-110 group-active:scale-95 transition-all duration-300">
+              <Bell className="h-5 w-5 text-amber-500 fill-amber-400 drop-shadow-[0_2px_4px_rgba(180,83,9,0.5)]" />
               {unreadCount && unreadCount > 0 ? (
-                <span className="absolute top-1 right-1 bg-destructive text-destructive-foreground text-[9px] font-bold rounded-full h-4 min-w-4 px-1 flex items-center justify-center ring-2 ring-background">
+                <span className="absolute -top-1.5 -right-1.5 flex h-5 min-w-[20px] px-1 items-center justify-center text-[10px] font-black text-white rounded-full bg-gradient-to-b from-rose-400 via-rose-600 to-red-800 border border-white/80 shadow-[0_3px_8px_rgba(225,29,72,0.6),inset_0_1px_1px_rgba(255,255,255,0.85)] animate-pulse">
                   {unreadCount > 9 ? "9+" : unreadCount}
                 </span>
               ) : null}
-            </Button>
+            </div>
           </Link>
 
           {/* Search dropdown */}

@@ -9,6 +9,7 @@ interface Props {
 }
 
 export default function AdPlaceholder({ placement, className = "" }: Props) {
+  const isHeader = placement === "header";
   const settingKey = `ad_${placement}`;
   const location = useLocation();
   let isUserAdmin = false;
@@ -32,14 +33,20 @@ export default function AdPlaceholder({ placement, className = "" }: Props) {
       return map;
     },
     staleTime: 1000 * 60 * 2,
-    enabled: !isAdmin,
+    enabled: !isAdmin && !isHeader,
   });
+
+  // Hard block for header placement ads as requested
+  if (isHeader) return null;
 
   const globalDisabled = settings?.ads_global_enabled === "false";
   const providerDisabled = settings?.ads_provider_custom === "false";
   const adHtml = settings?.[settingKey] || "";
 
-  if (isAdmin || !settings || globalDisabled || providerDisabled || !adHtml) return null;
+  // Block any adsterra content if present in custom placement
+  const isAdsterra = /adsterra|alwingulla|highperformancegate/i.test(adHtml);
+
+  if (isAdmin || !settings || globalDisabled || providerDisabled || !adHtml || isAdsterra) return null;
 
   return (
     <div className={className} dangerouslySetInnerHTML={{ __html: adHtml }} />

@@ -13,7 +13,6 @@ import RelatedPosts from "@/components/RelatedPosts";
 import BlogInlineInjections from "@/components/BlogInlineInjections";
 import BlogReader from "@/components/BlogReader";
 import RotatingBlogAd from "@/components/RotatingBlogAd";
-import AdsterraAd from "@/components/AdsterraAd";
 import AmazonProductGrid from "@/components/AmazonProductGrid";
 import ReadingProgress from "@/components/blog/ReadingProgress";
 import ArticleUtilityBar from "@/components/blog/ArticleUtilityBar";
@@ -149,8 +148,6 @@ export default function BlogPost() {
 
         <BlogReader title={post.title} html={post.content || ""} url={postUrl} />
 
-        <AdsterraAd slot="blog_top" />
-
         <RotatingBlogAd placement="blog" />
 
         <BlogInlineInjections html={post.content || ""} postId={post.id} title={post.title} />
@@ -158,8 +155,6 @@ export default function BlogPost() {
         <PostNavigation publishedAt={post.published_at} currentId={post.id} />
 
         <AmazonProductGrid category={post.categories?.slug} limit={4} heading="Recommended on Amazon" />
-
-        <AdsterraAd slot="blog_bottom" />
 
         <BlogComments postId={post.id} />
       </article>

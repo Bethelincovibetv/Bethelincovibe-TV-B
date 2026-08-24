@@ -70,24 +70,24 @@ export default function NotificationBell() {
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          className="relative group p-2 rounded-2xl transition-all duration-300 transform active:scale-95 focus:outline-hidden"
+          className="relative group p-2.5 rounded-2xl transition-all duration-300 transform hover:scale-110 active:scale-95 focus:outline-hidden"
           title="Notifications"
         >
-          {/* 3D Glossy Floating Background Disk */}
-          <div className="absolute inset-0 rounded-2xl bg-gradient-to-b from-amber-300/40 via-amber-400/20 to-amber-600/30 border border-amber-300/50 shadow-[0_4px_12px_rgba(245,158,11,0.25),inset_0_1px_1px_rgba(255,255,255,0.6)] group-hover:shadow-[0_6px_18px_rgba(245,158,11,0.4),inset_0_1px_2px_rgba(255,255,255,0.8)] transition-all duration-300" />
+          {/* 3D Glossy Floating Background Disk - Large & tactile */}
+          <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-amber-300/40 via-amber-500/20 to-orange-600/35 border border-amber-300/60 shadow-[0_6px_16px_rgba(245,158,11,0.3),inset_0_1.5px_0_rgba(255,255,255,0.7),inset_0_-2px_0_rgba(180,83,9,0.3)] group-hover:shadow-[0_8px_22px_rgba(245,158,11,0.45),inset_0_2px_0_rgba(255,255,255,0.9)] transition-all duration-300" />
 
-          {/* 3D Bell Icon with Gold Gradient Fill and Drop Shadow */}
-          <div className="relative z-10 flex items-center justify-center h-5 w-5">
+          {/* 3D Bell Icon with Gold Gradient Fill, Specular Highlight and Depth Shadow */}
+          <div className="relative z-10 flex items-center justify-center h-6 w-6">
             <Bell
-              className={`h-5 w-5 text-amber-500 fill-amber-400/80 drop-shadow-[0_2px_4px_rgba(180,83,9,0.5)] transition-transform duration-300 ${
+              className={`h-6 w-6 text-amber-500 fill-amber-400 drop-shadow-[0_3px_6px_rgba(180,83,9,0.55)] transition-transform duration-300 ${
                 unread > 0 ? "animate-bounce group-hover:rotate-12" : "group-hover:rotate-12"
               }`}
             />
           </div>
 
-          {/* 3D Red Sphere Badge */}
+          {/* 3D Red Sphere Badge with Gloss Highlight */}
           {unread > 0 && (
-            <span className="absolute -top-1 -right-1 z-20 flex h-5 min-w-[20px] px-1 items-center justify-center text-[10px] font-black text-white rounded-full bg-gradient-to-b from-rose-400 via-rose-600 to-red-700 border border-rose-200/60 shadow-[0_3px_8px_rgba(225,29,72,0.6),inset_0_1px_1px_rgba(255,255,255,0.8)] animate-pulse">
+            <span className="absolute -top-1.5 -right-1.5 z-20 flex h-6 min-w-[24px] px-1.5 items-center justify-center text-[11px] font-black text-white rounded-full bg-gradient-to-b from-rose-400 via-rose-600 to-red-800 border border-white/70 shadow-[0_4px_10px_rgba(225,29,72,0.65),inset_0_1.5px_0_rgba(255,255,255,0.85)] animate-pulse">
               {unread > 9 ? "9+" : unread}
             </span>
           )}
