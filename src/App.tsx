@@ -100,6 +100,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import FcmPermissionPrompt from "./components/FcmPermissionPrompt";
 import FcmForegroundListener from "./components/FcmForegroundListener";
 import UserNotificationSettingsPage from "./pages/UserNotificationSettingsPage";
+import UserNotificationsPage from "./pages/UserNotificationsPage";
 const queryClient = new QueryClient();
 
 function FeatureAwareServices() {
@@ -156,6 +157,7 @@ const App = () => (
               <Route path="/tools/startup-calculator" element={<FeatureGate feature="tools"><StartupCalculator /></FeatureGate>} />
               <Route path="/advertise" element={<FeatureGate feature="advertise"><AdvertiseWithUs /></FeatureGate>} />
               <Route path="/dashboard" element={<UserDashboard />} />
+              <Route path="/dashboard/notifications" element={<UserNotificationsPage />} />
               <Route path="/dashboard/settings/notifications" element={<UserNotificationSettingsPage />} />
               <Route path="/dashboard/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
               <Route path="/dashboard/ad-earnings" element={<UserAdEarnings />} />

@@ -84,7 +84,7 @@ export default function UserDashboard() {
     { to: "/dashboard/submit-blog", label: "Submit Business", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
     { to: "/dashboard/businesses", label: "My Businesses", icon: Building2, color: "from-amber-500 to-yellow-500", show: flags.businesses },
     { to: "/dashboard/messages", label: "Messages", icon: Mail, color: "from-pink-500 to-rose-500", show: flags.businesses },
-    { to: "/dashboard/settings/notifications", label: "Notifications", icon: Bell, color: "from-rose-500 to-red-600", show: true },
+    { to: "/dashboard/notifications", label: "Notifications", icon: Bell, color: "from-amber-500 to-rose-600", show: true },
     { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, color: "from-cyan-500 to-sky-500", show: flags.tools },
     { to: "/learn", label: "Learning Hub", icon: GraduationCap, color: "from-blue-500 to-indigo-600", show: flags.learn },
     { to: "/forum", label: "Community", icon: MessageSquare, color: "from-teal-500 to-cyan-600", show: true },
