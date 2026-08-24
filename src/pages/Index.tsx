@@ -15,11 +15,16 @@ import AdsterraAd from "@/components/AdsterraAd";
 import AmazonProductGrid from "@/components/AmazonProductGrid";
 import CategoryTile from "@/components/directory/CategoryTile";
 
+import iconStartup3D from "@/assets/images/icon_startup_guide_3d_1787553506436.jpg";
+import iconBusinessDir3D from "@/assets/images/icon_business_dir_3d_1787553523151.jpg";
+import iconFeaturedBiz3D from "@/assets/images/icon_featured_biz_3d_1787553536001.jpg";
+import iconMarketingSales3D from "@/assets/images/icon_marketing_sales_3d_1787553549641.jpg";
+
 const features = [
-  { icon: BookOpen, title: "Startup Guides", desc: "Step-by-step guides to launch your business in Lagos", link: "/blog/category/startup-guides", color: "text-primary", feature: "blog" },
-  { icon: Building2, title: "Business Directory", desc: "Discover and connect with trusted Lagos businesses", link: "/businesses", color: "text-accent", feature: "businesses" },
-  { icon: TrendingUp, title: "Marketing & Sales", desc: "Grow your customer base with proven strategies", link: "/blog/category/marketing-sales", color: "text-success", feature: "blog" },
-  { icon: Sparkles, title: "Featured Businesses", desc: "Spotlight on standout Lagos entrepreneurs", link: "/blog/category/featured-businesses", color: "text-warning", feature: "blog" },
+  { icon: BookOpen, image3D: iconStartup3D, title: "Startup Guides", desc: "Step-by-step guides to launch your business in Lagos", link: "/blog/category/startup-guides", color: "from-blue-500/20 to-indigo-500/20", feature: "blog" },
+  { icon: Building2, image3D: iconBusinessDir3D, title: "Business Directory", desc: "Discover and connect with trusted Lagos businesses", link: "/businesses", color: "from-amber-500/20 to-orange-500/20", feature: "businesses" },
+  { icon: TrendingUp, image3D: iconMarketingSales3D, title: "Marketing & Sales", desc: "Grow your customer base with proven strategies", link: "/blog/category/marketing-sales", color: "from-emerald-500/20 to-teal-500/20", feature: "blog" },
+  { icon: Sparkles, image3D: iconFeaturedBiz3D, title: "Featured Businesses", desc: "Spotlight on standout Lagos entrepreneurs", link: "/blog/category/featured-businesses", color: "from-purple-500/20 to-pink-500/20", feature: "blog" },
 ];
 
 export default function Index() {
@@ -102,18 +107,38 @@ export default function Index() {
 
       {/* Features */}
       <section className="container mx-auto px-4 py-16">
-        <h2 className="text-2xl font-bold text-center mb-8">Everything You Need to Succeed</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="text-center max-w-xl mx-auto mb-10">
+          <span className="text-xs font-bold uppercase tracking-widest text-primary bg-primary/10 px-3 py-1 rounded-full">Entrepreneur Toolkit</span>
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tight mt-2">Everything You Need to Succeed</h2>
+          <p className="text-sm text-muted-foreground mt-1">Explore our key resources designed for ambitious Nigerian businesses and startups</p>
+        </div>
+        
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {features.filter((f) => (flags as any)[f.feature]).map((f) => (
-            <Link key={f.title} to={f.link}>
-              <Card className="h-full hover:shadow-md transition-shadow">
-                <CardHeader className="pb-2">
-                  <f.icon className={`h-8 w-8 ${f.color}`} />
-                  <CardTitle className="text-lg">{f.title}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">{f.desc}</p>
-                </CardContent>
+            <Link key={f.title} to={f.link} className="group block">
+              <Card className="h-full border border-border/60 hover:border-primary/40 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden bg-card flex flex-col justify-between group-hover:-translate-y-1">
+                <div>
+                  <div className={`relative h-44 w-full overflow-hidden bg-gradient-to-br ${f.color} flex items-center justify-center p-4`}>
+                    <img
+                      src={f.image3D}
+                      alt={f.title}
+                      className="h-36 w-36 object-contain filter drop-shadow-2xl transition-transform duration-500 group-hover:scale-110 group-hover:rotate-1"
+                      loading="lazy"
+                    />
+                    <div className="absolute top-3 right-3 bg-background/80 backdrop-blur-md p-1.5 rounded-xl border border-border/40 shadow-sm">
+                      <f.icon className="h-4 w-4 text-primary" />
+                    </div>
+                  </div>
+                  <CardHeader className="pt-4 pb-2">
+                    <CardTitle className="text-lg font-bold group-hover:text-primary transition-colors flex items-center justify-between">
+                      <span>{f.title}</span>
+                      <ArrowRight className="h-4 w-4 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all text-primary" />
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pb-6">
+                    <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
+                  </CardContent>
+                </div>
               </Card>
             </Link>
           ))}
