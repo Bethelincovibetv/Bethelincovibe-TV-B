@@ -4,8 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 export interface GoogleVoiceOptions {
   voiceName?: "Kore" | "Puck" | "Charon" | "Fenrir" | "Zephyr";
   lang?: string;
-  silenceTimeoutMs?: number; // Time in ms after user pauses before auto-triggering response (default: 2200ms)
-  continuous?: boolean; // Hands-free continuous loop
+  silenceTimeoutMs?: number; // Base time in ms after user pauses before auto-triggering response
+  continuous?: boolean; // Hands-free continuous conversation loop
   pitch?: number;
   rate?: number;
 }
@@ -25,7 +25,7 @@ export interface VoiceAgentCallbacks {
 
 /**
  * Explicitly request user microphone access via navigator.mediaDevices.getUserMedia
- * with active echo cancellation and noise suppression
+ * with echo cancellation, noise suppression, and automatic gain control
  */
 export async function requestMicrophoneAccess(): Promise<{ granted: boolean; error?: string; stream?: MediaStream }> {
   if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -88,7 +88,7 @@ export function buildWavFromPcm(pcm: Uint8Array, sampleRate = 24000, channels = 
 }
 
 /**
- * Synthesize speech using Google Gemini TTS with Google's Kore Voice
+ * Synthesize speech using Google Gemini TTS with Google Kore Voice
  */
 export async function synthesizeGoogleVoice(
   text: string,
@@ -166,8 +166,9 @@ export async function synthesizeGoogleVoice(
 
 /**
  * Intelligent Google Live Voice Agent
- * Listens in real-time, accurately tracks speech without interruption,
- * transcribes continuously, and speaks responses using Google Kore Voice.
+ * Listens in real-time with adaptive silence detection (VAD),
+ * prevents microphone disruption during AI thinking/processing pauses,
+ * and speaks responses using Google Kore Voice.
  */
 export class GoogleLiveVoiceAgent {
   private state: VoiceAgentState = "idle";
@@ -175,29 +176,38 @@ export class GoogleLiveVoiceAgent {
   private options: Required<GoogleVoiceOptions>;
   private callbacks: VoiceAgentCallbacks;
 
+  // Recognition & Lifecycle control
   private recognition: any = null;
   private isListeningActive = false;
+  private isProcessingActive = false;
   private isSpeakingActive = false;
+  private isRecognitionRunning = false;
+
+  // Silence & VAD Timers
   private silenceTimer: any = null;
+  private restartTimeout: any = null;
+  private lastSpeechTimestamp = 0;
   private currentTranscript = "";
   private accumulatedFinalTranscript = "";
 
+  // Hardware Audio Stream & Analyser
   private micStream: MediaStream | null = null;
   private micAudioCtx: AudioContext | null = null;
   private micAnalyser: AnalyserNode | null = null;
   private micSourceNode: MediaStreamAudioSourceNode | null = null;
 
+  // Playback Audio Context
   private audioCtx: AudioContext | null = null;
   private currentAudioSource: AudioBufferSourceNode | null = null;
 
+  // Visualizer Animation
   private visualizerInterval: any = null;
-  private isRecognitionRunning = false;
 
   constructor(options: GoogleVoiceOptions = {}, callbacks: VoiceAgentCallbacks = {}) {
     this.options = {
       voiceName: options.voiceName || "Kore",
       lang: options.lang || "en-US",
-      silenceTimeoutMs: options.silenceTimeoutMs || 2200, // 2.2s natural breathing room
+      silenceTimeoutMs: options.silenceTimeoutMs || 2000, // Base natural breathing pause
       continuous: options.continuous ?? true,
       pitch: options.pitch || 1.05,
       rate: options.rate || 1.0,
@@ -223,6 +233,38 @@ export class GoogleLiveVoiceAgent {
     this.updateVisualizer(newState);
   }
 
+  /**
+   * Enable or disable hardware microphone tracks to prevent picking up noise or triggering
+   * OS mic activity while the AI is processing, reasoning, or speaking.
+   */
+  private setHardwareMicEnabled(enabled: boolean) {
+    if (this.micStream) {
+      this.micStream.getAudioTracks().forEach((track) => {
+        track.enabled = enabled;
+      });
+    }
+  }
+
+  /**
+   * Calculate real-time RMS audio volume from the microphone analyser
+   * Returns a value between 0 and 1
+   */
+  private getCurrentMicRms(): number {
+    if (!this.micAnalyser) return 0;
+    try {
+      const buffer = new Uint8Array(this.micAnalyser.frequencyBinCount);
+      this.micAnalyser.getByteTimeDomainData(buffer);
+      let sumSquares = 0;
+      for (let i = 0; i < buffer.length; i++) {
+        const norm = (buffer[i] - 128) / 128;
+        sumSquares += norm * norm;
+      }
+      return Math.sqrt(sumSquares / buffer.length);
+    } catch {
+      return 0;
+    }
+  }
+
   private setupMicAnalyser(stream: MediaStream) {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -238,7 +280,7 @@ export class GoogleLiveVoiceAgent {
       this.micAnalyser.smoothingTimeConstant = 0.75;
 
       this.micSourceNode = this.micAudioCtx.createMediaStreamSource(stream);
-      // Connect to analyser ONLY, NOT to destination (to avoid audio feedback/noise)
+      // Connect to analyser ONLY to compute RMS levels, NOT to audio destination (avoids feedback)
       this.micSourceNode.connect(this.micAnalyser);
     } catch (e) {
       console.warn("Could not attach mic audio analyser:", e);
@@ -247,6 +289,7 @@ export class GoogleLiveVoiceAgent {
 
   private updateVisualizer(state: VoiceAgentState) {
     clearInterval(this.visualizerInterval);
+
     if (state === "listening") {
       const dataArray = new Uint8Array(32);
       this.visualizerInterval = setInterval(() => {
@@ -264,16 +307,22 @@ export class GoogleLiveVoiceAgent {
           this.callbacks.onAudioLevels?.(heights);
         }
       }, 70);
+    } else if (state === "processing") {
+      // Gentle harmonic breathing wave while AI is thinking/reasoning (no mic noise pickup)
+      let phase = 0;
+      this.visualizerInterval = setInterval(() => {
+        phase = (phase + 0.15) % (Math.PI * 2);
+        const heights = Array.from({ length: 12 }, (_, i) => {
+          const wave = Math.sin(phase + i * 0.45);
+          return Math.round(20 + wave * 16);
+        });
+        this.callbacks.onAudioLevels?.(heights);
+      }, 80);
     } else if (state === "speaking") {
       this.visualizerInterval = setInterval(() => {
         const heights = Array.from({ length: 12 }, () => Math.floor(Math.random() * 45) + 20);
         this.callbacks.onAudioLevels?.(heights);
       }, 90);
-    } else if (state === "processing") {
-      this.visualizerInterval = setInterval(() => {
-        const heights = [20, 28, 36, 44, 36, 28, 36, 44, 36, 28, 20, 15];
-        this.callbacks.onAudioLevels?.(heights);
-      }, 120);
     } else {
       this.callbacks.onAudioLevels?.([10, 14, 18, 14, 10, 14, 18, 14, 10, 14, 18, 10]);
     }
@@ -281,8 +330,6 @@ export class GoogleLiveVoiceAgent {
 
   /**
    * Explicitly request Microphone Access and Start Interactive Voice Session.
-   * If welcomeMessage is passed, speak it first cleanly before opening the mic,
-   * so the AI never interrupts itself or hears its own greeting.
    */
   public async start(welcomeMessage?: string): Promise<boolean> {
     const SpeechRecognition =
@@ -316,8 +363,10 @@ export class GoogleLiveVoiceAgent {
     }
 
     this.isListeningActive = true;
+    this.isProcessingActive = false;
+    this.isSpeakingActive = false;
 
-    // If a welcome message is provided, speak it first, then start listening
+    // If a welcome message is provided, speak it first, then open the mic cleanly
     if (welcomeMessage && welcomeMessage.trim()) {
       this.callbacks.onAIResponse?.(welcomeMessage);
       await this.speak(welcomeMessage);
@@ -330,20 +379,36 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Internal Speech Recognition Loop with Intelligent Silence (VAD) Detection
+   * Internal Speech Recognition Loop with Adaptive Silence & Voice Activity Detection (VAD)
    */
   public startListeningCycle() {
-    if (!this.isListeningActive || this.isSpeakingActive || this.state === "processing") return;
+    if (!this.isListeningActive || this.isSpeakingActive || this.isProcessingActive) {
+      return;
+    }
+
+    // Clear any pending restart timers
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
+
+    // Ensure hardware microphone is active and enabled for listening
+    this.setHardwareMicEnabled(true);
 
     try {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-      if (this.recognition && this.isRecognitionRunning) {
+      // Safely cleanup previous recognition instance if still active
+      if (this.recognition) {
         try {
+          this.recognition.onstart = null;
+          this.recognition.onresult = null;
+          this.recognition.onerror = null;
+          this.recognition.onend = null;
           this.recognition.abort();
         } catch {}
-        this.isRecognitionRunning = false;
+        this.recognition = null;
       }
 
       const rec = new SpeechRecognition();
@@ -352,17 +417,20 @@ export class GoogleLiveVoiceAgent {
       rec.interimResults = true;
       rec.lang = this.options.lang;
 
-      this.currentTranscript = "";
-      this.accumulatedFinalTranscript = "";
-
       rec.onstart = () => {
+        if (!this.isListeningActive || this.isProcessingActive || this.isSpeakingActive) {
+          try {
+            rec.abort();
+          } catch {}
+          return;
+        }
         this.isRecognitionRunning = true;
         this.setState("listening");
       };
 
       rec.onresult = (event: any) => {
-        // If AI is currently speaking, do not process
-        if (this.isSpeakingActive) {
+        // Completely discard results if AI is thinking/processing or speaking
+        if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
           return;
         }
 
@@ -370,7 +438,7 @@ export class GoogleLiveVoiceAgent {
         let finalChunk = "";
 
         for (let i = event.resultIndex; i < event.results.length; ++i) {
-          const piece = event.results[i][0].transcript;
+          const piece = event.results[i][0]?.transcript || "";
           if (event.results[i].isFinal) {
             finalChunk += " " + piece;
           } else {
@@ -388,24 +456,40 @@ export class GoogleLiveVoiceAgent {
         const activeDisplay = (this.accumulatedFinalTranscript + " " + interim).trim();
         this.currentTranscript = activeDisplay;
         this.callbacks.onInterimTranscript?.(activeDisplay);
+        this.lastSpeechTimestamp = Date.now();
 
-        // --- Intelligent Voice Activity Detection (VAD) & Silence Detection ---
-        // Every time new speech arrives, clear previous silence timer and restart
+        // --- Adaptive Silence Detection & VAD Heuristics ---
         if (this.silenceTimer) {
           clearTimeout(this.silenceTimer);
           this.silenceTimer = null;
         }
 
-        if (activeDisplay.length > 1) {
+        if (activeDisplay.length >= 2) {
+          // Calculate dynamic silence window based on utterance length & conversational flow:
+          // - Short fragments (<= 3 words): Allow extra pause (+600ms) for user to finish their thought without being cut off
+          // - Long/complete statements (>= 8 words): Snappier response (-300ms) once they stop talking
+          const wordCount = activeDisplay.split(/\s+/).filter(Boolean).length;
+          let dynamicTimeout = this.options.silenceTimeoutMs;
+
+          if (wordCount <= 3) {
+            dynamicTimeout = Math.max(2200, this.options.silenceTimeoutMs + 500);
+          } else if (wordCount >= 8) {
+            dynamicTimeout = Math.min(1800, this.options.silenceTimeoutMs);
+          }
+
           this.silenceTimer = setTimeout(() => {
-            this.handleUserSilenceDetected();
-          }, this.options.silenceTimeoutMs);
+            this.evaluateAndTriggerSilence();
+          }, dynamicTimeout);
         }
       };
 
       rec.onerror = (event: any) => {
+        if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
+          return;
+        }
+
         if (event.error === "no-speech") {
-          // Normal silence while user is listening or thinking; keep listening
+          // Normal background silence while user is thinking; do not disrupt
           return;
         }
         if (event.error === "not-allowed") {
@@ -414,38 +498,66 @@ export class GoogleLiveVoiceAgent {
           this.stop();
           return;
         }
-        if (event.error !== "aborted" && this.isListeningActive && !this.isSpeakingActive) {
-          setTimeout(() => {
-            if (this.isListeningActive && !this.isSpeakingActive && this.state !== "processing") {
-              this.startListeningCycle();
-            }
-          }, 300);
+        if (event.error !== "aborted" && this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
+          this.scheduleRestart(350);
         }
       };
 
       rec.onend = () => {
         this.isRecognitionRunning = false;
-        if (this.isListeningActive && !this.isSpeakingActive && this.state !== "processing") {
-          setTimeout(() => {
-            if (this.isListeningActive && !this.isSpeakingActive && this.state !== "processing") {
-              this.startListeningCycle();
-            }
-          }, 200);
+        if (this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
+          this.scheduleRestart(200);
         }
       };
 
       rec.start();
     } catch (err: any) {
-      console.warn("Could not start speech recognition loop:", err);
-      // If error was recognition already started, ignore safely
-      if (!err.message?.includes("already started")) {
-        this.callbacks.onError?.(err.message || "Failed to start listening");
+      console.warn("Speech recognition cycle warning:", err);
+      if (!err.message?.includes("already started") && !this.isProcessingActive) {
+        this.scheduleRestart(500);
       }
     }
   }
 
   /**
-   * Manually trigger immediate submission of what the user has spoken without waiting for silence
+   * Schedule a debounced restart of recognition loop when listening is active
+   */
+  private scheduleRestart(delayMs = 200) {
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
+    if (this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
+      this.restartTimeout = setTimeout(() => {
+        if (this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
+          this.startListeningCycle();
+        }
+      }, delayMs);
+    }
+  }
+
+  /**
+   * Verify audio energy (RMS) before committing silence to ensure user isn't trailing off mid-word
+   */
+  private evaluateAndTriggerSilence() {
+    if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
+      return;
+    }
+
+    const currentRms = this.getCurrentMicRms();
+    // If the mic RMS is noticeably active (> 0.08) and time since last speech is short, defer by 600ms
+    if (currentRms > 0.08 && Date.now() - this.lastSpeechTimestamp < 1500) {
+      this.silenceTimer = setTimeout(() => {
+        this.evaluateAndTriggerSilence();
+      }, 600);
+      return;
+    }
+
+    this.handleUserSilenceDetected();
+  }
+
+  /**
+   * Manually trigger immediate submission of spoken text without waiting for silence
    */
   public submitSpokenNow() {
     if (this.silenceTimer) {
@@ -456,27 +568,46 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Triggered when silence detector determines user has finished talking or user clicked send
+   * Triggered when silence detector determines user has finished talking or clicked Send Now.
+   * Completely pauses/mutes the microphone so AI processing/thinking is noiseless and uninterrupted.
    */
   private async handleUserSilenceDetected() {
     const fullQuery = this.currentTranscript.trim();
     if (!fullQuery || fullQuery.length < 2) {
-      // Nothing substantive said, resume listening
-      if (this.isListeningActive && !this.isSpeakingActive) {
+      // Nothing substantive said, keep listening peacefully
+      if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
         this.setState("listening");
       }
       return;
     }
 
-    // Stop recognition during processing & response synthesis
+    // 1. Immediately transition to processing state
+    this.isProcessingActive = true;
+    this.setState("processing");
+
+    // 2. Shut down SpeechRecognition and mute hardware mic to prevent disruptive audio interrupts or thinking glitches
+    this.setHardwareMicEnabled(false);
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
+
     try {
-      if (this.recognition && this.isRecognitionRunning) {
-        this.recognition.stop();
+      if (this.recognition) {
+        this.recognition.onstart = null;
+        this.recognition.onresult = null;
+        this.recognition.onerror = null;
+        this.recognition.onend = null;
+        this.recognition.abort();
         this.isRecognitionRunning = false;
+        this.recognition = null;
       }
     } catch {}
 
-    this.setState("processing");
     const queryToExecute = fullQuery;
     this.currentTranscript = "";
     this.accumulatedFinalTranscript = "";
@@ -490,21 +621,32 @@ export class GoogleLiveVoiceAgent {
         }
       }
 
+      this.isProcessingActive = false;
+
       if (aiResponseText && aiResponseText.trim()) {
         this.callbacks.onAIResponse?.(aiResponseText);
         await this.speak(aiResponseText);
       } else {
-        // If no explicit audio reply, resume listening
+        // If no spoken audio response returned, return smoothly to listening
         this.setState("idle");
         if (this.isListeningActive && this.options.continuous) {
-          this.startListeningCycle();
+          setTimeout(() => {
+            if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
+              this.startListeningCycle();
+            }
+          }, 250);
         }
       }
     } catch (err: any) {
+      this.isProcessingActive = false;
       this.callbacks.onError?.(err.message || "Error processing voice request");
       this.setState("idle");
       if (this.isListeningActive && this.options.continuous) {
-        this.startListeningCycle();
+        setTimeout(() => {
+          if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
+            this.startListeningCycle();
+          }
+        }, 300);
       }
     }
   }
@@ -513,12 +655,21 @@ export class GoogleLiveVoiceAgent {
    * Speak response using Google Kore Voice (Gemini TTS with Web Speech natural fallback)
    */
   public async speak(text: string): Promise<void> {
-    // Temporarily halt recognition while speaking so AI does not hear itself
     this.isSpeakingActive = true;
+    this.isProcessingActive = false;
+
+    // Ensure mic is muted during speech playback to eliminate audio feedback and acoustic loops
+    this.setHardwareMicEnabled(false);
+
     try {
-      if (this.recognition && this.isRecognitionRunning) {
-        this.recognition.stop();
+      if (this.recognition) {
+        this.recognition.onstart = null;
+        this.recognition.onresult = null;
+        this.recognition.onerror = null;
+        this.recognition.onend = null;
+        this.recognition.abort();
         this.isRecognitionRunning = false;
+        this.recognition = null;
       }
     } catch {}
 
@@ -567,10 +718,11 @@ export class GoogleLiveVoiceAgent {
             this.currentAudioSource = null;
             this.setState("idle");
             resolve();
-            // Automatically resume listening hands-free
+
+            // Automatically resume listening hands-free after subtle acoustic settle time
             if (this.isListeningActive && this.options.continuous) {
               setTimeout(() => {
-                if (this.isListeningActive && !this.isSpeakingActive) {
+                if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
                   this.startListeningCycle();
                 }
               }, 250);
@@ -585,7 +737,7 @@ export class GoogleLiveVoiceAgent {
           resolve();
           if (this.isListeningActive && this.options.continuous) {
             setTimeout(() => {
-              if (this.isListeningActive && !this.isSpeakingActive) {
+              if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
                 this.startListeningCycle();
               }
             }, 250);
@@ -630,7 +782,7 @@ export class GoogleLiveVoiceAgent {
           resolve();
           if (this.isListeningActive && this.options.continuous) {
             setTimeout(() => {
-              if (this.isListeningActive && !this.isSpeakingActive) {
+              if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
                 this.startListeningCycle();
               }
             }, 250);
@@ -643,7 +795,7 @@ export class GoogleLiveVoiceAgent {
           resolve();
           if (this.isListeningActive && this.options.continuous) {
             setTimeout(() => {
-              if (this.isListeningActive && !this.isSpeakingActive) {
+              if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
                 this.startListeningCycle();
               }
             }, 250);
@@ -675,11 +827,12 @@ export class GoogleLiveVoiceAgent {
       } catch {}
     }
     this.isSpeakingActive = false;
+    this.isProcessingActive = false;
     this.setState("idle");
 
     if (this.isListeningActive) {
       setTimeout(() => {
-        if (this.isListeningActive && !this.isSpeakingActive) {
+        if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
           this.startListeningCycle();
         }
       }, 150);
@@ -687,21 +840,33 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Stop all voice agent operations cleanly
+   * Stop all voice agent operations cleanly and release microphone resources
    */
   public stop() {
     this.isListeningActive = false;
     this.isSpeakingActive = false;
+    this.isProcessingActive = false;
     this.isRecognitionRunning = false;
+
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
     }
+    if (this.restartTimeout) {
+      clearTimeout(this.restartTimeout);
+      this.restartTimeout = null;
+    }
     clearInterval(this.visualizerInterval);
 
     try {
-      this.recognition?.stop();
-      this.recognition?.abort();
+      if (this.recognition) {
+        this.recognition.onstart = null;
+        this.recognition.onresult = null;
+        this.recognition.onerror = null;
+        this.recognition.onend = null;
+        this.recognition.abort();
+        this.recognition = null;
+      }
     } catch {}
 
     if (this.currentAudioSource) {
