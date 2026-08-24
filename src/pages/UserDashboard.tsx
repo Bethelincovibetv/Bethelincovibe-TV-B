@@ -9,12 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
+import QRCodeDialog from "@/components/QRCodeDialog";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -180,6 +181,18 @@ export default function UserDashboard() {
               <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              {profile?.username && (
+                <QRCodeDialog
+                  url={`/u/${profile.username}`}
+                  title={`${displayName}'s Public Site QR Code`}
+                  subtitle="Print on business cards, flyers & banners for customer scanning"
+                  trigger={
+                    <Button size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-semibold border-0 shrink-0">
+                      <QrCode className="h-4 w-4 mr-1 text-emerald-300" />My QR Code
+                    </Button>
+                  }
+                />
+              )}
               <Button size="sm" variant="secondary" onClick={() => setWizardOpen(true)} className="bg-white/20 hover:bg-white/30 text-white font-semibold border-0 shrink-0">
                 <Wand2 className="h-4 w-4 mr-1 text-amber-300" />Setup Wizard
               </Button>

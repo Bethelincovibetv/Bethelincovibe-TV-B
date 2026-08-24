@@ -14,10 +14,11 @@ import {
   Instagram, Twitter, Facebook, Linkedin, Globe, MessageCircle, Mail, Phone,
   CheckCircle2, Pencil, Share2, ExternalLink, ChevronLeft, Briefcase, ShoppingBag,
   Sparkles, Building2, LayoutGrid, Send, User, MapPin, Store, ArrowRight,
-  ShieldCheck, Star, Clock, FileText, Check
+  ShieldCheck, Star, Clock, FileText, Check, QrCode
 } from "lucide-react";
 import { toast } from "sonner";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
+import QRCodeDialog from "@/components/QRCodeDialog";
 import { waLink as buildWaLink } from "@/lib/phone";
 
 export default function PublicProfile() {
@@ -228,6 +229,20 @@ export default function PublicProfile() {
           </Button>
 
           <div className="flex items-center gap-2">
+            <QRCodeDialog
+              url={typeof window !== "undefined" ? window.location.href : ""}
+              title={`${fullName}'s QR Code`}
+              subtitle="Scan with smartphone camera to view products, services & offers"
+              trigger={
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30"
+                >
+                  <QrCode className="h-4 w-4 mr-1" /> QR Code
+                </Button>
+              }
+            />
             <Button
               onClick={onShare}
               size="sm"
