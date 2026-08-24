@@ -8,7 +8,7 @@ interface AuthContextType {
   loading: boolean;
   isAdmin: boolean;
   roleChecked: boolean;
-  signUp: (email: string, password: string, displayName: string, referredByCode?: string) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, displayName: string, username?: string, referredByCode?: string) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error: any }>;
@@ -68,18 +68,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, displayName: string, referredByCode?: string) => {
-    const { error } = await supabase.auth.signUp({
+  const ensureProfile = async (userId: string, email: string, displayName: string, username?: string) => {
+    try {
+      const cleanUsername = username?.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "") || null;
+      const { data: existing } = await supabase.from("profiles").select("id, username").eq("user_id", userId).maybeSingle();
+      if (!existing) {
+        await supabase.from("profiles").insert({
+          user_id: userId,
+          email,
+          display_name: displayName,
+          username: cleanUsername,
+          is_public: true,
+        });
+      } else if (cleanUsername && (!existing.username || existing.username !== cleanUsername)) {
+        await supabase.from("profiles").update({
+          username: cleanUsername,
+          is_public: true,
+        }).eq("user_id", userId);
+      }
+    } catch (e) {
+      console.warn("Profile sync warning:", e);
+    }
+  };
+
+  const signUp = async (
+    email: string,
+    password: string,
+    displayName: string,
+    username?: string,
+    referredByCode?: string
+  ) => {
+    const cleanUsername = username?.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+    const { data: authData, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: {
           display_name: displayName,
+          username: cleanUsername,
           ...(referredByCode ? { referred_by_code: referredByCode } : {}),
         },
         emailRedirectTo: window.location.origin,
       },
     });
+
+    if (!error && authData?.user) {
+      await ensureProfile(authData.user.id, email, displayName, cleanUsername);
+    }
+
     return { error };
   };
 

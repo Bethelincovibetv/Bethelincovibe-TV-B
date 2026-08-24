@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
@@ -9,34 +9,57 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
+import ProfileCompletionCard from "@/components/ProfileCompletionCard";
+import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
   const { flags } = useFeatureFlags();
+  const [params, setParams] = useSearchParams();
   const [wallet, setWallet] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [favCount, setFavCount] = useState(0);
   const [submissions, setSubmissions] = useState<any[]>([]);
+  const [businessCount, setBusinessCount] = useState(0);
+  const [wizardOpen, setWizardOpen] = useState(false);
+
+  const fetchUserData = async () => {
+    if (!user) return;
+    const [{ data: w }, { data: p }, { count: fCount }, { data: subs }, { count: bCount }] = await Promise.all([
+      supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+      supabase.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", user.id),
+      supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("submitted_by", user.id),
+    ]);
+    setWallet(w);
+    setProfile(p);
+    setFavCount(fCount || 0);
+    setSubmissions(subs || []);
+    setBusinessCount(bCount || 0);
+  };
 
   useEffect(() => {
     if (!user) return;
-    (async () => {
-      const [{ data: w }, { data: p }, { count }, { data: subs }] = await Promise.all([
-        supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
-        supabase.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-        supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
-      ]);
-      setWallet(w);
-      setProfile(p);
-      setFavCount(count || 0);
-      setSubmissions(subs || []);
-    })();
+    fetchUserData();
   }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const forceWizard = params.get("wizard") === "1";
+    const alreadyDone = localStorage.getItem(`wizard_completed_${user.id}`);
+    if (forceWizard || !alreadyDone) {
+      setWizardOpen(true);
+      if (forceWizard) {
+        params.delete("wizard");
+        setParams(params, { replace: true });
+      }
+    }
+  }, [user, params]);
 
   if (loading) return <div className="min-h-[50vh] flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   if (!user) return <Navigate to="/login" replace />;
@@ -84,6 +107,9 @@ export default function UserDashboard() {
               <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
             </div>
             <div className="flex items-center gap-2 shrink-0">
+              <Button size="sm" variant="secondary" onClick={() => setWizardOpen(true)} className="bg-white/20 hover:bg-white/30 text-white font-semibold border-0 shrink-0">
+                <Wand2 className="h-4 w-4 mr-1 text-amber-300" />Setup Wizard
+              </Button>
               {isAdmin && (
                 <Button asChild size="sm" variant="secondary" className="bg-amber-400 hover:bg-amber-300 text-amber-950 font-semibold shadow">
                   <Link to="/admin"><ShieldCheck className="h-4 w-4 mr-1" />Admin Portal</Link>
@@ -111,6 +137,22 @@ export default function UserDashboard() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
+        {/* Profile & Business Completion Card with Smart System Recommendations */}
+        <ProfileCompletionCard
+          profile={profile}
+          businessCount={businessCount}
+          onLaunchWizard={() => setWizardOpen(true)}
+        />
+
+        {/* Setup Wizard Modal */}
+        <OnboardingSetupWizard
+          open={wizardOpen}
+          onClose={() => setWizardOpen(false)}
+          user={user}
+          profile={profile}
+          onProfileUpdated={fetchUserData}
+        />
+
         {/* Quick Link Tile Grid — 3D Glossy App Style */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
           {tiles.map((t) => (
