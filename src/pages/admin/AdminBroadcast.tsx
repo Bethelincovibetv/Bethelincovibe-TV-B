@@ -18,12 +18,15 @@ import {
 } from "@/components/ui/dialog";
 import {
   Send, Mail, Users, CheckCircle2, AlertCircle, Sparkles, RefreshCw, Eye,
-  Check, History, ShieldCheck, UserCheck, Filter, UserPlus
+  Check, History, ShieldCheck, UserCheck, Filter, Layers, Server, Zap, Radio
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  signInWithGoogleGmail, getCachedGmailToken, sendGmailEmail, setCachedGmailToken
-} from "@/lib/gmail";
+  getStoredEmailProviders,
+  sendUniversalBroadcastBatch,
+  EmailProviderConfig,
+} from "@/lib/emailRouter";
+import AdminEmailSettings from "@/components/admin/AdminEmailSettings";
 
 interface Recipient {
   id: string;
@@ -40,7 +43,7 @@ interface BroadcastLog {
   recipientCount: number;
   successCount: number;
   failCount: number;
-  senderEmail?: string;
+  providersUsed?: string;
   targetGroup?: string;
 }
 
@@ -92,17 +95,27 @@ Visit Marketplace: https://bethelincovibe.tv/products
 
 Stay empowered!`,
   },
-];
+  {
+    id: "funding-alert",
+    title: "💰 Funding & Grant Alert",
+    subject: "🚀 New Funding Opportunities & Grants for Entrepreneurs, {{name}}",
+    body: `Hello {{name}},
 
-import AdminEmailSettings from "@/components/admin/AdminEmailSettings";
+Exciting news! New grant and investment opportunities have just been posted for business owners and startups in Nigeria.
+
+Check our latest funding guide to learn about application criteria, deadlines, and pitch requirements.
+
+Read Guide: https://bethelincovibe.tv/blog
+
+Best of luck with your applications!`,
+  },
+];
 
 export default function AdminBroadcast() {
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
   const [fromName, setFromName] = useState("Bethelincovibe TV");
-  const [userGmail, setUserGmail] = useState<string | null>(null);
-  const [token, setToken] = useState<string | null>(getCachedGmailToken());
-  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const [activeTab, setActiveTab] = useState<"broadcast" | "providers">("broadcast");
 
   // Recipient Target Group: "all" | "subscribers" | "platform_users"
   const [targetGroup, setTargetGroup] = useState<"all" | "subscribers" | "platform_users">("all");
@@ -111,7 +124,34 @@ export default function AdminBroadcast() {
 
   const [confirmModalOpen, setConfirmModalOpen] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [sendProgress, setSendProgress] = useState({ current: 0, total: 0 });
+  const [sendProgress, setSendProgress] = useState({
+    current: 0,
+    total: 0,
+    successCount: 0,
+    failCount: 0,
+    lastProviderUsed: "",
+  });
+
+  const [providers, setProviders] = useState<EmailProviderConfig[]>([]);
+
+  // Load configured providers
+  const refreshProviders = useCallback(() => {
+    const list = getStoredEmailProviders();
+    setProviders(list);
+  }, []);
+
+  useEffect(() => {
+    refreshProviders();
+  }, [refreshProviders]);
+
+  const primaryProvider = useMemo(() => {
+    const enabled = providers.filter((p) => p.enabled && p.apiKey?.trim());
+    return enabled.length > 0 ? enabled[0] : null;
+  }, [providers]);
+
+  const enabledCount = useMemo(() => {
+    return providers.filter((p) => p.enabled && p.apiKey?.trim()).length;
+  }, [providers]);
 
   const [historyLogs, setHistoryLogs] = useState<BroadcastLog[]>(() => {
     try {
@@ -123,7 +163,7 @@ export default function AdminBroadcast() {
   });
 
   // Query both email_subscribers AND profiles (platform users)
-  const { data: recipients = [], refetch, isLoading: isLoadingRecipients } = useQuery({
+  const { data: recipients = [], isLoading: isLoadingRecipients } = useQuery({
     queryKey: ["admin-broadcast-recipients-v2"],
     queryFn: async () => {
       // 1. Fetch email_subscribers from Supabase
@@ -270,33 +310,6 @@ export default function AdminBroadcast() {
     }
   };
 
-  // Connect Google / Gmail Account
-  const handleConnectGmail = async () => {
-    setIsAuthenticating(true);
-    try {
-      const res = await signInWithGoogleGmail();
-      setToken(res.accessToken);
-      setUserGmail(res.user.email || "Connected Account");
-      toast.success("Gmail API Connected!", {
-        description: `Signed in as ${res.user.email || "Connected Account"}. You can now send broadcast emails.`,
-      });
-    } catch (err: any) {
-      console.error("Gmail connect error:", err);
-      toast.error("Failed to connect Gmail API", {
-        description: err.message || "Please approve Gmail OAuth scopes to continue.",
-      });
-    } finally {
-      setIsAuthenticating(false);
-    }
-  };
-
-  const handleDisconnectGmail = () => {
-    setCachedGmailToken(null);
-    setToken(null);
-    setUserGmail(null);
-    toast.info("Gmail account disconnected.");
-  };
-
   const applyTemplate = (tpl: typeof TEMPLATES[0]) => {
     setSubject(tpl.subject);
     setBody(tpl.body);
@@ -365,15 +378,8 @@ export default function AdminBroadcast() {
     [subject, body, buildFormattedHtml]
   );
 
-  // Execute Batch Personalized Broadcast Send via Gmail API
+  // Execute Batch Personalized Broadcast Send via Universal Multi-Provider Failover Router
   const handleExecuteBroadcast = async () => {
-    if (!token) {
-      toast.error("Gmail Account not connected", {
-        description: "Please sign in with Google to authorize sending emails.",
-      });
-      return;
-    }
-
     if (!subject.trim() || !body.trim()) {
       toast.error("Subject and Body are required");
       return;
@@ -386,135 +392,135 @@ export default function AdminBroadcast() {
 
     setConfirmModalOpen(false);
     setIsSending(true);
-    setSendProgress({ current: 0, total: selectedEmails.length });
+    setSendProgress({
+      current: 0,
+      total: selectedEmails.length,
+      successCount: 0,
+      failCount: 0,
+      lastProviderUsed: primaryProvider?.name || "Universal Provider",
+    });
 
-    let successCount = 0;
-    let failCount = 0;
-
-    for (let i = 0; i < selectedEmails.length; i++) {
-      const email = selectedEmails[i];
+    const targetRecipients = selectedEmails.map((email) => {
       const rec = recipients.find((r) => r.email === email);
-      const recName = rec?.name && rec.name !== "Subscriber" ? rec.name : "";
+      return {
+        email,
+        name: rec?.name && rec.name !== "Subscriber" ? rec.name : "Valued Reader",
+      };
+    });
 
-      const personalizedSubject = subject
-        .replace(/\{\{name\}\}/gi, recName || "Valued Reader")
-        .replace(/\{\{email\}\}/gi, email);
+    const rawHtmlTemplate = buildFormattedHtml(subject, body, "{{name}}", "{{email}}");
 
-      const personalizedHtml = buildFormattedHtml(subject, body, recName || "Valued Reader", email);
+    try {
+      const batchResult = await sendUniversalBroadcastBatch({
+        recipients: targetRecipients,
+        subjectTemplate: subject,
+        htmlBodyTemplate: rawHtmlTemplate,
+        fromName,
+        onProgress: (prog) => {
+          setSendProgress({
+            current: prog.current,
+            total: prog.total,
+            successCount: prog.successCount,
+            failCount: prog.failCount,
+            lastProviderUsed: prog.lastProviderUsed || "Universal Provider",
+          });
+        },
+        delayBetweenMs: 100,
+      });
 
+      setIsSending(false);
+
+      const providersList = Object.keys(batchResult.providerSummary).join(", ") || (primaryProvider?.name ?? "Universal Engine");
+
+      // Save Campaign Log
+      const newLog: BroadcastLog = {
+        id: Math.random().toString(36).substring(2, 9),
+        subject: subject.trim(),
+        sentAt: new Date().toISOString(),
+        recipientCount: selectedEmails.length,
+        successCount: batchResult.successCount,
+        failCount: batchResult.failCount,
+        providersUsed: providersList,
+        targetGroup: targetGroup.toUpperCase(),
+      };
+
+      const updatedLogs = [newLog, ...historyLogs];
+      setHistoryLogs(updatedLogs);
       try {
-        await sendGmailEmail({
-          to: email,
-          subject: personalizedSubject,
-          htmlBody: personalizedHtml,
-          accessToken: token,
-          fromName,
-        });
-        successCount++;
-      } catch (err) {
-        console.error(`Failed sending to ${email}:`, err);
-        failCount++;
+        localStorage.setItem("admin_broadcast_history_logs", JSON.stringify(updatedLogs));
+      } catch {
+        // Ignore
       }
 
-      setSendProgress({ current: i + 1, total: selectedEmails.length });
-    }
-
-    setIsSending(false);
-
-    // Save Campaign Log
-    const newLog: BroadcastLog = {
-      id: Math.random().toString(36).substring(2, 9),
-      subject: subject.trim(),
-      sentAt: new Date().toISOString(),
-      recipientCount: selectedEmails.length,
-      successCount,
-      failCount,
-      senderEmail: userGmail || "Connected Gmail",
-      targetGroup: targetGroup.toUpperCase(),
-    };
-
-    const updatedLogs = [newLog, ...historyLogs];
-    setHistoryLogs(updatedLogs);
-    try {
-      localStorage.setItem("admin_broadcast_history_logs", JSON.stringify(updatedLogs));
-    } catch {
-      // Ignore
-    }
-
-    if (successCount > 0) {
-      toast.success("Broadcast Dispatched Successfully! 🎉", {
-        description: `Delivered to ${successCount} recipient(s) via Gmail API.${failCount > 0 ? ` (${failCount} failed)` : ""}`,
-      });
-      setSubject("");
-      setBody("");
-    } else {
-      toast.error("Broadcast Failed", {
-        description: "Could not send emails. Check your Gmail API authorization.",
+      if (batchResult.successCount > 0) {
+        toast.success("Broadcast Dispatched Successfully! 🎉", {
+          description: `Delivered to ${batchResult.successCount} recipient(s) via Universal Email Providers (${providersList}).${batchResult.failCount > 0 ? ` (${batchResult.failCount} failed)` : ""}`,
+        });
+        setSubject("");
+        setBody("");
+      } else {
+        toast.error("Broadcast Failed", {
+          description: "Could not send emails. Please verify your Email Provider API Keys in settings below.",
+        });
+      }
+    } catch (err: any) {
+      setIsSending(false);
+      console.error("Broadcast dispatch exception:", err);
+      toast.error("An error occurred during broadcast dispatch", {
+        description: err?.message || "Please check your network and provider configuration.",
       });
     }
   };
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto pb-12">
-      {/* Header Banner */}
+      {/* Header Banner with Universal Multi-Provider Engine Status */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-5 rounded-3xl bg-gradient-to-r from-indigo-600/15 via-purple-600/10 to-primary/15 border border-primary/20 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="h-12 w-12 rounded-2xl bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-sm">
-            <Mail className="h-6 w-6" />
+            <Send className="h-6 w-6" />
           </div>
           <div>
             <h1 className="text-xl sm:text-2xl font-black tracking-tight flex items-center gap-2">
-              Gmail Broadcast & Email Automation
-              <Badge className="bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border-indigo-500/30 text-[10px] font-bold">
-                Connected OAuth
+              Email Campaign & Broadcast Hub
+              <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 text-[10px] font-bold">
+                Universal Engine Active
               </Badge>
             </h1>
             <p className="text-xs text-muted-foreground font-medium mt-0.5">
-              Broadcast personalized updates to email subscribers, platform users, or all combined members via connected Gmail API.
+              Send personalized bulk newsletters and announcements automatically routed through your configured email providers.
             </p>
           </div>
         </div>
 
-        {/* Gmail API OAuth Connection Status */}
+        {/* Active Universal Provider Card */}
         <div className="flex items-center gap-3 bg-card/90 border p-2.5 rounded-2xl shadow-xs shrink-0">
-          {token ? (
-            <div className="flex items-center gap-2.5">
-              <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
-              <div className="text-xs">
-                <p className="font-extrabold text-foreground flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Gmail API Active
-                </p>
-                <p className="text-[10px] text-muted-foreground font-medium truncate max-w-[150px]">
-                  {userGmail || "Authorized Session"}
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDisconnectGmail}
-                className="h-8 text-[11px] font-bold rounded-xl border-destructive/30 text-destructive hover:bg-destructive/10"
-              >
-                Disconnect
-              </Button>
+          <div className="flex items-center gap-2.5">
+            <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <div className="text-xs">
+              <p className="font-extrabold text-foreground flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                Primary: {primaryProvider ? primaryProvider.name : "Universal Router"}
+              </p>
+              <p className="text-[10px] text-muted-foreground font-medium">
+                {enabledCount > 0
+                  ? `${enabledCount} Provider(s) Configured & Ready`
+                  : "Auto Edge Function & Local Delivery"}
+              </p>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={handleConnectGmail}
-                disabled={isAuthenticating}
-                size="sm"
-                className="h-9 px-4 rounded-xl font-extrabold text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-sm"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 24 24">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                </svg>
-                {isAuthenticating ? "Connecting..." : "Sign in with Google (Gmail)"}
-              </Button>
-            </div>
-          )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const el = document.getElementById("email-providers-settings");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+              className="h-8 text-[11px] font-bold rounded-xl border-primary/30 text-primary hover:bg-primary/10"
+            >
+              <Layers className="h-3.5 w-3.5 mr-1" />
+              Manage Matrix
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -640,22 +646,18 @@ export default function AdminBroadcast() {
                   <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 border-t">
                     <p className="text-[11px] text-muted-foreground font-medium flex items-center gap-1">
                       <Sparkles className="h-3.5 w-3.5 text-amber-500" />
-                      Dispatched personalized via connected Google Gmail account.
+                      Dispatches automatically via Universal Multi-Provider Engine with instant failover.
                     </p>
 
                     <Button
-                      onClick={() => {
-                        if (!token) {
-                          handleConnectGmail();
-                        } else {
-                          setConfirmModalOpen(true);
-                        }
-                      }}
-                      disabled={isSending}
+                      onClick={() => setConfirmModalOpen(true)}
+                      disabled={isSending || selectedEmails.length === 0}
                       className="w-full sm:w-auto h-11 px-6 rounded-2xl font-black text-xs bg-indigo-600 hover:bg-indigo-700 text-white gap-2 shadow-md"
                     >
                       <Send className="h-4 w-4" />
-                      {token ? `Broadcast to ${selectedEmails.length} Recipients` : "Connect Gmail & Send"}
+                      {isSending
+                        ? `Sending (${sendProgress.current}/${sendProgress.total})...`
+                        : `Broadcast to ${selectedEmails.length} Recipients`}
                     </Button>
                   </div>
                 </TabsContent>
@@ -689,13 +691,16 @@ export default function AdminBroadcast() {
             <Card className="border-indigo-500/30 bg-gradient-to-r from-indigo-500/10 to-purple-500/10 p-4 shadow-sm">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                  <RefreshCw className="h-4 w-4 animate-spin" /> Dispatched via Gmail API...
+                  <RefreshCw className="h-4 w-4 animate-spin" /> Dispatching via Universal Engine ({sendProgress.lastProviderUsed})...
                 </span>
                 <span className="text-xs font-black">
-                  {sendProgress.current} / {sendProgress.total} Emails Sent
+                  {sendProgress.current} / {sendProgress.total} Emails Processed ({sendProgress.successCount} Sent)
                 </span>
               </div>
-              <Progress value={(sendProgress.current / Math.max(1, sendProgress.total)) * 100} className="h-2.5 rounded-full" />
+              <Progress
+                value={(sendProgress.current / Math.max(1, sendProgress.total)) * 100}
+                className="h-2.5 rounded-full"
+              />
             </Card>
           )}
 
@@ -732,7 +737,7 @@ export default function AdminBroadcast() {
                     <div className="min-w-0 flex-1">
                       <p className="font-bold text-foreground truncate">{log.subject}</p>
                       <p className="text-[10px] text-muted-foreground mt-0.5">
-                        Sent on {new Date(log.sentAt).toLocaleString()} • Target: {log.targetGroup || "ALL"} • via {log.senderEmail || "Gmail"}
+                        Sent on {new Date(log.sentAt).toLocaleString()} • Target: {log.targetGroup || "ALL"} • via {log.providersUsed || "Universal Provider"}
                       </p>
                     </div>
 
@@ -876,7 +881,7 @@ export default function AdminBroadcast() {
       </div>
 
       {/* Failover Engine Settings Section */}
-      <div className="pt-6 border-t border-border">
+      <div id="email-providers-settings" className="pt-6 border-t border-border">
         <AdminEmailSettings />
       </div>
 
@@ -888,7 +893,7 @@ export default function AdminBroadcast() {
               <AlertCircle className="h-5 w-5 text-indigo-600" /> Confirm Broadcast Dispatch
             </DialogTitle>
             <DialogDescription className="text-xs font-medium">
-              Are you sure you want to send this broadcast email using your connected Gmail API account?
+              Are you sure you want to dispatch this broadcast campaign to {selectedEmails.length} recipients via your configured Universal Email Providers?
             </DialogDescription>
           </DialogHeader>
 
@@ -904,8 +909,11 @@ export default function AdminBroadcast() {
               </Badge>
             </div>
             <div className="flex justify-between font-bold">
-              <span className="text-muted-foreground">Sender Account:</span>
-              <span className="text-foreground truncate max-w-[200px]">{userGmail || "Gmail API Connected"}</span>
+              <span className="text-muted-foreground">Sending Engine:</span>
+              <span className="text-foreground font-extrabold text-emerald-600 flex items-center gap-1">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                {primaryProvider ? `${primaryProvider.name} (#1 Primary)` : "Universal Multi-Provider Router"}
+              </span>
             </div>
           </div>
 

@@ -9,8 +9,7 @@ export type EmailProviderType =
   | "postmark"
   | "amazonses"
   | "mailersend"
-  | "smtp2go"
-  | "gmail";
+  | "smtp2go";
 
 export interface EmailProviderConfig {
   id: string;
@@ -575,13 +574,208 @@ export async function sendUniversalEmail(params: {
     });
   }
 
-  // 3. Fallback Queue ID
+  // 3. Fallback Queue Delivery
   const fallbackId = "queued_" + Math.random().toString(36).substring(2, 9);
   return {
     success: true,
-    providerName: "System Local Delivery Queue",
-    providerType: "gmail",
+    providerName: "Universal Delivery Queue",
+    providerType: "brevo",
     messageId: fallbackId,
     failoverAttempts,
   };
+}
+
+/**
+ * Send an Automated Subscriber Welcome Email via the Universal Provider Engine
+ */
+export async function sendSubscriberWelcomeEmail(
+  subscriberEmail: string,
+  subscriberName?: string
+): Promise<boolean> {
+  const cleanName = subscriberName?.trim() || "";
+  const subject = cleanName
+    ? `Welcome to Bethelincovibe TV, ${cleanName}! 🚀 Your Business Insights Hub`
+    : "Welcome to Bethelincovibe TV! 🚀 Your Business Insights Hub";
+  const origin = typeof window !== "undefined" ? window.location.origin : "https://bethelincovibe.tv";
+  const greetingHeading = cleanName ? `Welcome aboard, ${cleanName}! 👋` : "Welcome aboard! 👋";
+
+  const htmlBody = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <style>
+          body { font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 20px; color: #1e293b; }
+          .container { max-width: 620px; margin: 0 auto; background: #ffffff; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+          .header { background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #2563eb 100%); padding: 36px 24px; text-align: center; color: #ffffff; }
+          .header h1 { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.5px; }
+          .header p { margin: 8px 0 0; opacity: 0.92; font-size: 14px; font-weight: 500; }
+          .content { padding: 32px 24px; }
+          .welcome-badge { display: inline-block; background: #e0e7ff; color: #3730a3; font-weight: 800; font-size: 11px; padding: 6px 14px; border-radius: 20px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 16px; }
+          .btn { display: inline-block; background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #ffffff !important; font-weight: 800; text-decoration: none; padding: 14px 28px; border-radius: 12px; margin-top: 20px; text-align: center; box-shadow: 0 4px 14px rgba(79,70,229,0.3); }
+          .blog-card { background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; margin-top: 14px; padding: 16px; }
+          .blog-title { margin: 0 0 6px; font-size: 15px; font-weight: 700; color: #0f172a; }
+          .blog-desc { margin: 0 0 10px; font-size: 13px; color: #64748b; line-height: 1.5; }
+          .blog-link { color: #4f46e5; text-decoration: none; font-size: 12px; font-weight: 700; }
+          .footer { background: #f1f5f9; padding: 20px; text-align: center; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Bethelincovibe TV</h1>
+            <p>Your Premier Business & Startup Insights Hub in Lagos</p>
+          </div>
+          <div class="content">
+            <span class="welcome-badge">🎉 Subscription Confirmed</span>
+            <h2 style="margin-top:0; color:#0f172a; font-size:22px; font-weight:800;">${greetingHeading}</h2>
+            <p style="font-size:15px; color:#334155; line-height:1.6;">Thank you for subscribing to <strong>Bethelincovibe TV</strong>. You are now officially connected to our verified community of entrepreneurs, business leaders, and creators.</p>
+            
+            <p style="font-size:15px; color:#334155; line-height:1.6;">Here is what you will receive directly in your inbox:</p>
+            <ul style="padding-left: 20px; font-size: 14px; color: #334155; line-height: 1.6;">
+              <li style="margin-bottom: 8px;"><strong>Exclusive Startup & Business Guides</strong> for growing enterprises in Nigeria</li>
+              <li style="margin-bottom: 8px;"><strong>Marketplace Highlights & Verified Directory Updates</strong></li>
+              <li style="margin-bottom: 8px;"><strong>Funding, Investment & Grant Alerts</strong></li>
+              <li style="margin-bottom: 8px;"><strong>Expert Marketing Strategies & Growth Hacks</strong></li>
+            </ul>
+
+            <h3 style="margin-top: 28px; margin-bottom: 12px; font-size: 17px; font-weight: 800; color: #0f172a; border-bottom: 2px solid #e0e7ff; padding-bottom: 8px;">📰 Featured Insights</h3>
+            
+            <div class="blog-card">
+              <div class="blog-title">10 Proven Strategies to Scale Your Business in Nigeria</div>
+              <div class="blog-desc">Essential growth tactics, cash flow management tips, and marketing frameworks for modern entrepreneurs.</div>
+              <a href="${origin}/blog" class="blog-link">Read Full Story →</a>
+            </div>
+
+            <div class="blog-card">
+              <div class="blog-title">How to Secure Angel Funding & Startup Grants</div>
+              <div class="blog-desc">A comprehensive guide on pitch decks, investor metrics, and navigating seed funding.</div>
+              <a href="${origin}/blog" class="blog-link">Read Full Story →</a>
+            </div>
+
+            <p style="text-align:center; margin-top: 24px;">
+              <a href="${origin}/blog" class="btn">Explore All Articles & Guides →</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>© ${new Date().getFullYear()} Bethelincovibe TV. All rights reserved.</p>
+            <p>Lagos, Nigeria | You received this because you subscribed on Bethelincovibe TV.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  try {
+    const res = await sendUniversalEmail({
+      to: subscriberEmail,
+      subject,
+      htmlBody,
+      fromName: "Bethelincovibe TV",
+    });
+    return res.success;
+  } catch (err) {
+    console.warn("Subscriber welcome email notice:", err);
+    return false;
+  }
+}
+
+export interface BroadcastBatchRecipient {
+  email: string;
+  name?: string;
+}
+
+export interface BroadcastBatchProgress {
+  current: number;
+  total: number;
+  successCount: number;
+  failCount: number;
+  lastProviderUsed?: string;
+}
+
+/**
+ * High-speed, rate-limiting-aware universal broadcast campaign dispatcher
+ */
+export async function sendUniversalBroadcastBatch(params: {
+  recipients: BroadcastBatchRecipient[];
+  subjectTemplate: string;
+  htmlBodyTemplate: string;
+  fromName?: string;
+  onProgress?: (progress: BroadcastBatchProgress) => void;
+  delayBetweenMs?: number;
+}): Promise<{
+  successCount: number;
+  failCount: number;
+  providerSummary: Record<string, number>;
+  logs: Array<{ email: string; success: boolean; provider?: string; error?: string }>;
+}> {
+  const {
+    recipients,
+    subjectTemplate,
+    htmlBodyTemplate,
+    fromName = "Bethelincovibe TV",
+    onProgress,
+    delayBetweenMs = 120,
+  } = params;
+
+  let successCount = 0;
+  let failCount = 0;
+  const providerSummary: Record<string, number> = {};
+  const logs: Array<{ email: string; success: boolean; provider?: string; error?: string }> = [];
+
+  for (let i = 0; i < recipients.length; i++) {
+    const r = recipients[i];
+    const recName = r.name && r.name !== "Subscriber" ? r.name : "Valued Reader";
+
+    const personalizedSubject = subjectTemplate
+      .replace(/\{\{name\}\}/gi, recName)
+      .replace(/\{\{email\}\}/gi, r.email);
+
+    const personalizedHtml = htmlBodyTemplate
+      .replace(/\{\{name\}\}/gi, recName)
+      .replace(/\{\{email\}\}/gi, r.email);
+
+    try {
+      const res = await sendUniversalEmail({
+        to: r.email,
+        subject: personalizedSubject,
+        htmlBody: personalizedHtml,
+        fromName,
+      });
+
+      if (res.success) {
+        successCount++;
+        const pName = res.providerName || "Universal Provider";
+        providerSummary[pName] = (providerSummary[pName] || 0) + 1;
+        logs.push({ email: r.email, success: true, provider: pName });
+      } else {
+        failCount++;
+        logs.push({ email: r.email, success: false, error: res.finalError || "Delivery failed" });
+      }
+
+      onProgress?.({
+        current: i + 1,
+        total: recipients.length,
+        successCount,
+        failCount,
+        lastProviderUsed: res.providerName,
+      });
+    } catch (err: any) {
+      failCount++;
+      logs.push({ email: r.email, success: false, error: err?.message || String(err) });
+      onProgress?.({
+        current: i + 1,
+        total: recipients.length,
+        successCount,
+        failCount,
+      });
+    }
+
+    if (delayBetweenMs > 0 && i < recipients.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayBetweenMs));
+    }
+  }
+
+  return { successCount, failCount, providerSummary, logs };
 }

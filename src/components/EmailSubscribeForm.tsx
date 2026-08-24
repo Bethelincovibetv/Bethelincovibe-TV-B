@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { sendSubscriberWelcomeEmail, getCachedGmailToken } from "@/lib/gmail";
+import { sendSubscriberWelcomeEmail } from "@/lib/emailRouter";
 import { motion, AnimatePresence } from "framer-motion";
 
 export default function EmailSubscribeForm() {
@@ -86,11 +86,9 @@ export default function EmailSubscribeForm() {
       console.warn("Welcome subscriber edge function notice:", edgeErr);
     }
 
-    const token = getCachedGmailToken();
     let emailSent = false;
-
     try {
-      emailSent = await sendSubscriberWelcomeEmail(cleanEmail, cleanName, token || undefined);
+      emailSent = await sendSubscriberWelcomeEmail(cleanEmail, cleanName);
     } catch (err) {
       console.warn("Welcome email trigger note:", err);
     }
