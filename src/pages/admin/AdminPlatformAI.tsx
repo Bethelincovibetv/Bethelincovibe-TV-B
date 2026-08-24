@@ -11,7 +11,7 @@ import {
   Loader2, Sparkles, Send, Bot, CheckCircle2, ShieldCheck, Zap, RefreshCw,
   Building2, FileText, Users, Sliders, Bell, AlertTriangle, Cpu, ChevronDown,
   ChevronUp, BarChart2, Video, Globe, ArrowRight, Check, X, Compass, Plus,
-  Layers, ExternalLink, HelpCircle
+  Layers, ExternalLink, HelpCircle, GraduationCap, BookOpen, Mic
 } from "lucide-react";
 import { toast } from "sonner";
 import { FEATURE_META, FeatureKey } from "@/contexts/FeatureFlagsContext";
@@ -23,6 +23,13 @@ import {
   GeneratedCustomPage,
   getGeminiClient,
 } from "@/lib/aiCollaborationEngine";
+import VoiceInputButton from "@/components/admin/VoiceInputButton";
+import {
+  generateAICourse,
+  encodeCourseMetadata,
+  AICreatedCourse,
+  getPexelsImageForCategory,
+} from "@/lib/aiCourseCreatorEngine";
 
 type ToolLog = {
   tool: string;
@@ -33,7 +40,7 @@ type ToolLog = {
 
 export interface PendingActionProposal {
   id: string;
-  type: "multi_blog_campaign" | "create_custom_page" | "system_autotune" | "approve_businesses" | "update_setting" | "toggle_feature";
+  type: "multi_blog_campaign" | "create_custom_page" | "create_ai_course" | "system_autotune" | "approve_businesses" | "update_setting" | "toggle_feature";
   title: string;
   rationale: string;
   previewData: any;
@@ -50,11 +57,11 @@ type Msg = {
 
 const SUGGESTIONS = [
   "Direct AI Blogger to create a 3-part trending Lagos business & tech vlog series",
+  "Create an AI Masterclass on TikTok & Instagram Sales Funnels for Nigerian businesses",
   "Create a professional custom landing page for our Lagos VIP Business Directory",
+  "Generate a Real Estate Due Diligence masterclass with interactive flashcards and quiz",
   "Run a full platform diagnostic and auto-tune all configurations",
   "Approve all pending business listings and set them as active",
-  "Recommend a high-growth content strategy for this week",
-  "Turn on all ad networks and set daily login reward to 50 Naira",
 ];
 
 export default function AdminPlatformAI() {
@@ -251,6 +258,40 @@ export default function AdminPlatformAI() {
           return {
             logs,
             message: `The professional custom page "${pageData.product_name}" is now LIVE! You can view it at /sales/${pageData.slug}`,
+          };
+        }
+
+        case "create_ai_course": {
+          const { course } = proposal.previewData;
+          const fullDesc = encodeCourseMetadata(course);
+
+          const { error: courseErr } = await supabase.from("courses").insert({
+            title: course.title,
+            description: fullDesc,
+            category: course.category,
+            instructor_name: course.instructorName,
+            price_naira: course.priceNaira || 0,
+            duration_minutes: course.durationMinutes || 60,
+            thumbnail_url: course.thumbnailUrl,
+            youtube_url: course.youtubeUrl,
+            published: true,
+          });
+
+          if (courseErr) throw courseErr;
+
+          logs.push({
+            tool: "ai_course_creator_publish",
+            summary: `Published Masterclass "${course.title}" (${course.category}) with ${course.flashcards?.length || 0} Flashcards & ${course.quiz?.length || 0} Quiz Qs into Learning Hub`,
+            timestamp: ts,
+            success: true,
+          });
+
+          qc.invalidateQueries({ queryKey: ["admin-courses"] });
+          qc.invalidateQueries({ queryKey: ["learn-courses"] });
+          refetchStats();
+          return {
+            logs,
+            message: `The Masterclass "${course.title}" is now LIVE in the Bethelincovibe Learning Hub with interactive flashcards, knowledge quizzes, and verified certificate generation!`,
           };
         }
 
@@ -533,7 +574,95 @@ Review the blueprint below. Confirming will instantly compile and publish the pa
         return;
       }
 
-      // 3. Conversational / Strategic Consulting with Gemini if Key is available
+      // 3. Check if intent is Creating an AI Masterclass / Course
+      if (
+        lower.includes("course") ||
+        lower.includes("masterclass") ||
+        lower.includes("flashcard") ||
+        lower.includes("curriculum") ||
+        lower.includes("lesson") ||
+        lower.includes("quiz")
+      ) {
+        setActiveTask("AI Course Creator Agent architecting curriculum, flashcards, quizzes & Pexels cover…");
+
+        // Infer category
+        let category = "Marketing";
+        if (lower.includes("business") || lower.includes("sme") || lower.includes("management") || lower.includes("import")) category = "Business";
+        else if (lower.includes("finance") || lower.includes("grant") || lower.includes("bookkeeping") || lower.includes("money")) category = "Finance & Grants";
+        else if (lower.includes("tech") || lower.includes("code") || lower.includes("software") || lower.includes("ai")) category = "Tech & Startup";
+        else if (lower.includes("ecommerce") || lower.includes("e-commerce") || lower.includes("shop") || lower.includes("store")) category = "E-Commerce";
+        else if (lower.includes("real estate") || lower.includes("property") || lower.includes("land")) category = "Real Estate";
+
+        const cleanTopic = prompt
+          .replace(/create an? (ai )?(course|masterclass|class)( on| about| for)?/i, "")
+          .trim() || prompt;
+
+        const course = await generateAICourse({
+          topic: cleanTopic,
+          category,
+          priceNaira: lower.includes("free") ? 0 : 5000,
+          level: lower.includes("advanced") ? "Advanced" : lower.includes("intermediate") ? "Intermediate" : "Beginner",
+        });
+
+        const replyContent = `### 🎓 AI Course Creator Agent & Admin Collaboration Session
+
+I have collaborated with our **Curriculum Architect Agent** to construct an executive **Masterclass Blueprint** on "${course.title}".
+
+**Course Category:** \`${course.category}\`  
+**Level:** ${course.level} · **Estimated Duration:** ${course.durationMinutes} minutes  
+**Lead Instructor:** ${course.instructorName} (${course.instructorTitle})  
+**Access Tier:** ${course.priceNaira > 0 ? `₦${course.priceNaira.toLocaleString()}` : "FREE"}
+
+---
+#### 📚 Curriculum Modules Breakdown (${course.modules.length} Modules):
+${course.modules
+  .map(
+    (m, idx) => `**Module ${idx + 1}: ${m.title}** (${m.durationMinutes} mins)
+- *Summary:* ${m.summary}
+- *Key Takeaways:* ${m.keyTakeaways.join(" · ")}`
+  )
+  .join("\n\n")}
+
+---
+#### 🗂️ Interactive Active-Recall Flashcards (${course.flashcards.length} Cards Generated):
+${course.flashcards
+  .slice(0, 3)
+  .map((f, idx) => `**Card ${idx + 1}:** \`${f.front}\` ➔ ${f.back}`)
+  .join("\n")}
+*(+ ${Math.max(0, course.flashcards.length - 3)} more active-recall cards)*
+
+---
+#### 🧠 Multiple-Choice Knowledge Assessment (${course.quiz.length} Questions with Grading & Explanations):
+- **Passing Threshold:** 70% to unlock Verified Certificate of Completion
+- **Cover Image:** Curated 4K Pexels Commercial Asset Attached
+
+Review the proposed masterclass below. Click **"Approve & Publish Masterclass"** to deploy it directly into the Bethelincovibe Learning Hub!`;
+
+        const proposal: PendingActionProposal = {
+          id: `prop_${Date.now()}`,
+          type: "create_ai_course",
+          title: `Publish Masterclass: "${course.title}" (${course.category})`,
+          rationale: `Deploys complete course with ${course.modules.length} modules, ${course.flashcards.length} flashcards, ${course.quiz.length} quiz questions, and verified certificate generation into Learning Hub.`,
+          previewData: { course },
+          status: "pending",
+        };
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_${Date.now()}`,
+            role: "assistant",
+            content: replyContent,
+            proposal,
+          },
+        ]);
+
+        setBusy(false);
+        setActiveTask(null);
+        return;
+      }
+
+      // 4. Conversational / Strategic Consulting with Gemini if Key is available
       const gemini = await getGeminiClient();
       if (gemini) {
         setActiveTask("AI Administrator reasoning and formulating recommendations…");
@@ -910,6 +1039,8 @@ How would you like to proceed? You can type any specific directive or choose an 
                             <Video className="h-4 w-4" />
                           ) : m.proposal.type === "create_custom_page" ? (
                             <Globe className="h-4 w-4" />
+                          ) : m.proposal.type === "create_ai_course" ? (
+                            <GraduationCap className="h-4 w-4" />
                           ) : (
                             <ShieldCheck className="h-4 w-4" />
                           )}
@@ -995,6 +1126,52 @@ How would you like to proceed? You can type any specific directive or choose an 
                         </div>
                       </div>
                     )}
+
+                    {m.proposal.type === "create_ai_course" && m.proposal.previewData?.course && (
+                      <div className="p-3 bg-muted/10 text-xs space-y-2.5">
+                        <div className="flex items-start gap-3">
+                          {m.proposal.previewData.course.thumbnailUrl && (
+                            <img
+                              src={m.proposal.previewData.course.thumbnailUrl}
+                              alt="Thumbnail"
+                              className="h-16 w-24 object-cover rounded-xl border shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="font-extrabold text-xs text-foreground truncate">
+                              {m.proposal.previewData.course.title}
+                            </p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
+                              {m.proposal.previewData.course.description}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              <Badge variant="outline" className="text-[9px] font-bold">
+                                {m.proposal.previewData.course.category}
+                              </Badge>
+                              <Badge variant="outline" className="text-[9px] font-bold bg-primary/10 text-primary border-primary/20">
+                                {m.proposal.previewData.course.modules?.length || 0} Modules
+                              </Badge>
+                              <Badge variant="outline" className="text-[9px] font-bold bg-purple-500/10 text-purple-600 border-purple-500/20">
+                                {m.proposal.previewData.course.flashcards?.length || 0} Flashcards
+                              </Badge>
+                              <Badge variant="outline" className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
+                                {m.proposal.previewData.course.quiz?.length || 0} Quiz Questions
+                              </Badge>
+                            </div>
+                          </div>
+                        </div>
+
+                        {m.proposal.status === "executed" && (
+                          <div className="pt-2 border-t flex justify-end">
+                            <Button size="sm" variant="outline" asChild className="h-6 text-[10px] font-bold rounded-lg gap-1">
+                              <Link to="/learn" target="_blank">
+                                View in Learning Hub <ExternalLink className="h-3 w-3" />
+                              </Link>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </Card>
                 </div>
               )}
@@ -1059,15 +1236,23 @@ How would you like to proceed? You can type any specific directive or choose an 
               e.preventDefault();
               handleAsk(input);
             }}
-            className="flex gap-2"
+            className="flex items-center gap-2"
           >
+            <VoiceInputButton
+              onTranscript={(spokenText) => {
+                setInput((prev) => (prev ? `${prev} ${spokenText}` : spokenText));
+                inputRef.current?.focus();
+              }}
+              disabled={busy}
+              className="h-11 w-11 rounded-xl shrink-0 border-border"
+            />
             <Input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Direct AI Blogger, create a custom page, approve businesses, or request strategic recommendations..."
+              placeholder="Speak or type: direct AI Blogger, create a course/custom page, approve businesses..."
               disabled={busy}
-              className="h-11 font-medium text-xs sm:text-sm rounded-xl px-4 bg-background border-border shadow-xs focus-visible:ring-2 focus-visible:ring-primary"
+              className="h-11 font-medium text-xs sm:text-sm rounded-xl px-4 bg-background border-border shadow-xs focus-visible:ring-2 focus-visible:ring-primary flex-1"
             />
             <Button
               type="submit"
