@@ -265,8 +265,12 @@ export default function ListBusiness() {
 
               {/* CONTACT / SOCIAL */}
               <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t">
-                <div className="space-y-2 sm:col-span-2"><Label>WhatsApp</Label>
+                <div className="space-y-2"><Label>Direct WhatsApp Number</Label>
                   <PhoneInput value={socials.whatsapp || ""} onChange={(v) => setSocials({ ...socials, whatsapp: v })} placeholder="8012345678" /></div>
+                <div className="space-y-2"><Label>WhatsApp Community / Group Link</Label>
+                  <Input value={socials.whatsapp_group || ""} onChange={(e) => setSocials({ ...socials, whatsapp_group: e.target.value, whatsapp_group_url: e.target.value })} placeholder="https://chat.whatsapp.com/..." /></div>
+                <div className="space-y-2 sm:col-span-2"><Label>YouTube Video / Showcase Link</Label>
+                  <Input value={socials.youtube || ""} onChange={(e) => setSocials({ ...socials, youtube: e.target.value, youtube_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=... or https://youtu.be/..." /></div>
                 <div className="space-y-2"><Label>Email</Label>
                   <Input value={socials.email || ""} onChange={(e) => setSocials({ ...socials, email: e.target.value })} /></div>
                 <div className="space-y-2"><Label>Instagram</Label>

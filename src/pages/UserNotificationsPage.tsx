@@ -10,10 +10,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Bell, CheckCircle2, Trash2, Search, ArrowLeft, Settings,
-  Sparkles, ExternalLink, Filter, Check, ShieldCheck, Mail, Megaphone, Wallet, ShoppingBag
+  Sparkles, ExternalLink, Filter, Check, ShieldCheck, Mail, Megaphone, Wallet, ShoppingBag,
+  Volume2, VolumeX
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
+import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 
 type NotificationItem = {
   id: string;
@@ -32,8 +34,21 @@ export default function UserNotificationsPage() {
   const [fetching, setFetching] = useState(true);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
+  const [soundEnabled, setSoundState] = useState(() => isNotificationSoundEnabled());
 
-  const loadNotifications = async () => {
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundState(next);
+    setNotificationSoundEnabled(next);
+    if (next) {
+      playNotificationSound();
+      toast.success("Notification sound enabled");
+    } else {
+      toast.info("Notification sound muted");
+    }
+  };
+
+  const loadNotifications = async (isRealtimeUpdate = false) => {
     if (!user) return;
     setFetching(true);
     const { data, error } = await supabase
@@ -45,6 +60,9 @@ export default function UserNotificationsPage() {
     if (error) {
       console.error("Error loading notifications:", error);
     } else {
+      if (isRealtimeUpdate) {
+        playNotificationSound();
+      }
       setNotifications((data as NotificationItem[]) || []);
     }
     setFetching(false);
@@ -52,13 +70,13 @@ export default function UserNotificationsPage() {
 
   useEffect(() => {
     if (!user) return;
-    loadNotifications();
+    loadNotifications(false);
 
     const channel = supabase
       .channel(`page_notif_${user.id}_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
-        { event: "*", schema: "public", table: "user_notifications", filter: `user_id=eq.${user.id}` },
-        () => loadNotifications())
+        { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_id=eq.${user.id}` },
+        () => loadNotifications(true))
       .subscribe();
 
     return () => {
@@ -199,11 +217,32 @@ export default function UserNotificationsPage() {
           </div>
         </div>
 
-        <Button asChild variant="secondary" size="sm" className="rounded-xl font-semibold gap-1.5 shadow-xs">
-          <Link to="/dashboard/settings/notifications">
-            <Settings className="h-4 w-4" /> Push Settings
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={toggleSound}
+            className="rounded-xl font-semibold gap-1.5 shadow-xs border-border/80"
+            title={soundEnabled ? "Mute notification sound" : "Enable notification sound"}
+          >
+            {soundEnabled ? (
+              <>
+                <Volume2 className="h-4 w-4 text-primary" /> Sound: On
+              </>
+            ) : (
+              <>
+                <VolumeX className="h-4 w-4 text-muted-foreground" /> Sound: Muted
+              </>
+            )}
+          </Button>
+
+          <Button asChild variant="secondary" size="sm" className="rounded-xl font-semibold gap-1.5 shadow-xs">
+            <Link to="/dashboard/settings/notifications">
+              <Settings className="h-4 w-4" /> Push Settings
+            </Link>
+          </Button>
+        </div>
       </div>
 
       {/* Notifications Stat & Quick Action Banner */}

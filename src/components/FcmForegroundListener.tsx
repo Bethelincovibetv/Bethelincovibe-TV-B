@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { listenForForegroundFcm } from "@/lib/fcm";
+import { playNotificationSound } from "@/lib/notificationSound";
 import { toast } from "sonner";
 import { Bell } from "lucide-react";
 
@@ -16,6 +17,8 @@ export default function FcmForegroundListener() {
       const title = payload.notification?.title || payload.data?.title || "New Notification";
       const body = payload.notification?.body || payload.data?.body || "";
       const targetUrl = payload.data?.url || payload.data?.deep_link || payload.notification?.click_action;
+
+      playNotificationSound();
 
       toast(title, {
         description: body,

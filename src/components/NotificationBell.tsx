@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Bell, Check, ExternalLink, Settings, ShieldCheck, Sparkles } from "lucide-react";
+import { Bell, Check, ExternalLink, Settings, ShieldCheck, Sparkles, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
+import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 
 type N = { id: string; title: string; body: string | null; url: string | null; is_read: boolean; created_at: string; type: string };
 
@@ -14,8 +15,17 @@ export default function NotificationBell() {
   const { user } = useAuth();
   const [items, setItems] = useState<N[]>([]);
   const [open, setOpen] = useState(false);
+  const [soundEnabled, setSoundState] = useState(() => isNotificationSoundEnabled());
 
-  const load = async () => {
+  const toggleSound = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = !soundEnabled;
+    setSoundState(next);
+    setNotificationSoundEnabled(next);
+    if (next) playNotificationSound();
+  };
+
+  const load = async (isRealtimeUpdate = false) => {
     if (!user) return;
     const { data } = await supabase
       .from("user_notifications")
@@ -23,17 +33,21 @@ export default function NotificationBell() {
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(20);
+    
+    if (isRealtimeUpdate) {
+      playNotificationSound();
+    }
     setItems((data as any[]) || []);
   };
 
   useEffect(() => {
     if (!user) return;
-    load();
+    load(false);
     const channel = supabase
       .channel(`notif_${user.id}_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_id=eq.${user.id}` },
-        () => load())
+        () => load(true))
       .subscribe();
     return () => { supabase.removeChannel(channel); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,14 +109,25 @@ export default function NotificationBell() {
             )}
           </div>
 
-          {unread > 0 && (
+          <div className="flex items-center gap-2">
             <button
-              onClick={markAllRead}
-              className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 transition"
+              onClick={toggleSound}
+              type="button"
+              className="p-1 rounded-lg hover:bg-muted/80 text-muted-foreground hover:text-foreground transition"
+              title={soundEnabled ? "Mute notification sound" : "Unmute notification sound"}
             >
-              <Check className="h-3 w-3" /> Mark all read
+              {soundEnabled ? <Volume2 className="h-3.5 w-3.5 text-primary" /> : <VolumeX className="h-3.5 w-3.5 text-muted-foreground" />}
             </button>
-          )}
+
+            {unread > 0 && (
+              <button
+                onClick={markAllRead}
+                className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 transition"
+              >
+                <Check className="h-3 w-3" /> Mark all read
+              </button>
+            )}
+          </div>
         </div>
 
         {/* List Items */}

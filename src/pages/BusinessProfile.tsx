@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Phone, MapPin, Globe, Mail, MessageCircle, Share2, Sparkles,
   CheckCircle2, Building2, Navigation, ChevronLeft, ExternalLink,
-  Instagram, Facebook, Twitter, Linkedin, Briefcase,
+  Instagram, Facebook, Twitter, Linkedin, Briefcase, Youtube, Users, Play,
 } from "lucide-react";
 import BusinessChatDialog from "@/components/BusinessChatDialog";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
@@ -99,6 +99,17 @@ export default function BusinessProfile() {
   const isBoosted = biz.boosted_until && new Date(biz.boosted_until) > new Date();
   const phoneClean = biz.phone?.replace(/\D/g, "");
   const waClean = (sl.whatsapp || biz.phone)?.replace(/\D/g, "");
+  const waGroupUrl = sl.whatsapp_group || sl.whatsapp_group_url || biz.whatsapp_group_url;
+  const youtubeUrl = sl.youtube || sl.youtube_url || biz.youtube_url || biz.youtube_video_url;
+
+  const getEmbedYoutubeUrl = (url?: string) => {
+    if (!url) return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+    const match = url.match(regExp);
+    return match && match[2].length === 11 ? `https://www.youtube.com/embed/${match[2]}` : null;
+  };
+
+  const embedYoutube = getEmbedYoutubeUrl(youtubeUrl);
   const seoTitle = `${biz.name}${biz.categories?.name ? ` — ${biz.categories.name}` : ""} | Lagos Business Directory`;
   const seoDesc = (biz.description?.slice(0, 155)) ||
     `Contact ${biz.name} — ${biz.categories?.name || "Lagos business"}${biz.address ? ` located at ${biz.address}` : ""}. View phone, address, website and more.`;
@@ -210,9 +221,17 @@ export default function BusinessProfile() {
               </div>
 
               {/* Quick action chips (desktop) */}
-              <div className="mt-5 hidden md:grid grid-cols-5 gap-2">
+              <div className="mt-5 hidden md:grid grid-cols-6 gap-2">
                 {biz.phone && <ActionBtn icon={Phone} label="Call" onClick={() => { track(biz.id, "call"); window.location.href = `tel:${biz.phone}`; }} />}
                 {waClean && <ActionBtn icon={MessageCircle} label="WhatsApp" onClick={() => { track(biz.id, "whatsapp"); window.open(`https://wa.me/${waClean}`); }} />}
+                {waGroupUrl && (
+                  <ActionBtn
+                    icon={Users}
+                    label="Community"
+                    highlight
+                    onClick={() => { track(biz.id, "whatsapp_group"); window.open(waGroupUrl, "_blank"); }}
+                  />
+                )}
                 <BusinessChatDialog businessId={biz.id} businessName={biz.name} trigger={
                   <button className="flex flex-col items-center gap-1 p-3 rounded-xl border bg-card hover:bg-secondary transition active:scale-95">
                     <MessageCircle className="h-5 w-5 text-primary" /><span className="text-xs font-medium">Message</span>
@@ -223,6 +242,60 @@ export default function BusinessProfile() {
               </div>
             </CardContent>
           </Card>
+
+          {/* WhatsApp Community Banner */}
+          {waGroupUrl && (
+            <Card className="mt-4 border-2 border-emerald-500/30 bg-gradient-to-r from-emerald-950/20 via-emerald-900/10 to-teal-950/20 overflow-hidden shadow-sm">
+              <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="h-12 w-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-md shrink-0">
+                    <Users className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-base sm:text-lg text-emerald-900 dark:text-emerald-300">
+                        Join Our Official WhatsApp Community
+                      </h3>
+                      <Badge className="bg-emerald-600/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px]">
+                        Active
+                      </Badge>
+                    </div>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
+                      Get real-time updates, direct announcements, member-only discounts, and fast support.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-semibold gap-2 shrink-0 shadow-md">
+                  <a href={waGroupUrl} target="_blank" rel="noopener noreferrer" onClick={() => track(biz.id, "whatsapp_group")}>
+                    <Users className="h-4 w-4" /> Join WhatsApp Group
+                  </a>
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* YouTube Video Showcase Card */}
+          {embedYoutube && (
+            <Card className="mt-4 overflow-hidden border-2 border-red-500/20 shadow-md">
+              <div className="bg-gradient-to-r from-red-600 via-rose-600 to-amber-600 px-4 py-2.5 text-white flex items-center justify-between">
+                <div className="flex items-center gap-2 font-semibold text-sm">
+                  <Youtube className="h-5 w-5 fill-white text-red-600" /> Featured Video & Product Showcase
+                </div>
+                <Badge variant="outline" className="text-white border-white/40 text-[10px]">
+                  Official Media
+                </Badge>
+              </div>
+              <div className="aspect-video w-full bg-black">
+                <iframe
+                  src={embedYoutube}
+                  title={`${biz.name} Video Showcase`}
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+            </Card>
+          )}
 
           {/* About */}
           {biz.description && (
@@ -313,12 +386,13 @@ export default function BusinessProfile() {
               </div>
 
               {/* Socials */}
-              {(sl.instagram || sl.facebook || sl.twitter || sl.linkedin) && (
+              {(sl.instagram || sl.facebook || sl.twitter || sl.linkedin || youtubeUrl) && (
                 <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
                   {sl.instagram && <SocialBtn href={sl.instagram} icon={Instagram} label="Instagram" />}
                   {sl.facebook && <SocialBtn href={sl.facebook} icon={Facebook} label="Facebook" />}
                   {sl.twitter && <SocialBtn href={sl.twitter} icon={Twitter} label="Twitter" />}
                   {sl.linkedin && <SocialBtn href={sl.linkedin} icon={Linkedin} label="LinkedIn" />}
+                  {youtubeUrl && <SocialBtn href={youtubeUrl} icon={Youtube} label="YouTube" />}
                 </div>
               )}
 
@@ -383,6 +457,11 @@ export default function BusinessProfile() {
                 <MessageCircle className="h-4 w-4 mr-1" />Chat
               </Button>
             )}
+            {waGroupUrl && (
+              <Button className="bg-emerald-700 hover:bg-emerald-800 text-white" size="sm" onClick={() => { track(biz.id, "whatsapp_group"); window.open(waGroupUrl, "_blank"); }}>
+                <Users className="h-4 w-4 mr-1" />Group
+              </Button>
+            )}
             <Button variant="outline" size="sm" onClick={onShare}><Share2 className="h-4 w-4" /></Button>
           </div>
         </div>
@@ -391,10 +470,17 @@ export default function BusinessProfile() {
   );
 }
 
-function ActionBtn({ icon: Icon, label, onClick }: any) {
+function ActionBtn({ icon: Icon, label, onClick, highlight }: any) {
   return (
-    <button onClick={onClick} className="flex flex-col items-center gap-1 p-3 rounded-xl border bg-card hover:bg-secondary transition active:scale-95">
-      <Icon className="h-5 w-5 text-primary" />
+    <button
+      onClick={onClick}
+      className={`flex flex-col items-center gap-1 p-3 rounded-xl border transition active:scale-95 ${
+        highlight
+          ? "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+          : "bg-card hover:bg-secondary"
+      }`}
+    >
+      <Icon className={`h-5 w-5 ${highlight ? "text-emerald-600 dark:text-emerald-400" : "text-primary"}`} />
       <span className="text-xs font-medium">{label}</span>
     </button>
   );

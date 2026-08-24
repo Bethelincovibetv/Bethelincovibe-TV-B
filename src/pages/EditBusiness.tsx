@@ -190,9 +190,11 @@ export default function EditBusiness() {
               </div>
 
               <div className="grid sm:grid-cols-2 gap-3 pt-2 border-t">
-                <div className="space-y-2"><Label>WhatsApp</Label><Input value={socials.whatsapp || ""} onChange={(e) => setSocials({ ...socials, whatsapp: e.target.value })} placeholder="+234..." /></div>
+                <div className="space-y-2"><Label>Direct WhatsApp Number</Label><Input value={socials.whatsapp || ""} onChange={(e) => setSocials({ ...socials, whatsapp: e.target.value })} placeholder="+2348000000000" /></div>
+                <div className="space-y-2"><Label>WhatsApp Community / Group Link</Label><Input value={socials.whatsapp_group || socials.whatsapp_group_url || ""} onChange={(e) => setSocials({ ...socials, whatsapp_group: e.target.value, whatsapp_group_url: e.target.value })} placeholder="https://chat.whatsapp.com/..." /></div>
+                <div className="space-y-2"><Label>YouTube Video / Showcase Link</Label><Input value={socials.youtube || socials.youtube_url || ""} onChange={(e) => setSocials({ ...socials, youtube: e.target.value, youtube_url: e.target.value })} placeholder="https://www.youtube.com/watch?v=..." /></div>
                 <div className="space-y-2"><Label>Email</Label><Input value={socials.email || ""} onChange={(e) => setSocials({ ...socials, email: e.target.value })} /></div>
-                <div className="space-y-2"><Label>Instagram</Label><Input value={socials.instagram || ""} onChange={(e) => setSocials({ ...socials, instagram: e.target.value })} /></div>
+                <div className="space-y-2"><Label>Instagram</Label><Input value={socials.instagram || ""} onChange={(e) => setSocials({ ...socials, instagram: e.target.value })} placeholder="@handle" /></div>
                 <div className="space-y-2"><Label>Facebook</Label><Input value={socials.facebook || ""} onChange={(e) => setSocials({ ...socials, facebook: e.target.value })} /></div>
               </div>
               <Button type="submit" disabled={saving} className="w-full">{saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Save changes</Button>
