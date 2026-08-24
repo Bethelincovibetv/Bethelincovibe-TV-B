@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Mic, MicOff, Loader2 } from "lucide-react";
+import { Mic, MicOff, Loader2, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { GoogleLiveVoiceAgent, VoiceAgentState } from "@/lib/googleLiveVoiceEngine";
 
 type Props = {
   conversationId: string | null;
@@ -13,90 +14,90 @@ type Props = {
 
 /**
  * Live Voice mode for the AI Business Coach.
- * Uses the browser Web Speech API for speech-to-text and the browser's
- * built-in speech synthesis for playback (free, instant, no paid API).
+ * Powered by Google Live Voice Engine (Kore Voice) with intelligent Voice Activity
+ * Detection (VAD) silence listening and real-time response.
  */
-export default function LiveVoiceButton({ conversationId, businessContext, onUserText, onAssistantText }: Props) {
+export default function LiveVoiceButton({
+  conversationId,
+  businessContext,
+  onUserText,
+  onAssistantText,
+}: Props) {
   const [active, setActive] = useState(false);
-  const [status, setStatus] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
-  const recRef = useRef<any>(null);
+  const [status, setStatus] = useState<VoiceAgentState>("idle");
+  const agentRef = useRef<GoogleLiveVoiceAgent | null>(null);
   const convIdRef = useRef<string | null>(conversationId);
-  const activeRef = useRef(false);
 
-  useEffect(() => { convIdRef.current = conversationId; }, [conversationId]);
+  useEffect(() => {
+    convIdRef.current = conversationId;
+  }, [conversationId]);
 
-  const SR: any = typeof window !== "undefined" ? ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition) : null;
-
-  const speak = (text: string): Promise<void> => {
-    setStatus("speaking");
-    return new Promise((resolve) => {
-      try {
-        window.speechSynthesis?.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.rate = 1;
-        u.onend = () => resolve();
-        u.onerror = () => resolve();
-        window.speechSynthesis.speak(u);
-      } catch { resolve(); }
-    });
-  };
-
-  const startListening = () => {
-    if (!activeRef.current) return;
-    if (!SR) { toast.error("Voice input not supported in this browser"); stop(); return; }
-    setStatus("listening");
-    const rec = new SR();
-    recRef.current = rec;
-    rec.lang = "en-US";
-    rec.interimResults = false;
-    rec.continuous = false;
-    let got = false;
-    rec.onresult = async (e: any) => {
-      got = true;
-      const transcript = Array.from(e.results).map((r: any) => r[0].transcript).join(" ").trim();
-      if (!transcript) { if (activeRef.current) startListening(); return; }
-      onUserText(transcript);
-      setStatus("thinking");
-      try {
-        const { data, error } = await supabase.functions.invoke("business-coach", {
-          body: { conversationId: convIdRef.current, message: transcript, businessContext },
-        });
-        if (error || data?.error) throw new Error(data?.error || error?.message);
-        const reply = String(data.reply || "");
-        if (data.conversationId) convIdRef.current = data.conversationId;
-        onAssistantText(reply, data.conversationId);
-        await speak(reply);
-      } catch (err: any) {
-        toast.error(err.message || "Coach error");
-      }
-      if (activeRef.current) startListening();
+  useEffect(() => {
+    return () => {
+      stop();
     };
-    rec.onerror = () => { if (activeRef.current && !got) setTimeout(() => activeRef.current && startListening(), 300); };
-    rec.onend = () => { if (activeRef.current && !got && status === "listening") setTimeout(() => activeRef.current && startListening(), 200); };
-    try { rec.start(); } catch {}
-  };
+  }, []);
 
   const start = () => {
-    activeRef.current = true;
+    stop();
+
+    const agent = new GoogleLiveVoiceAgent(
+      {
+        voiceName: "Kore", // Google Kore Voice
+        silenceTimeoutMs: 1400, // 1.4s natural pause before auto-response
+        continuous: true,
+        lang: "en-US",
+      },
+      {
+        onStateChange: (s) => setStatus(s),
+        onError: (err) => toast.error(err),
+        onUserFinishedSpeaking: async (transcript) => {
+          if (!transcript || transcript.trim().length < 2) return;
+          onUserText(transcript);
+
+          try {
+            const { data, error } = await supabase.functions.invoke("business-coach", {
+              body: {
+                conversationId: convIdRef.current,
+                message: transcript,
+                businessContext,
+              },
+            });
+
+            if (error || data?.error) throw new Error(data?.error || error?.message);
+            const reply = String(data.reply || "");
+            if (data.conversationId) convIdRef.current = data.conversationId;
+
+            onAssistantText(reply, data.conversationId);
+            return reply;
+          } catch (err: any) {
+            toast.error(err.message || "Coach error");
+            const errReply = "I heard you, but hit a network error. Could you repeat that?";
+            return errReply;
+          }
+        },
+      }
+    );
+
+    agentRef.current = agent;
+    agent.start();
     setActive(true);
-    toast.success("Live voice on — speak naturally");
-    startListening();
+    toast.success("Google Live Voice on — speak naturally with Coach Adaobi");
   };
 
   const stop = () => {
-    activeRef.current = false;
+    if (agentRef.current) {
+      agentRef.current.stop();
+      agentRef.current = null;
+    }
     setActive(false);
     setStatus("idle");
-    try { recRef.current?.stop(); } catch {}
-    try { window.speechSynthesis?.cancel(); } catch {}
   };
-
-  useEffect(() => () => stop(), []);
 
   const label =
     status === "listening" ? "Listening…" :
-    status === "thinking" ? "Thinking…" :
-    status === "speaking" ? "Speaking…" : "Live Voice";
+    status === "processing" ? "Thinking…" :
+    status === "speaking" ? "Speaking…" : "Live Voice (Kore)";
 
   return (
     <Button
@@ -104,12 +105,16 @@ export default function LiveVoiceButton({ conversationId, businessContext, onUse
       onClick={active ? stop : start}
       variant={active ? "destructive" : "secondary"}
       size="sm"
-      className="gap-1.5"
-      title="Hands-free live voice conversation"
+      className="gap-1.5 font-bold"
+      title="Hands-free live voice conversation with Google Kore Voice"
     >
-      {status === "thinking" || status === "speaking"
-        ? <Loader2 className="h-4 w-4 animate-spin" />
-        : active ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+      {status === "processing" || status === "speaking" ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : active ? (
+        <MicOff className="h-4 w-4" />
+      ) : (
+        <Radio className="h-4 w-4 text-amber-500 animate-pulse" />
+      )}
       <span className="hidden sm:inline">{label}</span>
     </Button>
   );

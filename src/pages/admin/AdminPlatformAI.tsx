@@ -11,7 +11,7 @@ import {
   Loader2, Sparkles, Send, Bot, CheckCircle2, ShieldCheck, Zap, RefreshCw,
   Building2, FileText, Users, Sliders, Bell, AlertTriangle, Cpu, ChevronDown,
   ChevronUp, BarChart2, Video, Globe, ArrowRight, Check, X, Compass, Plus,
-  Layers, ExternalLink, HelpCircle, GraduationCap, BookOpen, Mic
+  Layers, ExternalLink, HelpCircle, GraduationCap, BookOpen, Mic, Radio, Volume2, Square
 } from "lucide-react";
 import { toast } from "sonner";
 import { FEATURE_META, FeatureKey } from "@/contexts/FeatureFlagsContext";
@@ -24,6 +24,8 @@ import {
   getGeminiClient,
 } from "@/lib/aiCollaborationEngine";
 import VoiceInputButton from "@/components/admin/VoiceInputButton";
+import GoogleLiveVoiceAgentDialog from "@/components/admin/GoogleLiveVoiceAgentDialog";
+import { synthesizeGoogleVoice } from "@/lib/googleLiveVoiceEngine";
 import {
   generateAICourse,
   encodeCourseMetadata,
@@ -72,11 +74,91 @@ export default function AdminPlatformAI() {
   const [activeTask, setActiveTask] = useState<string | null>(null);
   const [showStats, setShowStats] = useState(false);
   const [expandedLogs, setExpandedLogs] = useState<Record<string, boolean>>({});
+  const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
+  const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const toggleLog = (id: string) => {
     setExpandedLogs((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const stopSpeaking = () => {
+    if (currentAudioSourceRef.current) {
+      try {
+        currentAudioSourceRef.current.stop();
+      } catch {}
+      currentAudioSourceRef.current = null;
+    }
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+      } catch {}
+    }
+    setSpeakingMsgId(null);
+  };
+
+  const speakMessageWithKore = async (msgId: string, text: string) => {
+    if (speakingMsgId === msgId) {
+      stopSpeaking();
+      return;
+    }
+
+    stopSpeaking();
+    setSpeakingMsgId(msgId);
+
+    const cleanText = text
+      .replace(/[*_#`~[\]()]/g, " ")
+      .replace(/\s+/g, " ")
+      .slice(0, 1500);
+
+    try {
+      const wav = await synthesizeGoogleVoice(cleanText, "Kore");
+      if (wav) {
+        if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          audioCtxRef.current = new AudioContextClass({ sampleRate: 24000 });
+        }
+        if (audioCtxRef.current.state === "suspended") {
+          await audioCtxRef.current.resume();
+        }
+
+        const decoded = await audioCtxRef.current.decodeAudioData(wav.slice(0));
+        const source = audioCtxRef.current.createBufferSource();
+        source.buffer = decoded;
+        currentAudioSourceRef.current = source;
+        source.connect(audioCtxRef.current.destination);
+
+        source.onended = () => {
+          setSpeakingMsgId(null);
+          currentAudioSourceRef.current = null;
+        };
+
+        source.start(0);
+        return;
+      }
+    } catch (e) {
+      console.warn("TTS playback error, fallback to browser voice:", e);
+    }
+
+    // Fallback to browser synthesis
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      try {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(cleanText);
+        u.pitch = 1.12;
+        u.rate = 1.0;
+        u.onend = () => setSpeakingMsgId(null);
+        u.onerror = () => setSpeakingMsgId(null);
+        window.speechSynthesis.speak(u);
+      } catch {
+        setSpeakingMsgId(null);
+      }
+    } else {
+      setSpeakingMsgId(null);
+    }
   };
 
   // --- Real-time Platform Stats ---
@@ -513,7 +595,7 @@ Please review the proposed campaign below. Click **"Approve & Dispatch Campaign"
 
         setBusy(false);
         setActiveTask(null);
-        return;
+        return `I have collaborated with the AI Blogger and constructed a ${directive.suggestedTopics.length} part content series for ${directive.theme}. Please review and approve below.`;
       }
 
       // 2. Check if intent is Creating a New Professional Custom Page
@@ -571,7 +653,7 @@ Review the blueprint below. Confirming will instantly compile and publish the pa
 
         setBusy(false);
         setActiveTask(null);
-        return;
+        return `I have engineered a custom landing page for ${pageData.product_name}. Please review the blueprint and approve deployment.`;
       }
 
       // 3. Check if intent is Creating an AI Masterclass / Course
@@ -659,7 +741,7 @@ Review the proposed masterclass below. Click **"Approve & Publish Masterclass"**
 
         setBusy(false);
         setActiveTask(null);
-        return;
+        return `I have created the full Masterclass blueprint for ${course.title} with flashcards and quizzes. Please confirm deployment.`;
       }
 
       // 4. Conversational / Strategic Consulting with Gemini if Key is available
@@ -734,7 +816,7 @@ Tone & Capabilities:
 
         setBusy(false);
         setActiveTask(null);
-        return;
+        return reply.replace(/[*_#`~]/g, " ").slice(0, 280);
       }
 
       // 4. Robust Domain Fallback Strategy & Reasoning
@@ -802,6 +884,7 @@ How would you like to proceed? You can type any specific directive or choose an 
           proposal,
         },
       ]);
+      return replyText.replace(/[*_#`~]/g, " ").slice(0, 250);
     } catch (err: any) {
       toast.error("Error processing request: " + err.message);
       setMessages((prev) => [
@@ -846,6 +929,19 @@ How would you like to proceed? You can type any specific directive or choose an 
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => setLiveVoiceOpen(true)}
+            className="h-8 font-extrabold text-xs rounded-xl gap-1.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-primary text-white shadow-sm hover:opacity-95 ring-1 ring-white/20"
+          >
+            <Radio className="h-3.5 w-3.5 animate-pulse text-amber-300" />
+            <span>Google Live Voice (Kore)</span>
+            <Badge className="h-4 px-1 text-[9px] font-black bg-white/20 text-white border-0">
+              VAD LIVE
+            </Badge>
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -997,14 +1093,39 @@ How would you like to proceed? You can type any specific directive or choose an 
           {/* Messages List */}
           {messages.map((m) => (
             <div key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} gap-1.5`}>
-              <div className="text-[10px] font-bold text-muted-foreground/70 uppercase px-1 flex items-center gap-1.5">
-                {m.role === "user" ? (
-                  <span>You (Administrator)</span>
-                ) : (
-                  <>
-                    <Bot className="h-3 w-3 text-primary" />
-                    <span>AI Strategy Director</span>
-                  </>
+              <div className="text-[10px] font-bold text-muted-foreground/70 uppercase px-1 flex items-center gap-1.5 justify-between w-full max-w-[90%] sm:max-w-[85%]">
+                <div className="flex items-center gap-1.5">
+                  {m.role === "user" ? (
+                    <span>You (Administrator)</span>
+                  ) : (
+                    <>
+                      <Bot className="h-3 w-3 text-primary" />
+                      <span>AI Strategy Director</span>
+                    </>
+                  )}
+                </div>
+                {m.role === "assistant" && (
+                  <button
+                    onClick={() => speakMessageWithKore(m.id, m.content)}
+                    className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
+                      speakingMsgId === m.id
+                        ? "bg-purple-600 text-white animate-pulse"
+                        : "bg-muted/80 text-muted-foreground hover:text-foreground hover:bg-muted"
+                    }`}
+                    title="Listen with Google Kore Voice"
+                  >
+                    {speakingMsgId === m.id ? (
+                      <>
+                        <Square className="h-2.5 w-2.5" />
+                        <span>Stop Voice</span>
+                      </>
+                    ) : (
+                      <>
+                        <Volume2 className="h-2.5 w-2.5 text-purple-500" />
+                        <span>Kore Voice</span>
+                      </>
+                    )}
+                  </button>
                 )}
               </div>
 
@@ -1243,6 +1364,7 @@ How would you like to proceed? You can type any specific directive or choose an 
                 setInput((prev) => (prev ? `${prev} ${spokenText}` : spokenText));
                 inputRef.current?.focus();
               }}
+              onOpenLiveAgent={() => setLiveVoiceOpen(true)}
               disabled={busy}
               className="h-11 w-11 rounded-xl shrink-0 border-border"
             />
@@ -1274,6 +1396,16 @@ How would you like to proceed? You can type any specific directive or choose an 
           </form>
         </div>
       </Card>
+
+      {/* Google Live Voice Agent Modal Dialog (Nigerian Kore Voice + Real-Time VAD) */}
+      <GoogleLiveVoiceAgentDialog
+        open={liveVoiceOpen}
+        onOpenChange={setLiveVoiceOpen}
+        onExecuteCommand={async (cmd) => {
+          const res = await handleAsk(cmd);
+          return res || "Directive processed with AI Strategic Intelligence.";
+        }}
+      />
     </div>
   );
 }

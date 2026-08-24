@@ -1,17 +1,18 @@
 /**
  * Live AI Business Coach — Hands-Free Voice Agent
- * Realistic Voice Agent with tuned Nigerian Business Persona ("Coach Adaobi"),
- * live frequency visualizer radar, dynamic speech prosody, and real-time conversation.
+ * Google Live Voice Agent powered by Google Kore Voice, intelligent Voice Activity
+ * Detection (VAD) silence listening, live frequency visualizer radar, and real-time conversation.
  */
 import { useEffect, useRef, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Mic, MicOff, X, Loader2, Radio, Volume2, Sparkles, UserCheck, RefreshCw, VolumeX
+  Mic, MicOff, X, Loader2, Radio, Volume2, Sparkles, RefreshCw, Zap
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { GoogleLiveVoiceAgent, VoiceAgentState } from "@/lib/googleLiveVoiceEngine";
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
 
 interface GeminiLiveDialogProps {
@@ -25,42 +26,15 @@ export default function GeminiLiveDialog({
   onOpenChange,
   systemPrompt,
 }: GeminiLiveDialogProps) {
-  const [status, setStatus] = useState<"idle" | "listening" | "thinking" | "speaking">("idle");
+  const [status, setStatus] = useState<VoiceAgentState>("idle");
   const [muted, setMuted] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
-  const [waveHeights, setWaveHeights] = useState<number[]>([15, 30, 45, 60, 40, 25, 50, 35]);
+  const [waveHeights, setWaveHeights] = useState<number[]>([15, 30, 45, 60, 40, 25, 50, 35, 20, 40, 30, 15]);
+  const [continuousMode, setContinuousMode] = useState(true);
 
-  const recRef = useRef<any>(null);
-  const activeRef = useRef(false);
-  const mutedRef = useRef(false);
+  const agentRef = useRef<GoogleLiveVoiceAgent | null>(null);
   const convIdRef = useRef<string | null>(null);
-  const waveIntervalRef = useRef<any>(null);
-
-  useEffect(() => {
-    mutedRef.current = muted;
-  }, [muted]);
-
-  // Speech Recognition API Check
-  const SR: any =
-    typeof window !== "undefined"
-      ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-      : null;
-
-  // Audio wave animation simulation for speech activity
-  useEffect(() => {
-    if (status === "speaking" || status === "listening") {
-      waveIntervalRef.current = setInterval(() => {
-        setWaveHeights(
-          Array.from({ length: 12 }, () => Math.floor(Math.random() * 55) + 15)
-        );
-      }, 100);
-    } else {
-      clearInterval(waveIntervalRef.current);
-      setWaveHeights([10, 15, 20, 15, 10, 15, 20, 15, 10, 15, 20, 15]);
-    }
-    return () => clearInterval(waveIntervalRef.current);
-  }, [status]);
 
   useEffect(() => {
     if (open) {
@@ -73,177 +47,85 @@ export default function GeminiLiveDialog({
   }, [open]);
 
   function startCall() {
-    if (!SR) {
-      toast.error("Voice input is not supported in this browser. Please use Google Chrome or Safari.");
-      onOpenChange(false);
-      return;
-    }
-    if (typeof window === "undefined" || !window.speechSynthesis) {
-      toast.error("Voice output is not supported in this browser.");
-      onOpenChange(false);
-      return;
-    }
+    endCall();
 
-    activeRef.current = true;
-    listen();
+    const agent = new GoogleLiveVoiceAgent(
+      {
+        voiceName: "Kore", // Google Kore Voice
+        silenceTimeoutMs: 1400, // Intelligent silence detection window
+        continuous: continuousMode,
+        lang: "en-US",
+      },
+      {
+        onStateChange: (s) => setStatus(s),
+        onInterimTranscript: (t) => setTranscript(t),
+        onFinalTranscript: (t) => setTranscript(t),
+        onAudioLevels: (levels) => setWaveHeights(levels),
+        onError: (err) => toast.error(err),
+        onUserFinishedSpeaking: async (userQuery) => {
+          if (!userQuery || userQuery.trim().length < 2) return;
+          if (muted) return;
 
-    // Welcome greeting in Nigerian coach persona
-    const welcome = "Hello! I am Coach Adaobi, your live Lagos business advisor. What are we strategizing on today? Tell me your numbers or challenges!";
+          try {
+            const coachPrompt = `${systemPrompt || ""}
+You are Coach Adaobi, an elite, energetic, and highly articulate Nigerian business strategist and growth advisor.
+Speak with high energy, Nigerian commercial sharpness, and practical insights. Keep responses conversational and punchy (2-4 sentences max per spoken turn) so the live voice conversation feels natural and fast. Refer to Naira (₦) and market opportunities where appropriate.`;
+
+            const { data, error } = await supabase.functions.invoke("business-coach", {
+              body: {
+                conversationId: convIdRef.current,
+                message: userQuery,
+                businessContext: {},
+                systemPrompt: coachPrompt,
+              },
+            });
+
+            if (error || data?.error) throw new Error(data?.error || error?.message);
+            if (data.conversationId) convIdRef.current = data.conversationId;
+
+            const responseText = String(data.reply || "").replace(/[*_#`~]/g, "");
+            setReply(responseText);
+            return responseText;
+          } catch (err: any) {
+            toast.error(err.message || "Coach voice error");
+            const errReply = "I missed that slightly. Could you tell me more about your business numbers or challenges?";
+            setReply(errReply);
+            return errReply;
+          }
+        },
+      }
+    );
+
+    agentRef.current = agent;
+    agent.start();
+
+    // Welcome greeting with Google Kore Voice
+    const welcome = "Hello! I am Coach Adaobi, your live business strategist. What are we planning today? Tell me your numbers or challenges!";
     setReply(welcome);
-    speakNigerianVoice(welcome);
+    agent.speak(welcome);
   }
 
   function endCall() {
-    activeRef.current = false;
-    try {
-      recRef.current?.stop();
-    } catch {}
-    try {
-      window.speechSynthesis?.cancel();
-    } catch {}
+    if (agentRef.current) {
+      agentRef.current.stop();
+      agentRef.current = null;
+    }
     setStatus("idle");
     setTranscript("");
     setReply("");
   }
 
-  /**
-   * Nigerian Woman Voice Engine ("Coach Adaobi" / Kore Persona)
-   * Selects and modulates natural voice prosody with Nigerian warmth and pacing.
-   */
-  function speakNigerianVoice(text: string): Promise<void> {
-    setStatus("speaking");
-    return new Promise((resolve) => {
-      try {
-        window.speechSynthesis.cancel();
-        const utterance = new SpeechSynthesisUtterance(text);
-
-        // Find best available female / English / Nigerian voice
-        const voices = window.speechSynthesis.getVoices();
-        const nigerianVoice = voices.find((v) =>
-          v.lang.toLowerCase().includes("ng") || v.name.toLowerCase().includes("nigeria")
-        );
-        const naturalFemaleVoice = voices.find((v) =>
-          (v.name.includes("Google") || v.name.includes("Natural") || v.name.includes("Samantha") || v.name.includes("Karen") || v.name.includes("Zira")) &&
-          (v.lang.startsWith("en") || v.name.includes("Female"))
-        );
-        const englishVoice = voices.find((v) => v.lang.startsWith("en"));
-
-        utterance.voice = nigerianVoice || naturalFemaleVoice || englishVoice || null;
-
-        // Custom pitch and rate tuning for authentic warm Nigerian coaching cadence
-        utterance.pitch = 1.15; // Bright, warm female pitch
-        utterance.rate = 0.98; // Clear, deliberate, articulate pace
-
-        utterance.onend = () => {
-          setStatus("idle");
-          resolve();
-        };
-
-        utterance.onerror = () => {
-          setStatus("idle");
-          resolve();
-        };
-
-        window.speechSynthesis.speak(utterance);
-      } catch (err) {
-        setStatus("idle");
-        resolve();
-      }
-    });
-  }
-
-  function listen() {
-    if (!activeRef.current) return;
-    setStatus("listening");
-    const rec = new SR();
-    recRef.current = rec;
-    rec.lang = "en-US";
-    rec.interimResults = true;
-    rec.continuous = false;
-    let gotResult = false;
-
-    rec.onresult = async (e: any) => {
-      let interim = "";
-      let final = "";
-
-      for (let i = e.resultIndex; i < e.results.length; ++i) {
-        if (e.results[i].isFinal) {
-          final += e.results[i][0].transcript;
-        } else {
-          interim += e.results[i][0].transcript;
-        }
-      }
-
-      if (interim) {
-        setTranscript(interim);
-      }
-
-      if (final.trim()) {
-        gotResult = true;
-        const query = final.trim();
-        setTranscript(query);
-
-        if (mutedRef.current) {
-          if (activeRef.current) listen();
-          return;
-        }
-
-        setStatus("thinking");
-
-        try {
-          const coachPrompt = `${systemPrompt || ""}
-You are Coach Adaobi, an elite, energetic, and highly articulate Nigerian female business strategist and growth advisor in Lagos.
-Speak with high energy, Nigerian warmth, commercial sharpness, and practical insights. Keep responses conversational and punchy (2-4 sentences max per spoken turn) so the live voice conversation feels natural and fast. Refer to Naira (₦) and Nigerian market opportunities where appropriate.`;
-
-          const { data, error } = await supabase.functions.invoke("business-coach", {
-            body: {
-              conversationId: convIdRef.current,
-              message: query,
-              businessContext: {},
-              systemPrompt: coachPrompt,
-            },
-          });
-
-          if (error || data?.error) throw new Error(data?.error || error?.message);
-          if (data.conversationId) convIdRef.current = data.conversationId;
-
-          const responseText = String(data.reply || "").replace(/[*_#`]/g, "");
-          setReply(responseText);
-          await speakNigerianVoice(responseText);
-        } catch (err: any) {
-          toast.error(err.message || "Coach voice error");
-          setStatus("idle");
-        }
-
-        if (activeRef.current) {
-          setTimeout(() => {
-            if (activeRef.current) listen();
-          }, 300);
-        }
-      }
-    };
-
-    rec.onerror = (e: any) => {
-      if (activeRef.current && !gotResult && e.error !== "not-allowed") {
-        setTimeout(() => activeRef.current && listen(), 300);
-      }
-    };
-
-    rec.onend = () => {
-      if (activeRef.current && !gotResult) {
-        setTimeout(() => activeRef.current && listen(), 200);
-      }
-    };
-
-    try {
-      rec.start();
-    } catch {}
-  }
+  const handleInterrupt = () => {
+    if (agentRef.current) {
+      agentRef.current.interrupt();
+      toast.info("Interrupted. Coach Adaobi is listening to you now...");
+    }
+  };
 
   const statusLabel =
-    status === "listening" ? "Listening to you…" :
-    status === "thinking" ? "Coach Adaobi is strategizing…" :
-    status === "speaking" ? "Coach Adaobi is speaking…" : "Ready to speak";
+    status === "listening" ? "Listening to your voice…" :
+    status === "processing" ? "User paused — Coach Adaobi strategizing…" :
+    status === "speaking" ? "Coach Adaobi speaking (Google Kore Voice)…" : "Ready to speak";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -265,11 +147,11 @@ Speak with high energy, Nigerian warmth, commercial sharpness, and practical ins
                   Coach Adaobi Live Call
                 </DialogTitle>
                 <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] font-extrabold px-1.5 py-0">
-                  LIVE VOICE
+                  GOOGLE KORE VOICE
                 </Badge>
               </div>
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                Nigerian Business Coach · Kore Live Agent
+                Real-Time Voice Agent · Intelligent VAD Listening
               </p>
             </div>
           </div>
@@ -315,12 +197,12 @@ Speak with high energy, Nigerian warmth, commercial sharpness, and practical ins
                   ? "bg-gradient-to-tr from-accent to-primary shadow-accent/50 scale-105"
                   : status === "listening"
                   ? "bg-gradient-to-tr from-emerald-600 to-teal-500 shadow-emerald-500/50 scale-105"
-                  : status === "thinking"
+                  : status === "processing"
                   ? "bg-slate-800 shadow-primary/20"
                   : "bg-slate-800"
               }`}
             >
-              {status === "thinking" ? (
+              {status === "processing" ? (
                 <Loader2 className="h-10 w-10 text-primary animate-spin" />
               ) : status === "speaking" ? (
                 <Volume2 className="h-10 w-10 text-white animate-bounce" />
@@ -358,6 +240,8 @@ Speak with high energy, Nigerian warmth, commercial sharpness, and practical ins
                   ? "bg-accent/20 text-accent border-accent/40"
                   : status === "listening"
                   ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                  : status === "processing"
+                  ? "bg-indigo-500/20 text-indigo-400 border-indigo-500/40"
                   : "bg-white/10 text-slate-300 border-white/20"
               }`}
             >
@@ -372,20 +256,20 @@ Speak with high energy, Nigerian warmth, commercial sharpness, and practical ins
 
             {reply && !transcript && (
               <p className="text-xs text-slate-200 font-medium line-clamp-2 leading-relaxed">
-                Coach: "{reply}"
+                Coach Adaobi: "{reply}"
               </p>
             )}
 
             {!transcript && !reply && (
               <p className="text-xs text-slate-400">
-                Speak freely. Coach Adaobi will listen and talk back in real-time.
+                Speak naturally. Coach Adaobi will listen in real-time and reply when you pause.
               </p>
             )}
           </div>
         </div>
 
         {/* Action Controls Bar */}
-        <div className="p-4 border-t border-white/10 bg-slate-900/80 backdrop-blur-md flex items-center justify-center gap-4">
+        <div className="p-4 border-t border-white/10 bg-slate-900/80 backdrop-blur-md flex items-center justify-center gap-3">
           <Button
             type="button"
             variant={muted ? "destructive" : "secondary"}
@@ -401,10 +285,7 @@ Speak with high energy, Nigerian warmth, commercial sharpness, and practical ins
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => {
-              window.speechSynthesis?.cancel();
-              if (activeRef.current) listen();
-            }}
+            onClick={handleInterrupt}
             className="h-12 px-4 rounded-2xl border-white/20 text-white hover:bg-white/10 text-xs font-bold gap-2"
           >
             <RefreshCw className="h-4 w-4" /> Interrupt / Talk Now
