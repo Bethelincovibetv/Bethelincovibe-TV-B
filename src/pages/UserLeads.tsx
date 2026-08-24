@@ -35,9 +35,6 @@ export default function UserLeads() {
 
   useEffect(() => { load(); }, [user]);
 
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-
   const filtered = useMemo(() => leads.filter((l) => {
     if (statusFilter !== "all" && l.status !== statusFilter) return false;
     if (pageFilter !== "all" && l.sales_page_id !== pageFilter) return false;
@@ -47,6 +44,9 @@ export default function UserLeads() {
     }
     return true;
   }), [leads, search, pageFilter, statusFilter]);
+
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
 
   const setStatus = async (id: string, status: Status) => {
     const { error } = await supabase.from("sales_page_leads").update({ status }).eq("id", id);

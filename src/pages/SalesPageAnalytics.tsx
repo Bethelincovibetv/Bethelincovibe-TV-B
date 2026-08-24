@@ -32,9 +32,6 @@ export default function SalesPageAnalytics() {
     })();
   }, [id, user]);
 
-  if (loading) return null;
-  if (!user) return <Navigate to="/login" replace />;
-
   const stats = useMemo(() => {
     const views = events.filter(e => e.type === "view").length;
     const clicks = events.filter(e => e.type?.startsWith("click")).length;
@@ -85,6 +82,9 @@ export default function SalesPageAnalytics() {
     });
     return Object.entries(m).map(([name, value]) => ({ name, value }));
   }, [events]);
+
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
 
   if (!page) return <div className="container py-12 text-center text-muted-foreground">Loading…</div>;
 
