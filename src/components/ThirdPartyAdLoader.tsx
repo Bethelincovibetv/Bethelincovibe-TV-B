@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 const CACHE_KEY = "thirdparty_ads_cache_v1";
-
 
 /**
  * Injects Monetag & Start.io ad scripts (head + body) when admin has added code.
@@ -44,6 +44,7 @@ function injectHtml(html: string, target: HTMLElement, marker: string) {
 
 export default function ThirdPartyAdLoader() {
   const location = useLocation();
+  const { flags } = useFeatureFlags();
   let suppressAds = false;
   try {
     const auth = useAuth();
@@ -51,18 +52,22 @@ export default function ThirdPartyAdLoader() {
   } catch {}
 
   const isAdmin = suppressAds || location.pathname.startsWith("/admin");
+  const featureDisabled = flags.advertise === false;
 
   // Synchronously inject the last-known verification/head snippets from
-  // localStorage before React Query fetches — so Monetag/Adsterra crawlers
-  // see the meta tag on the very first paint of every route.
+  // localStorage before React Query fetches — UNLESS ads are disabled.
   useLayoutEffect(() => {
+    if (featureDisabled || isAdmin) {
+      document.querySelectorAll('[data-thirdparty-ad]').forEach((n) => n.remove());
+      return;
+    }
     try {
       const cached = JSON.parse(localStorage.getItem(CACHE_KEY) || "{}");
       if (cached.ads_global_enabled === "false") return;
       if (cached.ads_provider_monetag !== "false" && cached.monetag_head) injectHtml(cached.monetag_head, document.head, "monetag-head");
       if (cached.ads_provider_startio !== "false" && cached.startio_head) injectHtml(cached.startio_head, document.head, "startio-head");
     } catch {}
-  }, []);
+  }, [featureDisabled, isAdmin]);
 
   const { data: settings } = useQuery({
     queryKey: ["site-settings-thirdparty-ads"],
@@ -77,6 +82,7 @@ export default function ThirdPartyAdLoader() {
       return map;
     },
     staleTime: 1000 * 60 * 2,
+    enabled: !featureDisabled && !isAdmin,
   });
 
   const globalDisabled = settings?.ads_global_enabled === "false";
@@ -84,11 +90,11 @@ export default function ThirdPartyAdLoader() {
   const startioDisabled = globalDisabled || settings?.ads_provider_startio === "false";
 
   useEffect(() => {
-    if (!settings) return;
-    if (globalDisabled) {
+    if (featureDisabled || isAdmin || globalDisabled) {
       document.querySelectorAll('[data-thirdparty-ad]').forEach((n) => n.remove());
       return;
     }
+    if (!settings) return;
 
     if (!monetagDisabled) {
       if (settings.monetag_head) injectHtml(settings.monetag_head, document.head, "monetag-head");
@@ -103,7 +109,7 @@ export default function ThirdPartyAdLoader() {
     } else {
       document.querySelectorAll('[data-thirdparty-ad*="startio"]').forEach((n) => n.remove());
     }
-  }, [settings, isAdmin, globalDisabled, monetagDisabled, startioDisabled]);
+  }, [settings, isAdmin, featureDisabled, globalDisabled, monetagDisabled, startioDisabled]);
 
   return null;
 }

@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 /**
  * Renders an Adsterra ad unit inside a sandboxed iframe.
@@ -32,6 +33,7 @@ export default function AdsterraAd({
 }) {
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const location = useLocation();
+  const { flags } = useFeatureFlags();
   let suppressAds = false;
   try {
     const auth = useAuth();
@@ -39,6 +41,7 @@ export default function AdsterraAd({
   } catch {}
 
   const isAdmin = suppressAds || location.pathname.startsWith("/admin");
+  const featureDisabled = flags.advertise === false;
 
   const settingKey = `adsterra_show_${slot}`;
 
@@ -54,7 +57,7 @@ export default function AdsterraAd({
       return map;
     },
     staleTime: 1000 * 60 * 2,
-    enabled: !isAdmin,
+    enabled: !isAdmin && !featureDisabled,
   });
 
   const globalDisabled = data?.ads_global_enabled === "false";
@@ -66,7 +69,7 @@ export default function AdsterraAd({
     ? DEFAULT_ON.includes(slot)
     : ["true", "on", "1"].includes(toggleValue);
 
-  const enabled = !!data && !globalDisabled && !providerDisabled && !slotDisabled && slotEnabled && !!adHtml;
+  const enabled = !featureDisabled && !!data && !globalDisabled && !providerDisabled && !slotDisabled && slotEnabled && !!adHtml;
 
   useEffect(() => {
     if (isAdmin || !enabled || !adHtml || !iframeRef.current) return;

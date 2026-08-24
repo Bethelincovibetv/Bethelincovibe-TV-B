@@ -3,10 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 /** Injects Adsterra head scripts (site-verification / anti-adblock / social bar) when the admin has added code. */
 export default function AdsterraLoader() {
   const location = useLocation();
+  const { flags } = useFeatureFlags();
   let suppressAds = false;
   try {
     const auth = useAuth();
@@ -14,6 +16,8 @@ export default function AdsterraLoader() {
   } catch {}
 
   const isAdmin = suppressAds || location.pathname.startsWith("/admin");
+  const featureDisabled = flags.advertise === false;
+
   const { data: settings } = useQuery({
     queryKey: ["site-settings-adsterra"],
     queryFn: async () => {
@@ -26,11 +30,12 @@ export default function AdsterraLoader() {
       return map;
     },
     staleTime: 1000 * 60 * 2,
+    enabled: !featureDisabled && !isAdmin,
   });
 
   const globalDisabled = settings?.ads_global_enabled === "false";
   const providerDisabled = settings?.ads_provider_adsterra === "false";
-  const shouldRun = !isAdmin && !!settings && !globalDisabled && !providerDisabled;
+  const shouldRun = !featureDisabled && !isAdmin && !!settings && !globalDisabled && !providerDisabled;
 
   useEffect(() => {
     if (!shouldRun) {
