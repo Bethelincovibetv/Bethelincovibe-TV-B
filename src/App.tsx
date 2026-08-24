@@ -92,6 +92,7 @@ import AdminEmailSettingsPage from "./pages/admin/AdminEmailSettings";
 import Learn from "./pages/Learn";
 import Forum from "./pages/Forum";
 import ForumPost from "./pages/ForumPost";
+import HowToGuide from "./pages/HowToGuide";
 import AdClickTracker from "./components/AdClickTracker";
 import UserAdEarnings from "./pages/UserAdEarnings";
 import WhatsAppCommunityBanner from "./components/WhatsAppCommunityBanner";
@@ -183,6 +184,9 @@ const App = () => (
               <Route path="/dashboard/businesses/:id/edit" element={<FeatureGate feature="businesses"><EditBusiness /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/boost" element={<FeatureGate feature="business_boost"><BoostBusiness /></FeatureGate>} />
               <Route path="/dashboard/profile-edit" element={<UserProfileEdit />} />
+              <Route path="/dashboard/how-to" element={<HowToGuide />} />
+              <Route path="/dashboard/guides" element={<HowToGuide />} />
+              <Route path="/how-to" element={<HowToGuide />} />
               <Route path="/dashboard/submit-blog" element={<FeatureGate feature="guest_blog"><SubmitBlog /></FeatureGate>} />
               <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/about" element={<About />} />

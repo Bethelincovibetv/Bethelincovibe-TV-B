@@ -14,7 +14,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import {
   Sparkles, CheckCircle2, User, Building2, Briefcase, ArrowRight, ArrowLeft,
-  Rocket, MessageSquare, ExternalLink, ShieldCheck, Upload, Compass, Store, Lightbulb
+  Rocket, MessageSquare, ExternalLink, ShieldCheck, Upload, Compass, Store, Lightbulb,
+  Share2, Globe, Video, Phone, ChevronDown, ChevronUp
 } from "lucide-react";
 
 interface OnboardingSetupWizardProps {
@@ -35,6 +36,7 @@ export default function OnboardingSetupWizard({
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [showSocials, setShowSocials] = useState(false);
 
   // Profile Step Form State
   const [displayName, setDisplayName] = useState(profile?.display_name || "");
@@ -42,6 +44,17 @@ export default function OnboardingSetupWizard({
   const [bio, setBio] = useState(profile?.bio || "");
   const [whatsapp, setWhatsapp] = useState(profile?.whatsapp || "");
   const [avatarUrl, setAvatarUrl] = useState(profile?.avatar_url || "");
+
+  // Social Links State
+  const [socialLinks, setSocialLinks] = useState<Record<string, string>>({
+    instagram: "",
+    tiktok: "",
+    facebook: "",
+    twitter: "",
+    youtube: "",
+    linkedin: "",
+    website: "",
+  });
 
   // Business Step Form State
   const [bizName, setBizName] = useState("");
@@ -56,6 +69,12 @@ export default function OnboardingSetupWizard({
       setBio(profile.bio || "");
       setWhatsapp(profile.whatsapp || "");
       setAvatarUrl(profile.avatar_url || "");
+      if (profile.social_links && typeof profile.social_links === "object") {
+        setSocialLinks((prev) => ({
+          ...prev,
+          ...profile.social_links,
+        }));
+      }
     }
   }, [profile]);
 
@@ -78,11 +97,18 @@ export default function OnboardingSetupWizard({
     }
   };
 
+  const updateSocial = (key: string, val: string) => {
+    setSocialLinks((prev) => ({ ...prev, [key]: val }));
+  };
+
   const saveProfileStep = async () => {
     if (!user) return;
     setSaving(true);
     try {
       const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "");
+      const cleanSocials = { ...socialLinks };
+      if (whatsapp) cleanSocials.whatsapp = whatsapp;
+
       const payload: any = {
         user_id: user.id,
         email: user.email,
@@ -91,11 +117,13 @@ export default function OnboardingSetupWizard({
         bio: bio,
         whatsapp: whatsapp,
         avatar_url: avatarUrl,
+        social_links: cleanSocials,
         is_public: true,
       };
       const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "user_id" });
       if (error) throw error;
-      toast.success("Profile details saved!");
+      localStorage.setItem(`wizard_completed_${user.id}`, "true");
+      toast.success("Profile and social handles saved!");
       if (onProfileUpdated) onProfileUpdated();
       setStep(3);
     } catch (err: any) {
@@ -132,6 +160,7 @@ export default function OnboardingSetupWizard({
         await supabase.from("profiles").update({ services: updatedServices }).eq("user_id", user.id);
       }
 
+      localStorage.setItem(`wizard_completed_${user.id}`, "true");
       if (onProfileUpdated) onProfileUpdated();
       setStep(4);
     } catch (err: any) {
@@ -141,14 +170,23 @@ export default function OnboardingSetupWizard({
     }
   };
 
+  const handleDismiss = () => {
+    if (user?.id) {
+      localStorage.setItem(`wizard_completed_${user.id}`, "true");
+    }
+    onClose();
+  };
+
   const completeWizard = () => {
-    localStorage.setItem(`wizard_completed_${user?.id}`, "true");
+    if (user?.id) {
+      localStorage.setItem(`wizard_completed_${user.id}`, "true");
+    }
     toast.success("Setup complete! Welcome to Bethelincovibe TV.");
     onClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleDismiss(); }}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden rounded-3xl border-0 shadow-2xl">
         {/* Header Banner */}
         <div className="bg-gradient-to-r from-primary via-purple-600 to-pink-600 p-6 text-white relative">
@@ -161,7 +199,7 @@ export default function OnboardingSetupWizard({
                 <DialogTitle className="text-xl font-bold text-white">Platform Setup & Onboarding</DialogTitle>
                 <DialogDescription className="text-xs text-white/80">Step {step} of 4 — {
                   step === 1 ? "Explore Platform Features" :
-                  step === 2 ? "Set Up Public Profile" :
+                  step === 2 ? "Set Up Public Profile & Socials" :
                   step === 3 ? "List Your Business Profile" :
                   "Recommended Growth Programs"
                 }</DialogDescription>
@@ -187,7 +225,7 @@ export default function OnboardingSetupWizard({
                 <FeatureCard
                   icon={User}
                   title="Your Public Profile"
-                  desc="A dedicated shareable URL (/u/username) displaying your bio, services, and WhatsApp contact link."
+                  desc="A dedicated shareable URL (/u/username) displaying your bio, services, social handles, and WhatsApp contact."
                   badge="Live Instantly"
                   color="from-purple-500 to-indigo-600"
                 />
@@ -217,12 +255,12 @@ export default function OnboardingSetupWizard({
               <div className="bg-secondary/60 p-4 rounded-2xl border border-border/80 flex items-start gap-3">
                 <ShieldCheck className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Completing your profile increases your brand visibility by <strong>300%</strong> in search results and business recommendations.
+                  Completing your profile increases your brand visibility by <strong>300%</strong> in search results, business recommendations, and buyer inquiries.
                 </p>
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
-                <Button variant="ghost" onClick={onClose} className="text-xs">Skip Tour</Button>
+                <Button variant="ghost" onClick={handleDismiss} className="text-xs">Skip Tour</Button>
                 <Button onClick={() => setStep(2)} className="font-semibold gap-1.5">
                   Start Profile Setup <ArrowRight className="h-4 w-4" />
                 </Button>
@@ -230,14 +268,14 @@ export default function OnboardingSetupWizard({
             </div>
           )}
 
-          {/* STEP 2: PROFILE SETUP */}
+          {/* STEP 2: PROFILE & SOCIAL HANDLES SETUP */}
           {step === 2 && (
             <div className="space-y-4">
               <div className="space-y-1">
                 <h3 className="text-base font-bold flex items-center gap-2">
-                  <User className="h-5 w-5 text-primary" /> Step 2: Personal & Professional Identity
+                  <User className="h-5 w-5 text-primary" /> Step 2: Personal & Social Identity
                 </h3>
-                <p className="text-xs text-muted-foreground">Configure your public handle, photo, and WhatsApp contact.</p>
+                <p className="text-xs text-muted-foreground">Configure your public handle, photo, WhatsApp, and social media links.</p>
               </div>
 
               {/* Avatar Upload */}
@@ -246,7 +284,7 @@ export default function OnboardingSetupWizard({
                   {avatarUrl ? <img src={avatarUrl} alt="" className="w-full h-full object-cover" /> : (displayName?.[0] || "U").toUpperCase()}
                 </div>
                 <div className="space-y-1">
-                  <p className="text-xs font-semibold">Profile Photo / Logo</p>
+                  <p className="text-xs font-semibold">Profile Photo / Business Logo</p>
                   <label className="inline-flex items-center gap-1.5 text-xs text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-xl font-medium cursor-pointer transition">
                     <Upload className="h-3.5 w-3.5" />
                     {uploading ? "Uploading..." : "Upload Photo"}
@@ -257,8 +295,8 @@ export default function OnboardingSetupWizard({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs font-semibold">Display Name</Label>
-                  <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Jane Doe" className="h-9 text-xs" />
+                  <Label className="text-xs font-semibold">Display Name / Brand Name</Label>
+                  <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} placeholder="Jane Doe / Apex Studios" className="h-9 text-xs" />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs font-semibold">Public Handle / Username</Label>
@@ -266,18 +304,133 @@ export default function OnboardingSetupWizard({
                     <span className="absolute left-2.5 text-muted-foreground text-xs font-bold">@</span>
                     <Input value={username} onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ""))} placeholder="janedoe" className="pl-7 h-9 text-xs" />
                   </div>
-                  {username && <p className="text-[10px] text-muted-foreground">URL: <code>/u/{username}</code></p>}
+                  {username && <p className="text-[10px] text-muted-foreground">Live link: <code>/u/{username}</code></p>}
                 </div>
               </div>
 
               <div className="space-y-1">
                 <Label className="text-xs font-semibold">Professional Title / Short Bio</Label>
-                <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="e.g. Founder at Apex Digital. Helping Lagos businesses scale through tech." rows={2} className="text-xs" />
+                <Textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="e.g. Founder at Apex Digital. Helping Lagos businesses scale through technology and branding." rows={2} className="text-xs" />
               </div>
 
               <div className="space-y-1">
-                <Label className="text-xs font-semibold">WhatsApp Number (for direct customer inquiries)</Label>
+                <Label className="text-xs font-semibold">WhatsApp Number (Direct customer lead inquiries)</Label>
                 <PhoneInput value={whatsapp} onChange={setWhatsapp} placeholder="8012345678" />
+              </div>
+
+              {/* Social Handles Section */}
+              <div className="rounded-2xl border border-border/80 bg-muted/20 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowSocials(!showSocials)}
+                  className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center">
+                      <Share2 className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Social Media Handles & Links</p>
+                      <p className="text-[11px] text-muted-foreground">Add Instagram, TikTok, X, Facebook, LinkedIn & Website</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px] font-bold">
+                      {Object.values(socialLinks).filter(Boolean).length} Added
+                    </Badge>
+                    {showSocials ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                </button>
+
+                {showSocials && (
+                  <div className="p-4 pt-1 space-y-3 border-t border-border/60">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold flex items-center gap-1.5 text-pink-600 dark:text-pink-400">
+                          <span className="h-2 w-2 rounded-full bg-pink-500" /> Instagram (@handle or URL)
+                        </Label>
+                        <Input
+                          value={socialLinks.instagram || ""}
+                          onChange={(e) => updateSocial("instagram", e.target.value)}
+                          placeholder="@your_instagram or URL"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold flex items-center gap-1.5 text-zinc-800 dark:text-zinc-200">
+                          <span className="h-2 w-2 rounded-full bg-black dark:bg-white" /> TikTok (@handle or URL)
+                        </Label>
+                        <Input
+                          value={socialLinks.tiktok || ""}
+                          onChange={(e) => updateSocial("tiktok", e.target.value)}
+                          placeholder="@your_tiktok or URL"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold flex items-center gap-1.5 text-blue-600 dark:text-blue-400">
+                          <span className="h-2 w-2 rounded-full bg-blue-600" /> Facebook (Page or Profile URL)
+                        </Label>
+                        <Input
+                          value={socialLinks.facebook || ""}
+                          onChange={(e) => updateSocial("facebook", e.target.value)}
+                          placeholder="https://facebook.com/yourpage"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold flex items-center gap-1.5 text-sky-500">
+                          <span className="h-2 w-2 rounded-full bg-sky-500" /> X / Twitter (@handle or URL)
+                        </Label>
+                        <Input
+                          value={socialLinks.twitter || ""}
+                          onChange={(e) => updateSocial("twitter", e.target.value)}
+                          placeholder="@your_x_handle"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold flex items-center gap-1.5 text-red-600 dark:text-red-400">
+                          <span className="h-2 w-2 rounded-full bg-red-600" /> YouTube (Channel URL)
+                        </Label>
+                        <Input
+                          value={socialLinks.youtube || ""}
+                          onChange={(e) => updateSocial("youtube", e.target.value)}
+                          placeholder="https://youtube.com/@channel"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold flex items-center gap-1.5 text-blue-700 dark:text-blue-300">
+                          <span className="h-2 w-2 rounded-full bg-blue-700" /> LinkedIn (Profile or Page URL)
+                        </Label>
+                        <Input
+                          value={socialLinks.linkedin || ""}
+                          onChange={(e) => updateSocial("linkedin", e.target.value)}
+                          placeholder="https://linkedin.com/in/username"
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1 pt-1">
+                      <Label className="text-[11px] font-semibold flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                        <Globe className="h-3 w-3" /> External Website / Portfolio URL
+                      </Label>
+                      <Input
+                        value={socialLinks.website || ""}
+                        onChange={(e) => updateSocial("website", e.target.value)}
+                        placeholder="https://mybusiness.com"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="flex justify-between items-center pt-2">
@@ -434,3 +587,4 @@ function FeatureCard({ icon: Icon, title, desc, badge, color }: any) {
     </div>
   );
 }
+

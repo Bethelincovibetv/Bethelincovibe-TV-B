@@ -104,6 +104,11 @@ export default function Footer() {
             </h3>
             <ul className="space-y-2.5 text-sm">
               <li>
+                <Link to="/how-to" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 font-medium">
+                  <Sparkles className="h-3.5 w-3.5 text-primary/70" /> How-To Guide &amp; Docs
+                </Link>
+              </li>
+              <li>
                 <Link to="/blog" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 font-medium">
                   <FileText className="h-3.5 w-3.5 text-primary/70" /> Blog &amp; Insights
                 </Link>
