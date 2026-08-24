@@ -4,13 +4,13 @@ import { supabase } from "@/integrations/supabase/client";
 export interface GoogleVoiceOptions {
   voiceName?: "Kore" | "Puck" | "Charon" | "Fenrir" | "Zephyr";
   lang?: string;
-  silenceTimeoutMs?: number; // Time in ms after user pauses before auto-triggering response (default: 1400ms)
+  silenceTimeoutMs?: number; // Time in ms after user pauses before auto-triggering response (default: 2200ms)
   continuous?: boolean; // Hands-free continuous loop
   pitch?: number;
   rate?: number;
 }
 
-export type VoiceAgentState = "idle" | "listening" | "processing" | "speaking" | "error";
+export type VoiceAgentState = "idle" | "listening" | "processing" | "speaking" | "mic-denied" | "error";
 
 export interface VoiceAgentCallbacks {
   onStateChange?: (state: VoiceAgentState) => void;
@@ -20,6 +20,44 @@ export interface VoiceAgentCallbacks {
   onAIResponse?: (responseText: string) => void;
   onAudioLevels?: (levels: number[]) => void;
   onError?: (error: string) => void;
+  onPermissionChange?: (status: "prompt" | "granted" | "denied", message?: string) => void;
+}
+
+/**
+ * Explicitly request user microphone access via navigator.mediaDevices.getUserMedia
+ * with active echo cancellation and noise suppression
+ */
+export async function requestMicrophoneAccess(): Promise<{ granted: boolean; error?: string; stream?: MediaStream }> {
+  if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    return {
+      granted: false,
+      error: "Microphone access is not supported in this browser. Please use Chrome, Edge, or Safari.",
+    };
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        echoCancellation: { ideal: true },
+        noiseSuppression: { ideal: true },
+        autoGainControl: { ideal: true },
+      },
+    });
+    return { granted: true, stream };
+  } catch (err: any) {
+    const isDenied =
+      err.name === "NotAllowedError" ||
+      err.name === "PermissionDeniedError" ||
+      err.message?.includes("Permission denied") ||
+      err.message?.includes("denied");
+
+    return {
+      granted: false,
+      error: isDenied
+        ? "Microphone access was denied or dismissed. Please enable microphone permission in your browser address bar to speak freely."
+        : err.message || "Could not access microphone.",
+    };
+  }
 }
 
 // Convert PCM Uint8Array to WAV buffer
@@ -128,33 +166,40 @@ export async function synthesizeGoogleVoice(
 
 /**
  * Intelligent Google Live Voice Agent
- * Listens in real-time, accurately tracks speech pauses, transcribes continuously,
- * and speaks responses using Google Kore Voice.
+ * Listens in real-time, accurately tracks speech without interruption,
+ * transcribes continuously, and speaks responses using Google Kore Voice.
  */
 export class GoogleLiveVoiceAgent {
   private state: VoiceAgentState = "idle";
+  private permissionStatus: "prompt" | "granted" | "denied" = "prompt";
   private options: Required<GoogleVoiceOptions>;
   private callbacks: VoiceAgentCallbacks;
 
   private recognition: any = null;
   private isListeningActive = false;
+  private isSpeakingActive = false;
   private silenceTimer: any = null;
   private currentTranscript = "";
   private accumulatedFinalTranscript = "";
 
+  private micStream: MediaStream | null = null;
+  private micAudioCtx: AudioContext | null = null;
+  private micAnalyser: AnalyserNode | null = null;
+  private micSourceNode: MediaStreamAudioSourceNode | null = null;
+
   private audioCtx: AudioContext | null = null;
   private currentAudioSource: AudioBufferSourceNode | null = null;
-  private isSpeakingActive = false;
 
   private visualizerInterval: any = null;
+  private isRecognitionRunning = false;
 
   constructor(options: GoogleVoiceOptions = {}, callbacks: VoiceAgentCallbacks = {}) {
     this.options = {
       voiceName: options.voiceName || "Kore",
       lang: options.lang || "en-US",
-      silenceTimeoutMs: options.silenceTimeoutMs || 1400, // 1.4s natural pause detection
+      silenceTimeoutMs: options.silenceTimeoutMs || 2200, // 2.2s natural breathing room
       continuous: options.continuous ?? true,
-      pitch: options.pitch || 1.12,
+      pitch: options.pitch || 1.05,
       rate: options.rate || 1.0,
     };
     this.callbacks = callbacks;
@@ -168,32 +213,78 @@ export class GoogleLiveVoiceAgent {
     return this.state;
   }
 
+  public getPermissionStatus(): "prompt" | "granted" | "denied" {
+    return this.permissionStatus;
+  }
+
   private setState(newState: VoiceAgentState) {
     this.state = newState;
     this.callbacks.onStateChange?.(newState);
     this.updateVisualizer(newState);
   }
 
+  private setupMicAnalyser(stream: MediaStream) {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!this.micAudioCtx || this.micAudioCtx.state === "closed") {
+        this.micAudioCtx = new AudioContextClass();
+      }
+      if (this.micAudioCtx.state === "suspended") {
+        this.micAudioCtx.resume().catch(() => {});
+      }
+
+      this.micAnalyser = this.micAudioCtx.createAnalyser();
+      this.micAnalyser.fftSize = 64;
+      this.micAnalyser.smoothingTimeConstant = 0.75;
+
+      this.micSourceNode = this.micAudioCtx.createMediaStreamSource(stream);
+      // Connect to analyser ONLY, NOT to destination (to avoid audio feedback/noise)
+      this.micSourceNode.connect(this.micAnalyser);
+    } catch (e) {
+      console.warn("Could not attach mic audio analyser:", e);
+    }
+  }
+
   private updateVisualizer(state: VoiceAgentState) {
     clearInterval(this.visualizerInterval);
-    if (state === "listening" || state === "speaking") {
+    if (state === "listening") {
+      const dataArray = new Uint8Array(32);
       this.visualizerInterval = setInterval(() => {
-        const heights = Array.from({ length: 12 }, () =>
-          state === "speaking"
-            ? Math.floor(Math.random() * 60) + 20
-            : Math.floor(Math.random() * 45) + 12
-        );
+        if (this.micAnalyser && this.micAudioCtx && this.micAudioCtx.state === "running") {
+          this.micAnalyser.getByteFrequencyData(dataArray);
+          const step = Math.floor(dataArray.length / 12) || 1;
+          const heights = Array.from({ length: 12 }, (_, i) => {
+            const val = dataArray[i * step] || 0;
+            return Math.min(65, Math.max(10, Math.round((val / 255) * 55 + 10)));
+          });
+          this.callbacks.onAudioLevels?.(heights);
+        } else {
+          // Subtle resting pulse
+          const heights = [12, 18, 24, 30, 26, 20, 28, 22, 16, 24, 18, 12];
+          this.callbacks.onAudioLevels?.(heights);
+        }
+      }, 70);
+    } else if (state === "speaking") {
+      this.visualizerInterval = setInterval(() => {
+        const heights = Array.from({ length: 12 }, () => Math.floor(Math.random() * 45) + 20);
         this.callbacks.onAudioLevels?.(heights);
       }, 90);
+    } else if (state === "processing") {
+      this.visualizerInterval = setInterval(() => {
+        const heights = [20, 28, 36, 44, 36, 28, 36, 44, 36, 28, 20, 15];
+        this.callbacks.onAudioLevels?.(heights);
+      }, 120);
     } else {
-      this.callbacks.onAudioLevels?.([10, 15, 20, 15, 10, 15, 20, 15, 10, 15, 20, 15]);
+      this.callbacks.onAudioLevels?.([10, 14, 18, 14, 10, 14, 18, 14, 10, 14, 18, 10]);
     }
   }
 
   /**
-   * Start Live Interactive Session
+   * Explicitly request Microphone Access and Start Interactive Voice Session.
+   * If welcomeMessage is passed, speak it first cleanly before opening the mic,
+   * so the AI never interrupts itself or hears its own greeting.
    */
-  public async start(): Promise<void> {
+  public async start(welcomeMessage?: string): Promise<boolean> {
     const SpeechRecognition =
       typeof window !== "undefined"
         ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
@@ -203,27 +294,56 @@ export class GoogleLiveVoiceAgent {
       const err = "Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.";
       this.callbacks.onError?.(err);
       this.setState("error");
-      return;
+      return false;
+    }
+
+    // Explicitly prompt and request microphone permission from the user
+    const micRes = await requestMicrophoneAccess();
+    if (!micRes.granted) {
+      this.permissionStatus = "denied";
+      this.setState("mic-denied");
+      this.callbacks.onPermissionChange?.("denied", micRes.error);
+      this.callbacks.onError?.(micRes.error || "Microphone access is required to speak.");
+      return false;
+    }
+
+    this.permissionStatus = "granted";
+    this.callbacks.onPermissionChange?.("granted");
+
+    if (micRes.stream) {
+      this.micStream = micRes.stream;
+      this.setupMicAnalyser(micRes.stream);
     }
 
     this.isListeningActive = true;
-    this.startListeningCycle();
+
+    // If a welcome message is provided, speak it first, then start listening
+    if (welcomeMessage && welcomeMessage.trim()) {
+      this.callbacks.onAIResponse?.(welcomeMessage);
+      await this.speak(welcomeMessage);
+      // When speak finishes, startListeningCycle will be triggered automatically
+    } else {
+      this.startListeningCycle();
+    }
+
+    return true;
   }
 
   /**
    * Internal Speech Recognition Loop with Intelligent Silence (VAD) Detection
    */
-  private startListeningCycle() {
-    if (!this.isListeningActive || this.isSpeakingActive) return;
+  public startListeningCycle() {
+    if (!this.isListeningActive || this.isSpeakingActive || this.state === "processing") return;
 
     try {
       const SpeechRecognition =
         (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-      if (this.recognition) {
+      if (this.recognition && this.isRecognitionRunning) {
         try {
           this.recognition.abort();
         } catch {}
+        this.isRecognitionRunning = false;
       }
 
       const rec = new SpeechRecognition();
@@ -236,13 +356,14 @@ export class GoogleLiveVoiceAgent {
       this.accumulatedFinalTranscript = "";
 
       rec.onstart = () => {
+        this.isRecognitionRunning = true;
         this.setState("listening");
       };
 
       rec.onresult = (event: any) => {
-        // If AI is currently speaking, user speech acts as an instant interrupt
+        // If AI is currently speaking, do not process
         if (this.isSpeakingActive) {
-          this.interrupt();
+          return;
         }
 
         let interim = "";
@@ -272,9 +393,10 @@ export class GoogleLiveVoiceAgent {
         // Every time new speech arrives, clear previous silence timer and restart
         if (this.silenceTimer) {
           clearTimeout(this.silenceTimer);
+          this.silenceTimer = null;
         }
 
-        if (activeDisplay.length > 2) {
+        if (activeDisplay.length > 1) {
           this.silenceTimer = setTimeout(() => {
             this.handleUserSilenceDetected();
           }, this.options.silenceTimeoutMs);
@@ -283,18 +405,18 @@ export class GoogleLiveVoiceAgent {
 
       rec.onerror = (event: any) => {
         if (event.error === "no-speech") {
-          // Normal silence, keep listening
+          // Normal silence while user is listening or thinking; keep listening
           return;
         }
         if (event.error === "not-allowed") {
           this.callbacks.onError?.("Microphone permission denied. Please allow microphone access.");
-          this.setState("error");
+          this.setState("mic-denied");
           this.stop();
           return;
         }
-        if (event.error !== "aborted" && this.isListeningActive) {
+        if (event.error !== "aborted" && this.isListeningActive && !this.isSpeakingActive) {
           setTimeout(() => {
-            if (this.isListeningActive && !this.isSpeakingActive) {
+            if (this.isListeningActive && !this.isSpeakingActive && this.state !== "processing") {
               this.startListeningCycle();
             }
           }, 300);
@@ -302,9 +424,10 @@ export class GoogleLiveVoiceAgent {
       };
 
       rec.onend = () => {
+        this.isRecognitionRunning = false;
         if (this.isListeningActive && !this.isSpeakingActive && this.state !== "processing") {
           setTimeout(() => {
-            if (this.isListeningActive && !this.isSpeakingActive) {
+            if (this.isListeningActive && !this.isSpeakingActive && this.state !== "processing") {
               this.startListeningCycle();
             }
           }, 200);
@@ -314,30 +437,54 @@ export class GoogleLiveVoiceAgent {
       rec.start();
     } catch (err: any) {
       console.warn("Could not start speech recognition loop:", err);
-      this.callbacks.onError?.(err.message || "Failed to start listening");
+      // If error was recognition already started, ignore safely
+      if (!err.message?.includes("already started")) {
+        this.callbacks.onError?.(err.message || "Failed to start listening");
+      }
     }
   }
 
   /**
-   * Triggered when intelligent silence detector determines user has finished talking
+   * Manually trigger immediate submission of what the user has spoken without waiting for silence
+   */
+  public submitSpokenNow() {
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
+    this.handleUserSilenceDetected();
+  }
+
+  /**
+   * Triggered when silence detector determines user has finished talking or user clicked send
    */
   private async handleUserSilenceDetected() {
     const fullQuery = this.currentTranscript.trim();
-    if (!fullQuery || fullQuery.length < 2) return;
+    if (!fullQuery || fullQuery.length < 2) {
+      // Nothing substantive said, resume listening
+      if (this.isListeningActive && !this.isSpeakingActive) {
+        this.setState("listening");
+      }
+      return;
+    }
 
-    // Pause recognition during processing & response synthesis
+    // Stop recognition during processing & response synthesis
     try {
-      this.recognition?.stop();
+      if (this.recognition && this.isRecognitionRunning) {
+        this.recognition.stop();
+        this.isRecognitionRunning = false;
+      }
     } catch {}
 
     this.setState("processing");
+    const queryToExecute = fullQuery;
     this.currentTranscript = "";
     this.accumulatedFinalTranscript = "";
 
     try {
       let aiResponseText = "";
       if (this.callbacks.onUserFinishedSpeaking) {
-        const res = await this.callbacks.onUserFinishedSpeaking(fullQuery);
+        const res = await this.callbacks.onUserFinishedSpeaking(queryToExecute);
         if (typeof res === "string") {
           aiResponseText = res;
         }
@@ -347,7 +494,7 @@ export class GoogleLiveVoiceAgent {
         this.callbacks.onAIResponse?.(aiResponseText);
         await this.speak(aiResponseText);
       } else {
-        // If no explicit audio, resume listening if continuous
+        // If no explicit audio reply, resume listening
         this.setState("idle");
         if (this.isListeningActive && this.options.continuous) {
           this.startListeningCycle();
@@ -366,7 +513,15 @@ export class GoogleLiveVoiceAgent {
    * Speak response using Google Kore Voice (Gemini TTS with Web Speech natural fallback)
    */
   public async speak(text: string): Promise<void> {
+    // Temporarily halt recognition while speaking so AI does not hear itself
     this.isSpeakingActive = true;
+    try {
+      if (this.recognition && this.isRecognitionRunning) {
+        this.recognition.stop();
+        this.isRecognitionRunning = false;
+      }
+    } catch {}
+
     this.setState("speaking");
 
     try {
@@ -412,13 +567,13 @@ export class GoogleLiveVoiceAgent {
             this.currentAudioSource = null;
             this.setState("idle");
             resolve();
-            // If in continuous hands-free mode, seamlessly resume listening
+            // Automatically resume listening hands-free
             if (this.isListeningActive && this.options.continuous) {
               setTimeout(() => {
                 if (this.isListeningActive && !this.isSpeakingActive) {
                   this.startListeningCycle();
                 }
-              }, 300);
+              }, 250);
             }
           };
 
@@ -428,13 +583,20 @@ export class GoogleLiveVoiceAgent {
           this.isSpeakingActive = false;
           this.setState("idle");
           resolve();
+          if (this.isListeningActive && this.options.continuous) {
+            setTimeout(() => {
+              if (this.isListeningActive && !this.isSpeakingActive) {
+                this.startListeningCycle();
+              }
+            }, 250);
+          }
         }
       })();
     });
   }
 
   /**
-   * Browser Speech Synthesis fallback tuned to authentic, warm, articulate Google voice
+   * Browser Speech Synthesis fallback tuned to authentic, articulate voice
    */
   private speakWithBrowserFallback(text: string): Promise<void> {
     return new Promise((resolve) => {
@@ -447,7 +609,7 @@ export class GoogleLiveVoiceAgent {
 
       try {
         window.speechSynthesis.cancel();
-        const clean = text.replace(/[*_#`~]/g, "").slice(0, 3000);
+        const clean = text.replace(/[*_#`~[\]()]/g, " ").replace(/\s+/g, " ").slice(0, 3000);
         const utterance = new SpeechSynthesisUtterance(clean);
 
         const voices = window.speechSynthesis.getVoices();
@@ -471,7 +633,7 @@ export class GoogleLiveVoiceAgent {
               if (this.isListeningActive && !this.isSpeakingActive) {
                 this.startListeningCycle();
               }
-            }, 300);
+            }, 250);
           }
         };
 
@@ -484,7 +646,7 @@ export class GoogleLiveVoiceAgent {
               if (this.isListeningActive && !this.isSpeakingActive) {
                 this.startListeningCycle();
               }
-            }, 300);
+            }, 250);
           }
         };
 
@@ -520,7 +682,7 @@ export class GoogleLiveVoiceAgent {
         if (this.isListeningActive && !this.isSpeakingActive) {
           this.startListeningCycle();
         }
-      }, 200);
+      }, 150);
     }
   }
 
@@ -530,7 +692,11 @@ export class GoogleLiveVoiceAgent {
   public stop() {
     this.isListeningActive = false;
     this.isSpeakingActive = false;
-    if (this.silenceTimer) clearTimeout(this.silenceTimer);
+    this.isRecognitionRunning = false;
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
     clearInterval(this.visualizerInterval);
 
     try {
@@ -545,6 +711,20 @@ export class GoogleLiveVoiceAgent {
       this.currentAudioSource = null;
     }
 
+    if (this.micStream) {
+      try {
+        this.micStream.getTracks().forEach((track) => track.stop());
+      } catch {}
+      this.micStream = null;
+    }
+
+    if (this.micSourceNode) {
+      try {
+        this.micSourceNode.disconnect();
+      } catch {}
+      this.micSourceNode = null;
+    }
+
     if (typeof window !== "undefined" && window.speechSynthesis) {
       try {
         window.speechSynthesis.cancel();
@@ -552,6 +732,6 @@ export class GoogleLiveVoiceAgent {
     }
 
     this.setState("idle");
-    this.callbacks.onAudioLevels?.([10, 15, 20, 15, 10, 15, 20, 15, 10, 15, 20, 15]);
+    this.callbacks.onAudioLevels?.([10, 14, 18, 14, 10, 14, 18, 14, 10, 14, 18, 10]);
   }
 }

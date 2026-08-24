@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Mic, MicOff, Loader2, Sparkles, Volume2, Radio } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { requestMicrophoneAccess } from "@/lib/googleLiveVoiceEngine";
 
 interface VoiceInputButtonProps {
   onTranscript: (text: string, isFinal: boolean) => void;
@@ -53,10 +54,21 @@ export default function VoiceInputButton({
     }, 1500);
   };
 
-  const startListening = () => {
+  const startListening = async () => {
     if (!isSupported) {
       toast.error("Speech Recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
       return;
+    }
+
+    // Prompt user for microphone access if not yet granted
+    const micRes = await requestMicrophoneAccess();
+    if (!micRes.granted) {
+      toast.error(micRes.error || "Microphone access was denied. Please allow microphone permissions in your browser.");
+      return;
+    }
+    // Clean up temporary permission probe stream so speech recognition has exclusive device focus
+    if (micRes.stream) {
+      micRes.stream.getTracks().forEach((t) => t.stop());
     }
 
     try {
