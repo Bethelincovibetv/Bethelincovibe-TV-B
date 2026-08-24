@@ -221,14 +221,15 @@ export default function PublicProfile() {
         <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-black/30 to-black/20" />
 
         {/* Website Top Bar Nav */}
-        <div className="container mx-auto max-w-7xl px-4 relative z-20 pt-4 flex items-center justify-between gap-3">
-          <Button asChild size="sm" variant="secondary" className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30">
-            <Link to="/directory">
-              <ChevronLeft className="h-4 w-4 mr-1" /> Directory
+        <div className="container mx-auto max-w-7xl px-4 relative z-20 pt-4 flex items-center justify-between gap-2">
+          <Button asChild size="sm" variant="secondary" className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30 text-xs px-2.5 sm:px-3 shrink-0">
+            <Link to="/businesses">
+              <ChevronLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Back to </span>Directory
             </Link>
           </Button>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <QRCodeDialog
               url={typeof window !== "undefined" ? window.location.href : ""}
               title={`${fullName}'s QR Code`}
@@ -237,9 +238,10 @@ export default function PublicProfile() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30"
+                  className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30 text-xs px-2.5 sm:px-3"
                 >
-                  <QrCode className="h-4 w-4 mr-1" /> QR Code
+                  <QrCode className="h-4 w-4 sm:mr-1" />
+                  <span className="hidden sm:inline">QR </span>Code
                 </Button>
               }
             />
@@ -247,14 +249,16 @@ export default function PublicProfile() {
               onClick={onShare}
               size="sm"
               variant="secondary"
-              className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30"
+              className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30 text-xs px-2.5 sm:px-3"
             >
-              <Share2 className="h-4 w-4 mr-1" /> Share
+              <Share2 className="h-4 w-4 sm:mr-1" />
+              <span>Share</span>
             </Button>
             {isOwner && (
-              <Button asChild size="sm" className="rounded-xl shadow-lg h-9 font-bold bg-white text-foreground hover:bg-slate-100">
+              <Button asChild size="sm" className="rounded-xl shadow-lg h-9 font-bold bg-white text-foreground hover:bg-slate-100 text-xs px-2.5 sm:px-3">
                 <Link to="/dashboard/profile-edit">
-                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit Site
+                  <Pencil className="h-3.5 w-3.5 sm:mr-1" />
+                  <span className="hidden sm:inline">Edit </span>Site
                 </Link>
               </Button>
             )}

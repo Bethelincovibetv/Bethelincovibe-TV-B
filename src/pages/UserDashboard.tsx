@@ -170,39 +170,58 @@ export default function UserDashboard() {
       <Helmet><title>My Dashboard | Bethelincovibe TV</title></Helmet>
 
       {/* Mobile-app style header */}
-      <div className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground px-4 py-6 sm:py-8 rounded-b-3xl shadow-lg">
+      <div className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground px-4 py-5 sm:py-8 rounded-b-3xl shadow-lg">
         <div className="container mx-auto max-w-5xl">
-          <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2">
-                <p className="text-xs opacity-80">Welcome back</p>
-                {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px]">Admin User</Badge>}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="min-w-0 flex-1 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs opacity-80">Welcome back</p>
+                  {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold">Admin</Badge>}
+                </div>
+                <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight">{displayName}</h1>
               </div>
-              <h1 className="text-xl sm:text-2xl font-bold truncate">{displayName}</h1>
+
+              {profile?.username && (
+                <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 text-xs h-8 px-2.5 md:hidden shrink-0">
+                  <Link to={`/u/${profile.username}`} target="_blank">
+                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> View Site
+                  </Link>
+                </Button>
+              )}
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+
+            <div className="flex items-center flex-wrap gap-2 shrink-0 pt-1 md:pt-0">
               {profile?.username && (
                 <QRCodeDialog
                   url={`/u/${profile.username}`}
                   title={`${displayName}'s Public Site QR Code`}
                   subtitle="Print on business cards, flyers & banners for customer scanning"
                   trigger={
-                    <Button size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-semibold border-0 shrink-0">
-                      <QrCode className="h-4 w-4 mr-1 text-emerald-300" />My QR Code
+                    <Button size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
+                      <QrCode className="h-4 w-4 sm:mr-1 text-emerald-300" />
+                      <span className="hidden sm:inline">My </span>QR Code
                     </Button>
                   }
                 />
               )}
-              <Button size="sm" variant="secondary" onClick={() => setWizardOpen(true)} className="bg-white/20 hover:bg-white/30 text-white font-semibold border-0 shrink-0">
-                <Wand2 className="h-4 w-4 mr-1 text-amber-300" />Setup Wizard
+              <Button size="sm" variant="secondary" onClick={() => setWizardOpen(true)} className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
+                <Wand2 className="h-4 w-4 sm:mr-1 text-amber-300" />
+                <span className="hidden sm:inline">Setup </span>Wizard
               </Button>
               {isAdmin && (
-                <Button asChild size="sm" variant="secondary" className="bg-amber-400 hover:bg-amber-300 text-amber-950 font-semibold shadow">
-                  <Link to="/admin"><ShieldCheck className="h-4 w-4 mr-1" />Admin Portal</Link>
+                <Button asChild size="sm" variant="secondary" className="bg-amber-400 hover:bg-amber-300 text-amber-950 font-bold shadow text-xs h-9 px-2.5 sm:px-3">
+                  <Link to="/admin">
+                    <ShieldCheck className="h-4 w-4 sm:mr-1" />
+                    <span className="hidden sm:inline">Admin </span>Portal
+                  </Link>
                 </Button>
               )}
-              <Button asChild size="sm" variant="secondary" className="shrink-0">
-                <Link to="/dashboard/profile-edit"><Settings className="h-4 w-4 mr-1" />Edit</Link>
+              <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
+                <Link to="/dashboard/profile-edit">
+                  <Settings className="h-4 w-4 sm:mr-1" />
+                  <span>Edit Profile</span>
+                </Link>
               </Button>
             </div>
           </div>
@@ -240,7 +259,7 @@ export default function UserDashboard() {
         />
 
         {/* Quick Link Tile Grid — 3D Glossy App Style */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3.5">
+        <div className="grid grid-cols-2 min-[400px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
           {tiles.map((t) => (
             <Link
               key={t.to}

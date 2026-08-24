@@ -151,6 +151,7 @@ const App = () => (
               <Route path="/products/list" element={<FeatureGate feature="products"><ListProduct /></FeatureGate>} />
               <Route path="/products/:slug" element={<FeatureGate feature="products"><ProductDetail /></FeatureGate>} />
               {/* Legacy redirects */}
+              <Route path="/directory" element={<Navigate to="/businesses" replace />} />
               <Route path="/suppliers" element={<Navigate to="/businesses" replace />} />
               <Route path="/suppliers/submit" element={<Navigate to="/businesses/list" replace />} />
               <Route path="/suppliers/:slug" element={<FeatureGate feature="businesses"><BusinessProfile /></FeatureGate>} />
