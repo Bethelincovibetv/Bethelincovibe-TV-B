@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
@@ -25,22 +25,95 @@ export default function UserDashboard() {
   const [favCount, setFavCount] = useState(0);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [businessCount, setBusinessCount] = useState(0);
+  const [activities, setActivities] = useState<any[]>([]);
   const [wizardOpen, setWizardOpen] = useState(false);
 
   const fetchUserData = async () => {
     if (!user) return;
-    const [{ data: w }, { data: p }, { count: fCount }, { data: subs }, { count: bCount }] = await Promise.all([
+    const [
+      { data: w },
+      { data: p },
+      { count: fCount },
+      { data: subs },
+      { count: bCount },
+      { data: leads },
+      { data: notifications },
+      { data: forumPosts }
+    ] = await Promise.all([
       supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", user.id),
       supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
       supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("submitted_by", user.id),
+      supabase.from("sales_page_leads").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("user_notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("forum_posts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
     ]);
+
     setWallet(w);
     setProfile(p);
     setFavCount(fCount || 0);
     setSubmissions(subs || []);
     setBusinessCount(bCount || 0);
+
+    // Build unified activity timeline
+    const feed: any[] = [];
+
+    (leads || []).forEach((lead) => {
+      feed.push({
+        id: `lead-${lead.id}`,
+        type: "lead",
+        title: `New lead received from ${lead.name || "a visitor"}`,
+        subtitle: lead.notes || lead.email || lead.phone,
+        time: lead.created_at,
+        icon: Mail,
+        color: "text-rose-500 bg-rose-500/10",
+        link: "/dashboard/leads",
+      });
+    });
+
+    (notifications || []).forEach((notif) => {
+      feed.push({
+        id: `notif-${notif.id}`,
+        type: "notification",
+        title: notif.title || "System Notification",
+        subtitle: notif.body,
+        time: notif.created_at,
+        icon: Bell,
+        color: "text-amber-500 bg-amber-500/10",
+        link: notif.url || "/dashboard/notifications",
+      });
+    });
+
+    (forumPosts || []).forEach((fp) => {
+      feed.push({
+        id: `forum-${fp.id}`,
+        type: "forum",
+        title: `Posted in Community Forum: "${fp.title}"`,
+        subtitle: fp.category || "General Discussion",
+        time: fp.created_at,
+        icon: MessageCircle,
+        color: "text-teal-500 bg-teal-500/10",
+        link: `/forum/${fp.id}`,
+      });
+    });
+
+    (subs || []).forEach((sub) => {
+      feed.push({
+        id: `sub-${sub.id}`,
+        type: "submission",
+        title: `Business submission: "${sub.business_name}"`,
+        subtitle: `Status: ${sub.status}`,
+        time: sub.created_at,
+        icon: Sparkles,
+        color: "text-indigo-500 bg-indigo-500/10",
+        link: "/dashboard/submit-blog",
+      });
+    });
+
+    // Sort by most recent timestamp
+    feed.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
+    setActivities(feed.slice(0, 8));
   };
 
   useEffect(() => {
@@ -173,6 +246,65 @@ export default function UserDashboard() {
         </div>
 
         <ReferralCard />
+
+        {/* Recent Activity Feed */}
+        <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between bg-muted/30 pb-3 border-b">
+            <CardTitle className="text-base font-extrabold flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                <Activity className="h-4 w-4" />
+              </div>
+              Recent Activity Feed
+            </CardTitle>
+            <Badge variant="secondary" className="font-bold text-xs rounded-lg">
+              {activities.length} Recent
+            </Badge>
+          </CardHeader>
+          <CardContent className="p-4 sm:p-5">
+            {activities.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground space-y-2">
+                <p className="text-sm font-medium">No recent activity detected yet.</p>
+                <p className="text-xs">Inquiries, leads, notifications, and forum activity will appear here in real-time.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {activities.map((act) => {
+                  const Icon = act.icon;
+                  return (
+                    <Link
+                      key={act.id}
+                      to={act.link}
+                      className="flex items-start gap-3 p-3 rounded-2xl border border-border/50 hover:bg-muted/40 transition-all group"
+                    >
+                      <div className={`p-2.5 rounded-2xl shrink-0 ${act.color}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1 space-y-0.5">
+                        <p className="text-xs font-bold text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                          {act.title}
+                        </p>
+                        {act.subtitle && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-1">
+                            {act.subtitle}
+                          </p>
+                        )}
+                        <p className="text-[10px] text-muted-foreground/80 font-medium">
+                          {new Date(act.time).toLocaleDateString(undefined, {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 self-center" />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">

@@ -112,8 +112,15 @@ export default function ForumPost() {
       <Card>
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <Badge variant={post.kind === "question" ? "default" : "secondary"}>{post.kind === "question" ? "Q&A" : "Discussion"}</Badge>
-            {cat && <Badge variant="outline">{cat.label}</Badge>}
+            <Badge variant={post.kind === "question" ? "default" : "secondary"}>
+              {post.kind === "question" ? "❓ Q&A" : "💬 Discussion"}
+            </Badge>
+            {cat && (
+              <Badge variant="outline" className="gap-1.5 py-1">
+                <img src={cat.icon3d} alt={cat.label} className="h-4 w-4 rounded-xs object-cover" referrerPolicy="no-referrer" />
+                <span>{cat.label}</span>
+              </Badge>
+            )}
           </div>
           <h1 className="text-xl md:text-2xl font-bold mb-2">{post.title}</h1>
           <div className="text-xs text-muted-foreground mb-3">
