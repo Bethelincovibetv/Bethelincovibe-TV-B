@@ -1,14 +1,12 @@
 import { useEffect } from "react";
 
-// Known Adsterra and aggressive ad network domains / patterns
+// Known aggressive popunder and malware ad networks
 const BLOCKED_PATTERNS = [
   /adsterra/i,
   /alwingulla/i,
   /highperformancegate/i,
   /effectivecpmgate/i,
   /pl[0-9]{5,}\./i,
-  /propu\.sh/i,
-  /monetag/i,
   /onclickalgo/i,
   /popunder/i,
 ];

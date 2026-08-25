@@ -28,7 +28,7 @@ export interface FeatureAnnouncement {
 
 // Initialize Firebase App
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApps()[0];
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+export const db = (firebaseConfig as any).firestoreDatabaseId ? getFirestore(app, (firebaseConfig as any).firestoreDatabaseId) : getFirestore(app);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
@@ -40,7 +40,7 @@ if (typeof window !== 'undefined') {
       messagingInstance = getMessaging(app);
     }
   }).catch(() => {
-    console.log("Firebase Messaging not supported in this environment");
+    // Firebase Messaging not supported in this environment
   });
 }
 
@@ -91,17 +91,17 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test Connection on load as mandated by Firebase skill
+// Test Connection on load
 async function testConnection() {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn("Firebase client is offline or initializing.");
-    }
+  } catch (_error) {
+    // Gracefully ignore connection test errors
   }
 }
-testConnection();
+if (typeof window !== 'undefined') {
+  testConnection().catch(() => {});
+}
 
 // --- PWA & PUSH NOTIFICATIONS HELPERS ---
 export async function requestNotificationPermission(): Promise<string | null> {

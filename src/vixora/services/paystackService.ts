@@ -194,8 +194,8 @@ export const fetchSubaccount = async (subaccountCode: string) => {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching subaccount:', error);
-    throw error;
+    console.warn('Error fetching subaccount:', error);
+    return { status: false, message: 'Could not fetch subaccount' };
   }
 };
 
@@ -210,8 +210,8 @@ export const fetchSettlements = async (subaccountCode: string) => {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error fetching settlements:', error);
-    throw error;
+    console.warn('Error fetching settlements:', error);
+    return { status: false, data: [] };
   }
 };
 
@@ -233,8 +233,8 @@ export const createSubaccount = async (params: {
     const data = await response.json();
     return data;
   } catch (error) {
-    console.error('Error creating subaccount:', error);
-    throw error;
+    console.warn('Error creating subaccount:', error);
+    return { status: false, message: 'Could not create subaccount' };
   }
 };
 

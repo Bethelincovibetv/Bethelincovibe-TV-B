@@ -58,6 +58,9 @@ export default function AdSenseLoader() {
       script.async = true;
       script.crossOrigin = "anonymous";
       script.dataset.adsense = "true";
+      script.onerror = () => {
+        // Gracefully ignore ad blocker or network errors
+      };
       document.head.appendChild(script);
     }
   }, [client, isAdActive]);

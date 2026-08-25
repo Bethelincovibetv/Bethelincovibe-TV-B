@@ -23,6 +23,7 @@ function injectHTML(html: string, target: HTMLElement, marker: string) {
     const s = document.createElement("script");
     [...oldScript.attributes].forEach((a) => s.setAttribute(a.name, a.value));
     s.text = oldScript.textContent || "";
+    s.onerror = () => {};
     oldScript.replaceWith(s);
   });
   wrapper.appendChild(tpl.content);

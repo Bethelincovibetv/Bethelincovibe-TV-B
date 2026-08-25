@@ -316,11 +316,14 @@ export const VideoSequencer: React.FC<VideoSequencerProps> = ({
         console.warn("[!] Proxy 2 (allorigins.win) failed...", e);
       }
 
-      throw new Error("Failed to fetch audio stream after attempting all CORS proxies.");
+      return null;
     };
 
     try {
       const arrayBuffer = await fetchWithFallback(url);
+      if (!arrayBuffer) {
+        throw new Error("CORS fallback synthesized");
+      }
       
       const ctx = audioCtxRef.current || new (window.AudioContext || (window as any).webkitAudioContext)();
       audioCtxRef.current = ctx;

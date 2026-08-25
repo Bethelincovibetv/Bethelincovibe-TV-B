@@ -31,6 +31,7 @@ function injectHtml(html: string, target: HTMLElement, marker: string) {
         });
         if (el.textContent) s.textContent = el.textContent;
         s.async = true;
+        s.onerror = () => {};
         s.dataset.thirdpartyAd = marker;
         target.appendChild(s);
       } else {

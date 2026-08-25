@@ -3,8 +3,8 @@ import { Project, CreatedVideo } from '../types';
 
 // Supabase and Lovable Cloud Configuration
 // Credentials supplied by environment variables or default fallbacks
-export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://yyejcbbcqirsigphzxxo.supabase.co';
-export const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ';
+export const SUPABASE_URL = (import.meta as any).env?.VITE_SUPABASE_URL || 'https://gndcgttnpxsjufmehgyi.supabase.co';
+export const SUPABASE_ANON_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZGNndHRucHhzanVmbWVoZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjM5MTMsImV4cCI6MjA5NTI5OTkxM30.N4TQQbIGQfp80iCm8txx72_3XdnJ2HuK6-xQQ1yNJmQ';
 export const LOVABLE_API_BASE_URL = (import.meta as any).env?.VITE_LOVABLE_API_BASE_URL || 'https://project--0ac951e1-eb85-437f-bffe-bc341e2037d2.lovable.app/api/public/v1';
 
 // Initialize Supabase Client with Safe Anon Key & Token Storage

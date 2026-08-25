@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { apiKeyService } from "@/vixora/services/apiKeyService";
 
 export interface GoogleVoiceOptions {
-  voiceName?: "Kore" | "Puck" | "Charon" | "Fenrir" | "Zephyr";
+  voiceName?: "Kore" | "Puck" | "Charon" | "Fenrir" | "Zephyr" | "Aoede" | "Alloy" | "Shimmer";
   lang?: string;
   silenceTimeoutMs?: number; // Base time in ms after user pauses before auto-triggering response
   continuous?: boolean; // Hands-free continuous conversation loop
@@ -25,6 +25,23 @@ export interface VoiceAgentCallbacks {
 }
 
 /**
+ * Retrieve active Gemini API Key with safe fallback chain
+ */
+export function getGeminiApiKey(): string {
+  try {
+    const credsKey = apiKeyService.getCredentials().geminiApiKey;
+    if (credsKey && credsKey.trim().length > 10) return credsKey.trim();
+  } catch {}
+  
+  const envKey =
+    (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+    (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "");
+  if (envKey && String(envKey).trim().length > 10) return String(envKey).trim();
+  
+  return "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
+}
+
+/**
  * Explicitly request user microphone access via navigator.mediaDevices.getUserMedia
  * with echo cancellation, noise suppression, automatic gain control, and highpass/lowpass filtering
  */
@@ -43,7 +60,6 @@ export async function requestMicrophoneAccess(): Promise<{ granted: boolean; err
       autoGainControl: { ideal: true },
       channelCount: { ideal: 1 },
       sampleRate: { ideal: 48000 },
-      // Advanced browser vendor noise reduction constraints
       ...({
         googEchoCancellation: { ideal: true },
         googAutoGainControl: { ideal: true },
@@ -73,7 +89,51 @@ export async function requestMicrophoneAccess(): Promise<{ granted: boolean; err
   }
 }
 
-// Convert PCM Uint8Array to WAV buffer
+/**
+ * Convert Blob to Base64 data string
+ */
+export async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = (reader.result as string) || "";
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * Convert ArrayBuffer to Base64 string
+ */
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+/**
+ * Convert Float32Array PCM samples to 16-bit signed PCM Uint8Array
+ */
+export function floatTo16BitPCM(samples: Float32Array): Uint8Array {
+  const buffer = new ArrayBuffer(samples.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < samples.length; i++) {
+    const s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+  return new Uint8Array(buffer);
+}
+
+/**
+ * Convert PCM Uint8Array to standard RIFF WAVE buffer
+ */
 export function buildWavFromPcm(pcm: Uint8Array, sampleRate = 24000, channels = 1, bitsPerSample = 16): ArrayBuffer {
   const blockAlign = (channels * bitsPerSample) / 8;
   const byteRate = sampleRate * blockAlign;
@@ -88,7 +148,7 @@ export function buildWavFromPcm(pcm: Uint8Array, sampleRate = 24000, channels = 
   writeStr(8, "WAVE");
   writeStr(12, "fmt ");
   view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
+  view.setUint16(20, 1, true); // Linear PCM
   view.setUint16(22, channels, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, byteRate, true);
@@ -101,8 +161,92 @@ export function buildWavFromPcm(pcm: Uint8Array, sampleRate = 24000, channels = 
 }
 
 /**
+ * Helper to detect browser supported audio mime types for MediaRecorder
+ */
+export function getSupportedAudioMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  const types = [
+    "audio/webm;codecs=opus",
+    "audio/webm",
+    "audio/mp4",
+    "audio/ogg;codecs=opus",
+    "audio/ogg",
+    "audio/wav",
+  ];
+  for (const t of types) {
+    try {
+      if (MediaRecorder.isTypeSupported(t)) {
+        return t;
+      }
+    } catch {}
+  }
+  return "";
+}
+
+/**
+ * High-Speed Speech-to-Text Transcriber powered by Google Gemini Multimodal Audio API.
+ * Converts captured audio streams into accurate text transcripts.
+ */
+export async function transcribeAudioWithAI(
+  audioData: Blob | ArrayBuffer,
+  mimeType = "audio/webm"
+): Promise<string> {
+  try {
+    const apiKey = getGeminiApiKey();
+    const ai = new GoogleGenAI({ apiKey });
+
+    let base64Data = "";
+    let finalMime = mimeType;
+
+    if (audioData instanceof Blob) {
+      if (audioData.size < 1000) return ""; // Too small, just a click/pop
+      base64Data = await blobToBase64(audioData);
+      finalMime = audioData.type || mimeType || "audio/webm";
+    } else if (audioData instanceof ArrayBuffer) {
+      if (audioData.byteLength < 1000) return "";
+      base64Data = arrayBufferToBase64(audioData);
+      finalMime = mimeType || "audio/wav";
+    }
+
+    if (!base64Data) return "";
+
+    // Strip extra codecs parameters for Gemini parts inlineData mimeType
+    const cleanMime = finalMime.split(";")[0].trim() || "audio/webm";
+
+    const response = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: [
+        {
+          parts: [
+            {
+              inlineData: {
+                mimeType: cleanMime,
+                data: base64Data,
+              },
+            },
+            {
+              text: "Listen to the user's spoken audio carefully and transcribe what they said verbatim into English text. Return ONLY the transcribed text without quotes, punctuation additions, markdown, or commentary. If the audio contains only background silence, static, or unintelligible noise, return nothing.",
+            },
+          ],
+        },
+      ],
+    });
+
+    const rawTranscript = response.text || "";
+    const cleanTranscript = rawTranscript
+      .replace(/^["'`\s]+|["'`\s]+$/g, "")
+      .replace(/\n+/g, " ")
+      .trim();
+
+    return cleanTranscript;
+  } catch (err) {
+    console.warn("Direct Gemini audio transcription fallback:", err);
+    return "";
+  }
+}
+
+/**
  * Format and sanitize response text into clean, natural spoken speech
- * Eliminates markdown artifacts, URLs, code, and symbols while pronouncing currencies properly.
  */
 export function cleanTextForSpeech(text: string): string {
   if (!text) return "";
@@ -124,18 +268,17 @@ export function cleanTextForSpeech(text: string): string {
 }
 
 /**
- * Synthesize speech using Google Gemini TTS with Google Kore Voice
+ * Synthesize speech using Google Gemini TTS with specified Voice Persona
  */
 export async function synthesizeGoogleVoice(
   text: string,
-  voiceName: "Kore" | "Puck" | "Charon" | "Fenrir" | "Zephyr" = "Kore"
+  voiceName: string = "Aoede"
 ): Promise<ArrayBuffer | null> {
   const clean = cleanTextForSpeech(text);
-
   if (!clean) return null;
 
+  // 1. Try Supabase Edge Function 'tts'
   try {
-    // 1. Try Supabase Edge Function 'tts' (handles API key server-side)
     const { data, error } = await supabase.functions.invoke("tts", {
       body: { text: clean, voice: voiceName },
     });
@@ -151,22 +294,9 @@ export async function synthesizeGoogleVoice(
     console.warn("Supabase TTS invoke fallback:", err);
   }
 
-  // 2. Try direct Google GenAI SDK if key is configured
+  // 2. Try direct Google GenAI SDK
   try {
-    const { data: setting } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", "gemini_api_key")
-      .maybeSingle();
-
-    const credsKey = apiKeyService.getCredentials().geminiApiKey;
-    const apiKey =
-      (setting?.value && setting.value.trim().length > 10 ? setting.value.trim() : null) ||
-      (credsKey && credsKey.length > 10 ? credsKey.trim() : null) ||
-      import.meta.env.VITE_GEMINI_API_KEY ||
-      (typeof process !== "undefined" ? process.env?.GEMINI_API_KEY : "") ||
-      "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
-
+    const apiKey = getGeminiApiKey();
     if (apiKey && apiKey.trim().length > 10) {
       const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
       const response = await ai.models.generateContent({
@@ -176,7 +306,7 @@ export async function synthesizeGoogleVoice(
           responseModalities: [Modality.AUDIO],
           speechConfig: {
             voiceConfig: {
-              prebuiltVoiceConfig: { voiceName: voiceName },
+              prebuiltVoiceConfig: { voiceName: (voiceName as any) || "Aoede" },
             },
           },
         },
@@ -193,17 +323,19 @@ export async function synthesizeGoogleVoice(
       }
     }
   } catch (sdkErr) {
-    console.warn("Direct Google Gemini TTS error:", sdkErr);
+    console.warn("Direct Google Gemini TTS notice:", sdkErr);
   }
 
   return null;
 }
 
 /**
- * Intelligent Google Live Voice Agent
- * Listens in real-time with adaptive silence detection (VAD),
- * prevents microphone disruption during AI thinking/processing pauses,
- * and speaks responses using Google Kore Voice.
+ * Intelligent Google & Vixora Live Voice Agent
+ * Features:
+ * - Hybrid Speech-to-Text: Parallel WebSpeech API + Continuous Audio MediaRecorder + Gemini Multimodal STT
+ * - Real-time Voice Activity Detection (VAD) with adaptive noise calibration
+ * - Hands-free continuous conversation loop with instant turnaround
+ * - High-fidelity Gemini TTS voice synthesis with browser voice fallback
  */
 export class GoogleLiveVoiceAgent {
   private state: VoiceAgentState = "idle";
@@ -218,21 +350,31 @@ export class GoogleLiveVoiceAgent {
   private isSpeakingActive = false;
   private isRecognitionRunning = false;
 
-  // Silence & VAD Timers
-  private silenceTimer: any = null;
-  private restartTimeout: any = null;
-  private lastSpeechTimestamp = 0;
-  private currentTranscript = "";
-  private accumulatedFinalTranscript = "";
-
-  // Hardware Audio Stream, DSP Filters & Analyser
+  // Audio Stream, DSP Filters & Analyser
   private micStream: MediaStream | null = null;
   private micAudioCtx: AudioContext | null = null;
   private micAnalyser: AnalyserNode | null = null;
   private micSourceNode: MediaStreamAudioSourceNode | null = null;
+  private scriptProcessorNode: ScriptProcessorNode | null = null;
   private highPassFilter: BiquadFilterNode | null = null;
   private lowPassFilter: BiquadFilterNode | null = null;
-  private ambientNoiseFloor = 0.02; // Initial calibrated noise floor
+  private ambientNoiseFloor = 0.015;
+
+  // Audio Recording Buffer & MediaRecorder
+  private mediaRecorder: MediaRecorder | null = null;
+  private recordedAudioChunks: Blob[] = [];
+  private pcmAudioChunks: Float32Array[] = [];
+  private pcmSampleCount = 0;
+
+  // Silence & VAD Timers
+  private vadInterval: any = null;
+  private silenceTimer: any = null;
+  private restartTimeout: any = null;
+  private lastSpeechTimestamp = 0;
+  private speechStartTimestamp = 0;
+  private hasDetectedVoiceInCurrentTurn = false;
+  private currentTranscript = "";
+  private accumulatedFinalTranscript = "";
 
   // Playback Audio Context
   private audioCtx: AudioContext | null = null;
@@ -243,11 +385,11 @@ export class GoogleLiveVoiceAgent {
 
   constructor(options: GoogleVoiceOptions = {}, callbacks: VoiceAgentCallbacks = {}) {
     this.options = {
-      voiceName: options.voiceName || "Kore",
+      voiceName: (options.voiceName as any) || "Aoede",
       lang: options.lang || "en-US",
-      silenceTimeoutMs: options.silenceTimeoutMs || 1200, // Snappy real-time conversation turnaround
+      silenceTimeoutMs: options.silenceTimeoutMs || 1100,
       continuous: options.continuous ?? true,
-      pitch: options.pitch || 1.05,
+      pitch: options.pitch || 1.0,
       rate: options.rate || 1.0,
     };
     this.callbacks = callbacks;
@@ -258,7 +400,7 @@ export class GoogleLiveVoiceAgent {
   }
 
   public setVoiceConfig(cfg: Partial<GoogleVoiceOptions>) {
-    this.options = { ...this.options, ...cfg };
+    this.options = { ...this.options, ...(cfg as any) };
   }
 
   public getState(): VoiceAgentState {
@@ -275,10 +417,6 @@ export class GoogleLiveVoiceAgent {
     this.updateVisualizer(newState);
   }
 
-  /**
-   * Enable or disable hardware microphone tracks to prevent picking up noise or triggering
-   * OS mic activity while the AI is processing, reasoning, or speaking.
-   */
   private setHardwareMicEnabled(enabled: boolean) {
     if (this.micStream) {
       this.micStream.getAudioTracks().forEach((track) => {
@@ -288,8 +426,7 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Calculate real-time RMS audio volume from the microphone analyser
-   * with adaptive noise floor tracking (rejects ambient store/room noise)
+   * Real-time RMS audio level with dynamic noise floor tracking
    */
   private getCurrentMicRms(): number {
     if (!this.micAnalyser) return 0;
@@ -303,8 +440,8 @@ export class GoogleLiveVoiceAgent {
       }
       const rms = Math.sqrt(sumSquares / buffer.length);
       
-      // Update running ambient noise floor during low volume states
-      if (rms < 0.05) {
+      // Adapt ambient noise floor during quiet moments
+      if (rms < 0.04) {
         this.ambientNoiseFloor = this.ambientNoiseFloor * 0.95 + rms * 0.05;
       }
       return rms;
@@ -313,6 +450,9 @@ export class GoogleLiveVoiceAgent {
     }
   }
 
+  /**
+   * Configure Web Audio DSP pipeline and AudioWorklet/ScriptProcessor PCM tap
+   */
   private setupMicAnalyser(stream: MediaStream) {
     try {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
@@ -323,30 +463,55 @@ export class GoogleLiveVoiceAgent {
         this.micAudioCtx.resume().catch(() => {});
       }
 
-      // 1. Highpass filter to eliminate desk bumps, AC/fan hum, and low-frequency store rumble (85 Hz cutoff)
+      // Highpass (85Hz) & Lowpass (7500Hz) filtering for crisp vocal frequency passband
       this.highPassFilter = this.micAudioCtx.createBiquadFilter();
       this.highPassFilter.type = "highpass";
       this.highPassFilter.frequency.setValueAtTime(85, this.micAudioCtx.currentTime);
       this.highPassFilter.Q.setValueAtTime(0.7, this.micAudioCtx.currentTime);
 
-      // 2. Lowpass filter to eliminate microphone hiss, electrical buzz, and high-pitch noise (7200 Hz cutoff)
       this.lowPassFilter = this.micAudioCtx.createBiquadFilter();
       this.lowPassFilter.type = "lowpass";
-      this.lowPassFilter.frequency.setValueAtTime(7200, this.micAudioCtx.currentTime);
+      this.lowPassFilter.frequency.setValueAtTime(7500, this.micAudioCtx.currentTime);
       this.lowPassFilter.Q.setValueAtTime(0.7, this.micAudioCtx.currentTime);
 
-      // 3. Analyser for speech energy visualizer and real-time noise-gating
       this.micAnalyser = this.micAudioCtx.createAnalyser();
       this.micAnalyser.fftSize = 64;
-      this.micAnalyser.smoothingTimeConstant = 0.75;
+      this.micAnalyser.smoothingTimeConstant = 0.7;
 
       this.micSourceNode = this.micAudioCtx.createMediaStreamSource(stream);
-      
-      // Connect pipeline: StreamSource -> HighPass -> LowPass -> Analyser
-      // DO NOT connect to destination to avoid acoustic loopback / audio feedback
+
+      // Connect DSP chain
       this.micSourceNode.connect(this.highPassFilter);
       this.highPassFilter.connect(this.lowPassFilter);
       this.lowPassFilter.connect(this.micAnalyser);
+
+      // Connect ScriptProcessor to capture raw PCM Float32 samples as lossless audio buffer
+      try {
+        this.scriptProcessorNode = this.micAudioCtx.createScriptProcessor(4096, 1, 1);
+        this.scriptProcessorNode.onaudioprocess = (e) => {
+          if (!this.isListeningActive || this.isProcessingActive || this.isSpeakingActive) {
+            return;
+          }
+          const inputData = e.inputBuffer.getChannelData(0);
+          // Only store samples if user is speaking or just started to prevent memory leak
+          if (this.hasDetectedVoiceInCurrentTurn || this.pcmAudioChunks.length > 0) {
+            const chunk = new Float32Array(inputData);
+            this.pcmAudioChunks.push(chunk);
+            this.pcmSampleCount += chunk.length;
+            // Cap at 30 seconds of audio buffer
+            if (this.pcmSampleCount > 48000 * 30) {
+              this.pcmAudioChunks.shift();
+            }
+          }
+        };
+        this.lowPassFilter.connect(this.scriptProcessorNode);
+        // Connect to a silent dummy gain node (not destination) so onaudioprocess fires
+        const dummyGain = this.micAudioCtx.createGain();
+        dummyGain.gain.setValueAtTime(0, this.micAudioCtx.currentTime);
+        this.scriptProcessorNode.connect(dummyGain);
+      } catch (procErr) {
+        console.warn("ScriptProcessor tap fallback:", procErr);
+      }
     } catch (e) {
       console.warn("Could not attach mic audio analyser DSP chain:", e);
     }
@@ -367,13 +532,11 @@ export class GoogleLiveVoiceAgent {
           });
           this.callbacks.onAudioLevels?.(heights);
         } else {
-          // Subtle resting pulse
           const heights = [12, 18, 24, 30, 26, 20, 28, 22, 16, 24, 18, 12];
           this.callbacks.onAudioLevels?.(heights);
         }
       }, 70);
     } else if (state === "processing") {
-      // Gentle harmonic breathing wave while AI is thinking/reasoning (no mic noise pickup)
       let phase = 0;
       this.visualizerInterval = setInterval(() => {
         phase = (phase + 0.15) % (Math.PI * 2);
@@ -394,22 +557,9 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Explicitly request Microphone Access and Start Interactive Voice Session.
+   * Start Live Voice Session with microphone permission verification
    */
   public async start(welcomeMessage?: string): Promise<boolean> {
-    const SpeechRecognition =
-      typeof window !== "undefined"
-        ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
-        : null;
-
-    if (!SpeechRecognition) {
-      const err = "Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.";
-      this.callbacks.onError?.(err);
-      this.setState("error");
-      return false;
-    }
-
-    // Explicitly prompt and request microphone permission from the user
     const micRes = await requestMicrophoneAccess();
     if (!micRes.granted) {
       this.permissionStatus = "denied";
@@ -431,11 +581,9 @@ export class GoogleLiveVoiceAgent {
     this.isProcessingActive = false;
     this.isSpeakingActive = false;
 
-    // If a welcome message is provided, speak it first, then open the mic cleanly
     if (welcomeMessage && welcomeMessage.trim()) {
       this.callbacks.onAIResponse?.(welcomeMessage);
       await this.speak(welcomeMessage);
-      // When speak finishes, startListeningCycle will be triggered automatically
     } else {
       this.startListeningCycle();
     }
@@ -444,27 +592,79 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Internal Speech Recognition Loop with Adaptive Silence & Voice Activity Detection (VAD)
+   * Start Continuous Recording & Speech Recognition Cycle
    */
   public startListeningCycle() {
     if (!this.isListeningActive || this.isSpeakingActive || this.isProcessingActive) {
       return;
     }
 
-    // Clear any pending restart timers
     if (this.restartTimeout) {
       clearTimeout(this.restartTimeout);
       this.restartTimeout = null;
     }
+    if (this.silenceTimer) {
+      clearTimeout(this.silenceTimer);
+      this.silenceTimer = null;
+    }
 
-    // Ensure hardware microphone is active and enabled for listening
+    // Re-enable microphone track
     this.setHardwareMicEnabled(true);
+    this.setState("listening");
 
+    // Reset turn buffers
+    this.currentTranscript = "";
+    this.accumulatedFinalTranscript = "";
+    this.hasDetectedVoiceInCurrentTurn = false;
+    this.lastSpeechTimestamp = 0;
+    this.speechStartTimestamp = 0;
+    this.recordedAudioChunks = [];
+    this.pcmAudioChunks = [];
+    this.pcmSampleCount = 0;
+
+    // 1. Initialize MediaRecorder on micStream for high-accuracy Gemini STT
+    if (this.micStream && typeof MediaRecorder !== "undefined") {
+      try {
+        if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+          try {
+            this.mediaRecorder.stop();
+          } catch {}
+        }
+        const mimeType = getSupportedAudioMimeType();
+        this.mediaRecorder = new MediaRecorder(
+          this.micStream,
+          mimeType ? { mimeType } : undefined
+        );
+        this.mediaRecorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            this.recordedAudioChunks.push(e.data);
+          }
+        };
+        this.mediaRecorder.start(150); // 150ms time slices
+      } catch (recErr) {
+        console.warn("MediaRecorder start notice:", recErr);
+      }
+    }
+
+    // 2. Initialize WebSpeech Recognition in parallel for immediate live interim subtitles
+    this.startBrowserSpeechRecognition();
+
+    // 3. Start Continuous Voice Activity Detection (VAD) & Silence Tracker
+    this.startVadMonitor();
+  }
+
+  /**
+   * Launch Web Speech API if supported in browser
+   */
+  private startBrowserSpeechRecognition() {
     try {
       const SpeechRecognition =
-        (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        typeof window !== "undefined"
+          ? (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
+          : null;
 
-      // Safely cleanup previous recognition instance if still active
+      if (!SpeechRecognition) return;
+
       if (this.recognition) {
         try {
           this.recognition.onstart = null;
@@ -480,21 +680,13 @@ export class GoogleLiveVoiceAgent {
       this.recognition = rec;
       rec.continuous = true;
       rec.interimResults = true;
-      rec.lang = this.options.lang;
+      rec.lang = this.options.lang || "en-US";
 
       rec.onstart = () => {
-        if (!this.isListeningActive || this.isProcessingActive || this.isSpeakingActive) {
-          try {
-            rec.abort();
-          } catch {}
-          return;
-        }
         this.isRecognitionRunning = true;
-        this.setState("listening");
       };
 
       rec.onresult = (event: any) => {
-        // Completely discard results if AI is thinking/processing or speaking
         if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
           return;
         }
@@ -519,178 +711,199 @@ export class GoogleLiveVoiceAgent {
         }
 
         const activeDisplay = (this.accumulatedFinalTranscript + " " + interim).trim();
-        this.currentTranscript = activeDisplay;
-        this.callbacks.onInterimTranscript?.(activeDisplay);
-        this.lastSpeechTimestamp = Date.now();
-
-        // --- Adaptive Silence Detection & VAD Heuristics ---
-        if (this.silenceTimer) {
-          clearTimeout(this.silenceTimer);
-          this.silenceTimer = null;
-        }
-
-        if (activeDisplay.length >= 2) {
-          const trimmed = activeDisplay.trim();
-          const wordCount = trimmed.split(/\s+/).filter(Boolean).length;
-          const endsWithPunctuation = /[.?!]$/.test(trimmed);
-          const isQuestion = /\b(what|how|why|when|where|who|can|could|will|would|is|are|tell me|explain|suggest|help)\b/i.test(trimmed);
-
-          let dynamicTimeout = this.options.silenceTimeoutMs; // default 1200ms
-
-          if (endsWithPunctuation || (isQuestion && wordCount >= 4)) {
-            // Completed question or sentence: trigger instant reply
-            dynamicTimeout = 850;
-          } else if (wordCount <= 3) {
-            // Short fragment: allow user natural breathing pause to finish thought
-            dynamicTimeout = 1600;
-          } else {
-            // Standard conversational utterance: snappy turnaround
-            dynamicTimeout = 1100;
-          }
-
-          this.silenceTimer = setTimeout(() => {
-            this.evaluateAndTriggerSilence();
-          }, dynamicTimeout);
+        if (activeDisplay.length > 0) {
+          this.currentTranscript = activeDisplay;
+          this.callbacks.onInterimTranscript?.(activeDisplay);
+          this.hasDetectedVoiceInCurrentTurn = true;
+          this.lastSpeechTimestamp = Date.now();
         }
       };
 
       rec.onerror = (event: any) => {
-        if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
-          return;
-        }
-
-        if (event.error === "no-speech") {
-          // Normal background silence while user is thinking; do not disrupt
-          return;
-        }
+        // Silently tolerate non-fatal WebSpeech disconnects/no-speech
         if (event.error === "not-allowed") {
-          this.callbacks.onError?.("Microphone permission denied. Please allow microphone access.");
+          this.callbacks.onError?.("Microphone permission denied.");
           this.setState("mic-denied");
-          this.stop();
-          return;
-        }
-        if (event.error !== "aborted" && this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
-          this.scheduleRestart(350);
         }
       };
 
       rec.onend = () => {
         this.isRecognitionRunning = false;
-        if (this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
-          this.scheduleRestart(200);
-        }
       };
 
       rec.start();
-    } catch (err: any) {
-      console.warn("Speech recognition cycle warning:", err);
-      if (!err.message?.includes("already started") && !this.isProcessingActive) {
-        this.scheduleRestart(500);
+    } catch (e) {
+      console.warn("WebSpeech recognition notice:", e);
+    }
+  }
+
+  /**
+   * Continuous VAD Monitor: Samples RMS volume and checks speech onset & silence pause
+   */
+  private startVadMonitor() {
+    clearInterval(this.vadInterval);
+
+    this.vadInterval = setInterval(() => {
+      if (!this.isListeningActive || this.isProcessingActive || this.isSpeakingActive) {
+        return;
       }
-    }
-  }
 
-  /**
-   * Schedule a debounced restart of recognition loop when listening is active
-   */
-  private scheduleRestart(delayMs = 200) {
-    if (this.restartTimeout) {
-      clearTimeout(this.restartTimeout);
-      this.restartTimeout = null;
-    }
-    if (this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
-      this.restartTimeout = setTimeout(() => {
-        if (this.isListeningActive && !this.isProcessingActive && !this.isSpeakingActive) {
-          this.startListeningCycle();
+      const rms = this.getCurrentMicRms();
+      const speechThreshold = Math.max(0.02, this.ambientNoiseFloor * 1.5 + 0.015);
+      const isVoiceActive = rms > speechThreshold;
+
+      if (isVoiceActive) {
+        if (!this.hasDetectedVoiceInCurrentTurn) {
+          this.hasDetectedVoiceInCurrentTurn = true;
+          this.speechStartTimestamp = Date.now();
         }
-      }, delayMs);
-    }
+        this.lastSpeechTimestamp = Date.now();
+
+        // Clear any pending silence commit timer while user is actively talking
+        if (this.silenceTimer) {
+          clearTimeout(this.silenceTimer);
+          this.silenceTimer = null;
+        }
+      } else if (this.hasDetectedVoiceInCurrentTurn) {
+        const timeSinceSpeech = Date.now() - this.lastSpeechTimestamp;
+        const totalSpeechDuration = this.lastSpeechTimestamp - this.speechStartTimestamp;
+
+        // User spoke for at least 350ms and has now paused for silenceTimeoutMs
+        if (totalSpeechDuration >= 350 && timeSinceSpeech >= this.options.silenceTimeoutMs) {
+          if (!this.silenceTimer) {
+            this.silenceTimer = setTimeout(() => {
+              this.silenceTimer = null;
+              this.commitAndProcessUserSpeech();
+            }, 100);
+          }
+        }
+      }
+    }, 60);
   }
 
   /**
-   * Verify audio energy (RMS) against dynamic ambient noise floor before committing silence
-   */
-  private evaluateAndTriggerSilence() {
-    if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
-      return;
-    }
-
-    const currentRms = this.getCurrentMicRms();
-    // Dynamic speech threshold above ambient noise floor
-    const isSpeechActive = currentRms > (this.ambientNoiseFloor * 1.6 + 0.035);
-    const timeSinceSpeech = Date.now() - this.lastSpeechTimestamp;
-
-    // If user is still actively vocalizing above noise floor and within last 1.2s, wait a moment
-    if (isSpeechActive && timeSinceSpeech < 1200) {
-      this.silenceTimer = setTimeout(() => {
-        this.evaluateAndTriggerSilence();
-      }, 400);
-      return;
-    }
-
-    this.handleUserSilenceDetected();
-  }
-
-  /**
-   * Manually trigger immediate submission of spoken text without waiting for silence
+   * Manually trigger immediate submission of spoken text (e.g. from "Send Now" button)
    */
   public submitSpokenNow() {
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
     }
-    this.handleUserSilenceDetected();
+    this.commitAndProcessUserSpeech();
   }
 
   /**
-   * Triggered when silence detector determines user has finished talking or clicked Send Now.
-   * Completely pauses/mutes the microphone so AI processing/thinking is noiseless and uninterrupted.
+   * Finalize the spoken turn, transcribe audio via Gemini STT (if WebSpeech didn't provide text),
+   * and pass the transcribed prompt to the AI coach.
    */
-  private async handleUserSilenceDetected() {
-    const fullQuery = this.currentTranscript.trim();
-    if (!fullQuery || fullQuery.length < 2) {
-      // Nothing substantive said, keep listening peacefully
-      if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
-        this.setState("listening");
-      }
+  private async commitAndProcessUserSpeech() {
+    if (this.isProcessingActive || this.isSpeakingActive || !this.isListeningActive) {
       return;
     }
 
-    // 1. Immediately transition to processing state
-    this.isProcessingActive = true;
-    this.setState("processing");
-
-    // 2. Shut down SpeechRecognition and mute hardware mic to prevent disruptive audio interrupts or thinking glitches
-    this.setHardwareMicEnabled(false);
+    clearInterval(this.vadInterval);
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
     }
-    if (this.restartTimeout) {
-      clearTimeout(this.restartTimeout);
-      this.restartTimeout = null;
-    }
 
-    try {
-      if (this.recognition) {
+    this.isProcessingActive = true;
+    this.setState("processing");
+    this.setHardwareMicEnabled(false);
+
+    // Stop WebSpeech
+    if (this.recognition) {
+      try {
         this.recognition.onstart = null;
         this.recognition.onresult = null;
         this.recognition.onerror = null;
         this.recognition.onend = null;
         this.recognition.abort();
-        this.isRecognitionRunning = false;
-        this.recognition = null;
+      } catch {}
+      this.recognition = null;
+    }
+
+    // Stop MediaRecorder and assemble recorded Blob
+    let audioBlob: Blob | null = null;
+    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+      try {
+        this.mediaRecorder.stop();
+      } catch {}
+    }
+
+    if (this.recordedAudioChunks.length > 0) {
+      const mime = getSupportedAudioMimeType() || "audio/webm";
+      audioBlob = new Blob(this.recordedAudioChunks, { type: mime });
+    }
+
+    // Build PCM WAV fallback if Blob is empty or tiny
+    let wavBuffer: ArrayBuffer | null = null;
+    if ((!audioBlob || audioBlob.size < 1200) && this.pcmAudioChunks.length > 0) {
+      try {
+        let totalLen = 0;
+        for (const chunk of this.pcmAudioChunks) totalLen += chunk.length;
+        const mergedFloat = new Float32Array(totalLen);
+        let offset = 0;
+        for (const chunk of this.pcmAudioChunks) {
+          mergedFloat.set(chunk, offset);
+          offset += chunk.length;
+        }
+        const pcm16 = floatTo16BitPCM(mergedFloat);
+        const sampleRate = this.micAudioCtx?.sampleRate || 48000;
+        wavBuffer = buildWavFromPcm(pcm16, sampleRate, 1, 16);
+      } catch (pcmErr) {
+        console.warn("PCM WAV fallback error:", pcmErr);
       }
-    } catch {}
+    }
 
-    const queryToExecute = fullQuery;
-    this.currentTranscript = "";
-    this.accumulatedFinalTranscript = "";
+    let finalSpokenText = this.currentTranscript.trim();
 
+    // If WebSpeech was empty or short (< 2 characters), transcribe the recorded audio with Gemini STT!
+    if (!finalSpokenText || finalSpokenText.length < 2) {
+      try {
+        if (audioBlob && audioBlob.size > 800) {
+          const aiTranscript = await transcribeAudioWithAI(audioBlob, audioBlob.type);
+          if (aiTranscript && aiTranscript.length >= 2) {
+            finalSpokenText = aiTranscript;
+          }
+        } else if (wavBuffer && wavBuffer.byteLength > 1000) {
+          const aiTranscript = await transcribeAudioWithAI(wavBuffer, "audio/wav");
+          if (aiTranscript && aiTranscript.length >= 2) {
+            finalSpokenText = aiTranscript;
+          }
+        }
+      } catch (sttErr) {
+        console.warn("Gemini speech-to-text pipeline fallback:", sttErr);
+      }
+    }
+
+    // If still empty (e.g. user made no vocalization, only silence/clicks), return smoothly to listening
+    if (!finalSpokenText || finalSpokenText.length < 2) {
+      this.isProcessingActive = false;
+      this.currentTranscript = "";
+      this.accumulatedFinalTranscript = "";
+      if (this.isListeningActive && this.options.continuous) {
+        setTimeout(() => {
+          if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
+            this.startListeningCycle();
+          }
+        }, 200);
+      } else {
+        this.setState("idle");
+      }
+      return;
+    }
+
+    // Display the final transcribed user query in the UI
+    this.currentTranscript = finalSpokenText;
+    this.callbacks.onInterimTranscript?.(finalSpokenText);
+    this.callbacks.onFinalTranscript?.(finalSpokenText);
+
+    // Pass the transcript to the AI Business Coach handler
     try {
       let aiResponseText = "";
       if (this.callbacks.onUserFinishedSpeaking) {
-        const res = await this.callbacks.onUserFinishedSpeaking(queryToExecute);
+        const res = await this.callbacks.onUserFinishedSpeaking(finalSpokenText);
         if (typeof res === "string") {
           aiResponseText = res;
         }
@@ -702,7 +915,6 @@ export class GoogleLiveVoiceAgent {
         this.callbacks.onAIResponse?.(aiResponseText);
         await this.speak(aiResponseText);
       } else {
-        // If no spoken audio response returned, return smoothly to listening
         this.setState("idle");
         if (this.isListeningActive && this.options.continuous) {
           setTimeout(() => {
@@ -727,41 +939,36 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Speak response using Google Kore Voice (Gemini TTS with Web Speech natural fallback)
+   * Speak response using Gemini TTS or Web Speech Synthesis fallback
    */
   public async speak(text: string): Promise<void> {
     this.isSpeakingActive = true;
     this.isProcessingActive = false;
-
-    // Ensure mic is muted during speech playback to eliminate audio feedback and acoustic loops
     this.setHardwareMicEnabled(false);
 
-    try {
-      if (this.recognition) {
+    if (this.recognition) {
+      try {
         this.recognition.onstart = null;
         this.recognition.onresult = null;
         this.recognition.onerror = null;
         this.recognition.onend = null;
         this.recognition.abort();
-        this.isRecognitionRunning = false;
-        this.recognition = null;
-      }
-    } catch {}
+      } catch {}
+      this.recognition = null;
+    }
 
     this.setState("speaking");
 
     try {
-      // 1. Try high-fidelity Google Gemini TTS WAV Audio
       const wavBuffer = await synthesizeGoogleVoice(text, this.options.voiceName);
       if (wavBuffer) {
         await this.playAudioBuffer(wavBuffer);
         return;
       }
     } catch (err) {
-      console.warn("Google Gemini TTS playback failed, falling back to Browser Voice:", err);
+      console.warn("TTS playback fallback to browser voice:", err);
     }
 
-    // 2. High-Grade Browser Speech Synthesis Fallback tuned to Kore Voice Persona
     await this.speakWithBrowserFallback(text);
   }
 
@@ -794,7 +1001,6 @@ export class GoogleLiveVoiceAgent {
             this.setState("idle");
             resolve();
 
-            // Automatically resume listening hands-free after subtle acoustic settle time
             if (this.isListeningActive && this.options.continuous) {
               setTimeout(() => {
                 if (this.isListeningActive && !this.isSpeakingActive && !this.isProcessingActive) {
@@ -806,7 +1012,7 @@ export class GoogleLiveVoiceAgent {
 
           source.start(0);
         } catch (e) {
-          console.warn("Audio buffer decode error:", e);
+          console.warn("Audio buffer playback error:", e);
           this.isSpeakingActive = false;
           this.setState("idle");
           resolve();
@@ -823,7 +1029,7 @@ export class GoogleLiveVoiceAgent {
   }
 
   /**
-   * Browser Speech Synthesis fallback tuned to authentic, articulate voice
+   * Browser Speech Synthesis fallback
    */
   private speakWithBrowserFallback(text: string): Promise<void> {
     return new Promise((resolve) => {
@@ -923,6 +1129,7 @@ export class GoogleLiveVoiceAgent {
     this.isProcessingActive = false;
     this.isRecognitionRunning = false;
 
+    clearInterval(this.vadInterval);
     if (this.silenceTimer) {
       clearTimeout(this.silenceTimer);
       this.silenceTimer = null;
@@ -933,16 +1140,25 @@ export class GoogleLiveVoiceAgent {
     }
     clearInterval(this.visualizerInterval);
 
-    try {
-      if (this.recognition) {
+    if (this.mediaRecorder && this.mediaRecorder.state !== "inactive") {
+      try {
+        this.mediaRecorder.stop();
+      } catch {}
+    }
+    this.mediaRecorder = null;
+    this.recordedAudioChunks = [];
+    this.pcmAudioChunks = [];
+
+    if (this.recognition) {
+      try {
         this.recognition.onstart = null;
         this.recognition.onresult = null;
         this.recognition.onerror = null;
         this.recognition.onend = null;
         this.recognition.abort();
-        this.recognition = null;
-      }
-    } catch {}
+      } catch {}
+      this.recognition = null;
+    }
 
     if (this.currentAudioSource) {
       try {
@@ -965,6 +1181,13 @@ export class GoogleLiveVoiceAgent {
       this.micSourceNode = null;
     }
 
+    if (this.scriptProcessorNode) {
+      try {
+        this.scriptProcessorNode.disconnect();
+      } catch {}
+      this.scriptProcessorNode = null;
+    }
+
     if (typeof window !== "undefined" && window.speechSynthesis) {
       try {
         window.speechSynthesis.cancel();
@@ -975,3 +1198,4 @@ export class GoogleLiveVoiceAgent {
     this.callbacks.onAudioLevels?.([10, 14, 18, 14, 10, 14, 18, 14, 10, 14, 18, 10]);
   }
 }
+

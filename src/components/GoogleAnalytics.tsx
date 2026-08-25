@@ -23,6 +23,9 @@ export default function GoogleAnalytics() {
     const script = document.createElement("script");
     script.src = `https://www.googletagmanager.com/gtag/js?id=${gaId}`;
     script.async = true;
+    script.onerror = () => {
+      // Gracefully ignore script loading errors (e.g. ad blockers or offline mode)
+    };
     document.head.appendChild(script);
 
     const inline = document.createElement("script");
