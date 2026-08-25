@@ -253,6 +253,10 @@ export class GoogleLiveVoiceAgent {
     this.callbacks = { ...this.callbacks, ...callbacks };
   }
 
+  public setVoiceConfig(cfg: Partial<GoogleVoiceOptions>) {
+    this.options = { ...this.options, ...cfg };
+  }
+
   public getState(): VoiceAgentState {
     return this.state;
   }

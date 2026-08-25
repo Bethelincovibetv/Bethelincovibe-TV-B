@@ -9,15 +9,13 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
-import DashboardFeatureSearch from "@/components/dashboard/DashboardFeatureSearch";
-import { BookOpen } from "lucide-react";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -30,7 +28,6 @@ export default function UserDashboard() {
   const [businessCount, setBusinessCount] = useState(0);
   const [activities, setActivities] = useState<any[]>([]);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [qrOpen, setQrOpen] = useState(false);
 
   const fetchUserData = async () => {
     if (!user) return;
@@ -125,22 +122,18 @@ export default function UserDashboard() {
     fetchUserData();
   }, [user]);
 
-  // Wizard suppression: NEVER show automatically once profile is configured or marked completed
   useEffect(() => {
     if (!user) return;
     const forceWizard = params.get("wizard") === "1";
     const alreadyDone = localStorage.getItem(`wizard_completed_${user.id}`);
-    const isProfileSetup = Boolean(profile?.username && (profile?.display_name || profile?.whatsapp));
-
-    if (forceWizard) {
+    if (forceWizard || !alreadyDone) {
       setWizardOpen(true);
-      params.delete("wizard");
-      setParams(params, { replace: true });
-    } else if (!alreadyDone && !isProfileSetup && profile !== null) {
-      // Only show automatically for genuinely new/incomplete profiles
-      setWizardOpen(true);
+      if (forceWizard) {
+        params.delete("wizard");
+        setParams(params, { replace: true });
+      }
     }
-  }, [user, params, profile]);
+  }, [user, params]);
 
   if (loading) return <div className="min-h-[50vh] flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>;
   if (!user) return <Navigate to="/login" replace />;
@@ -151,12 +144,12 @@ export default function UserDashboard() {
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
-    { to: "/dashboard/how-to", label: "How-To Guide", icon: BookOpen, color: "from-indigo-600 via-purple-600 to-pink-600", show: true },
-    { to: "/dashboard/sales-pages", label: "Sales Pages", icon: Rocket, color: "from-purple-600 to-fuchsia-600", show: true },
-    { to: "/dashboard/coach", label: "AI Coach", icon: Briefcase, color: "from-violet-500 to-fuchsia-500", show: flags.coach },
-    { to: "/dashboard/inventory", label: "Inventory", icon: Package, color: "from-orange-500 to-red-500", show: flags.inventory },
+    { to: "/dashboard/create-video", label: "AI Video Studio", icon: Film, color: "from-purple-600 via-pink-600 to-amber-500", show: true },
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet, color: "from-emerald-500 to-teal-500", show: flags.wallet },
     { to: "/dashboard/ad-earnings", label: "Ad Earnings", icon: MousePointerClick, color: "from-green-500 to-emerald-600", show: flags.ad_earnings },
+    { to: "/dashboard/coach", label: "AI Coach", icon: Briefcase, color: "from-violet-500 to-fuchsia-500", show: flags.coach },
+    { to: "/dashboard/inventory", label: "Inventory", icon: Package, color: "from-orange-500 to-red-500", show: flags.inventory },
+    { to: "/dashboard/sales-pages", label: "Sales Pages", icon: Rocket, color: "from-purple-600 to-fuchsia-600", show: true },
     { to: "/dashboard/products", label: "My Products", icon: Package, color: "from-sky-500 to-blue-600", show: true },
     { to: "/dashboard/payments", label: "Payments", icon: CreditCard, color: "from-slate-600 to-slate-800", show: true },
     { to: "/dashboard/purchases", label: "My Purchases", icon: ShoppingBag, color: "from-lime-500 to-green-600", show: true },
@@ -213,12 +206,6 @@ export default function UserDashboard() {
                   }
                 />
               )}
-              <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
-                <Link to="/dashboard/how-to">
-                  <BookOpen className="h-4 w-4 sm:mr-1 text-cyan-300" />
-                  <span className="hidden sm:inline">How-To </span>Guide
-                </Link>
-              </Button>
               <Button size="sm" variant="secondary" onClick={() => setWizardOpen(true)} className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
                 <Wand2 className="h-4 w-4 sm:mr-1 text-amber-300" />
                 <span className="hidden sm:inline">Setup </span>Wizard
@@ -256,13 +243,6 @@ export default function UserDashboard() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
-        {/* Real-time Feature Search Bar */}
-        <DashboardFeatureSearch
-          isAdmin={isAdmin}
-          username={profile?.username}
-          onOpenWizard={() => setWizardOpen(true)}
-        />
-
         {/* Profile & Business Completion Card with Smart System Recommendations */}
         <ProfileCompletionCard
           profile={profile}

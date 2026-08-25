@@ -103,6 +103,7 @@ import FcmForegroundListener from "./components/FcmForegroundListener";
 import AdBlocker from "./components/AdBlocker";
 import UserNotificationSettingsPage from "./pages/UserNotificationSettingsPage";
 import UserNotificationsPage from "./pages/UserNotificationsPage";
+import VideoCreator from "./pages/VideoCreator";
 const queryClient = new QueryClient();
 
 function FeatureAwareServices() {
@@ -159,8 +160,11 @@ const App = () => (
               <Route path="/suppliers/submit" element={<Navigate to="/businesses/list" replace />} />
               <Route path="/suppliers/:slug" element={<FeatureGate feature="businesses"><BusinessProfile /></FeatureGate>} />
               <Route path="/tools/startup-calculator" element={<FeatureGate feature="tools"><StartupCalculator /></FeatureGate>} />
+              <Route path="/tools/video-creator" element={<VideoCreator />} />
+              <Route path="/create-video" element={<VideoCreator />} />
               <Route path="/advertise" element={<FeatureGate feature="advertise"><AdvertiseWithUs /></FeatureGate>} />
               <Route path="/dashboard" element={<UserDashboard />} />
+              <Route path="/dashboard/create-video" element={<VideoCreator />} />
               <Route path="/dashboard/notifications" element={<UserNotificationsPage />} />
               <Route path="/dashboard/settings/notifications" element={<UserNotificationSettingsPage />} />
               <Route path="/dashboard/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
@@ -213,6 +217,7 @@ const App = () => (
               <Route path="blog-categories" element={<AdminCategories categoryType="blog" />} />
               <Route path="directory-categories" element={<AdminCategories categoryType="business" />} />
               <Route path="videos" element={<AdminVideos />} />
+              <Route path="video-creator" element={<VideoCreator />} />
               <Route path="slides" element={<AdminSlides />} />
               <Route path="users" element={<AdminUsers />} />
               <Route path="contacts" element={<AdminContacts />} />

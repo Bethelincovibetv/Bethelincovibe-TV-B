@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { GoogleLiveVoiceAgent, VoiceAgentState } from "@/lib/googleLiveVoiceEngine";
+import { VixoraLiveVoiceAgent, VoiceAgentState } from "@/lib/vixoraVoiceEngine";
 
 type Props = {
   conversationId: string | null;
@@ -14,7 +14,7 @@ type Props = {
 
 /**
  * Live Voice mode for the AI Business Coach.
- * Powered by Google Live Voice Engine (Kore Voice) with intelligent Voice Activity
+ * Powered by Vixora AI Live Voice Engine with intelligent Voice Activity
  * Detection (VAD) silence listening and real-time response.
  */
 export default function LiveVoiceButton({
@@ -25,7 +25,7 @@ export default function LiveVoiceButton({
 }: Props) {
   const [active, setActive] = useState(false);
   const [status, setStatus] = useState<VoiceAgentState>("idle");
-  const agentRef = useRef<GoogleLiveVoiceAgent | null>(null);
+  const agentRef = useRef<VixoraLiveVoiceAgent | null>(null);
   const convIdRef = useRef<string | null>(conversationId);
 
   useEffect(() => {
@@ -41,10 +41,10 @@ export default function LiveVoiceButton({
   const start = () => {
     stop();
 
-    const agent = new GoogleLiveVoiceAgent(
+    const agent = new VixoraLiveVoiceAgent(
       {
-        voiceName: "Kore", // Google Kore Voice
-        silenceTimeoutMs: 1400, // 1.4s natural pause before auto-response
+        voiceName: "Kore", // Vixora Kore Voice
+        silenceTimeoutMs: 1100, // 1.1s instant pause before auto-response
         continuous: true,
         lang: "en-US",
       },
@@ -82,7 +82,7 @@ export default function LiveVoiceButton({
     agentRef.current = agent;
     agent.start();
     setActive(true);
-    toast.success("Google Live Voice on — speak naturally with Coach Adaobi");
+    toast.success("Vixora Live Voice connected — speak naturally with your coach");
   };
 
   const stop = () => {
@@ -95,9 +95,13 @@ export default function LiveVoiceButton({
   };
 
   const label =
-    status === "listening" ? "Listening…" :
-    status === "processing" ? "Thinking…" :
-    status === "speaking" ? "Speaking…" : "Live Voice (Kore)";
+    status === "listening"
+      ? "Listening…"
+      : status === "processing"
+      ? "Thinking…"
+      : status === "speaking"
+      ? "Speaking…"
+      : "Vixora Live Voice";
 
   return (
     <Button
@@ -106,7 +110,7 @@ export default function LiveVoiceButton({
       variant={active ? "destructive" : "secondary"}
       size="sm"
       className="gap-1.5 font-bold"
-      title="Hands-free live voice conversation with Google Kore Voice"
+      title="Hands-free live voice conversation powered by Vixora AI"
     >
       {status === "processing" || status === "speaking" ? (
         <Loader2 className="h-4 w-4 animate-spin" />

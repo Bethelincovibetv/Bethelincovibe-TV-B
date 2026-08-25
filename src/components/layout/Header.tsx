@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, LogOut, LayoutDashboard, Home, FileText, Info, Mail, Calculator, User, Megaphone, Building2 } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard, Home, FileText, Info, Mail, Calculator, User, Megaphone, Building2, Film } from "lucide-react";
 import SiteSearch from "@/components/SiteSearch";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 const allNavLinks = [
   { to: "/", label: "Home", icon: Home, feature: null as null | string },
+  { to: "/create-video", label: "Create Video", icon: Film, feature: null },
   { to: "/blog", label: "Blog", icon: FileText, feature: "blog" },
   { to: "/businesses", label: "Businesses", icon: Building2, feature: "businesses" },
   { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, feature: "tools" },

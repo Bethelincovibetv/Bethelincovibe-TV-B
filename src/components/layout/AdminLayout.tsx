@@ -21,6 +21,7 @@ const allLinks = [
   { to: "/admin/guest-blogs", label: "Business Blogs", icon: Sparkles, group: "Content" },
   { to: "/admin/blog-categories", label: "Blog Categories", icon: FolderTree, group: "Content" },
   { to: "/admin/videos", label: "TV Videos", icon: Tv, group: "Content" },
+  { to: "/admin/video-creator", label: "AI Video Studio", icon: Sparkles, group: "Content" },
   { to: "/admin/slides", label: "Slides", icon: ImageIcon, group: "Content" },
   { to: "/admin/jingles", label: "Background Jingles", icon: Music, group: "Content" },
 

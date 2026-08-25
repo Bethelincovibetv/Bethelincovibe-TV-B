@@ -41,6 +41,7 @@ const KEYS = [
   "ad_click_reward_naira", "ad_click_cooldown_seconds",
   "business_blog_fee", "ai_cover_image_enabled", "ai_cover_image_model",
   "gemini_api_key",
+  "vixora_api_url",
   "ai_provider", "ai_text_model", "ad_server_enabled",
   "ad_auto_approve", "ad_watermark_text", "ad_watermark_url",
   "ad_rotation_style", "ai_interactive_ads_enabled",
@@ -471,6 +472,32 @@ export default function AdminSettings() {
               <div>
                 <Label>Gemini API Key</Label>
                 <Input type="password" value={get("gemini_api_key")} onChange={(e) => set("gemini_api_key", e.target.value)} placeholder="AIza..." className="font-mono" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-purple-500" />
+                Vixora Native Video Creation Engine
+              </CardTitle>
+              <CardDescription>
+                Live API Base URL powering native video rendering, scene generation, and video jobs status polling.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <Label>Vixora Backend API URL</Label>
+                <Input
+                  value={get("vixora_api_url")}
+                  onChange={(e) => set("vixora_api_url", e.target.value)}
+                  placeholder="https://ais-dev-z3gmsn2xsvk2qfmakpvm37-164225214835.europe-west3.run.app"
+                  className="font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Target endpoints: <code>POST /api/public/v1/videos/create</code> and <code>GET /api/public/v1/videos/status?job_id=...</code>
+                </p>
               </div>
             </CardContent>
           </Card>

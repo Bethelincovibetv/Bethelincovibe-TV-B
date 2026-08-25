@@ -17,7 +17,7 @@ import {
 import { toast } from "sonner";
 import ListenButton from "@/components/ListenButton";
 import LiveVoiceButton from "@/components/coach/LiveVoiceButton";
-import GeminiLiveDialog from "@/components/coach/GeminiLiveDialog";
+import VixoraCoachLiveDialog from "@/components/coach/VixoraCoachLiveDialog";
 
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
 
@@ -160,8 +160,8 @@ export default function BusinessCoach() {
                 <h1 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
                   AI Business Coach
                 </h1>
-                <Badge className="bg-primary/20 text-primary border-primary/30 font-extrabold text-[10px]">
-                  PRO ADVISOR
+                <Badge className="bg-gradient-to-r from-primary to-accent text-white border-0 font-extrabold text-[10px] shadow-xs">
+                  VIXORA AI LIVE
                 </Badge>
               </div>
               <p className="text-xs text-slate-300 flex items-center gap-2 mt-0.5">
@@ -179,16 +179,22 @@ export default function BusinessCoach() {
             <Button size="sm" variant="outline" onClick={() => setShowSetup(!showSetup)} className="rounded-xl border-white/20 text-white hover:bg-white/10 text-xs font-bold">
               <Settings2 className="h-3.5 w-3.5 mr-1" /> Context
             </Button>
-            <Button size="sm" className="rounded-xl font-extrabold text-xs bg-gradient-to-r from-primary to-accent shadow-md gap-1.5" onClick={() => setLiveOpen(true)}>
-              <Radio className="h-4 w-4 animate-pulse text-amber-300" /> Go Live Voice
+            <Button
+              size="sm"
+              className="rounded-xl font-extrabold text-xs bg-gradient-to-r from-primary via-accent to-amber-500 hover:opacity-90 shadow-md shadow-primary/25 gap-1.5"
+              onClick={() => setLiveOpen(true)}
+            >
+              <Radio className="h-4 w-4 animate-pulse text-amber-200" /> Vixora Live Call
             </Button>
           </div>
         </div>
       </div>
 
-      <GeminiLiveDialog
+      <VixoraCoachLiveDialog
         open={liveOpen}
         onOpenChange={setLiveOpen}
+        coachName="Coach Adaobi"
+        businessContext={ctx}
         systemPrompt={`You are a warm, practical AI business coach for Lagos entrepreneurs. ${ctx.business_name ? `The user runs "${ctx.business_name}"${ctx.industry ? ` in ${ctx.industry}` : ""}.` : ""} ${ctx.goal ? `Their current goal: ${ctx.goal}.` : ""} Be concise, conversational, and Naira-aware.`}
       />
 
