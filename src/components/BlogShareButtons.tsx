@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Share2, X, Copy, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface BlogShareButtonsProps {
   url: string;
@@ -65,10 +66,14 @@ export default function BlogShareButtons({ url, title, description, image }: Blo
   ];
 
   const handleCopy = async () => {
-    await navigator.clipboard.writeText(url);
-    setCopied(true);
-    toast.success("Link copied!");
-    setTimeout(() => setCopied(false), 2000);
+    const success = await copyToClipboard(url);
+    if (success) {
+      setCopied(true);
+      toast.success("Link copied!");
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.info("Link: " + url);
+    }
   };
 
   return (

@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Download, Share2, Copy, Check, Sparkles, QrCode, Gift, Smartphone, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import QRCode from "qrcode";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface ReferralFlyerModalProps {
   open: boolean;
@@ -198,10 +199,14 @@ export default function ReferralFlyerModal({
   };
 
   const handleCopyLink = async () => {
-    await navigator.clipboard.writeText(referralLink);
-    setCopied(true);
-    toast.success("Referral link copied!");
-    setTimeout(() => setCopied(false), 2000);
+    const success = await copyToClipboard(referralLink);
+    if (success) {
+      setCopied(true);
+      toast.success("Referral link copied!");
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.info("Link: " + referralLink);
+    }
   };
 
   const handleShareWhatsApp = () => {

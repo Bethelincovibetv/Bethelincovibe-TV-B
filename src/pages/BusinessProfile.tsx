@@ -16,6 +16,8 @@ import ServicePreviewDialog from "@/components/ServicePreviewDialog";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import BusinessCard from "@/components/directory/BusinessCard";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
+import { copyToClipboard } from "@/lib/clipboard";
+import { toast } from "sonner";
 
 type Biz = any;
 
@@ -142,8 +144,11 @@ export default function BusinessProfile() {
   const onShare = async () => {
     track(biz.id, "share");
     const url = typeof window !== "undefined" ? window.location.href : "";
-    if (navigator.share) { try { await navigator.share({ title: biz.name, url }); } catch {} }
-    else { await navigator.clipboard?.writeText(url); }
+    if (navigator.share) { try { await navigator.share({ title: biz.name, url }); return; } catch {} }
+    const success = await copyToClipboard(url);
+    if (success) {
+      toast.success("Business profile link copied!");
+    }
   };
 
   const services: any[] = Array.isArray(biz.services) ? biz.services : [];

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Share2, Copy, Check, Gift, Sparkles, Image as ImageIcon, Smartphone, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import ReferralFlyerModal from "@/components/ReferralFlyerModal";
+import { copyToClipboard } from "@/lib/clipboard";
 
 export default function ReferralCard() {
   const { user } = useAuth();
@@ -19,34 +20,56 @@ export default function ReferralCard() {
   useEffect(() => {
     if (!user) return;
     (async () => {
-      const { data: p } = await supabase
-        .from("profiles")
-        .select("referral_code, display_name")
-        .eq("user_id", user.id)
-        .maybeSingle();
-      setCode((p as any)?.referral_code || "");
-      setDisplayName((p as any)?.display_name || "Entrepreneur");
+      try {
+        const { data: p } = await supabase
+          .from("profiles")
+          .select("referral_code, display_name, username")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      const { data: refs } = await supabase
-        .from("referrals")
-        .select("signup_bonus_amount,purchase_bonus_total")
-        .eq("referrer_id", user.id);
-      const earned = (refs || []).reduce(
-        (s: number, r: any) => s + Number(r.signup_bonus_amount || 0) + Number(r.purchase_bonus_total || 0),
-        0
-      );
-      setStats({ count: refs?.length || 0, earned });
+        let refCode = (p as any)?.referral_code;
+        if (!refCode) {
+          // Auto-generate code
+          const base = (p as any)?.username || (p as any)?.display_name || user.email?.split("@")[0] || "BTV";
+          refCode = (base.replace(/[^a-zA-Z0-9]/g, "").substring(0, 5) + Math.floor(1000 + Math.random() * 9000)).toUpperCase();
+          try {
+            await supabase.from("profiles").update({ referral_code: refCode }).eq("user_id", user.id);
+          } catch (e) {
+            console.warn("Could not persist referral code:", e);
+          }
+        }
+
+        setCode(refCode);
+        setDisplayName((p as any)?.display_name || "Entrepreneur");
+
+        const { data: refs } = await supabase
+          .from("referrals")
+          .select("signup_bonus_amount,purchase_bonus_total")
+          .eq("referrer_id", user.id);
+        const earned = (refs || []).reduce(
+          (s: number, r: any) => s + Number(r.signup_bonus_amount || 0) + Number(r.purchase_bonus_total || 0),
+          0
+        );
+        setStats({ count: refs?.length || 0, earned });
+      } catch (err) {
+        console.error("Error loading referral data:", err);
+      }
     })();
   }, [user]);
 
-  if (!user || !code) return null;
-  const link = `${window.location.origin}/register?ref=${code}`;
+  if (!user) return null;
+  const activeCode = code || (user.id.substring(0, 8).toUpperCase());
+  const link = `${window.location.origin}/register?ref=${activeCode}`;
 
   const onCopy = async () => {
-    await navigator.clipboard.writeText(link);
-    setCopied(true);
-    toast.success("Referral link copied!");
-    setTimeout(() => setCopied(false), 2000);
+    const success = await copyToClipboard(link);
+    if (success) {
+      setCopied(true);
+      toast.success("Referral link copied!");
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      toast.error("Failed to copy. Please manually copy the link: " + link);
+    }
   };
 
   const onShare = async () => {
@@ -88,7 +111,7 @@ export default function ReferralCard() {
               </div>
             </div>
             <Badge className="bg-purple-600 text-white font-mono text-xs">
-              Code: {code}
+              Code: {activeCode}
             </Badge>
           </div>
 

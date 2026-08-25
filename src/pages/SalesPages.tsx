@@ -8,6 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Eye, Edit, Copy as CopyIcon, Trash2, MessageCircle, Share2, BarChart3, Sparkles, ArrowLeft, LineChart } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 
 export default function SalesPages() {
   const { user, loading } = useAuth();
@@ -32,10 +33,14 @@ export default function SalesPages() {
     window.open(`https://wa.me/?text=${text}`, "_blank");
   };
 
-  const copyLink = (p: any) => {
+  const copyLink = async (p: any) => {
     const url = `${origin}/sales/${p.slug}`;
-    navigator.clipboard.writeText(url);
-    toast.success("Link copied");
+    const success = await copyToClipboard(url);
+    if (success) {
+      toast.success("Link copied");
+    } else {
+      toast.info("Link: " + url);
+    }
   };
 
   const duplicate = async (p: any) => {

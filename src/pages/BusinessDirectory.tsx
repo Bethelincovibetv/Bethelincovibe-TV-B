@@ -6,9 +6,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Building2, LayoutGrid, Rows3, SlidersHorizontal, X } from "lucide-react";
+import { Search, Plus, Building2, LayoutGrid, Rows3, SlidersHorizontal, X, BookOpen, ArrowRight, Sparkles } from "lucide-react";
 import BusinessCard from "@/components/directory/BusinessCard";
 import CategoryTile from "@/components/directory/CategoryTile";
 import Breadcrumbs from "@/components/Breadcrumbs";
@@ -80,6 +81,38 @@ export default function BusinessDirectory() {
     },
     enabled: businessIds.length > 0,
     staleTime: 120_000,
+  });
+
+  const { data: recommendedBlogs } = useQuery({
+    queryKey: ["directory-recommended-blogs", categorySlug, search],
+    queryFn: async () => {
+      let query = supabase
+        .from("blog_posts")
+        .select("id, title, slug, excerpt, featured_image, published_at")
+        .eq("published", true);
+
+      if (categorySlug) {
+        // Match category slug or title
+        const keyword = categorySlug.replace(/-/g, " ");
+        query = query.or(`title.ilike.%${keyword}%,excerpt.ilike.%${keyword}%`);
+      } else if (search && search.trim().length > 1) {
+        query = query.or(`title.ilike.%${search.trim()}%,excerpt.ilike.%${search.trim()}%`);
+      }
+
+      const { data } = await query.order("published_at", { ascending: false }).limit(3);
+      if (data && data.length > 0) return data;
+
+      // Fallback: top 3 published articles
+      const { data: fallback } = await supabase
+        .from("blog_posts")
+        .select("id, title, slug, excerpt, featured_image, published_at")
+        .eq("published", true)
+        .order("published_at", { ascending: false })
+        .limit(3);
+
+      return fallback ?? [];
+    },
+    staleTime: 300_000,
   });
 
   const sorted = useMemo(() => {
@@ -295,6 +328,61 @@ export default function BusinessDirectory() {
               <Button asChild><Link to="/businesses/list">List Your Business</Link></Button>
             </div>
           </div>
+        )}
+        {/* Recommended Category / Search Guides & Blogs */}
+        {recommendedBlogs && recommendedBlogs.length > 0 && (
+          <section className="mt-12 mb-8 pt-8 border-t border-border/80" aria-labelledby="recommended-guides">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-bold py-0.5">
+                    <Sparkles className="h-3 w-3 mr-1" /> Featured Insights
+                  </Badge>
+                  <span className="text-xs text-muted-foreground">Expert Advice</span>
+                </div>
+                <h2 id="recommended-guides" className="text-lg sm:text-xl font-black tracking-tight text-foreground mt-1">
+                  {activeCategory ? `Recommended Guides for ${activeCategory.name}` : search ? `Recommended Guides for “${search}”` : "Recommended Business Growth Guides"}
+                </h2>
+              </div>
+              <Button asChild variant="ghost" size="sm" className="text-primary font-bold text-xs gap-1 self-start sm:self-auto">
+                <Link to="/blog">
+                  Browse All Blogs <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {recommendedBlogs.map((b: any) => (
+                <Link key={b.id} to={`/blog/${b.slug}`} className="group block">
+                  <Card className="h-full overflow-hidden border border-border/70 group-hover:border-primary/50 group-hover:shadow-md transition-all rounded-2xl bg-card">
+                    {b.featured_image ? (
+                      <div className="aspect-[16/9] w-full overflow-hidden bg-muted">
+                        <img src={b.featured_image} alt={b.title} loading="lazy" className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                      </div>
+                    ) : (
+                      <div className="aspect-[16/9] w-full bg-gradient-to-br from-primary/20 via-primary/5 to-muted flex items-center justify-center">
+                        <BookOpen className="h-8 w-8 text-primary/40" />
+                      </div>
+                    )}
+                    <CardContent className="p-4 space-y-1.5">
+                      <h3 className="text-sm font-bold line-clamp-2 text-foreground group-hover:text-primary transition-colors leading-snug">
+                        {b.title}
+                      </h3>
+                      {b.excerpt && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                          {b.excerpt}
+                        </p>
+                      )}
+                      <div className="pt-2 flex items-center text-[11px] text-primary font-bold gap-1">
+                        <span>Read Article</span>
+                        <ArrowRight className="h-3 w-3 group-hover:translate-x-1 transition-transform" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
+            </div>
+          </section>
         )}
       </div>
     </>

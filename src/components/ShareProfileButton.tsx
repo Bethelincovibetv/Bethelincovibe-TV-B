@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Share2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/clipboard";
 
 /** Copy or share the current page URL (or an explicit URL). */
 export default function ShareProfileButton({
@@ -29,13 +30,13 @@ export default function ShareProfileButton({
         return;
       }
     } catch { /* fall through to copy */ }
-    try {
-      await navigator.clipboard.writeText(shareUrl);
+    const success = await copyToClipboard(shareUrl);
+    if (success) {
       setCopied(true);
       toast.success("Link copied!");
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Could not copy link");
+    } else {
+      toast.info("Link: " + shareUrl);
     }
   };
 

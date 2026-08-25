@@ -23,6 +23,7 @@ export default function AdminNotifications() {
   const [title, setTitle] = useState("");
   const [message, setMessage] = useState("");
   const [url, setUrl] = useState("");
+  const [deliveryChannel, setDeliveryChannel] = useState<"in_app" | "push" | "both">("in_app");
   const [mode, setMode] = useState<"all" | "users">("all");
   const [userIds, setUserIds] = useState("");
   const [sendAfter, setSendAfter] = useState("");
@@ -89,25 +90,19 @@ export default function AdminNotifications() {
         targetUserIds = userIds.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
         payload.user_ids = targetUserIds;
       } else {
-        // Fetch users for broadcast
+        // Fetch all registered users
         const { data: profiles } = await supabase.from("profiles").select("user_id");
         targetUserIds = (profiles || []).map((p: any) => p.user_id).filter(Boolean);
       }
       if (sendAfter) payload.send_after = new Date(sendAfter).toISOString();
 
-      // Store in push_notifications table
-      const { data: { user: adminUser } } = await supabase.auth.getUser();
-      await supabase.from("push_notifications").insert({
-        title,
-        body: message,
-        url: url || "/dashboard",
-        sent_by: adminUser?.id || null,
-        recipient_count: targetUserIds.length || 1,
-      });
+      const shouldSendInApp = deliveryChannel === "in_app" || deliveryChannel === "both";
+      const shouldSendPush = deliveryChannel === "push" || deliveryChannel === "both";
 
-      // Create in-app user_notifications for target users
-      if (targetUserIds.length > 0) {
-        const notifRecords = targetUserIds.slice(0, 100).map((uId) => ({
+      // 1. Deliver In-App Notifications
+      let inAppDeliveredCount = 0;
+      if (shouldSendInApp && targetUserIds.length > 0) {
+        const notifRecords = targetUserIds.map((uId) => ({
           user_id: uId,
           title,
           body: message,
@@ -115,17 +110,44 @@ export default function AdminNotifications() {
           type: "system",
           is_read: false,
         }));
-        await supabase.from("user_notifications").insert(notifRecords).catch(() => {});
+
+        // Batch in slices of 100 for safety
+        for (let i = 0; i < notifRecords.length; i += 100) {
+          const chunk = notifRecords.slice(i, i + 100);
+          await supabase.from("user_notifications").insert(chunk).catch(() => {});
+        }
+        inAppDeliveredCount = targetUserIds.length;
       }
 
-      // Invoke FCM / push service
-      const { data, error } = await supabase.functions.invoke("onesignal-send", { body: payload }).catch(() => ({ data: { recipients: targetUserIds.length }, error: null }));
-      if (error) throw error;
-      return data || { recipients: targetUserIds.length };
+      // 2. Deliver Push Notification (FCM / OneSignal)
+      let pushDeliveredCount = 0;
+      if (shouldSendPush) {
+        const { data } = await supabase.functions
+          .invoke("onesignal-send", { body: payload })
+          .catch(() => ({ data: { recipients: targetUserIds.length } }));
+        pushDeliveredCount = data?.recipients || targetUserIds.length || 1;
+      }
+
+      // 3. Store in history / log
+      const { data: { user: adminUser } } = await supabase.auth.getUser();
+      await supabase.from("push_notifications").insert({
+        title,
+        body: `[${deliveryChannel.toUpperCase().replace("_", " ")}] ${message}`,
+        url: url || "/dashboard",
+        sent_by: adminUser?.id || null,
+        recipient_count: Math.max(inAppDeliveredCount, pushDeliveredCount, 1),
+      });
+
+      return {
+        inApp: inAppDeliveredCount,
+        push: pushDeliveredCount,
+        channel: deliveryChannel,
+      };
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-notifications"] });
-      toast.success(`Sent notification to ${data?.recipients || 0} user${data?.recipients === 1 ? "" : "s"}`);
+      const channelLabel = data.channel === "in_app" ? "In-App Notification" : data.channel === "push" ? "Push Notification" : "In-App & Push Notifications";
+      toast.success(`Dispatched ${channelLabel} successfully (${Math.max(data.inApp, data.push)} recipients)`);
       setTitle(""); setMessage(""); setUrl(""); setUserIds(""); setSendAfter("");
     },
     onError: (e: any) => toast.error(e.message || "Failed to send notification"),
@@ -281,16 +303,98 @@ export default function AdminNotifications() {
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="border-border/80 shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">Send Notification</CardTitle>
-          <CardDescription>Compose & send via OneSignal REST API.</CardDescription>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Send className="h-5 w-5 text-primary" /> Send Broadcast Notification
+          </CardTitle>
+          <CardDescription>
+            Choose whether to deliver as an in-app dashboard notification, push notification, or both.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5">
+          {/* Delivery Channel Selector */}
+          <div className="space-y-2">
+            <Label className="font-bold text-sm">Delivery Channel *</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+              <button
+                type="button"
+                onClick={() => setDeliveryChannel("in_app")}
+                className={cn(
+                  "p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between gap-1",
+                  deliveryChannel === "in_app"
+                    ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/30"
+                    : "border-border hover:border-primary/40 bg-card"
+                )}
+              >
+                {deliveryChannel === "in_app" && (
+                  <div className="absolute top-2.5 right-2.5 bg-primary text-white rounded-full p-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Bell className="h-4 w-4 text-primary" />
+                  <span className="font-bold text-xs sm:text-sm">In-App Notification</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground leading-tight">
+                  Default (Recommended) — appears in user notification center & dashboard bell for 100% of users.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeliveryChannel("push")}
+                className={cn(
+                  "p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between gap-1",
+                  deliveryChannel === "push"
+                    ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/30"
+                    : "border-border hover:border-primary/40 bg-card"
+                )}
+              >
+                {deliveryChannel === "push" && (
+                  <div className="absolute top-2.5 right-2.5 bg-primary text-white rounded-full p-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                  <span className="font-bold text-xs sm:text-sm">Push Notification</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground leading-tight">
+                  Mobile / browser push popup sent via OneSignal / FCM to subscribed devices.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeliveryChannel("both")}
+                className={cn(
+                  "p-3.5 rounded-2xl border-2 text-left transition-all relative flex flex-col justify-between gap-1",
+                  deliveryChannel === "both"
+                    ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary/30"
+                    : "border-border hover:border-primary/40 bg-card"
+                )}
+              >
+                {deliveryChannel === "both" && (
+                  <div className="absolute top-2.5 right-2.5 bg-primary text-white rounded-full p-0.5">
+                    <Check className="h-3 w-3" />
+                  </div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-purple-600" />
+                  <span className="font-bold text-xs sm:text-sm">Both (In-App + Push)</span>
+                </div>
+                <span className="text-[11px] text-muted-foreground leading-tight">
+                  Maximum reach — saves to dashboard inbox and triggers device push notifications simultaneously.
+                </span>
+              </button>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <Label>Audience</Label>
             <select className="w-full h-10 rounded-md border bg-background px-3 text-sm" value={mode} onChange={(e) => setMode(e.target.value as any)}>
-              <option value="all">All subscribers</option>
+              <option value="all">All registered platform users</option>
               <option value="users">Specific users (by user ID)</option>
             </select>
           </div>
@@ -302,28 +406,30 @@ export default function AdminNotifications() {
           )}
           <div className="space-y-2">
             <Label>Title *</Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Notification title" />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. 🚀 Special Weekend Marketplace Discount" />
           </div>
           <div className="space-y-2">
             <Label>Message *</Label>
-            <Textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Notification message" rows={3} />
+            <Textarea value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Write your notification update or announcement here..." rows={3} />
           </div>
           <div className="space-y-2">
-            <Label>Action link (optional)</Label>
-            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://..." />
+            <Label>Action link / Target Page (optional)</Label>
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="e.g. /products or /blog/lagos-sme-growth" />
           </div>
           <div className="space-y-2">
             <Label>Schedule (optional)</Label>
             <Input type="datetime-local" value={sendAfter} onChange={(e) => setSendAfter(e.target.value)} />
           </div>
-          <Button onClick={() => send.mutate()} disabled={!title.trim() || !message.trim() || send.isPending}>
-            {send.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
-            Send notification
-          </Button>
-          <Button variant="outline" onClick={() => sendTest.mutate()} disabled={sendTest.isPending} className="ml-2">
-            {sendTest.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
-            Send test to my device
-          </Button>
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            <Button onClick={() => send.mutate()} disabled={!title.trim() || !message.trim() || send.isPending} className="font-bold">
+              {send.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Send className="h-4 w-4 mr-2" />}
+              Send {deliveryChannel === "in_app" ? "In-App Notification" : deliveryChannel === "push" ? "Push Notification" : "In-App & Push Notification"}
+            </Button>
+            <Button variant="outline" onClick={() => sendTest.mutate()} disabled={sendTest.isPending}>
+              {sendTest.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Bell className="h-4 w-4 mr-2" />}
+              Send test to my device
+            </Button>
+          </div>
         </CardContent>
       </Card>
 

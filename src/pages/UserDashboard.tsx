@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
@@ -168,10 +168,11 @@ export default function UserDashboard() {
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
-    { to: "/dashboard/create-video", label: "AI Video Studio", icon: Film, color: "from-purple-600 via-pink-600 to-amber-500", show: flags.video_creator },
-    { to: "/dashboard/wallet", label: "Wallet", icon: Wallet, color: "from-emerald-500 to-teal-500", show: flags.wallet },
+    { to: "#referral-section", label: "Refer & Earn", icon: Gift, color: "from-amber-500 via-rose-500 to-purple-600", show: true },
+    { to: "/dashboard/create-video", label: "BTV Video Studio", icon: Film, color: "from-purple-600 via-pink-600 to-amber-500", show: flags.video_creator },
+    { to: "/dashboard/wallet", label: "Wallet & Receipts", icon: Wallet, color: "from-emerald-500 to-teal-500", show: flags.wallet },
     { to: "/dashboard/ad-earnings", label: "Ad Earnings", icon: MousePointerClick, color: "from-green-500 to-emerald-600", show: flags.ad_earnings },
-    { to: "/dashboard/coach", label: "AI Coach", icon: Briefcase, color: "from-violet-500 to-fuchsia-500", show: flags.coach },
+    { to: "/dashboard/coach", label: "Coach Bethel Goodgift", icon: Briefcase, color: "from-violet-500 to-fuchsia-500", show: flags.coach },
     { to: "/dashboard/inventory", label: "Inventory", icon: Package, color: "from-orange-500 to-red-500", show: flags.inventory },
     { to: "/dashboard/sales-pages", label: "Sales Pages", icon: Rocket, color: "from-purple-600 to-fuchsia-600", show: flags.sales_pages },
     { to: "/dashboard/products", label: "My Products", icon: Package, color: "from-sky-500 to-blue-600", show: flags.products },
@@ -305,7 +306,9 @@ export default function UserDashboard() {
           ))}
         </div>
 
-        <ReferralCard />
+        <div id="referral-section" className="scroll-mt-6">
+          <ReferralCard />
+        </div>
 
         {/* Recent Activity Feed */}
         <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden">

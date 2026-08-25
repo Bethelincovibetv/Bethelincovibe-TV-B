@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Wallet, ArrowLeft, ArrowUp, ArrowDown, Plus, Send } from "lucide-react";
+import { Wallet, ArrowLeft, ArrowUp, ArrowDown, Plus, Send, Receipt, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import TransferDialog from "@/components/wallet/TransferDialog";
 
@@ -128,25 +128,45 @@ export default function UserWallet() {
       <TransferDialog open={transferOpen} onOpenChange={setTransferOpen} currentBalance={Number(wallet?.balance ?? 0)} onSuccess={load} />
 
       <Card>
-        <CardHeader><CardTitle className="text-base">Transaction History</CardTitle></CardHeader>
+        <CardHeader className="flex-row items-center justify-between pb-3">
+          <div>
+            <CardTitle className="text-base font-bold flex items-center gap-2">
+              <Receipt className="h-4 w-4 text-primary" /> Transaction History & Receipts
+            </CardTitle>
+            <p className="text-xs text-muted-foreground">Click any transaction to view, print, or download its full official receipt.</p>
+          </div>
+        </CardHeader>
         <CardContent className="space-y-2">
           {transactions.length === 0 && <p className="text-sm text-muted-foreground text-center py-6">No transactions yet.</p>}
           {transactions.map((t) => {
             const isCredit = Number(t.amount) > 0;
             return (
-              <div key={t.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                <div className={`h-9 w-9 rounded-full flex items-center justify-center ${isCredit ? "bg-emerald-500/15 text-emerald-600" : "bg-destructive/15 text-destructive"}`}>
-                  {isCredit ? <ArrowDown className="h-4 w-4" /> : <ArrowUp className="h-4 w-4" />}
+              <Link
+                key={t.id}
+                to={`/dashboard/receipt/${t.id}`}
+                className="group flex items-center gap-3 p-3.5 border border-border/70 hover:border-primary/50 hover:bg-muted/40 transition-all rounded-xl cursor-pointer"
+              >
+                <div className={`h-10 w-10 rounded-2xl flex items-center justify-center shrink-0 shadow-xs ${isCredit ? "bg-emerald-500/15 text-emerald-600" : "bg-destructive/15 text-destructive"}`}>
+                  {isCredit ? <ArrowDown className="h-5 w-5" /> : <ArrowUp className="h-5 w-5" />}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{t.description || t.type}</p>
-                  <p className="text-xs text-muted-foreground">{new Date(t.created_at).toLocaleString()}</p>
+                  <p className="text-sm font-bold truncate text-foreground group-hover:text-primary transition-colors">{t.description || t.type}</p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <span>{new Date(t.created_at).toLocaleString()}</span>
+                    <span>·</span>
+                    <span className="font-mono text-[11px] text-muted-foreground/80">Ref: {t.id.substring(0, 8)}</span>
+                  </div>
                 </div>
-                <div className="text-right">
-                  <p className={`font-bold text-sm ${isCredit ? "text-emerald-600" : "text-destructive"}`}>{isCredit ? "+" : ""}₦{Math.abs(Number(t.amount)).toLocaleString()}</p>
-                  <Badge variant="outline" className="text-[10px]">{t.type}</Badge>
+                <div className="text-right shrink-0">
+                  <p className={`font-black text-sm ${isCredit ? "text-emerald-600" : "text-destructive"}`}>{isCredit ? "+" : ""}₦{Math.abs(Number(t.amount)).toLocaleString()}</p>
+                  <div className="flex items-center justify-end gap-1.5 mt-0.5">
+                    <Badge variant="outline" className="text-[10px] uppercase font-bold py-0">{t.type}</Badge>
+                    <span className="text-[10px] font-bold text-primary flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                      Receipt <ChevronRight className="h-3 w-3" />
+                    </span>
+                  </div>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </CardContent>

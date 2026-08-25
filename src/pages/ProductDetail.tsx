@@ -19,6 +19,7 @@ import FavoriteButton from "@/components/FavoriteButton";
 import { recordPageView } from "@/lib/analyticsTracker";
 import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/clipboard";
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -85,10 +86,14 @@ export default function ProductDetail() {
     })();
   }, [slug]);
 
-  const copyProductLink = () => {
+  const copyProductLink = async () => {
     const currentUrl = window.location.href;
-    navigator.clipboard.writeText(currentUrl);
-    toast.success("Product link copied to clipboard!");
+    const success = await copyToClipboard(currentUrl);
+    if (success) {
+      toast.success("Product link copied to clipboard!");
+    } else {
+      toast.info("Link: " + currentUrl);
+    }
   };
 
   if (loading) {

@@ -42,7 +42,7 @@ export default function VixoraCoachLiveDialog({
   open,
   onOpenChange,
   systemPrompt,
-  coachName = "Victoria (Studio Lead & AI Director)",
+  coachName = "Coach Bethel Goodgift (Chief AI Strategist)",
   businessContext = {},
 }: VixoraCoachLiveDialogProps) {
   const [status, setStatus] = useState<VoiceAgentState>("idle");
@@ -74,7 +74,7 @@ export default function VixoraCoachLiveDialog({
     setMicPermission("requesting");
     setPermissionError("");
 
-    const welcomeGreeting = `Hello! I am ${coachName}, your Vixora AI live business coach. What are we strategizing today? Tell me about your sales, pricing, or growth challenges!`;
+    const welcomeGreeting = `Hello! I am ${coachName}, your BTV AI live business coach. What are we strategizing today? Tell me about your sales, pricing, or business growth challenges!`;
 
     const agent = new VixoraLiveVoiceAgent(
       {

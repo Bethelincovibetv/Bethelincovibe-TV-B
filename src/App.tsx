@@ -58,6 +58,7 @@ import UserProfileEdit from "./pages/UserProfileEdit";
 import PublicProfile from "./pages/PublicProfile";
 import SubmitBlog from "./pages/SubmitBlog";
 import AdvertiseWithUs from "./pages/AdvertiseWithUs";
+import TransactionReceipt from "./pages/TransactionReceipt";
 import UserAds from "./pages/UserAds";
 import UserAdAnalytics from "./pages/UserAdAnalytics";
 import BusinessCoach from "./pages/BusinessCoach";
@@ -171,6 +172,9 @@ const App = () => (
               <Route path="/dashboard/notifications" element={<UserNotificationsPage />} />
               <Route path="/dashboard/settings/notifications" element={<UserNotificationSettingsPage />} />
               <Route path="/dashboard/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
+              <Route path="/dashboard/receipt/:id" element={<TransactionReceipt />} />
+              <Route path="/dashboard/wallet/receipt/:id" element={<TransactionReceipt />} />
+              <Route path="/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/dashboard/ad-earnings" element={<UserAdEarnings />} />
               <Route path="/dashboard/ads" element={<FeatureGate feature="advertise"><UserAds /></FeatureGate>} />
               <Route path="/dashboard/ads/:id/analytics" element={<FeatureGate feature="advertise"><UserAdAnalytics /></FeatureGate>} />

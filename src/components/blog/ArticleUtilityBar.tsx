@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Clock, Copy, Check, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface Props {
   html: string;
@@ -17,13 +18,13 @@ export default function ArticleUtilityBar({ html, url }: Props) {
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       setCopied(true);
       toast.success("Link copied");
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Could not copy link");
+    } else {
+      toast.info("Link: " + url);
     }
   };
 

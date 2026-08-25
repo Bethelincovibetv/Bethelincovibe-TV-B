@@ -22,6 +22,7 @@ import VixoraCoachLiveDialog from "@/components/coach/VixoraCoachLiveDialog";
 import VixoraAICoachToday from "@/components/coach/VixoraAICoachToday";
 
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
+import { copyToClipboard } from "@/lib/clipboard";
 
 /** Remove markdown asterisks/underscores/heading markers so chat reads cleanly. */
 function cleanText(s: string): string {
@@ -130,7 +131,7 @@ export default function BusinessCoach() {
         "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
 
       const ai = new GoogleGenAI({ apiKey });
-      const systemInstruction = `You are Coach Adaobi & Victoria, the Chief AI Business Strategist at Vixora & Bethelincovibe.
+      const systemInstruction = `You are Coach Bethel Goodgift, the Chief AI Business Strategist at BTV & Bethelincovibe.
 You provide tactical, high-converting business advice, pricing models, marketing strategies, Nigerian & Global market insights, and step-by-step action plans.
 Business Name: ${ctx.business_name || "Enterprise"}
 Industry: ${ctx.industry || "General Commerce"}
@@ -180,11 +181,13 @@ Tone: Authoritative, motivating, practical, and clear.`;
     loadTasks();
   }
 
-  const copyMessage = (text: string, idx: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(idx);
-    toast.success("Message copied to clipboard!");
-    setTimeout(() => setCopiedIndex(null), 2000);
+  const copyMessage = async (text: string, idx: number) => {
+    const success = await copyToClipboard(text);
+    if (success) {
+      setCopiedIndex(idx);
+      toast.success("Message copied to clipboard!");
+      setTimeout(() => setCopiedIndex(null), 2000);
+    }
   };
 
   const doneCount = tasks.filter((t) => t.status === "done").length;
@@ -209,10 +212,10 @@ Tone: Authoritative, motivating, practical, and clear.`;
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-lg sm:text-xl font-black text-white flex items-center gap-2">
-                  AI Business Coach
+                  Coach Bethel Goodgift
                 </h1>
                 <Badge className="bg-gradient-to-r from-primary to-accent text-white border-0 font-extrabold text-[10px] shadow-xs">
-                  VIXORA AI LIVE
+                  BTV AI LIVE
                 </Badge>
               </div>
               <p className="text-xs text-slate-300 flex items-center gap-2 mt-0.5">
@@ -235,7 +238,7 @@ Tone: Authoritative, motivating, practical, and clear.`;
               className="rounded-xl font-extrabold text-xs bg-gradient-to-r from-primary via-accent to-amber-500 hover:opacity-90 shadow-md shadow-primary/25 gap-1.5"
               onClick={() => setLiveOpen(true)}
             >
-              <Radio className="h-4 w-4 animate-pulse text-amber-200" /> Vixora Live Call
+              <Radio className="h-4 w-4 animate-pulse text-amber-200" /> BTV Live Call
             </Button>
           </div>
         </div>
@@ -244,9 +247,9 @@ Tone: Authoritative, motivating, practical, and clear.`;
       <VixoraCoachLiveDialog
         open={liveOpen}
         onOpenChange={setLiveOpen}
-        coachName="Victoria AI (Studio Lead & AI Director)"
+        coachName="Coach Bethel Goodgift (Chief AI Strategist)"
         businessContext={ctx}
-        systemPrompt={`You are Victoria, the Executive Studio Director & AI Business Strategist for entrepreneurs. ${ctx.business_name ? `The user runs "${ctx.business_name}"${ctx.industry ? ` in ${ctx.industry}` : ""}.` : ""} ${ctx.goal ? `Their current goal: ${ctx.goal}.` : ""} Be concise, conversational, and conversion-focused.`}
+        systemPrompt={`You are Coach Bethel Goodgift, the Executive AI Business Strategist at BTV for entrepreneurs and SME owners. ${ctx.business_name ? `The user runs "${ctx.business_name}"${ctx.industry ? ` in ${ctx.industry}` : ""}.` : ""} ${ctx.goal ? `Their current goal: ${ctx.goal}.` : ""} Be concise, conversational, motivating, and conversion-focused.`}
       />
 
       <div className="container mx-auto max-w-7xl px-4 space-y-4">

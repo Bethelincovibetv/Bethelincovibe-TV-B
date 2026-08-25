@@ -17,6 +17,7 @@ export default function RotatingBlogAd({ placement = "blog" }: { placement?: str
     let cancelled = false;
     (async () => {
       try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
         const [wmRes, adRes] = await Promise.all([
           supabase.from("site_settings").select("key,value").in("key", [
             "ad_watermark_text",
@@ -25,7 +26,9 @@ export default function RotatingBlogAd({ placement = "blog" }: { placement?: str
             "ads_provider_native",
             "ad_server_enabled"
           ]),
-          fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ad-server?placement=${placement}&page=${encodeURIComponent(window.location.pathname)}`),
+          supabaseUrl
+            ? fetch(`${supabaseUrl}/functions/v1/ad-server?placement=${placement}&page=${encodeURIComponent(window.location.pathname)}`).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         const m: Record<string, string> = {};
@@ -36,8 +39,10 @@ export default function RotatingBlogAd({ placement = "blog" }: { placement?: str
           return;
         }
 
-        const d = await adRes.json();
-        if (!cancelled && d?.ad) setAd(d.ad);
+        if (adRes && typeof adRes.json === "function") {
+          const d = await adRes.json().catch(() => null);
+          if (!cancelled && d?.ad) setAd(d.ad);
+        }
         if (!cancelled) {
           setWatermark({ text: m.ad_watermark_text, url: m.ad_watermark_url });
         }

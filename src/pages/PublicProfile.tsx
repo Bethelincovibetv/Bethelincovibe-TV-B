@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
 import QRCodeDialog from "@/components/QRCodeDialog";
 import { waLink as buildWaLink } from "@/lib/phone";
+import { copyToClipboard } from "@/lib/clipboard";
 
 export default function PublicProfile() {
   const { username } = useParams();
@@ -127,10 +128,12 @@ export default function PublicProfile() {
         return;
       }
     } catch {}
-    try {
-      await navigator.clipboard.writeText(url);
+    const success = await copyToClipboard(url);
+    if (success) {
       toast.success("Profile website link copied!");
-    } catch {}
+    } else {
+      toast.info("Link: " + url);
+    }
   };
 
   const submitInquiry = async (e: React.FormEvent) => {

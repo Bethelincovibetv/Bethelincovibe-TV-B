@@ -19,6 +19,7 @@ import AdsterraAd from "@/components/AdsterraAd";
 import CoursePlayerModal from "@/components/learn/CoursePlayerModal";
 import GeminiLiveDialog from "@/components/coach/GeminiLiveDialog";
 import { decodeCourseMetadata } from "@/lib/aiCourseCreatorEngine";
+import { copyToClipboard } from "@/lib/clipboard";
 
 type Course = {
   id: string;
@@ -65,8 +66,12 @@ export default function Learn() {
     try {
       if (navigator.share) await navigator.share(shareData);
       else {
-        await navigator.clipboard.writeText(url);
-        toast.success("Learning Hub link copied to clipboard!");
+        const success = await copyToClipboard(url);
+        if (success) {
+          toast.success("Learning Hub link copied to clipboard!");
+        } else {
+          toast.info("Link: " + url);
+        }
       }
     } catch {}
   };

@@ -72,21 +72,30 @@ export default function BusinessCategory() {
       if (blogCat) {
         const { data } = await supabase
           .from("blog_posts")
-          .select("id,title,slug,excerpt,featured_image,published_at")
+          .select("id,title,slug,excerpt,featured_image,published_at,views_count")
           .eq("published", true).eq("category_id", blogCat.id)
           .order("published_at", { ascending: false }).limit(6);
-        if (data?.length) return data;
+        if (data && data.length > 0) return data;
       }
       if (category?.name) {
         const keyword = category.name.split(/[\s&]+/)[0];
         const { data } = await supabase
           .from("blog_posts")
-          .select("id,title,slug,excerpt,featured_image,published_at")
+          .select("id,title,slug,excerpt,featured_image,published_at,views_count")
           .eq("published", true).ilike("title", `%${keyword}%`)
           .order("published_at", { ascending: false }).limit(6);
-        return data ?? [];
+        if (data && data.length > 0) return data;
       }
-      return [];
+
+      // Guaranteed fallback: top recommended business growth & market blogs
+      const { data: fallbackPosts } = await supabase
+        .from("blog_posts")
+        .select("id,title,slug,excerpt,featured_image,published_at,views_count")
+        .eq("published", true)
+        .order("published_at", { ascending: false })
+        .limit(6);
+
+      return fallbackPosts ?? [];
     },
     enabled: !!slug,
   });

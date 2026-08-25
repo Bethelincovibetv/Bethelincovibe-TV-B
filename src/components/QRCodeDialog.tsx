@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { QrCode, Download, Copy, Share2, ExternalLink, Check, Sparkles, Printer } from "lucide-react";
 import { toast } from "sonner";
+import { copyToClipboard } from "@/lib/clipboard";
 
 interface QRCodeDialogProps {
   url: string;
@@ -21,13 +22,13 @@ export default function QRCodeDialog({ url, title = "Share via QR Code", subtitl
   const fullUrl = url.startsWith("http") ? url : `${window.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
 
   const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(fullUrl);
+    const success = await copyToClipboard(fullUrl);
+    if (success) {
       setCopied(true);
       toast.success("Link copied to clipboard!");
       setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error("Failed to copy link");
+    } else {
+      toast.info("Link: " + fullUrl);
     }
   };
 
