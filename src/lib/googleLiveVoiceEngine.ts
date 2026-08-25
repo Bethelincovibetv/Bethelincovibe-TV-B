@@ -38,7 +38,9 @@ export function getGeminiApiKey(): string {
 
   const envKey =
     (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-    (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "");
+    (import.meta as any).env?.GEMINI_API_KEY ||
+    (typeof window !== "undefined" && ((window as any).__GEMINI_API_KEY__ || (window as any).VITE_GEMINI_API_KEY || (window as any).GEMINI_API_KEY)) ||
+    (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY || (process as any).env?.VITE_GEMINI_API_KEY : "");
   if (envKey && String(envKey).trim().length > 10) return String(envKey).trim();
 
   return "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
