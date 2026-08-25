@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Download, Loader2, ShoppingBag } from "lucide-react";
+import { Download, Loader2, ShoppingBag, ArrowLeft } from "lucide-react";
 
 export default function UserPurchases() {
   const { user, loading } = useAuth();
@@ -35,11 +35,20 @@ export default function UserPurchases() {
   return (
     <div className="container mx-auto max-w-3xl px-4 py-6">
       <Helmet><title>My Purchases — Downloads & Access</title></Helmet>
-      <div className="mb-4 flex items-center gap-3">
-        <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary"><ShoppingBag className="h-5 w-5" /></span>
-        <div>
-          <h1 className="text-xl font-bold">My purchases</h1>
-          <p className="text-xs text-muted-foreground">Every product you bought, ready to download.</p>
+      
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <Button asChild variant="ghost" size="sm" className="h-9 px-2.5 rounded-xl font-bold">
+            <Link to="/dashboard">
+              <ArrowLeft className="h-4 w-4 mr-1.5" /> Dashboard
+            </Link>
+          </Button>
+          <div className="h-6 w-px bg-border hidden sm:block" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15 text-primary shrink-0"><ShoppingBag className="h-5 w-5" /></span>
+          <div>
+            <h1 className="text-xl font-bold">My Purchases</h1>
+            <p className="text-xs text-muted-foreground">Every product you bought, ready to download.</p>
+          </div>
         </div>
       </div>
 

@@ -744,12 +744,28 @@ REQUIREMENTS:
 
           result.auto_published = true;
           result.post_id = newPost?.id;
+          result.slug = slug;
 
           if (guestSubmission && newPost) {
             await sb.from("guest_blog_submissions").update({
               status: "published",
               generated_post_id: newPost.id,
             }).eq("id", guestSubmission.id);
+
+            // Notify submitter immediately
+            if (guestSubmission.user_id) {
+              try {
+                await sb.from("user_notifications").insert({
+                  user_id: guestSubmission.user_id,
+                  title: "Your Business Blog is Live! 🎉",
+                  body: `Your business feature for "${guestSubmission.business_name}" is published and live on Bethelincovibe TV. Tap to view your article!`,
+                  url: `/blog/${slug}`,
+                  is_read: false,
+                });
+              } catch (nErr) {
+                console.error("Failed to insert notification:", nErr);
+              }
+            }
           }
         }
       } catch (e) {

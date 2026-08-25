@@ -10,39 +10,40 @@ import { supabase } from "@/integrations/supabase/client";
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 const allLinks = [
-  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, group: "Overview" },
-  { to: "/admin/ai-admin", label: "AI Administrator", icon: Bot, group: "Overview" },
-  { to: "/admin/analytics", label: "Platform Analytics", icon: BarChart3, group: "Overview" },
+  { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, group: "Overview", feature: null as string | null },
+  { to: "/admin/ai-admin", label: "AI Administrator", icon: Bot, group: "Overview", feature: "ai_admin" },
+  { to: "/admin/analytics", label: "Platform Analytics", icon: BarChart3, group: "Overview", feature: null },
 
-  { to: "/admin/posts", label: "Posts", icon: FileText, group: "Content" },
-  { to: "/admin/ai-blogger", label: "AI Blogger", icon: Bot, group: "Content" },
-  { to: "/admin/guest-blogs", label: "Business Blogs", icon: Sparkles, group: "Content" },
-  { to: "/admin/blog-categories", label: "Blog Categories", icon: FolderTree, group: "Content" },
-  { to: "/admin/videos", label: "TV Videos", icon: Tv, group: "Content" },
-  { to: "/admin/video-creator", label: "AI Video Studio", icon: Sparkles, group: "Content" },
-  { to: "/admin/slides", label: "Slides", icon: ImageIcon, group: "Content" },
-  { to: "/admin/jingles", label: "Background Jingles", icon: Music, group: "Content" },
+  { to: "/admin/posts", label: "Posts", icon: FileText, group: "Content", feature: "blog" },
+  { to: "/admin/ai-blogger", label: "AI Blogger", icon: Bot, group: "Content", feature: "ai_blogger" },
+  { to: "/admin/guest-blogs", label: "Business Blogs", icon: Sparkles, group: "Content", feature: "guest_blog" },
+  { to: "/admin/blog-categories", label: "Blog Categories", icon: FolderTree, group: "Content", feature: "blog" },
+  { to: "/admin/videos", label: "TV Videos", icon: Tv, group: "Content", feature: "tv_videos" },
+  { to: "/admin/video-creator", label: "AI Video Studio", icon: Sparkles, group: "Content", feature: "video_creator" },
+  { to: "/admin/slides", label: "Slides", icon: ImageIcon, group: "Content", feature: "hero_slider" },
+  { to: "/admin/jingles", label: "Background Jingles", icon: Music, group: "Content", feature: null },
 
-  { to: "/admin/businesses", label: "Businesses", icon: Building2, group: "Directory" },
-  { to: "/admin/directory-categories", label: "Directory Categories", icon: FolderTree, group: "Directory" },
-  { to: "/admin/courses", label: "Learning Hub", icon: GraduationCap, group: "Directory" },
-  { to: "/admin/sales-pages", label: "Sales Pages", icon: Rocket, group: "Directory" },
-  { to: "/admin/sales-templates", label: "Sales Templates", icon: Rocket, group: "Directory" },
+  { to: "/admin/businesses", label: "Businesses", icon: Building2, group: "Directory", feature: "businesses" },
+  { to: "/admin/directory-categories", label: "Directory Categories", icon: FolderTree, group: "Directory", feature: "businesses" },
+  { to: "/admin/courses", label: "Learning Hub", icon: GraduationCap, group: "Directory", feature: "learn" },
+  { to: "/admin/sales-pages", label: "Sales Pages", icon: Rocket, group: "Directory", feature: "sales_pages" },
+  { to: "/admin/sales-templates", label: "Sales Templates", icon: Rocket, group: "Directory", feature: "sales_pages" },
 
-  { to: "/admin/users", label: "Users", icon: Users, group: "People" },
-  { to: "/admin/broadcast", label: "Broadcast Email", icon: Send, group: "People" },
-  { to: "/admin/email-settings", label: "Email Providers", icon: Server, group: "People" },
-  { to: "/admin/leads", label: "All Leads", icon: Users, group: "People" },
-  { to: "/admin/contacts", label: "Messages", icon: Mail, group: "People" },
-  { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "People" },
+  { to: "/admin/users", label: "Users", icon: Users, group: "People", feature: null },
+  { to: "/admin/broadcast", label: "Broadcast Email", icon: Send, group: "People", feature: null },
+  { to: "/admin/email-settings", label: "Email Providers", icon: Server, group: "People", feature: null },
+  { to: "/admin/leads", label: "All Leads", icon: Users, group: "People", feature: null },
+  { to: "/admin/contacts", label: "Messages", icon: Mail, group: "People", feature: null },
+  { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "People", feature: null },
 
-  { to: "/admin/ads", label: "Ad Network", icon: Megaphone, group: "System" },
-  { to: "/admin/amazon", label: "Amazon Affiliate", icon: ShoppingCart, group: "System" },
-  { to: "/admin/custom-code", label: "Custom Code", icon: Code2, group: "System" },
-  { to: "/admin/features", label: "Feature Toggles", icon: ToggleLeft, group: "System" },
-  { to: "/admin/settings", label: "Settings", icon: Settings, group: "System" },
+  { to: "/admin/ads", label: "Ad Network", icon: Megaphone, group: "System", feature: "advertise" },
+  { to: "/admin/amazon", label: "Amazon Affiliate", icon: ShoppingCart, group: "System", feature: "amazon_affiliate" },
+  { to: "/admin/custom-code", label: "Custom Code", icon: Code2, group: "System", feature: null },
+  { to: "/admin/features", label: "Feature Toggles", icon: ToggleLeft, group: "System", feature: null },
+  { to: "/admin/settings", label: "Settings", icon: Settings, group: "System", feature: null },
 ];
 
 // Bottom tab bar — primary 4 + More
@@ -63,11 +64,16 @@ const groupGradients: Record<string, string> = {
 
 function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const location = useLocation();
+  const { flags } = useFeatureFlags();
+  const visibleLinks = useMemo(() => {
+    return allLinks.filter((l) => !l.feature || (flags as any)[l.feature]);
+  }, [flags]);
+
   const groups = useMemo(() => {
     const g: Record<string, typeof allLinks> = {};
-    for (const l of allLinks) (g[l.group] ||= []).push(l);
+    for (const l of visibleLinks) (g[l.group] ||= []).push(l);
     return g;
-  }, []);
+  }, [visibleLinks]);
 
   return (
     <nav className="flex flex-col gap-5 p-3.5">
@@ -340,8 +346,15 @@ export default function AdminLayout() {
         </header>
 
         <main
-          className="flex-1 p-3 md:p-6 max-w-full"
-          style={{ paddingBottom: "calc(6rem + env(safe-area-inset-bottom, 0px))" }}
+          className={cn(
+            "flex-1 max-w-full min-w-0",
+            location.pathname.startsWith("/admin/ai-admin") || location.pathname.startsWith("/admin/platform-ai")
+              ? "p-2 sm:p-3 md:p-4 flex flex-col min-h-0"
+              : "p-3 md:p-6"
+          )}
+          style={{ paddingBottom: location.pathname.startsWith("/admin/ai-admin") || location.pathname.startsWith("/admin/platform-ai")
+            ? "calc(5.5rem + env(safe-area-inset-bottom, 0px))"
+            : "calc(6rem + env(safe-area-inset-bottom, 0px))" }}
         >
           <Outlet />
         </main>

@@ -36,7 +36,7 @@ export default function UserDashboard() {
       { data: w },
       { data: p },
       { count: fCount },
-      { data: subs },
+      { data: rawSubs },
       { count: bCount },
       { data: leads },
       { data: notifications },
@@ -45,12 +45,31 @@ export default function UserDashboard() {
       supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
       supabase.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", user.id),
-      supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
+      supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
       supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("submitted_by", user.id),
       supabase.from("sales_page_leads").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
       supabase.from("user_notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
       supabase.from("forum_posts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
     ]);
+
+    // Safely hydrate blog_posts relation for submissions
+    let subs = rawSubs || [];
+    const postIds = subs.map((s: any) => s.generated_post_id).filter(Boolean);
+    if (postIds.length > 0) {
+      try {
+        const { data: posts } = await supabase
+          .from("blog_posts")
+          .select("id, slug, title")
+          .in("id", postIds);
+        const postMap = new Map((posts || []).map((post: any) => [post.id, post]));
+        subs = subs.map((s: any) => ({
+          ...s,
+          blog_posts: s.generated_post_id ? postMap.get(s.generated_post_id) : null,
+        }));
+      } catch (e) {
+        console.warn("Could not enrich blog_posts:", e);
+      }
+    }
 
     setWallet(w);
     setProfile(p);
@@ -100,16 +119,20 @@ export default function UserDashboard() {
       });
     });
 
-    (subs || []).forEach((sub) => {
+    (subs || []).forEach((sub: any) => {
+      const isLive = sub.status === "published" || sub.status === "approved";
+      const postSlug = sub.blog_posts?.slug || sub.generated_post_id;
+      const targetLink = isLive && postSlug ? `/blog/${postSlug}` : "/dashboard/submit-blog";
+
       feed.push({
         id: `sub-${sub.id}`,
         type: "submission",
         title: `Business submission: "${sub.business_name}"`,
-        subtitle: `Status: ${sub.status}`,
+        subtitle: isLive ? "Published & Live on Blog — Tap to view article" : `Status: ${sub.status}`,
         time: sub.created_at,
         icon: Sparkles,
         color: "text-indigo-500 bg-indigo-500/10",
-        link: "/dashboard/submit-blog",
+        link: targetLink,
       });
     });
 
@@ -145,16 +168,16 @@ export default function UserDashboard() {
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
-    { to: "/dashboard/create-video", label: "AI Video Studio", icon: Film, color: "from-purple-600 via-pink-600 to-amber-500", show: true },
+    { to: "/dashboard/create-video", label: "AI Video Studio", icon: Film, color: "from-purple-600 via-pink-600 to-amber-500", show: flags.video_creator },
     { to: "/dashboard/wallet", label: "Wallet", icon: Wallet, color: "from-emerald-500 to-teal-500", show: flags.wallet },
     { to: "/dashboard/ad-earnings", label: "Ad Earnings", icon: MousePointerClick, color: "from-green-500 to-emerald-600", show: flags.ad_earnings },
     { to: "/dashboard/coach", label: "AI Coach", icon: Briefcase, color: "from-violet-500 to-fuchsia-500", show: flags.coach },
     { to: "/dashboard/inventory", label: "Inventory", icon: Package, color: "from-orange-500 to-red-500", show: flags.inventory },
-    { to: "/dashboard/sales-pages", label: "Sales Pages", icon: Rocket, color: "from-purple-600 to-fuchsia-600", show: true },
-    { to: "/dashboard/products", label: "My Products", icon: Package, color: "from-sky-500 to-blue-600", show: true },
+    { to: "/dashboard/sales-pages", label: "Sales Pages", icon: Rocket, color: "from-purple-600 to-fuchsia-600", show: flags.sales_pages },
+    { to: "/dashboard/products", label: "My Products", icon: Package, color: "from-sky-500 to-blue-600", show: flags.products },
     { to: "/dashboard/payments", label: "Payments", icon: CreditCard, color: "from-slate-600 to-slate-800", show: true },
-    { to: "/dashboard/purchases", label: "My Purchases", icon: ShoppingBag, color: "from-lime-500 to-green-600", show: true },
-    { to: "/dashboard/leads", label: "My Leads", icon: Mail, color: "from-pink-600 to-rose-500", show: true },
+    { to: "/dashboard/purchases", label: "My Purchases", icon: ShoppingBag, color: "from-lime-500 to-green-600", show: flags.products },
+    { to: "/dashboard/leads", label: "My Leads", icon: Mail, color: "from-pink-600 to-rose-500", show: flags.sales_pages },
     { to: "/dashboard/ads", label: "Run Ad", icon: Megaphone, color: "from-fuchsia-500 to-purple-600", show: flags.advertise },
     { to: "/dashboard/favorites", label: "Saved Blogs", icon: Heart, color: "from-rose-500 to-orange-500", show: flags.favorites },
     { to: "/dashboard/submit-blog", label: "Submit Business", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
@@ -163,7 +186,7 @@ export default function UserDashboard() {
     { to: "/dashboard/notifications", label: "Notifications", icon: Bell, color: "from-amber-500 to-rose-600", show: true },
     { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, color: "from-cyan-500 to-sky-500", show: flags.tools },
     { to: "/learn", label: "Learning Hub", icon: GraduationCap, color: "from-blue-500 to-indigo-600", show: flags.learn },
-    { to: "/forum", label: "Community", icon: MessageSquare, color: "from-teal-500 to-cyan-600", show: true },
+    { to: "/forum", label: "Community", icon: MessageSquare, color: "from-teal-500 to-cyan-600", show: flags.forum },
   ].filter((t) => t.show);
 
 
@@ -364,20 +387,35 @@ export default function UserDashboard() {
               </div>
             ) : (
               <div className="space-y-2">
-                {submissions.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm truncate">{s.business_name}</p>
-                      <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString()}</p>
+                {submissions.map((s: any) => {
+                  const isLive = s.status === "published" || s.status === "approved";
+                  const postSlug = s.blog_posts?.slug || s.generated_post_id;
+                  return (
+                    <div key={s.id} className="flex items-center justify-between gap-3 p-3.5 border border-border/70 hover:border-primary/40 bg-card hover:bg-muted/20 transition-all rounded-xl">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm truncate text-foreground">{s.business_name}</p>
+                          {isLive && postSlug && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-600 bg-emerald-500/10 font-bold">
+                              Live Blog
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <StatusBadge status={s.status} />
+                        {isLive && postSlug && (
+                          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs font-bold text-primary border-primary/30 hover:bg-primary hover:text-white" asChild>
+                            <Link to={`/blog/${postSlug}`}>
+                              View Post <ExternalLink className="h-3 w-3" />
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <StatusBadge status={s.status} />
-                    {s.status === "published" && s.generated_post_id && (
-                      <Button size="sm" variant="ghost" asChild>
-                        <Link to={`/blog`}><ExternalLink className="h-3 w-3" /></Link>
-                      </Button>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>

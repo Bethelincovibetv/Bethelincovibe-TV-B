@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import {
   Package, Plus, Loader2, Trash2, Copy, Pencil, Eye, EyeOff, ImagePlus,
   Download, Users, TrendingUp, Wallet, CreditCard, FileUp, Video,
+  ArrowLeft, ExternalLink,
 } from "lucide-react";
 import ProductVideo from "@/components/directory/ProductVideo";
 import { slugify } from "@/lib/seo";
@@ -185,15 +186,21 @@ export default function SellerProducts() {
     <div className="container mx-auto max-w-5xl px-4 py-6">
       <Helmet><title>Seller Dashboard — My Products, Sales & Revenue</title></Helmet>
 
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary"><Package className="h-5 w-5" /></span>
+          <Button asChild variant="ghost" size="sm" className="h-9 px-2.5 rounded-xl font-bold">
+            <Link to="/dashboard">
+              <ArrowLeft className="h-4 w-4 mr-1.5" /> Dashboard
+            </Link>
+          </Button>
+          <div className="h-6 w-px bg-border hidden sm:block" />
+          <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15 text-primary shrink-0"><Package className="h-5 w-5" /></span>
           <div>
-            <h1 className="text-xl font-bold">Seller dashboard</h1>
-            <p className="text-xs text-muted-foreground">Create, sell and deliver your products.</p>
+            <h1 className="text-xl font-bold">Seller Dashboard</h1>
+            <p className="text-xs text-muted-foreground">Create, sell, preview and deliver your products.</p>
           </div>
         </div>
-        <Button onClick={openNew}><Plus className="mr-1.5 h-4 w-4" />New product</Button>
+        <Button onClick={openNew} className="rounded-xl font-bold"><Plus className="mr-1.5 h-4 w-4" />New Product</Button>
       </div>
 
       {account?.status !== "connected" && (
@@ -236,13 +243,19 @@ export default function SellerProducts() {
               </div>
               <Badge variant={p.status === "published" ? "default" : "secondary"}>{p.status === "published" ? "Live" : "Draft"}</Badge>
               {p.product_type === "digital" && <Badge variant="outline">Digital</Badge>}
-              <div className="flex gap-1">
-                <Button size="icon" variant="ghost" onClick={() => togglePublish(p)} aria-label="Toggle publish">
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="outline" className="h-8 px-2.5 text-xs font-bold gap-1 text-primary border-primary/30 hover:bg-primary hover:text-white" asChild>
+                  <Link to={`/products/${p.slug || p.id}`} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    Preview
+                  </Link>
+                </Button>
+                <Button size="icon" variant="ghost" onClick={() => togglePublish(p)} aria-label="Toggle publish" title={p.status === "published" ? "Unpublish" : "Publish"}>
                   {p.status === "published" ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
-                <Button size="icon" variant="ghost" onClick={() => openEdit(p)} aria-label="Edit"><Pencil className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => duplicate(p)} aria-label="Duplicate"><Copy className="h-4 w-4" /></Button>
-                <Button size="icon" variant="ghost" onClick={() => remove(p)} aria-label="Delete"><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => openEdit(p)} aria-label="Edit" title="Edit Product"><Pencil className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => duplicate(p)} aria-label="Duplicate" title="Duplicate"><Copy className="h-4 w-4" /></Button>
+                <Button size="icon" variant="ghost" onClick={() => remove(p)} aria-label="Delete" title="Delete"><Trash2 className="h-4 w-4 text-destructive" /></Button>
               </div>
             </div>
           ))}

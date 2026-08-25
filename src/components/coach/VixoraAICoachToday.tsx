@@ -16,7 +16,6 @@ import {
   CheckCircle2,
   ArrowRight,
   Zap,
-  Film,
   Calendar,
   Clock,
   Briefcase,
@@ -24,8 +23,10 @@ import {
   RotateCcw,
   MessageSquare,
   ShieldCheck,
+  ShoppingBag,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import VixoraCoachLiveDialog from "@/components/coach/VixoraCoachLiveDialog";
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
 
@@ -37,29 +38,29 @@ interface VixoraAICoachTodayProps {
 
 const TODAY_INSIGHTS = [
   {
-    title: "Video-First Conversion Sprint",
-    summary: "Short vertical videos (15-30s) featuring direct price transparency and real customer demonstrations generate 3.4x higher WhatsApp inquiries in Nigerian retail.",
-    action: "Film a 15-second product demo with clear pricing today.",
-    tag: "High Impact",
-  },
-  {
-    title: "Dynamic Cashflow Protection",
-    summary: "Always price in supplier delivery buffer (10-15%) into final advertised product totals to protect net margins against transport surge.",
-    action: "Recalculate your top 3 bestselling product margins.",
+    title: "High-Margin Cashflow Protection",
+    summary: "Always price in a supplier delivery buffer (10-15%) into final advertised product totals to protect net margins against logistics surge in Lagos.",
+    action: "Recalculate your top 3 bestselling product margins today.",
     tag: "Margin Growth",
   },
   {
-    title: "The 3-Second Pattern Interrupt",
-    summary: "Start your video ads with an unexpected question or bold claim ('Stop scrolling if you sell...') rather than introducing your brand name first.",
-    action: "Use Vixora AI Script generator to craft a pattern-interrupt hook.",
-    tag: "Viral Marketing",
+    title: "Direct WhatsApp Conversion Funnel",
+    summary: "Respond to customer inquiries within 5 minutes with immediate stock availability and a clear payment link to achieve 3.4x higher closing rate.",
+    action: "Send personalized follow-up messages to 5 previous inquiries.",
+    tag: "High Conversion",
+  },
+  {
+    title: "Customer Retention & Referral Booster",
+    summary: "Offering a 5% discount or referral perk on the next purchase turns one-time shoppers into repeat brand advocates with zero ad spend.",
+    action: "Share your referral link with existing happy customers.",
+    tag: "Viral Growth",
   },
 ];
 
 const DAILY_REVENUE_CHALLENGES = [
   { id: "c1", text: "Follow up with at least 5 warm inquiries or abandoned leads on WhatsApp.", points: "+150 XP" },
-  { id: "c2", text: "Generate and publish 1 high-converting AI promotional video reel.", points: "+300 XP" },
-  { id: "c3", text: "Review inventory markup to maintain minimum 25% net profit margin.", points: "+100 XP" },
+  { id: "c2", text: "Audit product pricing & inventory markup to maintain minimum 25% net profit.", points: "+200 XP" },
+  { id: "c3", text: "Publish or update 1 marketplace listing with high-converting details.", points: "+150 XP" },
 ];
 
 export default function VixoraAICoachToday({
@@ -68,6 +69,7 @@ export default function VixoraAICoachToday({
   compact = false,
 }: VixoraAICoachTodayProps) {
   const navigate = useNavigate();
+  const { flags } = useFeatureFlags();
   const [liveVoiceOpen, setLiveVoiceOpen] = useState(false);
   const [completedChallenges, setCompletedChallenges] = useState<string[]>([]);
   const [activeInsightIndex, setActiveInsightIndex] = useState(0);
@@ -94,17 +96,20 @@ export default function VixoraAICoachToday({
 
   const challengeProgress = Math.round((completedChallenges.length / DAILY_REVENUE_CHALLENGES.length) * 100);
 
-  const handleCreateVideoFromHook = () => {
-    const topic = encodeURIComponent(`A high-converting promotional video about ${curInsight.title}: ${curInsight.summary}`);
-    navigate(`/create-video?topic=${topic}`);
-    toast.info("Opening Vixora Video Studio with today's marketing strategy...");
+  const handleExecuteStrategy = () => {
+    if (onAskQuestion) {
+      onAskQuestion(`How can I implement "${curInsight.title}" in my Nigerian business today?`);
+    } else {
+      navigate(`/dashboard/coach?prompt=${encodeURIComponent(`How can I implement "${curInsight.title}" in my Nigerian business today?`)}`);
+    }
+    toast.info("Opening Vixora Coach with today's action plan...");
   };
 
   return (
     <div className={`space-y-4 ${className}`}>
       <Card className="border-purple-500/40 bg-gradient-to-br from-card via-purple-950/10 to-card shadow-xl overflow-hidden relative">
         {/* Top Accent Line */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500 animate-pulse" />
+        <div className="h-1.5 w-full bg-gradient-to-r from-purple-600 via-pink-500 to-amber-500" />
 
         <CardHeader className="pb-3">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -145,7 +150,7 @@ export default function VixoraAICoachToday({
               onClick={() => setLiveVoiceOpen(true)}
               className="h-10 px-4 rounded-xl font-extrabold text-xs sm:text-sm bg-gradient-to-r from-purple-600 via-pink-600 to-amber-600 hover:from-purple-500 hover:to-amber-500 text-white shadow-lg shadow-purple-600/25 gap-2 shrink-0 border-0"
             >
-              <Mic className="h-4 w-4 animate-bounce" />
+              <Mic className="h-4 w-4" />
               <span>Talk with Vixora AI Coach</span>
               <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-md font-mono">Live</span>
             </Button>
@@ -194,10 +199,10 @@ export default function VixoraAICoachToday({
 
                 <Button
                   size="sm"
-                  onClick={handleCreateVideoFromHook}
+                  onClick={handleExecuteStrategy}
                   className="h-7 text-[11px] px-2.5 font-bold bg-purple-600 hover:bg-purple-700 text-white gap-1 shadow-xs"
                 >
-                  <Film className="h-3 w-3" /> Create Video from This
+                  <MessageSquare className="h-3 w-3" /> Apply Strategy
                 </Button>
               </div>
             </div>
@@ -257,7 +262,7 @@ export default function VixoraAICoachToday({
               {[
                 "Calculate optimal markup for my goods",
                 "How do I close WhatsApp sales faster?",
-                "Give me 3 viral video hooks for this week",
+                "Give me 3 marketing strategies for this week",
                 "How can I cut logistics cost in Nigeria?",
               ].map((prompt) => (
                 <button
@@ -302,8 +307,8 @@ export default function VixoraAICoachToday({
               asChild
               className="h-8 text-xs font-bold bg-purple-600 hover:bg-purple-700 text-white"
             >
-              <Link to="/create-video">
-                <Film className="h-3.5 w-3.5 mr-1" /> Open Video Studio
+              <Link to="/dashboard/submit-blog">
+                <Sparkles className="h-3.5 w-3.5 mr-1" /> Boost My Business
               </Link>
             </Button>
           </div>
@@ -317,7 +322,7 @@ export default function VixoraAICoachToday({
         coachName="Coach Adaobi"
         businessContext={{
           stage: "active",
-          focus: "Revenue sprint & high-converting video marketing",
+          focus: "Revenue sprint & commercial scaling",
         }}
       />
     </div>

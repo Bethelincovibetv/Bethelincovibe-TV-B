@@ -7,19 +7,22 @@ export type FeatureKey =
   | "tools" | "inventory" | "coach" | "advertise" | "wallet"
   | "favorites" | "comments" | "push" | "daily_rewards" | "guest_blog"
   | "tv_videos" | "hero_slider" | "pwa_install" | "email_subscribe"
-  | "ad_earnings"
-  | "products"
-  | "search" | "register" | "ai_auto_blog_slider" | "learn" | "forum";
+  | "ad_earnings" | "video_creator" | "sales_pages" | "ai_admin" | "ai_blogger"
+  | "products" | "search" | "register" | "ai_auto_blog_slider" | "learn" | "forum";
 
 export const FEATURE_META: { key: FeatureKey; label: string; description: string }[] = [
   { key: "blog", label: "Blog", description: "Blog posts, reading, and listing pages" },
+  { key: "video_creator", label: "Video Studio & Creation", description: "AI Video Studio, video generator, and video creator navigation & dashboards" },
   { key: "products", label: "Product Marketplace", description: "Product listings, marketplace pages and selling" },
   { key: "businesses", label: "Business Directory", description: "Public business directory & profiles" },
   { key: "business_listing", label: "List a Business", description: "Allow users to submit new businesses" },
   { key: "business_boost", label: "Boost / Sponsorship", description: "Paid business boosting feature" },
+  { key: "sales_pages", label: "Sales & Landing Pages", description: "Custom product landing and sales funnel pages" },
   { key: "tools", label: "Business Tools", description: "Startup calculator and entrepreneur tools" },
   { key: "inventory", label: "Inventory Manager", description: "Stock, sales and expense tracking" },
   { key: "coach", label: "AI Business Coach", description: "AI-powered business coaching chat" },
+  { key: "ai_admin", label: "AI Administrator", description: "AI Strategy Director & Platform Intelligence console" },
+  { key: "ai_blogger", label: "AI Blogger Studio", description: "Autonomous AI Blogging and content scheduling studio" },
   { key: "advertise", label: "Advertise With Us", description: "Advertising page and user ad submissions" },
   { key: "wallet", label: "Wallet", description: "User wallet and top-ups" },
   { key: "favorites", label: "Favorites", description: "Allow users to save favorite posts" },

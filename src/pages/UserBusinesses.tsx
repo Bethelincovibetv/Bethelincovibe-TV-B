@@ -12,7 +12,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2 } from "lucide-react";
+import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2, ArrowLeft } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
 
 export default function UserBusinesses() {
@@ -73,12 +73,20 @@ export default function UserBusinesses() {
     <>
       <Helmet><title>My Businesses | Bethelincovibe TV</title></Helmet>
       <div className="container mx-auto max-w-5xl px-4 py-6">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6 text-primary" />My Businesses</h1>
-            <p className="text-sm text-muted-foreground">Manage listings, track views and boost visibility.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+          <div className="flex items-center gap-3">
+            <Button asChild variant="ghost" size="sm" className="h-9 px-2.5 rounded-xl font-bold">
+              <Link to="/dashboard">
+                <ArrowLeft className="h-4 w-4 mr-1.5" /> Dashboard
+              </Link>
+            </Button>
+            <div className="h-6 w-px bg-border hidden sm:block" />
+            <div>
+              <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6 text-primary" />My Businesses</h1>
+              <p className="text-sm text-muted-foreground">Manage listings, track views and boost visibility.</p>
+            </div>
           </div>
-          <Button asChild size="sm"><Link to="/businesses/list"><Plus className="h-4 w-4 mr-1" />New</Link></Button>
+          <Button asChild size="sm" className="rounded-xl font-bold"><Link to="/businesses/list"><Plus className="h-4 w-4 mr-1" />New</Link></Button>
         </div>
 
         {items.length === 0 ? (

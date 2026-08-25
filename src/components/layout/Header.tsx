@@ -11,7 +11,7 @@ import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 const allNavLinks = [
   { to: "/", label: "Home", icon: Home, feature: null as null | string },
-  { to: "/create-video", label: "Create Video", icon: Film, feature: null },
+  { to: "/create-video", label: "Create Video", icon: Film, feature: "video_creator" },
   { to: "/blog", label: "Blog", icon: FileText, feature: "blog" },
   { to: "/businesses", label: "Businesses", icon: Building2, feature: "businesses" },
   { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, feature: "tools" },

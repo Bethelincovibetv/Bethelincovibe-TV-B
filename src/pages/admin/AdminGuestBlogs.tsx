@@ -17,12 +17,35 @@ export default function AdminGuestBlogs() {
   const { data: submissions, refetch } = useQuery({
     queryKey: ["admin-guest-blogs"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let data: any[] | null = null;
+      const { data: joinedData, error } = await supabase
         .from("guest_blog_submissions")
-        .select("*, guest_submission_photos(*), profiles(display_name,email,user_id)")
+        .select("*, guest_submission_photos(*)")
         .order("created_at", { ascending: false });
-      if (error) console.error("Load submissions error:", error);
-      return data || [];
+
+      if (error) {
+        console.error("Load submissions error:", error);
+        return [];
+      }
+      data = joinedData || [];
+
+      // Hydrate profiles & blog_posts safely
+      const userIds = Array.from(new Set(data.map((s) => s.user_id).filter(Boolean)));
+      const postIds = Array.from(new Set(data.map((s) => s.generated_post_id).filter(Boolean)));
+
+      const [profilesRes, postsRes] = await Promise.all([
+        userIds.length > 0 ? supabase.from("profiles").select("display_name,email,user_id").in("user_id", userIds) : { data: [] },
+        postIds.length > 0 ? supabase.from("blog_posts").select("id, slug, title").in("id", postIds) : { data: [] },
+      ]);
+
+      const profMap = new Map((profilesRes.data || []).map((p: any) => [p.user_id, p]));
+      const postMap = new Map((postsRes.data || []).map((p: any) => [p.id, p]));
+
+      return data.map((s) => ({
+        ...s,
+        profiles: s.user_id ? profMap.get(s.user_id) : null,
+        blog_posts: s.generated_post_id ? postMap.get(s.generated_post_id) : null,
+      }));
     },
   });
 
@@ -146,7 +169,9 @@ export default function AdminGuestBlogs() {
                 {s.status === "published" && s.generated_post_id && (
                   <>
                     <Button size="sm" variant="outline" asChild className="rounded-xl font-bold text-xs">
-                      <a href={`/blog`} target="_blank" rel="noopener"><ExternalLink className="h-4 w-4 mr-1" />View Blog</a>
+                      <a href={s.blog_posts?.slug ? `/blog/${s.blog_posts.slug}` : (s.generated_post_id ? `/blog/${s.generated_post_id}` : `/blog`)} target="_blank" rel="noopener">
+                        <ExternalLink className="h-4 w-4 mr-1" />View Blog Post
+                      </a>
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => toggleFeatured(s)} className="rounded-xl font-bold text-xs">
                       <Star className="h-4 w-4 mr-1" />Toggle Featured

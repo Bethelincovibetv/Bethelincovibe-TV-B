@@ -2,16 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { GoogleGenAI, Type } from "@google/genai";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
   Loader2, Sparkles, Send, Bot, CheckCircle2, ShieldCheck, Zap, RefreshCw,
-  Building2, FileText, Users, Sliders, Bell, AlertTriangle, Cpu, ChevronDown,
-  ChevronUp, BarChart2, Video, Globe, ArrowRight, Check, X, Compass, Plus,
-  Layers, ExternalLink, HelpCircle, GraduationCap, BookOpen, Mic, Radio, Volume2, Square
+  Building2, FileText, Sliders, AlertTriangle, Cpu, ChevronDown,
+  ChevronUp, BarChart2, Video, Globe, Check, X, GraduationCap,
+  ExternalLink, Volume2, Square, Radio, Wrench, Lightbulb, Compass
 } from "lucide-react";
 import { toast } from "sonner";
 import { FEATURE_META, FeatureKey } from "@/contexts/FeatureFlagsContext";
@@ -19,8 +18,6 @@ import {
   conductStrategicBrainstorm,
   generateStrategicArticle,
   generateCustomPage,
-  StrategicDirective,
-  GeneratedCustomPage,
   getGeminiClient,
 } from "@/lib/aiCollaborationEngine";
 import VoiceInputButton from "@/components/admin/VoiceInputButton";
@@ -29,8 +26,6 @@ import { synthesizeGoogleVoice } from "@/lib/googleLiveVoiceEngine";
 import {
   generateAICourse,
   encodeCourseMetadata,
-  AICreatedCourse,
-  getPexelsImageForCategory,
 } from "@/lib/aiCourseCreatorEngine";
 
 type ToolLog = {
@@ -57,13 +52,50 @@ type Msg = {
   proposal?: PendingActionProposal;
 };
 
-const SUGGESTIONS = [
-  "Direct AI Blogger to create a 3-part trending Lagos business & tech vlog series",
-  "Create an AI Masterclass on TikTok & Instagram Sales Funnels for Nigerian businesses",
-  "Create a professional custom landing page for our Lagos VIP Business Directory",
-  "Generate a Real Estate Due Diligence masterclass with interactive flashcards and quiz",
-  "Run a full platform diagnostic and auto-tune all configurations",
-  "Approve all pending business listings and set them as active",
+interface SuggestionItem {
+  icon: any;
+  category: string;
+  title: string;
+  prompt: string;
+}
+
+const CATEGORIZED_SUGGESTIONS: SuggestionItem[] = [
+  {
+    icon: Video,
+    category: "AI Content Series",
+    title: "Trending Lagos Business & Tech Vlogs",
+    prompt: "Direct AI Blogger to create a 3-part trending Lagos business & tech vlog series",
+  },
+  {
+    icon: GraduationCap,
+    category: "Masterclass Hub",
+    title: "TikTok & IG Sales Funnel Course",
+    prompt: "Create an AI Masterclass on TikTok & Instagram Sales Funnels for Nigerian businesses",
+  },
+  {
+    icon: Globe,
+    category: "Landing Pages",
+    title: "Lagos VIP Business Showcase Page",
+    prompt: "Create a professional custom landing page for our Lagos VIP Business Directory",
+  },
+  {
+    icon: Compass,
+    category: "Real Estate Hub",
+    title: "Real Estate Due Diligence Course",
+    prompt: "Generate a Real Estate Due Diligence masterclass with interactive flashcards and quiz",
+  },
+  {
+    icon: Wrench,
+    category: "Operations",
+    title: "Run Platform Auto-Tune & Diagnostic",
+    prompt: "Run a full platform diagnostic and auto-tune all configurations",
+  },
+  {
+    icon: Building2,
+    category: "Directory",
+    title: "Approve All Pending Listings",
+    prompt: "Approve all pending business listings and set them as active",
+  },
 ];
 
 export default function AdminPlatformAI() {
@@ -140,10 +172,10 @@ export default function AdminPlatformAI() {
         return;
       }
     } catch (e) {
-      console.warn("TTS playback error, fallback to browser voice:", e);
+      console.warn("TTS playback notice, falling back to browser voice:", e);
     }
 
-    // Fallback to browser synthesis
+    // Fallback to browser voice synthesis
     if (typeof window !== "undefined" && window.speechSynthesis) {
       try {
         window.speechSynthesis.cancel();
@@ -221,7 +253,7 @@ export default function AdminPlatformAI() {
 
   // --- TOOL EXECUTION ENGINE ---
   const executeDirectAction = async (proposal: PendingActionProposal): Promise<{ logs: ToolLog[]; message: string }> => {
-    const ts = new Date().toLocaleTimeString();
+    const ts = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const logs: ToolLog[] = [];
 
     try {
@@ -232,14 +264,12 @@ export default function AdminPlatformAI() {
           let publishedCount = 0;
 
           for (const topicItem of topics) {
-            // Find category
             const matchCat = (stats?.categoriesList || []).find(
               (c: any) => c.name.toLowerCase() === topicItem.targetCategory?.toLowerCase()
             );
 
             let catId = matchCat?.id;
             if (!catId && topicItem.targetCategory) {
-              // Auto-create category if doesn't exist
               const slug = topicItem.targetCategory.toLowerCase().replace(/[^a-z0-9]+/g, "-");
               const { data: newCat } = await supabase
                 .from("categories")
@@ -286,7 +316,7 @@ export default function AdminPlatformAI() {
           refetchStats();
           return {
             logs,
-            message: `Successfully executed Multi-Post Campaign with AI Blogger! Published ${publishedCount} high-quality articles/vlogs with strategic category targeting.`,
+            message: `Successfully executed Multi-Post Campaign with AI Blogger! Published ${publishedCount} high-quality articles & vlogs with strategic category targeting.`,
           };
         }
 
@@ -320,7 +350,7 @@ export default function AdminPlatformAI() {
             user_id: user?.user?.id || "00000000-0000-0000-0000-000000000000",
           };
 
-          const { data: createdPage, error: pageErr } = await supabase
+          const { error: pageErr } = await supabase
             .from("sales_pages")
             .insert(insertPayload)
             .select("id, slug, product_name")
@@ -339,7 +369,7 @@ export default function AdminPlatformAI() {
           refetchStats();
           return {
             logs,
-            message: `The professional custom page "${pageData.product_name}" is now LIVE! You can view it at /sales/${pageData.slug}`,
+            message: `The professional custom page "${pageData.product_name}" is now LIVE! View it at /sales/${pageData.slug}`,
           };
         }
 
@@ -373,7 +403,7 @@ export default function AdminPlatformAI() {
           refetchStats();
           return {
             logs,
-            message: `The Masterclass "${course.title}" is now LIVE in the Bethelincovibe Learning Hub with interactive flashcards, knowledge quizzes, and verified certificate generation!`,
+            message: `The Masterclass "${course.title}" is now LIVE in the Learning Hub with interactive flashcards, quizzes, and certificate generation!`,
           };
         }
 
@@ -472,7 +502,6 @@ export default function AdminPlatformAI() {
     try {
       const { logs, message } = await executeDirectAction(proposal);
 
-      // Update message proposal status
       setMessages((prev) =>
         prev.map((m) => {
           if (m.id === msgId && m.proposal) {
@@ -486,7 +515,6 @@ export default function AdminPlatformAI() {
         })
       );
 
-      // Append confirmation reply
       setMessages((prev) => [
         ...prev,
         {
@@ -665,9 +693,8 @@ Review the blueprint below. Confirming will instantly compile and publish the pa
         lower.includes("lesson") ||
         lower.includes("quiz")
       ) {
-        setActiveTask("AI Course Creator Agent architecting curriculum, flashcards, quizzes & Pexels cover…");
+        setActiveTask("AI Course Creator Agent architecting curriculum, flashcards, quizzes & cover…");
 
-        // Infer category
         let category = "Marketing";
         if (lower.includes("business") || lower.includes("sme") || lower.includes("management") || lower.includes("import")) category = "Business";
         else if (lower.includes("finance") || lower.includes("grant") || lower.includes("bookkeeping") || lower.includes("money")) category = "Finance & Grants";
@@ -714,9 +741,9 @@ ${course.flashcards
 *(+ ${Math.max(0, course.flashcards.length - 3)} more active-recall cards)*
 
 ---
-#### 🧠 Multiple-Choice Knowledge Assessment (${course.quiz.length} Questions with Grading & Explanations):
+#### 🧠 Knowledge Assessment (${course.quiz.length} Questions with Grading & Explanations):
 - **Passing Threshold:** 70% to unlock Verified Certificate of Completion
-- **Cover Image:** Curated 4K Pexels Commercial Asset Attached
+- **Cover Asset:** High-resolution category-matched asset
 
 Review the proposed masterclass below. Click **"Approve & Publish Masterclass"** to deploy it directly into the Bethelincovibe Learning Hub!`;
 
@@ -724,7 +751,7 @@ Review the proposed masterclass below. Click **"Approve & Publish Masterclass"**
           id: `prop_${Date.now()}`,
           type: "create_ai_course",
           title: `Publish Masterclass: "${course.title}" (${course.category})`,
-          rationale: `Deploys complete course with ${course.modules.length} modules, ${course.flashcards.length} flashcards, ${course.quiz.length} quiz questions, and verified certificate generation into Learning Hub.`,
+          rationale: `Deploys complete course with ${course.modules.length} modules, ${course.flashcards.length} flashcards, ${course.quiz.length} quiz questions, and certificate generation.`,
           previewData: { course },
           status: "pending",
         };
@@ -747,14 +774,14 @@ Review the proposed masterclass below. Click **"Approve & Publish Masterclass"**
       // 4. Conversational / Strategic Consulting with Gemini if Key is available
       const gemini = await getGeminiClient();
       if (gemini) {
-        setActiveTask("AI Administrator reasoning and formulating recommendations…");
+        setActiveTask("AI Administrator formulating strategic recommendations…");
         const historyText = messages
           .slice(-6)
           .map((m) => `${m.role === "user" ? "Administrator" : "AI Admin"}: ${m.content}`)
           .join("\n\n");
 
         const systemPrompt = `You are the Chief AI Administrator & Strategic Operations Director of Bethelincovibe TV.
-You are in a live executive consultation with the Platform Owner / Human Admin.
+You are in an executive consultation with the Platform Owner / Human Admin.
 You possess full administrative authority and work directly with your team (including the AI Blogger/Vlogger).
 
 Platform Real-time Context:
@@ -765,9 +792,10 @@ Platform Real-time Context:
 - Feature Flags Enabled: ${stats?.enabledFlags}/${stats?.totalFlags}
 - Ads Active: ${stats?.globalAds}
 
-Tone & Capabilities:
-- Be highly intelligent, consultative, articulate, proactive, and strategic.
-- Always provide clear reasoning and recommendations.
+Tone & Format Guidelines:
+- Be highly intelligent, consultative, articulate, proactive, and concise.
+- Structure responses clearly with neat bullet points and bold section headers.
+- Never output overflowing markdown tables or unbroken text blocks.
 - When an action is requested, explain what you recommend and propose the exact steps.`;
 
         const response = await gemini.models.generateContent({
@@ -782,7 +810,6 @@ Tone & Capabilities:
 
         const reply = response.text || "";
 
-        // Check if user specifically requested a platform setting or approval action
         let proposal: PendingActionProposal | undefined = undefined;
         if (lower.includes("approve") && (lower.includes("business") || lower.includes("pending"))) {
           proposal = {
@@ -819,7 +846,7 @@ Tone & Capabilities:
         return reply.replace(/[*_#`~]/g, " ").slice(0, 280);
       }
 
-      // 4. Robust Domain Fallback Strategy & Reasoning
+      // 5. Robust Domain Fallback Strategy & Reasoning
       let replyText = "";
       let proposal: PendingActionProposal | undefined = undefined;
 
@@ -828,9 +855,9 @@ Tone & Capabilities:
 
 I analyzed the directory queue. There are currently **${stats?.pendingBusinesses || 0} pending business listing(s)** awaiting administrative review.
 
-**My Strategic Assessment:**
+**Strategic Assessment:**
 - Approving verified listings increases immediate marketplace inventory.
-- It boosts organic search ranking and encourages newly registered merchants to share their profile link on social media.
+- Boosts organic discovery and encourages newly registered merchants to share their profile link.
 
 Would you like me to approve all pending listings immediately? Click **"Approve & Execute"** below.`;
 
@@ -853,7 +880,7 @@ Would you like me to approve all pending listings immediately? Click **"Approve 
 - **Monetization Engine:** ${stats?.globalAds ? "ENABLED (Native & Ad Networks Active)" : "DISABLED"}
 
 **Recommendation:**
-I suggest executing a **System Auto-Tune** to guarantee all high-value modules (business directory, daily login rewards, lead generation funnels, and wallet credits) are running at peak efficiency.`;
+Execute a **System Auto-Tune** to guarantee all high-value modules (business directory, daily login rewards, lead generation funnels, and wallet credits) are running at peak efficiency.`;
 
         proposal = {
           id: `prop_${Date.now()}`,
@@ -866,13 +893,14 @@ I suggest executing a **System Auto-Tune** to guarantee all high-value modules (
       } else {
         replyText = `### 💡 Strategic Recommendation & Action Plan
 
-Thank you for the guidance. Here is how I recommend we approach this:
+Thank you for the guidance. Here is how I recommend we approach platform growth:
 
-1. **Strategic Content Coordination:** We can direct the **AI Blogger** to research trending Lagos business topics, automatically map them to high-traffic categories, and publish multi-part articles and vlogs.
-2. **High-Converting Custom Pages:** We can create dedicated, responsive showcase and sales pages (\`/sales/:slug\`) equipped with WhatsApp lead capture and verified badges.
-3. **Platform Governance:** We can auto-tune feature flags, approve marketplace sellers, and calibrate daily rewards.
+1. **Strategic Content Coordination:** Direct the **AI Blogger** to research trending Lagos business topics, auto-map categories, and publish multi-part articles and vlogs.
+2. **High-Converting Custom Pages:** Create dedicated conversion and showcase pages (\`/sales/:slug\`) with WhatsApp lead funnels and verified badges.
+3. **Masterclass Learning Hub:** Generate interactive AI courses equipped with active-recall flashcards and graded quizzes.
+4. **Platform Governance:** Auto-tune feature flags, approve marketplace sellers, and calibrate rewards.
 
-How would you like to proceed? You can type any specific directive or choose an option above.`;
+Select a quick action chip above or type your exact directive!`;
       }
 
       setMessages((prev) => [
@@ -902,201 +930,179 @@ How would you like to proceed? You can type any specific directive or choose an 
   };
 
   return (
-    <div className="flex h-[calc(100vh-6.5rem)] flex-col gap-3 max-w-6xl mx-auto">
-      {/* Header Banner with Collaboration Status */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-purple-600/15 border border-primary/20 shadow-xs shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary via-indigo-600 to-purple-600 text-white shadow-[0_4px_12px_-2px_rgba(0,0,0,0.35),inset_0_1px_0_rgba(255,255,255,0.45)] ring-2 ring-white/25">
-            <Bot className="h-6 w-6" strokeWidth={2.2} />
-            <span className="absolute -top-1 -right-1 flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-background"></span>
-            </span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base sm:text-lg font-black tracking-tight leading-none">
-                AI General Administrator & Strategy Director
-              </h1>
-              <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-extrabold text-[10px]">
-                Collaborative Intelligence Active
-              </Badge>
+    <div className="w-full max-w-5xl mx-auto flex flex-col h-[calc(100dvh-9.5rem)] md:h-[calc(100dvh-7.5rem)] min-h-0 overflow-hidden gap-2">
+      {/* Executive Control Header Bar */}
+      <div className="shrink-0 p-3 rounded-2xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-purple-600/15 border border-primary/20 shadow-xs flex flex-col gap-2.5">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="relative flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-indigo-600 to-purple-600 text-white shadow-sm ring-1 ring-white/25">
+              <Bot className="h-5 w-5" strokeWidth={2.2} />
+              <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-background"></span>
+              </span>
             </div>
-            <p className="text-[11px] text-muted-foreground font-medium mt-1">
-              Direct the AI Blogger for multi-blog/vlog posting, create professional custom pages, and manage system operations with reasoned confirmation.
-            </p>
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <h1 className="text-sm sm:text-base font-black tracking-tight leading-tight truncate">
+                  AI Administrator & Strategy Director
+                </h1>
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-bold text-[9px] px-1.5 py-0">
+                  Active
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground font-medium truncate hidden sm:block">
+                Direct AI Blogger, create courses & custom pages, and coordinate system operations.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setLiveVoiceOpen(true)}
+              className="h-7 sm:h-8 px-2 sm:px-3 font-extrabold text-[11px] rounded-xl gap-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-primary text-white shadow-xs hover:opacity-95 ring-1 ring-white/20"
+            >
+              <Radio className="h-3 w-3 animate-pulse text-amber-300" />
+              <span className="hidden xs:inline">Google Live</span>
+              <span>(Kore)</span>
+            </Button>
+
+            <Button
+              variant={showStats ? "secondary" : "outline"}
+              size="sm"
+              onClick={() => setShowStats(!showStats)}
+              className="h-7 sm:h-8 px-2 sm:px-2.5 font-bold text-[11px] rounded-xl gap-1 border-primary/20"
+              title="Toggle Live Platform Stats"
+            >
+              <BarChart2 className="h-3 w-3 text-primary" />
+              <span className="hidden sm:inline">Stats</span>
+              {showStats ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              asChild
+              className="h-7 sm:h-8 px-2 font-bold text-[11px] rounded-xl border-primary/20 text-primary hover:bg-primary/10 hidden md:inline-flex"
+            >
+              <Link to="/admin/ai-blogger">
+                <Video className="h-3 w-3 mr-1" />
+                AI Blogger Studio
+              </Link>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => refetchStats()}
+              disabled={statsLoading}
+              className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl border-primary/20 bg-background/80"
+              title="Refresh Stats"
+            >
+              <RefreshCw className={`h-3 w-3 text-primary ${statsLoading ? "animate-spin" : ""}`} />
+            </Button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setLiveVoiceOpen(true)}
-            className="h-8 font-extrabold text-xs rounded-xl gap-1.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-primary text-white shadow-sm hover:opacity-95 ring-1 ring-white/20"
-          >
-            <Radio className="h-3.5 w-3.5 animate-pulse text-amber-300" />
-            <span>Google Live Voice (Kore)</span>
-            <Badge className="h-4 px-1 text-[9px] font-black bg-white/20 text-white border-0">
-              VAD LIVE
-            </Badge>
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            asChild
-            className="h-8 font-bold text-xs rounded-xl gap-1.5 border-primary/30 text-primary hover:bg-primary/10"
-          >
-            <Link to="/admin/ai-blogger">
-              <Video className="h-3.5 w-3.5" />
-              AI Blogger Studio
-            </Link>
-          </Button>
-
-          <Button
-            variant={showStats ? "secondary" : "outline"}
-            size="sm"
-            onClick={() => setShowStats(!showStats)}
-            className="h-8 font-bold text-xs rounded-xl gap-1.5 border-primary/20"
-          >
-            <BarChart2 className="h-3.5 w-3.5 text-primary" />
-            {showStats ? "Hide Stats" : "Platform Stats"}
-            {showStats ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-          </Button>
-
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => refetchStats()}
-            disabled={statsLoading}
-            className="h-8 font-bold text-xs rounded-xl gap-1.5 border-primary/20 bg-background/80"
-          >
-            <RefreshCw className={`h-3.5 w-3.5 text-primary ${statsLoading ? "animate-spin" : ""}`} />
-            Refresh
-          </Button>
-        </div>
+        {/* Collapsible Stats Bar (Compact & Responsive) */}
+        {showStats && (
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1 border-t border-primary/15 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase">Businesses</p>
+              <p className="text-xs font-black text-foreground">{stats?.businesses ?? "—"}</p>
+            </div>
+            <div className={`p-1.5 rounded-xl border text-center ${stats?.pendingBusinesses ? "bg-amber-500/10 border-amber-500/30" : "bg-card/80"}`}>
+              <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase">Pending</p>
+              <p className="text-xs font-black text-amber-600 dark:text-amber-400">{stats?.pendingBusinesses ?? 0}</p>
+            </div>
+            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase">Articles</p>
+              <p className="text-xs font-black text-foreground">{stats?.posts ?? "—"}</p>
+            </div>
+            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase">Pages</p>
+              <p className="text-xs font-black text-foreground">{stats?.salesPages ?? "—"}</p>
+            </div>
+            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase">Features</p>
+              <p className="text-xs font-black text-foreground">{stats ? `${stats.enabledFlags}/${stats.totalFlags}` : "—"}</p>
+            </div>
+            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
+              <p className="text-[9px] font-bold text-muted-foreground uppercase">Ads</p>
+              <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">{stats?.globalAds ? "ON" : "OFF"}</p>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Collapsible Live System Metrics Panel */}
-      {showStats && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 shrink-0 animate-in fade-in slide-in-from-top-2 duration-200">
-          <Card className="p-2.5 bg-card/90 border-border/70 flex flex-col justify-between shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Businesses</span>
-              <Building2 className="h-3.5 w-3.5 text-primary" />
-            </div>
-            <div className="text-base font-black mt-1">{stats?.businesses ?? "—"}</div>
-          </Card>
-
-          <Card className={`p-2.5 border-border/70 flex flex-col justify-between shadow-xs ${stats?.pendingBusinesses ? "bg-amber-500/10 border-amber-500/30" : "bg-card/90"}`}>
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Pending</span>
-              <AlertTriangle className={`h-3.5 w-3.5 ${stats?.pendingBusinesses ? "text-amber-500" : "text-muted-foreground"}`} />
-            </div>
-            <div className={`text-base font-black mt-1 ${stats?.pendingBusinesses ? "text-amber-600 dark:text-amber-400" : ""}`}>
-              {stats?.pendingBusinesses ?? "—"}
-            </div>
-          </Card>
-
-          <Card className="p-2.5 bg-card/90 border-border/70 flex flex-col justify-between shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Articles</span>
-              <FileText className="h-3.5 w-3.5 text-purple-500" />
-            </div>
-            <div className="text-base font-black mt-1">{stats?.posts ?? "—"}</div>
-          </Card>
-
-          <Card className="p-2.5 bg-card/90 border-border/70 flex flex-col justify-between shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Custom Pages</span>
-              <Globe className="h-3.5 w-3.5 text-indigo-500" />
-            </div>
-            <div className="text-base font-black mt-1">{stats?.salesPages ?? "—"}</div>
-          </Card>
-
-          <Card className="p-2.5 bg-card/90 border-border/70 flex flex-col justify-between shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Features</span>
-              <Sliders className="h-3.5 w-3.5 text-emerald-500" />
-            </div>
-            <div className="text-base font-black mt-1">
-              {stats ? `${stats.enabledFlags}/${stats.totalFlags}` : "—"}
-            </div>
-          </Card>
-
-          <Card className="p-2.5 bg-card/90 border-border/70 flex flex-col justify-between shadow-xs">
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span className="text-[10px] font-bold uppercase tracking-wider">Ads Status</span>
-              <Zap className={`h-3.5 w-3.5 ${stats?.globalAds ? "text-amber-400" : "text-muted-foreground"}`} />
-            </div>
-            <div className="text-xs font-extrabold mt-1">
-              {stats?.globalAds ? (
-                <span className="text-emerald-600 dark:text-emerald-400">ENABLED</span>
-              ) : (
-                <span className="text-muted-foreground">DISABLED</span>
-              )}
-            </div>
-          </Card>
-        </div>
-      )}
-
-      {/* Main Agent Workspace */}
-      <Card className="flex-1 min-h-0 flex flex-col overflow-hidden border-border/80 shadow-md">
-        <CardHeader className="py-2.5 px-4 border-b bg-card/80 flex flex-row items-center justify-between shrink-0">
-          <div>
-            <CardTitle className="text-sm font-black flex items-center gap-2">
-              <Cpu className="h-4 w-4 text-primary" /> Strategic Intelligence & Directive Feed
-            </CardTitle>
-          </div>
+      {/* Main Agent Workspace (Properly constrained within flex-1 min-h-0) */}
+      <Card className="flex-1 min-h-0 flex flex-col overflow-hidden border border-border/80 shadow-sm rounded-2xl bg-card">
+        <CardHeader className="py-2 px-3 sm:px-4 border-b bg-muted/30 flex flex-row items-center justify-between shrink-0">
+          <CardTitle className="text-xs sm:text-sm font-black flex items-center gap-1.5 text-foreground">
+            <Cpu className="h-3.5 w-3.5 text-primary" /> Strategic Intelligence Console
+          </CardTitle>
           {busy && (
-            <div className="flex items-center gap-2 text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/20">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span className="truncate max-w-[280px]">{activeTask || "Reasoning with team…"}</span>
+            <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              <span className="truncate max-w-[160px] sm:max-w-[240px]">{activeTask || "Processing…"}</span>
             </div>
           )}
         </CardHeader>
 
-        {/* Scrollable Chat Area */}
-        <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
+        {/* Scrollable Conversation Feed */}
+        <CardContent className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
           {messages.length === 0 && (
-            <div className="space-y-4 py-6 text-center max-w-2xl mx-auto">
-              <div className="h-12 w-12 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-indigo-600/20 border border-primary/30 flex items-center justify-center text-primary shadow-sm">
-                <Sparkles className="h-6 w-6" />
+            <div className="space-y-4 py-3 sm:py-6 text-center max-w-xl mx-auto">
+              <div className="h-10 w-10 sm:h-12 sm:w-12 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-indigo-600/20 border border-primary/30 flex items-center justify-center text-primary shadow-xs">
+                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
               </div>
               <div>
-                <h3 className="text-base font-black tracking-tight">AI Administrator & Strategy Director Ready</h3>
-                <p className="text-xs text-muted-foreground mt-1 max-w-lg mx-auto leading-relaxed">
-                  I act as your Chief Operations & Strategy Director. Direct me to work together with the AI Blogger for multi-blog/vlog campaigns, create new custom pages, or optimize platform features.
+                <h3 className="text-sm sm:text-base font-black tracking-tight text-foreground">
+                  Ready to direct platform operations
+                </h3>
+                <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 max-w-md mx-auto leading-relaxed">
+                  Collaborate directly with AI Blogger for multi-part video series, build custom landing pages, generate masterclasses, or auto-tune platform settings.
                 </p>
               </div>
 
-              {/* Quick Action Suggestions Grid */}
-              <div className="grid gap-2 sm:grid-cols-2 text-left pt-2">
-                {SUGGESTIONS.map((s, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => handleAsk(s)}
-                    disabled={busy}
-                    className="p-3 rounded-2xl border border-border/80 bg-card hover:bg-secondary/80 hover:border-primary/40 text-xs font-semibold leading-snug transition-all flex items-start gap-2.5 group active:scale-[0.98]"
-                  >
-                    <span className="h-5 w-5 shrink-0 rounded-md bg-primary/10 text-primary flex items-center justify-center font-extrabold text-[10px] group-hover:bg-primary group-hover:text-white transition-colors">
-                      {idx + 1}
-                    </span>
-                    <span className="text-foreground/90 group-hover:text-foreground">{s}</span>
-                  </button>
-                ))}
+              {/* Categorized Quick Action Suggestions Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left pt-1">
+                {CATEGORIZED_SUGGESTIONS.map((item, idx) => {
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => handleAsk(item.prompt)}
+                      disabled={busy}
+                      className="p-2.5 sm:p-3 rounded-xl border border-border/80 bg-background hover:bg-secondary/70 hover:border-primary/40 text-left transition-all flex items-start gap-2.5 group active:scale-[0.99]"
+                    >
+                      <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
+                        <Icon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[9px] font-extrabold uppercase tracking-wider text-primary truncate">
+                          {item.category}
+                        </p>
+                        <p className="text-xs font-bold text-foreground/90 group-hover:text-foreground line-clamp-1 leading-snug">
+                          {item.title}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
 
-          {/* Messages List */}
+          {/* Messages */}
           {messages.map((m) => (
-            <div key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} gap-1.5`}>
-              <div className="text-[10px] font-bold text-muted-foreground/70 uppercase px-1 flex items-center gap-1.5 justify-between w-full max-w-[90%] sm:max-w-[85%]">
+            <div key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} gap-1`}>
+              <div className="text-[10px] font-bold text-muted-foreground/80 uppercase px-1 flex items-center justify-between w-full max-w-[94%] sm:max-w-[85%]">
                 <div className="flex items-center gap-1.5">
                   {m.role === "user" ? (
-                    <span>You (Administrator)</span>
+                    <span>You (Admin)</span>
                   ) : (
                     <>
                       <Bot className="h-3 w-3 text-primary" />
@@ -1110,9 +1116,9 @@ How would you like to proceed? You can type any specific directive or choose an 
                     className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
                       speakingMsgId === m.id
                         ? "bg-purple-600 text-white animate-pulse"
-                        : "bg-muted/80 text-muted-foreground hover:text-foreground hover:bg-muted"
+                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
                     }`}
-                    title="Listen with Google Kore Voice"
+                    title="Listen with Nigerian Google Kore Voice"
                   >
                     {speakingMsgId === m.id ? (
                       <>
@@ -1129,100 +1135,105 @@ How would you like to proceed? You can type any specific directive or choose an 
                 )}
               </div>
 
+              {/* Message Bubble */}
               <div
-                className={`max-w-[90%] sm:max-w-[85%] whitespace-pre-wrap rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-xs ${
+                className={`max-w-[94%] sm:max-w-[85%] break-words overflow-hidden rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed shadow-xs ${
                   m.role === "user"
                     ? "bg-primary text-primary-foreground font-semibold rounded-tr-none"
-                    : "bg-muted/70 text-foreground border border-border/60 rounded-tl-none"
+                    : "bg-muted/60 text-foreground border border-border/70 rounded-tl-none whitespace-pre-wrap"
                 }`}
               >
                 {m.content}
               </div>
 
-              {/* Interactive Executive Proposal & Execution Card */}
+              {/* Action Proposal & Preview Card */}
               {m.proposal && (
-                <div className="w-full max-w-[90%] sm:max-w-[85%] mt-1">
-                  <Card className={`border shadow-sm rounded-2xl overflow-hidden transition-all ${
-                    m.proposal.status === "executed"
-                      ? "bg-emerald-500/10 border-emerald-500/30"
-                      : m.proposal.status === "dismissed"
-                      ? "bg-muted/30 border-muted opacity-60"
-                      : "bg-card border-indigo-500/30 ring-2 ring-indigo-500/10"
-                  }`}>
-                    <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b bg-muted/20">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`h-8 w-8 rounded-xl flex items-center justify-center font-bold shrink-0 ${
-                          m.proposal.status === "executed"
-                            ? "bg-emerald-500 text-white"
-                            : "bg-indigo-600 text-white shadow-xs"
-                        }`}>
+                <div className="w-full max-w-[94%] sm:max-w-[85%] mt-1">
+                  <Card
+                    className={`border shadow-xs rounded-2xl overflow-hidden transition-all ${
+                      m.proposal.status === "executed"
+                        ? "bg-emerald-500/10 border-emerald-500/30"
+                        : m.proposal.status === "dismissed"
+                        ? "bg-muted/30 border-muted opacity-60"
+                        : "bg-card border-indigo-500/30 ring-1 ring-indigo-500/15"
+                    }`}
+                  >
+                    <div className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b bg-muted/20">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`h-7 w-7 rounded-lg flex items-center justify-center font-bold shrink-0 ${
+                            m.proposal.status === "executed"
+                              ? "bg-emerald-500 text-white"
+                              : "bg-indigo-600 text-white shadow-xs"
+                          }`}
+                        >
                           {m.proposal.type === "multi_blog_campaign" ? (
-                            <Video className="h-4 w-4" />
+                            <Video className="h-3.5 w-3.5" />
                           ) : m.proposal.type === "create_custom_page" ? (
-                            <Globe className="h-4 w-4" />
+                            <Globe className="h-3.5 w-3.5" />
                           ) : m.proposal.type === "create_ai_course" ? (
-                            <GraduationCap className="h-4 w-4" />
+                            <GraduationCap className="h-3.5 w-3.5" />
                           ) : (
-                            <ShieldCheck className="h-4 w-4" />
+                            <ShieldCheck className="h-3.5 w-3.5" />
                           )}
                         </div>
-                        <div>
-                          <p className="font-extrabold text-xs text-foreground flex items-center gap-2">
-                            {m.proposal.title}
+                        <div className="min-w-0">
+                          <p className="font-extrabold text-xs text-foreground flex items-center gap-1.5 flex-wrap">
+                            <span className="truncate">{m.proposal.title}</span>
                             {m.proposal.status === "executed" && (
-                              <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[9px] font-extrabold">
-                                <Check className="h-3 w-3 mr-1" /> Executed & Live
+                              <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[9px] font-extrabold py-0">
+                                <Check className="h-2.5 w-2.5 mr-0.5" /> Live
                               </Badge>
                             )}
                           </p>
-                          <p className="text-[11px] text-muted-foreground font-medium mt-0.5">
+                          <p className="text-[10px] text-muted-foreground truncate mt-0.5">
                             {m.proposal.rationale}
                           </p>
                         </div>
                       </div>
 
                       {m.proposal.status === "pending" && (
-                        <div className="flex items-center gap-2 shrink-0">
+                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDismissProposal(m.id)}
                             disabled={busy}
-                            className="h-8 text-xs font-bold text-muted-foreground hover:text-destructive rounded-xl"
+                            className="h-7 text-[11px] font-bold text-muted-foreground hover:text-destructive rounded-xl px-2"
                           >
-                            <X className="h-3.5 w-3.5 mr-1" /> Dismiss
+                            <X className="h-3 w-3 mr-0.5" /> Dismiss
                           </Button>
                           <Button
                             size="sm"
                             onClick={() => handleApproveProposal(m.id, m.proposal!)}
                             disabled={busy}
-                            className="h-8 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-1.5 shadow-sm"
+                            className="h-7 text-[11px] font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-2.5 gap-1 shadow-xs"
                           >
-                            <Check className="h-3.5 w-3.5" /> Approve & Execute Now
+                            <Check className="h-3 w-3" /> Approve & Execute
                           </Button>
                         </div>
                       )}
                     </div>
 
-                    {/* Proposal Detailed Preview */}
+                    {/* Proposal Details */}
                     {m.proposal.type === "multi_blog_campaign" && m.proposal.previewData?.directive && (
-                      <div className="p-3 bg-muted/10 text-xs space-y-2">
-                        <p className="font-bold text-[11px] text-muted-foreground uppercase tracking-wider">
-                          Auto-Selected Categories & Series Topics:
+                      <div className="p-2.5 bg-muted/10 text-xs space-y-2">
+                        <p className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
+                          Target Categories & Series Topics:
                         </p>
-                        <div className="grid gap-1.5 sm:grid-cols-2">
+                        <div className="grid gap-1.5 grid-cols-1 sm:grid-cols-2">
                           {m.proposal.previewData.directive.suggestedTopics?.map((t: any, idx: number) => (
-                            <div key={idx} className="p-2 rounded-xl bg-background border flex items-center justify-between gap-2">
+                            <div key={idx} className="p-2 rounded-xl bg-background border flex items-center justify-between gap-1.5">
                               <div className="min-w-0">
                                 <p className="font-extrabold text-[11px] text-foreground truncate flex items-center gap-1">
-                                  {t.isVlog ? <Video className="h-3 w-3 text-indigo-600" /> : <FileText className="h-3 w-3 text-purple-600" />}
-                                  {t.title}
+                                  {t.isVlog ? <Video className="h-3 w-3 text-indigo-600 shrink-0" /> : <FileText className="h-3 w-3 text-purple-600 shrink-0" />}
+                                  <span className="truncate">{t.title}</span>
                                 </p>
                                 <p className="text-[10px] text-muted-foreground truncate">
                                   Category: <span className="font-bold text-primary">{t.targetCategory}</span>
                                 </p>
                               </div>
-                              <Badge variant="outline" className="text-[9px] shrink-0 font-bold">
+                              <Badge variant="outline" className="text-[9px] shrink-0 font-bold py-0">
                                 {t.isVlog ? "Vlog" : "Blog"}
                               </Badge>
                             </div>
@@ -1232,10 +1243,10 @@ How would you like to proceed? You can type any specific directive or choose an 
                     )}
 
                     {m.proposal.type === "create_custom_page" && m.proposal.previewData?.pageData && (
-                      <div className="p-3 bg-muted/10 text-xs space-y-2">
-                        <div className="flex items-center justify-between">
+                      <div className="p-2.5 bg-muted/10 text-xs space-y-1.5">
+                        <div className="flex items-center justify-between flex-wrap gap-1">
                           <p className="font-bold text-[11px] text-muted-foreground">
-                            Target Route: <strong className="text-primary font-mono">/sales/{m.proposal.previewData.pageData.slug}</strong>
+                            Route: <strong className="text-primary font-mono">/sales/{m.proposal.previewData.pageData.slug}</strong>
                           </p>
                           {m.proposal.status === "executed" && (
                             <Button size="sm" variant="outline" asChild className="h-6 text-[10px] font-bold rounded-lg gap-1">
@@ -1249,41 +1260,31 @@ How would you like to proceed? You can type any specific directive or choose an 
                     )}
 
                     {m.proposal.type === "create_ai_course" && m.proposal.previewData?.course && (
-                      <div className="p-3 bg-muted/10 text-xs space-y-2.5">
-                        <div className="flex items-start gap-3">
-                          {m.proposal.previewData.course.thumbnailUrl && (
-                            <img
-                              src={m.proposal.previewData.course.thumbnailUrl}
-                              alt="Thumbnail"
-                              className="h-16 w-24 object-cover rounded-xl border shrink-0"
-                            />
-                          )}
+                      <div className="p-2.5 bg-muted/10 text-xs space-y-2">
+                        <div className="flex items-start gap-2.5">
                           <div className="min-w-0 flex-1">
                             <p className="font-extrabold text-xs text-foreground truncate">
                               {m.proposal.previewData.course.title}
                             </p>
-                            <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">
-                              {m.proposal.previewData.course.description}
-                            </p>
-                            <div className="flex flex-wrap gap-1.5 mt-1.5">
-                              <Badge variant="outline" className="text-[9px] font-bold">
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              <Badge variant="outline" className="text-[9px] font-bold py-0">
                                 {m.proposal.previewData.course.category}
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] font-bold bg-primary/10 text-primary border-primary/20">
+                              <Badge variant="outline" className="text-[9px] font-bold bg-primary/10 text-primary border-primary/20 py-0">
                                 {m.proposal.previewData.course.modules?.length || 0} Modules
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] font-bold bg-purple-500/10 text-purple-600 border-purple-500/20">
+                              <Badge variant="outline" className="text-[9px] font-bold bg-purple-500/10 text-purple-600 border-purple-500/20 py-0">
                                 {m.proposal.previewData.course.flashcards?.length || 0} Flashcards
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/20">
-                                {m.proposal.previewData.course.quiz?.length || 0} Quiz Questions
+                              <Badge variant="outline" className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0">
+                                {m.proposal.previewData.course.quiz?.length || 0} Quiz Qs
                               </Badge>
                             </div>
                           </div>
                         </div>
 
                         {m.proposal.status === "executed" && (
-                          <div className="pt-2 border-t flex justify-end">
+                          <div className="pt-1.5 border-t flex justify-end">
                             <Button size="sm" variant="outline" asChild className="h-6 text-[10px] font-bold rounded-lg gap-1">
                               <Link to="/learn" target="_blank">
                                 View in Learning Hub <ExternalLink className="h-3 w-3" />
@@ -1297,31 +1298,31 @@ How would you like to proceed? You can type any specific directive or choose an 
                 </div>
               )}
 
-              {/* Collapsible Tool Execution Logs */}
+              {/* Collapsible Action Logs */}
               {m.toolLogs && m.toolLogs.length > 0 && (
-                <div className="w-full max-w-[90%] sm:max-w-[85%] mt-1">
+                <div className="w-full max-w-[94%] sm:max-w-[85%] mt-0.5">
                   <button
                     onClick={() => toggleLog(m.id)}
-                    className="flex items-center justify-between w-full p-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 rounded-xl transition-colors"
+                    className="flex items-center justify-between w-full p-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 rounded-xl transition-colors"
                   >
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="h-3.5 w-3.5" />
-                      Executed {m.toolLogs.length} Administrative Action(s)
+                    <span className="flex items-center gap-1.5 truncate">
+                      <CheckCircle2 className="h-3 w-3 shrink-0" />
+                      Executed {m.toolLogs.length} Action(s)
                     </span>
-                    {expandedLogs[m.id] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    {expandedLogs[m.id] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
                   </button>
 
                   {expandedLogs[m.id] && (
-                    <div className="space-y-1.5 mt-1.5 pl-2 border-l-2 border-emerald-500/40">
+                    <div className="space-y-1 mt-1 pl-2 border-l-2 border-emerald-500/40">
                       {m.toolLogs.map((log, lIdx) => (
-                        <div key={lIdx} className="flex items-center justify-between text-xs bg-background/90 p-2 rounded-xl border border-border/60">
-                          <div className="flex items-center gap-2 font-bold min-w-0">
-                            <Badge variant="outline" className="text-[9px] uppercase font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                        <div key={lIdx} className="flex items-center justify-between text-[11px] bg-background/90 p-1.5 rounded-xl border border-border/60">
+                          <div className="flex items-center gap-1.5 font-bold min-w-0">
+                            <Badge variant="outline" className="text-[9px] uppercase font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30 py-0 shrink-0">
                               {log.tool}
                             </Badge>
                             <span className="truncate text-foreground/90">{log.summary}</span>
                           </div>
-                          <span className="text-[10px] text-muted-foreground shrink-0 font-mono ml-2">{log.timestamp}</span>
+                          <span className="text-[9px] text-muted-foreground shrink-0 font-mono ml-1.5">{log.timestamp}</span>
                         </div>
                       ))}
                     </div>
@@ -1334,30 +1335,30 @@ How would you like to proceed? You can type any specific directive or choose an 
           <div ref={endRef} />
         </CardContent>
 
-        {/* Quick Suggestions Chips Bar */}
+        {/* Quick Suggestion Chips (Compact Horizontal Scroll) */}
         {messages.length > 0 && (
-          <div className="px-3 py-1.5 border-t bg-muted/20 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
-            {SUGGESTIONS.slice(0, 4).map((s, idx) => (
+          <div className="px-2.5 py-1.5 border-t bg-muted/20 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+            {CATEGORIZED_SUGGESTIONS.map((item, idx) => (
               <button
                 key={idx}
-                onClick={() => handleAsk(s)}
+                onClick={() => handleAsk(item.prompt)}
                 disabled={busy}
-                className="whitespace-nowrap px-3 py-1 text-[11px] font-bold rounded-full border border-border bg-background hover:bg-primary/10 hover:text-primary transition-all shrink-0"
+                className="whitespace-nowrap px-2.5 py-0.5 text-[10px] font-bold rounded-full border border-border bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all shrink-0 active:scale-95"
               >
-                {s}
+                {item.title}
               </button>
             ))}
           </div>
         )}
 
         {/* Bottom Input Form */}
-        <div className="p-3 border-t bg-card/90 shrink-0">
+        <div className="p-2.5 border-t bg-card shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleAsk(input);
             }}
-            className="flex items-center gap-2"
+            className="flex items-center gap-1.5"
           >
             <VoiceInputButton
               onTranscript={(spokenText) => {
@@ -1366,29 +1367,26 @@ How would you like to proceed? You can type any specific directive or choose an 
               }}
               onOpenLiveAgent={() => setLiveVoiceOpen(true)}
               disabled={busy}
-              className="h-11 w-11 rounded-xl shrink-0 border-border"
+              className="h-10 w-10 rounded-xl shrink-0 border-border"
             />
             <Input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Speak or type: direct AI Blogger, create a course/custom page, approve businesses..."
+              placeholder="Direct AI Blogger, create course/page, auto-tune..."
               disabled={busy}
-              className="h-11 font-medium text-xs sm:text-sm rounded-xl px-4 bg-background border-border shadow-xs focus-visible:ring-2 focus-visible:ring-primary flex-1"
+              className="h-10 font-medium text-xs sm:text-sm rounded-xl px-3 bg-background border-border shadow-xs focus-visible:ring-1 focus-visible:ring-primary flex-1 min-w-0"
             />
             <Button
               type="submit"
               disabled={busy || !input.trim()}
-              className="h-11 px-5 font-black rounded-xl shrink-0 gap-2 shadow-md bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="h-10 px-3.5 sm:px-4 font-black text-xs rounded-xl shrink-0 gap-1.5 shadow-xs bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {busy ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="hidden sm:inline">Reasoning…</span>
-                </>
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Send className="h-4 w-4" />
+                  <Send className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">Instruct</span>
                 </>
               )}
@@ -1397,7 +1395,7 @@ How would you like to proceed? You can type any specific directive or choose an 
         </div>
       </Card>
 
-      {/* Google Live Voice Agent Modal Dialog (Nigerian Kore Voice + Real-Time VAD) */}
+      {/* Google Live Voice Agent Modal Dialog */}
       <GoogleLiveVoiceAgentDialog
         open={liveVoiceOpen}
         onOpenChange={setLiveVoiceOpen}
