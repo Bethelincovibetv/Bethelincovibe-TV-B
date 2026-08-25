@@ -87,21 +87,27 @@ export interface VixoraVoiceOptions extends GoogleVoiceOptions {
 
 /**
  * VixoraLiveVoiceAgent
- * High-performance real-time live voice call engine powered by Vixora AI.
- * Built for ultra-low latency, intelligent VAD pause detection, and multi-voice synthesis.
+ * High-performance real-time live voice call engine powered by Google Gemini Live API.
+ * Built for ultra-low latency, bidirectional 16kHz PCM audio streaming, and multi-voice synthesis.
  */
 export class VixoraLiveVoiceAgent extends GoogleLiveVoiceAgent {
   private customVoice: VixoraVoiceName;
 
   constructor(options: VixoraVoiceOptions = {}, callbacks: VoiceAgentCallbacks = {}) {
+    const coachPrompt =
+      options.systemPrompt ||
+      options.systemInstruction ||
+      `You are ${options.coachName || "Coach Bethel Goodgift"}, an elite, high-energy Nigerian and Global business strategist and commercial growth mentor powered by BTV AI Studio. Speak with high energy, commercial sharpness, and actionable practical insights. Keep responses concise and punchy (2-3 sentences max per spoken turn) so the live voice call feels natural, engaging, and fast. Refer to Naira (₦) or market expansion where appropriate. Never output markdown asterisks or bullet points.`;
+
     super(
       {
         voiceName: (options.voiceName as any) || "Aoede",
         lang: options.lang || "en-US",
-        silenceTimeoutMs: options.silenceTimeoutMs || 1100, // Ultra snappy 1.1s real-time turnaround
+        silenceTimeoutMs: options.silenceTimeoutMs || 1100,
         continuous: options.continuous ?? true,
         pitch: options.pitch || 1.0,
         rate: options.rate || 1.0,
+        systemInstruction: coachPrompt,
       },
       callbacks
     );

@@ -60,6 +60,7 @@ export default function BusinessCoach() {
   const [liveOpen, setLiveOpen] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [taskFilter, setTaskFilter] = useState<"all" | "todo" | "in_progress" | "done">("all");
+  const [interimText, setInterimText] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,7 +71,7 @@ export default function BusinessCoach() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages]);
+  }, [messages, interimText]);
 
   async function loadConvs() {
     const { data } = await supabase.from("coach_conversations").select("*").order("updated_at", { ascending: false });
@@ -401,6 +402,18 @@ Tone: Authoritative, motivating, practical, and clear.`;
                 </div>
               ))}
 
+              {interimText && (
+                <div className="flex justify-end animate-pulse">
+                  <div className="max-w-[88%] sm:max-w-[80%] rounded-3xl p-4 text-xs bg-primary/90 text-primary-foreground font-medium rounded-tr-xs shadow-md border border-primary-foreground/20 flex items-start gap-2.5">
+                    <Radio className="h-4 w-4 text-amber-300 animate-pulse shrink-0 mt-0.5" />
+                    <div>
+                      <div className="text-[10px] uppercase font-bold tracking-wider opacity-80 mb-0.5">Listening to your voice…</div>
+                      <div className="italic font-normal">{interimText}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {sending && (
                 <div className="flex justify-start">
                   <div className="bg-muted/40 border border-border/60 rounded-3xl rounded-tl-xs px-4 py-3 text-xs flex items-center gap-2 text-muted-foreground">
@@ -424,8 +437,18 @@ Tone: Authoritative, motivating, practical, and clear.`;
               <LiveVoiceButton
                 conversationId={activeId}
                 businessContext={ctx}
-                onUserText={(t) => setMessages((m) => [...m, { role: "user", content: t }])}
-                onAssistantText={(t, cid) => { setMessages((m) => [...m, { role: "assistant", content: t }]); if (cid && !activeId) { setActiveId(cid); loadConvs(); } }}
+                onInterimText={(t) => setInterimText(t)}
+                onUserText={(t) => {
+                  setInterimText("");
+                  setMessages((m) => [...m, { role: "user", content: t }]);
+                }}
+                onAssistantText={(t, cid) => {
+                  setMessages((m) => [...m, { role: "assistant", content: t }]);
+                  if (cid && !activeId) {
+                    setActiveId(cid);
+                    loadConvs();
+                  }
+                }}
               />
               <Button onClick={() => send()} disabled={sending || !input.trim()} className="rounded-2xl h-11 px-4 font-bold shadow-md shrink-0">
                 <Send className="h-4 w-4" />

@@ -1,26 +1,27 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2, Radio } from "lucide-react";
-import { GoogleGenAI } from "@google/genai";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VixoraLiveVoiceAgent, VoiceAgentState } from "@/lib/vixoraVoiceEngine";
 
 type Props = {
   conversationId: string | null;
   businessContext: any;
+  onInterimText?: (t: string) => void;
   onUserText: (t: string) => void;
   onAssistantText: (t: string, conversationId?: string) => void;
 };
 
 /**
  * Live Voice mode for the AI Business Coach.
- * Powered by Vixora AI Live Voice Engine with intelligent Voice Activity
- * Detection (VAD) silence listening and real-time response.
+ * Powered by Google Gemini Live API (`gemini-3.1-flash-live-preview`).
+ * Features bidirectional 16kHz PCM audio streaming, live user transcription,
+ * and gapless 24kHz voice responses.
  */
 export default function LiveVoiceButton({
   conversationId,
   businessContext,
+  onInterimText,
   onUserText,
   onAssistantText,
 }: Props) {
@@ -39,80 +40,54 @@ export default function LiveVoiceButton({
     };
   }, []);
 
-  const start = () => {
+  const start = async () => {
     stop();
+
+    const coachSystemPrompt = `You are Coach Bethel Goodgift, the Executive AI Business Strategist at BTV.
+${businessContext?.business_name ? `The business name is "${businessContext.business_name}".` : ""}
+${businessContext?.industry ? `Industry: ${businessContext.industry}.` : ""}
+${businessContext?.goal ? `Goal: ${businessContext.goal}.` : ""}
+Speak naturally, warmly, energetically, and concisely in 2 to 3 practical, spoken sentences per turn. Never output markdown asterisks or bullet points.`;
 
     const agent = new VixoraLiveVoiceAgent(
       {
-        voiceName: "Aoede", // Victoria Studio Lead & AI Director
-        silenceTimeoutMs: 1100, // 1.1s instant pause before auto-response
+        voiceName: "Aoede", // Victoria Studio Lead
+        silenceTimeoutMs: 1100,
         continuous: true,
         lang: "en-US",
+        systemPrompt: coachSystemPrompt,
       },
       {
         onStateChange: (s) => setStatus(s),
-        onError: (err) => toast.error(err),
-        onUserFinishedSpeaking: async (transcript) => {
-          if (!transcript || transcript.trim().length < 2) return;
-          onUserText(transcript);
-
-          // 1. Try Supabase Edge Function
-          try {
-            const { data, error } = await supabase.functions.invoke("business-coach", {
-              body: {
-                conversationId: convIdRef.current,
-                message: transcript,
-                businessContext,
-              },
-            });
-
-            if (!error && data?.reply) {
-              const reply = String(data.reply);
-              if (data.conversationId) convIdRef.current = data.conversationId;
-              onAssistantText(reply, data.conversationId);
-              return reply;
-            }
-          } catch (err) {
-            console.warn("Edge function notice, using direct voice AI:", err);
+        onInterimTranscript: (t) => onInterimText?.(t),
+        onFinalTranscript: (t) => {
+          onInterimText?.("");
+          if (t && t.trim().length > 1) {
+            onUserText(t.trim());
           }
-
-          // 2. Direct Gemini Fallback for spoken voice
-          try {
-            const apiKey =
-              (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-              (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "") ||
-              "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
-
-            const ai = new GoogleGenAI({ apiKey });
-            const prompt = `You are Victoria & Adaobi, the lead AI Business Strategist at Vixora and Bethelincovibe.
-Speak concisely, energetically, and directly in 2 to 3 natural spoken sentences without markdown asterisks.
-User said: "${transcript}"`;
-
-            const res = await ai.models.generateContent({
-              model: "gemini-3.7-flash",
-              contents: [{ parts: [{ text: prompt }] }],
-            });
-
-            const reply = res.text?.trim() || "I am on it. Let's optimize this strategy for your business right now.";
-            onAssistantText(reply, convIdRef.current || undefined);
-            return reply;
-          } catch (e: any) {
-            console.error("Direct voice AI error:", e);
-            const errReply = "I heard you! Let us keep building momentum for your business.";
-            onAssistantText(errReply, convIdRef.current || undefined);
-            return errReply;
+        },
+        onAIResponse: (reply) => {
+          if (reply && reply.trim()) {
+            onAssistantText(reply.trim(), convIdRef.current || undefined);
           }
+        },
+        onError: (err) => {
+          onInterimText?.("");
+          toast.error(err);
         },
       }
     );
 
     agentRef.current = agent;
-    agent.start();
-    setActive(true);
-    toast.success("Vixora Live Voice connected — speak naturally with your coach");
+    const ok = await agent.start();
+    if (ok) {
+      setActive(true);
+      toast.success("Google Gemini Live Voice connected — speak naturally with your coach");
+    }
   };
 
   const stop = () => {
+    onInterimText?.("");
     if (agentRef.current) {
       agentRef.current.stop();
       agentRef.current = null;
@@ -128,7 +103,7 @@ User said: "${transcript}"`;
       ? "Thinking…"
       : status === "speaking"
       ? "Speaking…"
-      : "Vixora Live Voice";
+      : "Gemini Live Voice";
 
   return (
     <Button
@@ -137,7 +112,7 @@ User said: "${transcript}"`;
       variant={active ? "destructive" : "secondary"}
       size="sm"
       className="gap-1.5 font-bold"
-      title="Hands-free live voice conversation powered by Vixora AI"
+      title="Bidirectional live voice conversation powered by Google Gemini Live API"
     >
       {status === "processing" || status === "speaking" ? (
         <Loader2 className="h-4 w-4 animate-spin" />

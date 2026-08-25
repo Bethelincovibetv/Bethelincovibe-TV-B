@@ -76,12 +76,21 @@ export default function VixoraCoachLiveDialog({
 
     const welcomeGreeting = `Hello! I am ${coachName}, your BTV AI live business coach. What are we strategizing today? Tell me about your sales, pricing, or business growth challenges!`;
 
+    const coachPrompt =
+      systemPrompt ||
+      `You are ${coachName}, an elite, high-energy Nigerian and Global business strategist and commercial growth mentor powered by BTV AI Studio.
+${businessContext?.business_name ? `The user's business is "${businessContext.business_name}".` : ""}
+${businessContext?.industry ? `Industry: ${businessContext.industry}.` : ""}
+${businessContext?.goal ? `Goal: ${businessContext.goal}.` : ""}
+Speak with high energy, commercial sharpness, and actionable practical insights. Keep responses concise and punchy (2-3 sentences max per spoken turn) so the live voice call feels natural, engaging, and fast. Refer to Naira (₦) or market expansion where appropriate. Never output markdown asterisks or bullet points.`;
+
     const agent = new VixoraLiveVoiceAgent(
       {
         voiceName: selectedVoice,
         silenceTimeoutMs: 1100, // 1.1s instant turnaround
         continuous: continuousMode,
         lang: "en-US",
+        systemPrompt: coachPrompt,
       },
       {
         onStateChange: (s) => {
@@ -96,72 +105,19 @@ export default function VixoraCoachLiveDialog({
         },
         onInterimTranscript: (t) => setTranscript(t),
         onFinalTranscript: (t) => setTranscript(t),
+        onAIResponseTextChunk: (chunk) => {
+          setReply((prev) => prev + chunk);
+        },
+        onAIResponse: (responseText) => {
+          setReply(responseText);
+        },
         onAudioLevels: (levels) => setWaveHeights(levels),
         onError: (err) => {
           if (err.includes("Microphone") || err.includes("permission") || err.includes("denied")) {
             setMicPermission("denied");
             setPermissionError(err);
           } else {
-            console.warn("Vixora Live Voice notice:", err);
-          }
-        },
-        onUserFinishedSpeaking: async (userQuery) => {
-          if (!userQuery || userQuery.trim().length < 2) return;
-          if (muted) return;
-
-          // 1. Try Supabase Edge Function
-          try {
-            const coachPrompt = `${systemPrompt || ""}
-You are ${coachName}, an elite, high-energy Nigerian and Global business strategist and commercial growth mentor powered by Vixora AI.
-Speak with high energy, commercial sharpness, and actionable practical insights. Keep responses concise and punchy (2-3 sentences max per spoken turn) so the live voice call feels natural, engaging, and fast. Refer to Naira (₦) or market expansion where appropriate.`;
-
-            const { data, error } = await supabase.functions.invoke("business-coach", {
-              body: {
-                conversationId: convIdRef.current,
-                message: userQuery,
-                businessContext: businessContext || {},
-                systemPrompt: coachPrompt,
-              },
-            });
-
-            if (!error && data?.reply) {
-              if (data.conversationId) convIdRef.current = data.conversationId;
-              const responseText = String(data.reply).replace(/[*_#`~]/g, "");
-              setReply(responseText);
-              return responseText;
-            }
-          } catch (err) {
-            console.warn("Vixora coach edge function fallback to direct voice AI:", err);
-          }
-
-          // 2. Direct Gemini AI Voice Response
-          try {
-            const credsKey = apiKeyService.getCredentials().geminiApiKey;
-            const apiKey =
-              (credsKey && credsKey.length > 10 ? credsKey.trim() : null) ||
-              (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-              (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "") ||
-              "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
-
-            const ai = new GoogleGenAI({ apiKey });
-            const prompt = `You are ${coachName} (Chief AI Director & Business Strategist at Vixora AI Studio).
-Answer the user's spoken question directly in 2 to 3 natural, spoken, inspiring, and actionable sentences.
-No markdown asterisks, bullet points, or special characters because this will be spoken aloud to the user.
-User spoken question: "${userQuery}"`;
-
-            const res = await ai.models.generateContent({
-              model: "gemini-3.7-flash",
-              contents: [{ parts: [{ text: prompt }] }],
-            });
-
-            const responseText = (res.text?.trim() || "Let us optimize your strategy and drive more conversions today.").replace(/[*_#`~]/g, "");
-            setReply(responseText);
-            return responseText;
-          } catch (aiErr: any) {
-            console.error("Direct voice AI error:", aiErr);
-            const errReply = "I heard you clearly! Let us execute your strategy and grow your business today.";
-            setReply(errReply);
-            return errReply;
+            console.warn("Gemini Live Voice notice:", err);
           }
         },
       }
