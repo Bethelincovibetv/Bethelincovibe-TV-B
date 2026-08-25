@@ -565,14 +565,14 @@ export default function NativeVideoCreator({
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Studio Header & Global Controls */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-border/80">
-        <div>
+      <div className="flex flex-col gap-4 pb-3 border-b border-border/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 ring-1 ring-white/20">
+            <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-tr from-purple-600 via-pink-600 to-amber-500 flex items-center justify-center text-white shadow-lg shadow-purple-500/25 ring-1 ring-white/20">
               <Film className="h-5 w-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center flex-wrap gap-2">
                 <h2 className="text-xl sm:text-2xl font-extrabold tracking-tight text-foreground">
                   Vixora AI Studio
                 </h2>
@@ -585,133 +585,135 @@ export default function NativeVideoCreator({
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground line-clamp-1 sm:line-clamp-none">
                 AI Script generation, neural voiceover synthesis, sound effects & video compositing.
               </p>
             </div>
           </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setShowVoiceAgentDialog(true)}
+              className="h-9 px-3 gap-1.5 font-bold text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs shrink-0"
+            >
+              <Radio className="h-3.5 w-3.5 text-emerald-200 animate-pulse" />
+              <span className="inline">Live Voice Coach</span>
+            </Button>
+
+            <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 gap-1.5 font-semibold text-xs shrink-0">
+                  <Settings className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">Settings</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-base font-bold">
+                    <Settings className="h-4 w-4 text-purple-600" />
+                    Vixora Studio Configuration
+                  </DialogTitle>
+                  <DialogDescription className="text-xs">
+                    Configure live REST API endpoints and single sign-on synchronization.
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4 py-2">
+                  <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-purple-600" /> Cloud Database & SSO
+                      </span>
+                      <Badge className="bg-emerald-600 text-white text-[10px]">Connected</Badge>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Supabase DB: <code>https://gndcgttnpxsjufmehgyi.supabase.co</code>
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label className="text-xs font-bold">Vixora REST API Endpoint</Label>
+                    <Input
+                      value={tempUrlInput}
+                      onChange={(e) => setTempUrlInput(e.target.value)}
+                      placeholder="https://ais-dev-z3gmsn2xsvk2qfmakpvm37-164225214835.europe-west3.run.app"
+                      className="font-mono text-xs mt-1"
+                    />
+                    <p className="text-[11px] text-muted-foreground mt-1">
+                      Used for <code>/api/public/v1/*</code> video, script, and voice routes.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={handleTestEndpoint}
+                      disabled={testingEndpoint || !tempUrlInput.trim()}
+                      className="text-xs gap-1.5"
+                    >
+                      {testingEndpoint ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                      Verify REST API
+                    </Button>
+
+                    {endpointStatus === "ok" && (
+                      <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> API Connected
+                      </span>
+                    )}
+                    {endpointStatus === "failed" && (
+                      <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
+                        <AlertCircle className="h-3.5 w-3.5" /> Native Engine Ready
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button variant="ghost" size="sm" onClick={() => setConfigOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button size="sm" onClick={handleSaveBackendUrl}>
+                    Save Settings
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
-        {/* Navigation Tabs & Settings */}
-        <div className="flex items-center gap-2">
+        {/* Navigation Tabs (Smooth horizontal scroll on mobile) */}
+        <div className="w-full overflow-x-auto no-scrollbar pb-1">
           <Tabs
             value={studioTab}
             onValueChange={(v: any) => setStudioTab(v)}
-            className="w-auto"
+            className="w-full sm:w-auto"
           >
-            <TabsList className="grid grid-cols-6 h-9 p-1 bg-secondary/80">
-              <TabsTrigger value="create" className="text-xs font-bold gap-1">
+            <TabsList className="inline-flex h-9 p-1 bg-secondary/80 rounded-xl gap-1 shrink-0">
+              <TabsTrigger value="create" className="text-xs font-bold gap-1 px-3 py-1 whitespace-nowrap">
                 <Wand2 className="h-3.5 w-3.5" /> Studio
               </TabsTrigger>
-              <TabsTrigger value="ai_script" className="text-xs font-bold gap-1 text-purple-600 dark:text-purple-400">
+              <TabsTrigger value="ai_script" className="text-xs font-bold gap-1 text-purple-600 dark:text-purple-400 px-3 py-1 whitespace-nowrap">
                 <Sparkles className="h-3.5 w-3.5" /> AI Script
               </TabsTrigger>
-              <TabsTrigger value="beats" className="text-xs font-bold gap-1">
+              <TabsTrigger value="beats" className="text-xs font-bold gap-1 px-3 py-1 whitespace-nowrap">
                 <Layers className="h-3.5 w-3.5" /> Beats
               </TabsTrigger>
-              <TabsTrigger value="audio_sfx" className="text-xs font-bold gap-1">
+              <TabsTrigger value="audio_sfx" className="text-xs font-bold gap-1 px-3 py-1 whitespace-nowrap">
                 <Music className="h-3.5 w-3.5" /> Audio
               </TabsTrigger>
-              <TabsTrigger value="stock" className="text-xs font-bold gap-1">
+              <TabsTrigger value="stock" className="text-xs font-bold gap-1 px-3 py-1 whitespace-nowrap">
                 <Search className="h-3.5 w-3.5" /> Media
               </TabsTrigger>
-              <TabsTrigger value="library" className="text-xs font-bold gap-1">
+              <TabsTrigger value="library" className="text-xs font-bold gap-1 px-3 py-1 whitespace-nowrap">
                 <FolderOpen className="h-3.5 w-3.5" /> Library ({videoHistory.length})
               </TabsTrigger>
             </TabsList>
           </Tabs>
-
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => setShowVoiceAgentDialog(true)}
-            className="h-9 px-3 gap-1.5 font-bold text-xs bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs"
-          >
-            <Radio className="h-3.5 w-3.5 text-emerald-200 animate-pulse" />
-            <span className="hidden sm:inline">Victoria Voice Agent</span>
-            <span className="sm:hidden">Voice</span>
-          </Button>
-
-          <Dialog open={configOpen} onOpenChange={setConfigOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline" size="sm" className="h-9 gap-1.5 font-semibold text-xs">
-                <Settings className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">Settings</span>
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle className="flex items-center gap-2 text-base font-bold">
-                  <Settings className="h-4 w-4 text-purple-600" />
-                  Vixora Studio Configuration
-                </DialogTitle>
-                <DialogDescription className="text-xs">
-                  Configure live REST API endpoints and single sign-on synchronization.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="space-y-4 py-2">
-                <div className="p-3 rounded-xl bg-purple-500/10 border border-purple-500/20 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                      <Sparkles className="h-3.5 w-3.5 text-purple-600" /> Cloud Database & SSO
-                    </span>
-                    <Badge className="bg-emerald-600 text-white text-[10px]">Connected</Badge>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">
-                    Supabase DB: <code>https://gndcgttnpxsjufmehgyi.supabase.co</code>
-                  </p>
-                </div>
-
-                <div>
-                  <Label className="text-xs font-bold">Vixora REST API Endpoint</Label>
-                  <Input
-                    value={tempUrlInput}
-                    onChange={(e) => setTempUrlInput(e.target.value)}
-                    placeholder="https://ais-dev-z3gmsn2xsvk2qfmakpvm37-164225214835.europe-west3.run.app"
-                    className="font-mono text-xs mt-1"
-                  />
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    Used for <code>/api/public/v1/*</code> video, script, and voice routes.
-                  </p>
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleTestEndpoint}
-                    disabled={testingEndpoint || !tempUrlInput.trim()}
-                    className="text-xs gap-1.5"
-                  >
-                    {testingEndpoint ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                    Verify REST API
-                  </Button>
-
-                  {endpointStatus === "ok" && (
-                    <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> API Connected
-                    </span>
-                  )}
-                  {endpointStatus === "failed" && (
-                    <span className="text-xs font-bold text-amber-500 flex items-center gap-1">
-                      <AlertCircle className="h-3.5 w-3.5" /> Native Engine Ready
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button variant="ghost" size="sm" onClick={() => setConfigOpen(false)}>
-                  Cancel
-                </Button>
-                <Button size="sm" onClick={handleSaveBackendUrl}>
-                  Save Settings
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </div>
       </div>
 

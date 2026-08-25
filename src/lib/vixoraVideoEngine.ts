@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import { GoogleGenAI, Modality } from "@google/genai";
+import { apiKeyService } from "@/vixora/services/apiKeyService";
 
 export const VIXORA_LIVE_API_BASE =
   "https://ais-dev-z3gmsn2xsvk2qfmakpvm37-164225214835.europe-west3.run.app";
@@ -139,7 +140,7 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 }
 
 /**
- * Get Gemini API Key from site_settings or environment
+ * Get Gemini API Key from site_settings, apiKeyService or environment
  */
 async function getGeminiApiKey(): Promise<string> {
   try {
@@ -154,10 +155,15 @@ async function getGeminiApiKey(): Promise<string> {
     }
   } catch {}
 
+  const credsKey = apiKeyService.getCredentials().geminiApiKey;
+  if (credsKey && credsKey.length > 10) {
+    return credsKey.trim();
+  }
+
   const envKey =
     (import.meta as any).env?.VITE_GEMINI_API_KEY ||
     (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "");
-  return envKey || "";
+  return envKey || "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
 }
 
 /**

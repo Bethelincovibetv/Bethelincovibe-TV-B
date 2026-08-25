@@ -348,59 +348,143 @@ Rules:
 
       mediaRecorder.start();
       let frame = 0;
-      const totalFrames = targetSec * 30;
+      // Fast high-frame composite (approx 150 frames for crisp high-energy video preview)
+      const renderFrames = Math.min(180, Math.max(90, targetSec * 15));
+
+      // Pre-generate ambient particle positions
+      const particles = Array.from({ length: 35 }, () => ({
+        x: Math.random() * width,
+        y: Math.random() * height,
+        radius: Math.random() * 8 + 4,
+        speedX: (Math.random() - 0.5) * 3,
+        speedY: (Math.random() - 0.5) * 3,
+        hue: Math.random() > 0.5 ? 280 : 35, // Purple or Amber
+      }));
 
       const renderInterval = setInterval(() => {
         frame++;
-        const pct = Math.round((frame / totalFrames) * 90);
+        const pct = Math.min(99, Math.round((frame / renderFrames) * 98));
         setRenderProgress(pct);
 
-        // Draw dynamic background
+        // 1. Dynamic Rich Background Gradient
         const grad = ctx.createLinearGradient(0, 0, width, height);
-        grad.addColorStop(0, "#0f172a");
-        grad.addColorStop(0.5, "#1e1b4b");
-        grad.addColorStop(1, "#311042");
+        grad.addColorStop(0, "#090d16");
+        grad.addColorStop(0.35, "#130924");
+        grad.addColorStop(0.7, "#1c0d2e");
+        grad.addColorStop(1, "#2a0845");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
 
-        // Glowing wave
-        ctx.strokeStyle = "rgba(249, 115, 22, 0.4)";
-        ctx.lineWidth = 4;
+        // 2. Floating Ambient Particles
+        particles.forEach((p) => {
+          p.x += p.speedX;
+          p.y += p.speedY;
+          if (p.x < 0) p.x = width;
+          if (p.x > width) p.x = 0;
+          if (p.y < 0) p.y = height;
+          if (p.y > height) p.y = 0;
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${p.hue}, 90%, 65%, 0.35)`;
+          ctx.fill();
+        });
+
+        // 3. Glowing Audio Sound Waves at the Bottom
+        ctx.strokeStyle = "rgba(249, 115, 22, 0.6)";
+        ctx.lineWidth = 6;
         ctx.beginPath();
-        for (let x = 0; x < width; x += 10) {
-          const y = height * 0.75 + Math.sin(x * 0.01 + frame * 0.05) * 40;
+        for (let x = 0; x < width; x += 15) {
+          const waveHeight = Math.sin(x * 0.015 + frame * 0.12) * Math.cos(frame * 0.08) * 50;
+          const y = height * 0.82 + waveHeight;
           if (x === 0) ctx.moveTo(x, y);
           else ctx.lineTo(x, y);
         }
         ctx.stroke();
 
-        // Topic Title Badge
-        ctx.fillStyle = "rgba(255, 255, 255, 0.1)";
-        ctx.roundRect(width * 0.1, height * 0.15, width * 0.8, 120, 24);
+        ctx.strokeStyle = "rgba(168, 85, 247, 0.5)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        for (let x = 0; x < width; x += 15) {
+          const waveHeight = Math.cos(x * 0.012 - frame * 0.15) * 35;
+          const y = height * 0.84 + waveHeight;
+          if (x === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // 4. Topic Header Card
+        const cardW = width * 0.86;
+        const cardH = Math.min(160, height * 0.12);
+        const cardX = (width - cardW) / 2;
+        const cardY = height * 0.08;
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.08)";
+        ctx.strokeStyle = "rgba(249, 115, 22, 0.4)";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.roundRect(cardX, cardY, cardW, cardH, 24);
         ctx.fill();
+        ctx.stroke();
 
         ctx.fillStyle = "#ffffff";
-        ctx.font = `bold ${Math.round(width * 0.045)}px sans-serif`;
+        ctx.font = `bold ${Math.round(width * 0.042)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.textAlign = "center";
-        ctx.fillText(topic.slice(0, 38), width / 2, height * 0.15 + 75);
+        ctx.fillText(topic.slice(0, 36) + (topic.length > 36 ? "..." : ""), width / 2, cardY + cardH * 0.62);
 
-        // Subtitles
-        const textWords = (script || topic).split(" ");
+        // 5. Kinetic Subtitle Words
+        const textWords = (script || topic).split(/\s+/).filter(Boolean);
         const wordIndex = Math.min(
           textWords.length - 1,
-          Math.floor((frame / totalFrames) * textWords.length)
+          Math.floor((frame / renderFrames) * textWords.length)
         );
         const activeWord = textWords[wordIndex] || "";
+        const prevWord = textWords[Math.max(0, wordIndex - 1)] || "";
+        const nextWord = textWords[Math.min(textWords.length - 1, wordIndex + 1)] || "";
 
+        // Context words (ghosted)
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.font = `600 ${Math.round(width * 0.04)}px sans-serif`;
+        ctx.fillText(prevWord.toUpperCase(), width / 2, height * 0.42);
+
+        // Active High-Energy Word
+        const pulse = 1 + Math.sin(frame * 0.2) * 0.06;
+        ctx.save();
+        ctx.translate(width / 2, height * 0.52);
+        ctx.scale(pulse, pulse);
+
+        // Kinetic text background pill
+        const textMetrics = ctx.measureText(activeWord.toUpperCase());
+        const pillW = Math.max(width * 0.55, textMetrics.width + 80);
         ctx.fillStyle = "#f97316";
-        ctx.font = `black ${Math.round(width * 0.07)}px sans-serif`;
-        ctx.fillText(activeWord.toUpperCase(), width / 2, height * 0.5);
+        ctx.beginPath();
+        ctx.roundRect(-pillW / 2, -50, pillW, 95, 20);
+        ctx.fill();
 
-        if (frame >= totalFrames) {
+        ctx.fillStyle = "#000000";
+        ctx.font = `900 ${Math.round(width * 0.065)}px sans-serif`;
+        ctx.fillText(activeWord.toUpperCase(), 0, 18);
+        ctx.restore();
+
+        // Following word (ghosted)
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.font = `600 ${Math.round(width * 0.04)}px sans-serif`;
+        ctx.fillText(nextWord.toUpperCase(), width / 2, height * 0.62);
+
+        // 6. Watermark Badge
+        ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+        ctx.font = `bold ${Math.round(width * 0.028)}px sans-serif`;
+        ctx.fillText("⚡ VIXORA STUDIO • 1080P MASTER", width / 2, height * 0.94);
+
+        if (frame >= renderFrames) {
           clearInterval(renderInterval);
-          mediaRecorder.stop();
+          setTimeout(() => {
+            if (mediaRecorder.state !== "inactive") {
+              mediaRecorder.stop();
+            }
+          }, 300);
         }
-      }, 33);
+      }, 35);
     });
   };
 
@@ -468,27 +552,27 @@ Rules:
 
       {/* Top Header */}
       <header className="sticky top-0 z-40 border-b border-border/80 bg-background/95 backdrop-blur-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-orange-500 via-amber-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
-              <Film className="h-5 w-5" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="h-9 w-9 sm:h-10 sm:w-10 shrink-0 rounded-2xl bg-gradient-to-tr from-orange-500 via-amber-500 to-purple-600 flex items-center justify-center text-white shadow-lg">
+              <Film className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-extrabold text-lg sm:text-xl tracking-tight text-foreground">
-                  Victoria AI Video Studio
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="font-extrabold text-base sm:text-xl tracking-tight text-foreground truncate">
+                  Victoria AI Studio
                 </h1>
-                <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[11px] font-bold py-0.5">
+                <Badge variant="outline" className="hidden xs:inline-flex bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] sm:text-[11px] font-bold py-0.5 shrink-0">
                   Native Studio
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground hidden sm:block">
+              <p className="text-[11px] text-muted-foreground hidden md:block">
                 Powered by Vixora & Victoria Studio Lead AI Voice Engine
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Adaobi Live Voice Coach Button (Energetic Nigerian Lady) */}
             <Button
               variant="default"
@@ -497,10 +581,11 @@ Rules:
                 setSelectedCoachPersona("adaobi");
                 setShowVoiceAgentDialog(true);
               }}
-              className="h-9 px-3 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 via-amber-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-xs gap-1.5"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl text-[11px] sm:text-xs font-bold bg-gradient-to-r from-orange-500 via-amber-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-xs gap-1 sm:gap-1.5 shrink-0"
             >
-              <Radio className="h-3.5 w-3.5 text-amber-200 animate-pulse" />
-              <span>Coach Adaobi (Nigerian Voice)</span>
+              <Radio className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-200 animate-pulse" />
+              <span className="hidden sm:inline">Coach Adaobi</span>
+              <span className="sm:hidden">Coach</span>
             </Button>
 
             {/* Victoria Studio Lead Button */}
@@ -511,7 +596,7 @@ Rules:
                 setSelectedCoachPersona("victoria");
                 setShowVoiceAgentDialog(true);
               }}
-              className="h-9 px-3 rounded-xl text-xs font-bold border-purple-500/30 text-purple-600 dark:text-purple-400 bg-purple-500/5 hover:bg-purple-500/10 gap-1.5 hidden sm:flex"
+              className="h-8 sm:h-9 px-2.5 sm:px-3 rounded-xl text-xs font-bold border-purple-500/30 text-purple-600 dark:text-purple-400 bg-purple-500/5 hover:bg-purple-500/10 gap-1.5 hidden lg:flex"
             >
               <Bot className="h-3.5 w-3.5 text-purple-500" />
               <span>Victoria Lead</span>
@@ -522,9 +607,9 @@ Rules:
               variant="outline"
               size="sm"
               onClick={() => setShowPaystackModal(true)}
-              className="h-9 px-3 text-xs font-bold rounded-xl border-orange-500/30 text-orange-600 dark:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 gap-1.5"
+              className="h-8 sm:h-9 px-2 sm:px-3 text-[11px] sm:text-xs font-bold rounded-xl border-orange-500/30 text-orange-600 dark:text-orange-400 bg-orange-500/5 hover:bg-orange-500/10 gap-1 sm:gap-1.5 shrink-0"
             >
-              <Zap className="h-3.5 w-3.5 fill-current" />
+              <Zap className="h-3 w-3 sm:h-3.5 sm:w-3.5 fill-current" />
               <span>{userCredits} Credits</span>
             </Button>
 
@@ -544,7 +629,7 @@ Rules:
               variant="outline"
               size="sm"
               onClick={() => setShowExportModal(true)}
-              className="h-9 px-2.5 text-xs font-semibold rounded-xl hidden sm:flex items-center gap-1.5"
+              className="h-9 px-2.5 text-xs font-semibold rounded-xl hidden lg:flex items-center gap-1.5"
             >
               <Download className="h-4 w-4" />
               <span>Export Code</span>
@@ -554,32 +639,32 @@ Rules:
       </header>
 
       {/* Main Studio Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-          <div className="flex items-center justify-between overflow-x-auto pb-1">
-            <TabsList className="h-11 p-1 bg-muted/60 rounded-2xl border border-border/60">
-              <TabsTrigger value="creator" className="rounded-xl text-xs font-bold gap-1.5 px-3.5 py-2">
-                <Film className="h-4 w-4" />
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 pt-4 sm:pt-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-4 sm:space-y-6">
+          <div className="w-full overflow-x-auto no-scrollbar pb-1">
+            <TabsList className="inline-flex h-10 p-1 bg-muted/60 rounded-2xl border border-border/60 gap-1 shrink-0">
+              <TabsTrigger value="creator" className="rounded-xl text-xs font-bold gap-1 px-3 py-1.5 whitespace-nowrap">
+                <Film className="h-3.5 w-3.5" />
                 <span>Video Creator</span>
               </TabsTrigger>
-              <TabsTrigger value="scripts" className="rounded-xl text-xs font-bold gap-1.5 px-3.5 py-2">
-                <FileText className="h-4 w-4" />
+              <TabsTrigger value="scripts" className="rounded-xl text-xs font-bold gap-1 px-3 py-1.5 whitespace-nowrap">
+                <FileText className="h-3.5 w-3.5" />
                 <span>AI Script & Hook Lab</span>
               </TabsTrigger>
-              <TabsTrigger value="voices" className="rounded-xl text-xs font-bold gap-1.5 px-3.5 py-2">
-                <Volume2 className="h-4 w-4" />
+              <TabsTrigger value="voices" className="rounded-xl text-xs font-bold gap-1 px-3 py-1.5 whitespace-nowrap">
+                <Volume2 className="h-3.5 w-3.5" />
                 <span>Voices & SFX Board</span>
               </TabsTrigger>
-              <TabsTrigger value="stock" className="rounded-xl text-xs font-bold gap-1.5 px-3.5 py-2">
-                <Video className="h-4 w-4" />
+              <TabsTrigger value="stock" className="rounded-xl text-xs font-bold gap-1 px-3 py-1.5 whitespace-nowrap">
+                <Video className="h-3.5 w-3.5" />
                 <span>Stock Media</span>
               </TabsTrigger>
-              <TabsTrigger value="api" className="rounded-xl text-xs font-bold gap-1.5 px-3.5 py-2">
-                <Code2 className="h-4 w-4" />
+              <TabsTrigger value="api" className="rounded-xl text-xs font-bold gap-1 px-3 py-1.5 whitespace-nowrap">
+                <Code2 className="h-3.5 w-3.5" />
                 <span>Developer API</span>
               </TabsTrigger>
-              <TabsTrigger value="pro" className="rounded-xl text-xs font-bold gap-1.5 px-3.5 py-2">
-                <CreditCard className="h-4 w-4" />
+              <TabsTrigger value="pro" className="rounded-xl text-xs font-bold gap-1 px-3 py-1.5 whitespace-nowrap">
+                <CreditCard className="h-3.5 w-3.5" />
                 <span>Pro Pricing</span>
               </TabsTrigger>
             </TabsList>

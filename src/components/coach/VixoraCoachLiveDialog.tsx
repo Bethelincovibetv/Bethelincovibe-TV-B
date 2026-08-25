@@ -26,6 +26,7 @@ import {
 } from "@/lib/vixoraVoiceEngine";
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
+import { apiKeyService } from "@/vixora/services/apiKeyService";
 import { toast } from "sonner";
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
 
@@ -135,7 +136,9 @@ Speak with high energy, commercial sharpness, and actionable practical insights.
 
           // 2. Direct Gemini AI Voice Response
           try {
+            const credsKey = apiKeyService.getCredentials().geminiApiKey;
             const apiKey =
+              (credsKey && credsKey.length > 10 ? credsKey.trim() : null) ||
               (import.meta as any).env?.VITE_GEMINI_API_KEY ||
               (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "") ||
               "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
@@ -143,7 +146,7 @@ Speak with high energy, commercial sharpness, and actionable practical insights.
             const ai = new GoogleGenAI({ apiKey });
             const prompt = `You are ${coachName} (Chief AI Director & Business Strategist at Vixora AI Studio).
 Answer the user's spoken question directly in 2 to 3 natural, spoken, inspiring, and actionable sentences.
-No markdown asterisks or bullet formatting.
+No markdown asterisks, bullet points, or special characters because this will be spoken aloud to the user.
 User spoken question: "${userQuery}"`;
 
             const res = await ai.models.generateContent({

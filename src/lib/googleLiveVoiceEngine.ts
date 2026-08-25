@@ -1,5 +1,6 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
+import { apiKeyService } from "@/vixora/services/apiKeyService";
 
 export interface GoogleVoiceOptions {
   voiceName?: "Kore" | "Puck" | "Charon" | "Fenrir" | "Zephyr";
@@ -158,10 +159,13 @@ export async function synthesizeGoogleVoice(
       .eq("key", "gemini_api_key")
       .maybeSingle();
 
+    const credsKey = apiKeyService.getCredentials().geminiApiKey;
     const apiKey =
-      setting?.value ||
+      (setting?.value && setting.value.trim().length > 10 ? setting.value.trim() : null) ||
+      (credsKey && credsKey.length > 10 ? credsKey.trim() : null) ||
       import.meta.env.VITE_GEMINI_API_KEY ||
-      (typeof process !== "undefined" ? process.env?.GEMINI_API_KEY : "");
+      (typeof process !== "undefined" ? process.env?.GEMINI_API_KEY : "") ||
+      "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
 
     if (apiKey && apiKey.trim().length > 10) {
       const ai = new GoogleGenAI({ apiKey: apiKey.trim() });
