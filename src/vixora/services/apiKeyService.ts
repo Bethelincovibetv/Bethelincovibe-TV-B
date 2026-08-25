@@ -19,6 +19,7 @@ export const apiKeyService = {
           "https://yyejcbbcqirsigphzxxo.supabase.co",
         supabaseAnonKey:
           parsed.supabaseAnonKey ||
+          (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY ||
           (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
           "sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ",
         paystackPublicKey:
