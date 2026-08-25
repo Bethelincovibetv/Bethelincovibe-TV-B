@@ -15,9 +15,11 @@ import {
   TrendingUp, DollarSign, Lightbulb, Target, Settings2, Bot, MessageSquare, ListTodo, Volume2
 } from "lucide-react";
 import { toast } from "sonner";
+import { GoogleGenAI } from "@google/genai";
 import ListenButton from "@/components/ListenButton";
 import LiveVoiceButton from "@/components/coach/LiveVoiceButton";
 import VixoraCoachLiveDialog from "@/components/coach/VixoraCoachLiveDialog";
+import VixoraAICoachToday from "@/components/coach/VixoraAICoachToday";
 
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
 
@@ -101,17 +103,66 @@ export default function BusinessCoach() {
     if (!textToSend) setInput("");
     setSending(true);
     setMessages((m) => [...m, { role: "user", content: query }]);
+
     try {
+      // 1. Try Supabase Edge Function
       const { data, error } = await supabase.functions.invoke("business-coach", {
         body: { conversationId: activeId, message: query, businessContext: ctx },
       });
-      if (error || data?.error) throw new Error(data?.error || error?.message);
-      setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
-      if (!activeId) { setActiveId(data.conversationId); loadConvs(); }
-    } catch (e: any) {
-      toast.error(e.message || "Failed");
+
+      if (!error && data?.reply) {
+        setMessages((m) => [...m, { role: "assistant", content: data.reply }]);
+        if (!activeId && data.conversationId) {
+          setActiveId(data.conversationId);
+          loadConvs();
+        }
+        return;
+      }
+    } catch (e) {
+      console.warn("Supabase business-coach edge function notice, using direct AI engine:", e);
+    }
+
+    // 2. Direct Gemini AI Fallback Engine
+    try {
+      const apiKey =
+        (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+        (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "") ||
+        "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
+
+      const ai = new GoogleGenAI({ apiKey });
+      const systemInstruction = `You are Coach Adaobi & Victoria, the Chief AI Business Strategist at Vixora & Bethelincovibe.
+You provide tactical, high-converting business advice, pricing models, marketing strategies, Nigerian & Global market insights, and step-by-step action plans.
+Business Name: ${ctx.business_name || "Enterprise"}
+Industry: ${ctx.industry || "General Commerce"}
+Stage: ${ctx.stage || "Growth"}
+Monthly Revenue: ${ctx.monthly_revenue || "N/A"}
+Goals: ${ctx.goals || "Scale Revenue & Customer Acquisition"}
+Tone: Authoritative, motivating, practical, and clear.`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.7-flash",
+        contents: [
+          { role: "user", parts: [{ text: `${systemInstruction}\n\nUser Question: ${query}` }] },
+        ],
+      });
+
+      const replyText = response.text?.trim() || "Let's structure your strategy for maximum growth and market impact.";
+      setMessages((m) => [...m, { role: "assistant", content: replyText }]);
+
+      // Persist locally or in DB if possible
+      if (user && activeId) {
+        await supabase.from("coach_messages").insert([
+          { conversation_id: activeId, role: "user", content: query },
+          { conversation_id: activeId, role: "assistant", content: replyText },
+        ]).catch(() => {});
+      }
+    } catch (err: any) {
+      console.error("Direct AI error:", err);
+      toast.error("Could not reach AI coach. Please try again.");
       setMessages((m) => m.slice(0, -1));
-    } finally { setSending(false); }
+    } finally {
+      setSending(false);
+    }
   }
 
   async function saveAsTask(content: string) {
@@ -199,6 +250,9 @@ export default function BusinessCoach() {
       />
 
       <div className="container mx-auto max-w-7xl px-4 space-y-4">
+        {/* Today's AI Business Coach Strategic Insight & Action Sprint */}
+        <VixoraAICoachToday onAskQuestion={(q) => send(q)} />
+
         {/* Context Setup Drawer / Banner */}
         {showSetup && (
           <Card className="border-primary/30 bg-primary/5 shadow-md rounded-2xl p-4 transition-all">

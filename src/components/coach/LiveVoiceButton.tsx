@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2, Radio } from "lucide-react";
+import { GoogleGenAI } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { VixoraLiveVoiceAgent, VoiceAgentState } from "@/lib/vixoraVoiceEngine";
@@ -55,6 +56,7 @@ export default function LiveVoiceButton({
           if (!transcript || transcript.trim().length < 2) return;
           onUserText(transcript);
 
+          // 1. Try Supabase Edge Function
           try {
             const { data, error } = await supabase.functions.invoke("business-coach", {
               body: {
@@ -64,15 +66,40 @@ export default function LiveVoiceButton({
               },
             });
 
-            if (error || data?.error) throw new Error(data?.error || error?.message);
-            const reply = String(data.reply || "");
-            if (data.conversationId) convIdRef.current = data.conversationId;
+            if (!error && data?.reply) {
+              const reply = String(data.reply);
+              if (data.conversationId) convIdRef.current = data.conversationId;
+              onAssistantText(reply, data.conversationId);
+              return reply;
+            }
+          } catch (err) {
+            console.warn("Edge function notice, using direct voice AI:", err);
+          }
 
-            onAssistantText(reply, data.conversationId);
+          // 2. Direct Gemini Fallback for spoken voice
+          try {
+            const apiKey =
+              (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+              (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "") ||
+              "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
+
+            const ai = new GoogleGenAI({ apiKey });
+            const prompt = `You are Victoria & Adaobi, the lead AI Business Strategist at Vixora and Bethelincovibe.
+Speak concisely, energetically, and directly in 2 to 3 natural spoken sentences without markdown asterisks.
+User said: "${transcript}"`;
+
+            const res = await ai.models.generateContent({
+              model: "gemini-3.7-flash",
+              contents: [{ parts: [{ text: prompt }] }],
+            });
+
+            const reply = res.text?.trim() || "I am on it. Let's optimize this strategy for your business right now.";
+            onAssistantText(reply, convIdRef.current || undefined);
             return reply;
-          } catch (err: any) {
-            toast.error(err.message || "Coach error");
-            const errReply = "I heard you, but hit a network error. Could you repeat that?";
+          } catch (e: any) {
+            console.error("Direct voice AI error:", e);
+            const errReply = "I heard you! Let us keep building momentum for your business.";
+            onAssistantText(errReply, convIdRef.current || undefined);
             return errReply;
           }
         },

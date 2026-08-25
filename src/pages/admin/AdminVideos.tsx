@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Plus, Pencil, Trash2, Tv, Film, Sparkles, Video as VideoIcon } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import NativeVideoCreator from "@/components/video/NativeVideoCreator";
+import VixoraStudioApp from "@/vixora/App";
 
 interface VideoForm {
   title: string;
@@ -210,12 +210,9 @@ export default function AdminVideos() {
       </div>
 
       {activeTab === "creator" ? (
-        <NativeVideoCreator
-          onVideoCreated={() => {
-            qc.invalidateQueries({ queryKey: ["admin-tv-videos"] });
-            qc.invalidateQueries({ queryKey: ["tv-videos"] });
-          }}
-        />
+        <div className="pt-2">
+          <VixoraStudioApp />
+        </div>
       ) : (
         <div>
           {isLoading ? (

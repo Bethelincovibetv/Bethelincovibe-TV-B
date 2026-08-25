@@ -104,6 +104,7 @@ import AdBlocker from "./components/AdBlocker";
 import UserNotificationSettingsPage from "./pages/UserNotificationSettingsPage";
 import UserNotificationsPage from "./pages/UserNotificationsPage";
 import VideoCreator from "./pages/VideoCreator";
+import VixoraStudioApp from "./vixora/App";
 const queryClient = new QueryClient();
 
 function FeatureAwareServices() {
@@ -162,6 +163,8 @@ const App = () => (
               <Route path="/tools/startup-calculator" element={<FeatureGate feature="tools"><StartupCalculator /></FeatureGate>} />
               <Route path="/tools/video-creator" element={<VideoCreator />} />
               <Route path="/create-video" element={<VideoCreator />} />
+              <Route path="/studio/*" element={<VixoraStudioApp />} />
+              <Route path="/studio" element={<VixoraStudioApp />} />
               <Route path="/advertise" element={<FeatureGate feature="advertise"><AdvertiseWithUs /></FeatureGate>} />
               <Route path="/dashboard" element={<UserDashboard />} />
               <Route path="/dashboard/create-video" element={<VideoCreator />} />

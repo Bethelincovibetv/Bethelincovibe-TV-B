@@ -16,6 +16,7 @@ import ReferralCard from "@/components/ReferralCard";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
+import VixoraAICoachToday from "@/components/coach/VixoraAICoachToday";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -243,6 +244,9 @@ export default function UserDashboard() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
+        {/* Today's Vixora AI Business Coach & Sprint */}
+        <VixoraAICoachToday />
+
         {/* Profile & Business Completion Card with Smart System Recommendations */}
         <ProfileCompletionCard
           profile={profile}

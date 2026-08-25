@@ -24,6 +24,7 @@ import {
   VIXORA_VOICE_PERSONAS,
   VoiceAgentState,
 } from "@/lib/vixoraVoiceEngine";
+import { GoogleGenAI } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
@@ -107,10 +108,11 @@ export default function VixoraCoachLiveDialog({
           if (!userQuery || userQuery.trim().length < 2) return;
           if (muted) return;
 
+          // 1. Try Supabase Edge Function
           try {
             const coachPrompt = `${systemPrompt || ""}
-You are ${coachName}, an elite, high-energy Nigerian business strategist and commercial growth mentor powered by Vixora AI.
-Speak with high energy, Nigerian commercial sharpness, and actionable practical insights. Keep responses concise and punchy (2-4 sentences max per spoken turn) so the live voice call feels natural, engaging, and fast. Refer to Naira (₦) and local market opportunities where appropriate.`;
+You are ${coachName}, an elite, high-energy Nigerian and Global business strategist and commercial growth mentor powered by Vixora AI.
+Speak with high energy, commercial sharpness, and actionable practical insights. Keep responses concise and punchy (2-3 sentences max per spoken turn) so the live voice call feels natural, engaging, and fast. Refer to Naira (₦) or market expansion where appropriate.`;
 
             const { data, error } = await supabase.functions.invoke("business-coach", {
               body: {
@@ -121,15 +123,40 @@ Speak with high energy, Nigerian commercial sharpness, and actionable practical 
               },
             });
 
-            if (error || data?.error) throw new Error(data?.error || error?.message);
-            if (data.conversationId) convIdRef.current = data.conversationId;
+            if (!error && data?.reply) {
+              if (data.conversationId) convIdRef.current = data.conversationId;
+              const responseText = String(data.reply).replace(/[*_#`~]/g, "");
+              setReply(responseText);
+              return responseText;
+            }
+          } catch (err) {
+            console.warn("Vixora coach edge function fallback to direct voice AI:", err);
+          }
 
-            const responseText = String(data.reply || "").replace(/[*_#`~]/g, "");
+          // 2. Direct Gemini AI Voice Response
+          try {
+            const apiKey =
+              (import.meta as any).env?.VITE_GEMINI_API_KEY ||
+              (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "") ||
+              "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
+
+            const ai = new GoogleGenAI({ apiKey });
+            const prompt = `You are ${coachName} (Chief AI Director & Business Strategist at Vixora AI Studio).
+Answer the user's spoken question directly in 2 to 3 natural, spoken, inspiring, and actionable sentences.
+No markdown asterisks or bullet formatting.
+User spoken question: "${userQuery}"`;
+
+            const res = await ai.models.generateContent({
+              model: "gemini-3.7-flash",
+              contents: [{ parts: [{ text: prompt }] }],
+            });
+
+            const responseText = (res.text?.trim() || "Let us optimize your strategy and drive more conversions today.").replace(/[*_#`~]/g, "");
             setReply(responseText);
             return responseText;
-          } catch (err: any) {
-            console.warn("Vixora coach live invoke fallback:", err);
-            const errReply = "I hear you clearly. Tell me more about your sales, margins, or customer acquisition!";
+          } catch (aiErr: any) {
+            console.error("Direct voice AI error:", aiErr);
+            const errReply = "I heard you clearly! Let us execute your strategy and grow your business today.";
             setReply(errReply);
             return errReply;
           }

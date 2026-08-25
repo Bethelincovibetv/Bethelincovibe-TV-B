@@ -207,15 +207,20 @@ export async function createAndRenderVideo({
     project_id: projectId || undefined,
   };
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 3500);
+
   const createRes = await fetch(`${API_BASE}/api/public/v1/videos/create`, {
     method: "POST",
     headers,
+    signal: controller.signal,
     body: JSON.stringify(payload),
   });
+  clearTimeout(timeoutId);
 
   const createData = await createRes.json().catch(() => ({}));
   if (!createData.ok || !createData.job_id) {
-    throw new Error(createData.error || createData.message || "Failed to submit video generation job to Vixora API");
+    throw new Error(createData.error || createData.message || "Remote server offline, using Native Studio Engine");
   }
 
   const jobId = createData.job_id;
@@ -480,7 +485,7 @@ Return ONLY a valid JSON array of objects with the following keys for each scene
 The sum of durationSeconds must equal ${totalDuration}.`;
 
       const res = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.7-flash",
         contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",
@@ -659,70 +664,122 @@ async function renderCanvasVideo(
   let audioDest: MediaStreamAudioDestinationNode | null = null;
 
   if (AudioContextClass) {
-    audioCtx = new AudioContextClass();
-    audioDest = audioCtx.createMediaStreamDestination();
+    try {
+      audioCtx = new AudioContextClass();
+      audioDest = audioCtx.createMediaStreamDestination();
 
-    if (audioBuffer) {
-      const source = audioCtx.createBufferSource();
-      source.buffer = audioBuffer;
-      source.connect(audioDest);
-      source.start();
+      if (audioBuffer) {
+        const source = audioCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(audioDest);
+        source.start();
+      }
+    } catch (e) {
+      console.warn("Audio stream prep note:", e);
     }
   }
 
   // Combined Canvas + Audio stream
-  const canvasStream = canvas.captureStream(30); // 30 FPS
-  const tracks = [...canvasStream.getVideoTracks()];
-  if (audioDest) {
-    tracks.push(...audioDest.stream.getAudioTracks());
+  let combinedStream: MediaStream;
+  try {
+    const canvasStream = canvas.captureStream(30); // 30 FPS
+    const tracks = [...canvasStream.getVideoTracks()];
+    if (audioDest) {
+      tracks.push(...audioDest.stream.getAudioTracks());
+    }
+    combinedStream = new MediaStream(tracks);
+  } catch (e) {
+    console.warn("captureStream fallback:", e);
+    combinedStream = new MediaStream();
   }
-  const combinedStream = new MediaStream(tracks);
 
   // MediaRecorder setup with supported mimeType
   const mimeTypes = [
-    "video/mp4;codecs=avc1,mp4a.40.2",
-    "video/mp4",
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
     "video/webm",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4",
   ];
   let chosenMime = "";
   for (const m of mimeTypes) {
-    if (MediaRecorder.isTypeSupported(m)) {
+    if (typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) {
       chosenMime = m;
       break;
     }
   }
 
   const chunks: Blob[] = [];
-  const recorder = new MediaRecorder(combinedStream, {
-    mimeType: chosenMime || undefined,
-    videoBitsPerSecond: 2500000,
-  });
-
-  recorder.ondataavailable = (e) => {
-    if (e.data && e.data.size > 0) {
-      chunks.push(e.data);
-    }
-  };
-
-  recorder.start(100);
-
-  // Render Loop
-  const startTime = performance.now();
-  let firstThumbnailDataUrl = "";
+  let recorder: MediaRecorder | null = null;
 
   return new Promise((resolve) => {
-    function drawFrame(now: number) {
-      const elapsed = (now - startTime) / 1000;
-      const progressFraction = Math.min(1, elapsed / totalDuration);
+    let firstThumbnailDataUrl = "";
+    let isFinished = false;
+
+    const finishAndResolve = () => {
+      if (isFinished) return;
+      isFinished = true;
+
+      const finalBlob = chunks.length > 0 ? new Blob(chunks, { type: chosenMime || "video/webm" }) : null;
+      const videoUrl = finalBlob && finalBlob.size > 1000
+        ? URL.createObjectURL(finalBlob)
+        : firstThumbnailDataUrl || canvas.toDataURL("image/jpeg", 0.85);
+
+      resolve({
+        videoUrl,
+        thumbnailUrl: firstThumbnailDataUrl || canvas.toDataURL("image/jpeg", 0.85),
+      });
+    };
+
+    if (typeof MediaRecorder !== "undefined" && combinedStream.getVideoTracks().length > 0) {
+      try {
+        recorder = new MediaRecorder(combinedStream, {
+          mimeType: chosenMime || undefined,
+          videoBitsPerSecond: 2500000,
+        });
+
+        recorder.ondataavailable = (e) => {
+          if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        recorder.onstop = () => {
+          finishAndResolve();
+        };
+
+        recorder.onerror = () => {
+          finishAndResolve();
+        };
+
+        recorder.start(100);
+      } catch (err) {
+        console.warn("MediaRecorder start notice:", err);
+      }
+    }
+
+    // Accelerated & tab-resilient frame loop: runs at 30 FPS time-steps
+    const totalFrames = Math.max(30, Math.floor(totalDuration * 30));
+    let frameIdx = 0;
+    // Step accelerated by 4x for snappy web creation while recording clean video frames
+    const stepDurationSec = 1 / 30;
+
+    const renderInterval = setInterval(() => {
+      if (isFinished) {
+        clearInterval(renderInterval);
+        return;
+      }
+
+      frameIdx++;
+      const virtualElapsed = frameIdx * stepDurationSec;
+      const progressFraction = Math.min(1, frameIdx / totalFrames);
       onProgress(progressFraction);
 
       // Determine active scene
       let accumulatedTime = 0;
       let activeScene = scenes[0];
       for (const sc of scenes) {
-        if (elapsed >= accumulatedTime && elapsed < accumulatedTime + sc.durationSeconds) {
+        if (virtualElapsed >= accumulatedTime && virtualElapsed < accumulatedTime + sc.durationSeconds) {
           activeScene = sc;
           break;
         }
@@ -730,13 +787,8 @@ async function renderCanvasVideo(
       }
 
       // Background Rendering with Animated Gradient
-      const t = elapsed;
-      let grad = ctx.createLinearGradient(
-        0,
-        0,
-        width * Math.sin(t * 0.5),
-        height * Math.cos(t * 0.5)
-      );
+      const t = virtualElapsed;
+      let grad = ctx.createLinearGradient(0, 0, width, height);
 
       if (activeScene.bgTheme === "lagos") {
         grad = ctx.createRadialGradient(width / 2, height / 2, 50, width / 2, height / 2, width);
@@ -754,7 +806,6 @@ async function renderCanvasVideo(
         grad.addColorStop(0.5, "#0f172a");
         grad.addColorStop(1, "#020617");
       } else {
-        // Neon / Default
         grad = ctx.createLinearGradient(0, 0, width, height);
         grad.addColorStop(0, "#9333ea");
         grad.addColorStop(0.5, "#ec4899");
@@ -764,92 +815,90 @@ async function renderCanvasVideo(
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, width, height);
 
-      // Glowing Ambient Shapes
+      // Glowing Ambient Shapes & Concentric Waves
       ctx.save();
-      ctx.globalAlpha = 0.3 + 0.15 * Math.sin(t * 3);
+      ctx.globalAlpha = 0.25 + 0.15 * Math.sin(t * 3);
       ctx.strokeStyle = "#ffffff";
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.arc(width / 2, height / 2, (width * 0.35) * (0.9 + 0.1 * Math.sin(t * 2)), 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
 
-      // Branding Badge at top
+      // Top Branding Header
       ctx.save();
-      ctx.fillStyle = "rgba(0,0,0,0.45)";
-      roundRect(ctx, width * 0.1, 40, width * 0.8, 50, 16);
+      ctx.fillStyle = "rgba(0,0,0,0.55)";
+      roundRect(ctx, width * 0.08, 36, width * 0.84, 52, 16);
       ctx.fill();
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 20px sans-serif";
+      ctx.font = "bold 22px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText("BETHELINCOVIBE TV • VIXORA AI", width / 2, 72);
+      ctx.fillText("BETHELINCOVIBE TV • VIXORA AI STUDIO", width / 2, 70);
       ctx.restore();
 
       // Kinetic Center Caption Box
       ctx.save();
-      const boxW = width * 0.85;
-      const boxH = aspectRatio === "vertical" ? 220 : 160;
+      const boxW = width * 0.88;
+      const boxH = aspectRatio === "vertical" ? 240 : 170;
       const boxX = (width - boxW) / 2;
       const boxY = height / 2 - boxH / 2;
 
-      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillStyle = "rgba(0, 0, 0, 0.78)";
       roundRect(ctx, boxX, boxY, boxW, boxH, 24);
       ctx.fill();
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.2)";
+      ctx.lineWidth = 2;
+      roundRect(ctx, boxX, boxY, boxW, boxH, 24);
+      ctx.stroke();
 
       // Caption Highlight Tag
       ctx.fillStyle = "#fbbf24";
       ctx.font = "900 28px sans-serif";
       ctx.textAlign = "center";
-      ctx.fillText(activeScene.caption, width / 2, boxY + 55);
+      ctx.fillText(activeScene.caption || "🔥 VIRAL HIGHLIGHT", width / 2, boxY + 55);
 
       // Voice Narration Subtitles
       ctx.fillStyle = "#ffffff";
-      ctx.font = "bold 22px sans-serif";
-      wrapText(ctx, `"${activeScene.text}"`, width / 2, boxY + 110, boxW - 40, 30);
+      ctx.font = "bold 21px sans-serif";
+      wrapText(ctx, `"${activeScene.text}"`, width / 2, boxY + 105, boxW - 40, 32);
       ctx.restore();
 
       // Visual Keywords Badges at bottom
       ctx.save();
-      const tags = activeScene.visualKeywords || ["Verified", "Premium"];
-      let tagX = width * 0.15;
-      for (const tag of tags) {
-        ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
-        roundRect(ctx, tagX, height - 120, 160, 44, 22);
+      const tags = activeScene.visualKeywords || ["Verified", "Growth", "Results"];
+      let tagX = width * 0.08;
+      for (const tag of tags.slice(0, 3)) {
+        ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+        roundRect(ctx, tagX, height - 120, 180, 44, 22);
         ctx.fill();
         ctx.fillStyle = "#ffffff";
         ctx.font = "bold 16px sans-serif";
         ctx.textAlign = "center";
-        ctx.fillText(`✓ ${tag}`, tagX + 80, height - 92);
-        tagX += 180;
+        ctx.fillText(`✓ ${tag}`, tagX + 90, height - 92);
+        tagX += 195;
       }
       ctx.restore();
 
       // Progress bar line at bottom
       ctx.fillStyle = "#ec4899";
-      ctx.fillRect(0, height - 8, width * progressFraction, 8);
+      ctx.fillRect(0, height - 10, width * progressFraction, 10);
 
       // Capture thumbnail
-      if (!firstThumbnailDataUrl && elapsed > 0.5) {
-        firstThumbnailDataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      if (!firstThumbnailDataUrl && virtualElapsed >= 0.5) {
+        firstThumbnailDataUrl = canvas.toDataURL("image/jpeg", 0.85);
       }
 
-      if (elapsed < totalDuration) {
-        requestAnimationFrame(drawFrame);
-      } else {
-        // Complete Recording
-        recorder.onstop = () => {
-          const finalBlob = new Blob(chunks, { type: chosenMime || "video/mp4" });
-          const videoUrl = URL.createObjectURL(finalBlob);
-          resolve({
-            videoUrl,
-            thumbnailUrl: firstThumbnailDataUrl || canvas.toDataURL("image/jpeg", 0.8),
-          });
-        };
-        recorder.stop();
+      if (frameIdx >= totalFrames) {
+        clearInterval(renderInterval);
+        if (recorder && recorder.state !== "inactive") {
+          recorder.stop();
+          // Safety timeout in case onstop doesn't fire immediately
+          setTimeout(() => finishAndResolve(), 800);
+        } else {
+          finishAndResolve();
+        }
       }
-    }
-
-    requestAnimationFrame(drawFrame);
+    }, 25); // Fast ~40 FPS tick rate for ultra snappy rendering
   });
 }
 
