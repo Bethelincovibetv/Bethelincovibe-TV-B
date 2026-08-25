@@ -12,7 +12,7 @@ export interface SyncUserSessionParams {
 
 export interface GenerateScriptParams {
   topic: string;
-  duration?: "15s" | "30s" | "60s";
+  duration?: "15s" | "30s" | "60s" | "120s" | "180s";
   niche?: string;
   tone?: string;
 }
@@ -26,9 +26,9 @@ export interface SynthesizeVoiceoverParams {
 export interface CreateAndRenderVideoParams {
   topic: string;
   script?: string;
-  duration?: "15s" | "30s" | "60s";
+  duration?: "15s" | "30s" | "60s" | "120s" | "180s";
   aspectRatio?: "vertical" | "square" | "horizontal";
-  voice?: "Aoede" | "Kore" | "Charon" | "Fenrir" | "Puck" | string;
+  voice?: "Aoede" | "Kore" | "Charon" | "Fenrir" | "Puck" | "Zephyr" | string;
   projectId?: string;
   onProgress?: (data: {
     progress: number;
@@ -42,9 +42,16 @@ export class VixoraClient {
   baseUrl: string;
 
   constructor(
-    baseUrl: string = "https://ais-dev-z3gmsn2xsvk2qfmakpvm37-164225214835.europe-west3.run.app"
+    baseUrl?: string
   ) {
-    this.baseUrl = baseUrl.replace(/\/+$/, "");
+    const envUrl =
+      typeof import.meta !== "undefined" && (import.meta as any).env?.VITE_VIXORA_API_URL
+        ? (import.meta as any).env.VITE_VIXORA_API_URL
+        : typeof process !== "undefined" && (process as any).env?.VITE_VIXORA_API_URL
+        ? (process as any).env.VITE_VIXORA_API_URL
+        : "https://ais-dev-z3gmsn2xsvk2qfmakpvm37-164225214835.europe-west3.run.app";
+
+    this.baseUrl = (baseUrl || envUrl).replace(/\/+$/, "");
   }
 
   // 1. Sync User Session (Single Sign-On)

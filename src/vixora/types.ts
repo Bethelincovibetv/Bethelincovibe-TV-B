@@ -1,5 +1,5 @@
 export type VideoAspectRatio = "vertical" | "square" | "horizontal";
-export type VideoDuration = "15s" | "30s" | "60s";
+export type VideoDuration = "15s" | "30s" | "60s" | "120s" | "180s";
 
 export interface VoiceOption {
   id: string;

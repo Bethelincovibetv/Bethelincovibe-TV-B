@@ -62,9 +62,11 @@ export const DURATION_CONFIGS: {
   label: string;
   recommendedWords: string;
 }[] = [
-  { id: "15s", seconds: 15, label: "15 Seconds (Rapid Hook)", recommendedWords: "35 - 45 words" },
-  { id: "30s", seconds: 30, label: "30 Seconds (Commercial)", recommendedWords: "70 - 90 words" },
-  { id: "60s", seconds: 60, label: "60 Seconds (Full Story)", recommendedWords: "140 - 180 words" },
+  { id: "15s", seconds: 15, label: "15 Seconds (Rapid Hook / Shorts)", recommendedWords: "35 - 45 words" },
+  { id: "30s", seconds: 30, label: "30 Seconds (Commercial Pitch)", recommendedWords: "70 - 90 words" },
+  { id: "60s", seconds: 60, label: "1 Minute (60s Full Story)", recommendedWords: "140 - 180 words" },
+  { id: "120s", seconds: 120, label: "2 Minutes (120s Masterclass)", recommendedWords: "280 - 360 words" },
+  { id: "180s", seconds: 180, label: "3 Minutes (180s Deep Documentary)", recommendedWords: "420 - 540 words" },
 ];
 
 export const VOICE_CATALOG: VoiceOption[] = [
@@ -72,8 +74,8 @@ export const VOICE_CATALOG: VoiceOption[] = [
     id: "Kore",
     name: "Adaobi (Kore Voice)",
     gender: "Female",
-    description: "Flagship Energetic Nigerian Voice · High commercial drive & clarity",
-    tag: "Flagship",
+    description: "Flagship Energetic Nigerian Voice · High commercial drive, Lagos vibrancy & clarity",
+    tag: "Flagship Nigerian",
     pitch: 1.05,
     rate: 1.02,
     isFlagship: true,
@@ -114,6 +116,15 @@ export const VOICE_CATALOG: VoiceOption[] = [
     tag: "Punchy",
     pitch: 0.9,
     rate: 1.04,
+  },
+  {
+    id: "Zephyr",
+    name: "Zephyr (Calm & Friendly)",
+    gender: "Male",
+    description: "Calm, warm & trustworthy guide for tutorials and walkthroughs",
+    tag: "Friendly",
+    pitch: 1.0,
+    rate: 0.98,
   },
 ];
 

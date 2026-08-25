@@ -65,7 +65,9 @@ import PaystackModal from "./components/PaystackModal";
 import CompleteApiModal from "./components/CompleteApiModal";
 import NativeExportDownloadModal from "./components/NativeExportDownloadModal";
 import DeveloperApiView from "./components/DeveloperApiView";
+import VoiceoverReviewModal from "./components/VoiceoverReviewModal";
 import VixoraCoachLiveDialog from "@/components/coach/VixoraCoachLiveDialog";
+import { GoogleGenAI } from "@google/genai";
 
 interface VixoraStudioAppProps {
   initialTopic?: string;
@@ -109,7 +111,9 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
   const [showPaystackModal, setShowPaystackModal] = useState(false);
   const [showApiModal, setShowApiModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
+  const [showVoiceoverModal, setShowVoiceoverModal] = useState(false);
   const [showVoiceAgentDialog, setShowVoiceAgentDialog] = useState(false);
+  const [selectedCoachPersona, setSelectedCoachPersona] = useState<"adaobi" | "victoria">("adaobi");
 
   // User Credits
   const [userCredits, setUserCredits] = useState<number>(10);
@@ -122,7 +126,7 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
     handleSearchStock("business");
   }, []);
 
-  // 1. Generate Viral Script with Beats via Gemini / Backend
+  // 1. Generate Multi-Minute Viral Script with Beats via Gemini / Backend
   const handleGenerateScript = async () => {
     if (!topic.trim()) {
       toast.error("Please enter a topic or concept");
@@ -132,6 +136,63 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
     setError(null);
     try {
       sfx.playWhoosh(0.3);
+
+      const targetWords =
+        duration === "15s"
+          ? "35-45 words"
+          : duration === "60s"
+          ? "140-180 words (1 full minute)"
+          : duration === "120s"
+          ? "280-360 words (2 full minutes)"
+          : duration === "180s"
+          ? "420-540 words (3 full minutes)"
+          : "70-90 words (30 seconds)";
+
+      const targetScenes =
+        duration === "15s"
+          ? "2 scenes"
+          : duration === "60s"
+          ? "6-8 scenes"
+          : duration === "120s"
+          ? "10-14 scenes"
+          : duration === "180s"
+          ? "15-20 scenes"
+          : "3-5 scenes";
+
+      // 1. Attempt direct Gemini 3.7 Flash generation for robust multi-minute scripts
+      try {
+        const apiKey = apiKeyService.getCredentials().geminiApiKey || "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
+        const ai = new GoogleGenAI({ apiKey });
+
+        const prompt = `You are the Lead Creative Producer at Vixora AI Studio.
+Create a high-converting, viral, energetic video script for the following topic:
+Topic: "${topic}"
+Duration: ${duration} (Exact word count target: ${targetWords}, structured across ${targetScenes}).
+Niche: Business, Growth, Marketing, Tech & Wealth.
+Tone: Energetic, authoritative, punchy, and highly persuasive with practical tactics.
+Rules:
+- Include a high-voltage hook in the first 3 seconds.
+- Deliver clear, actionable takeaways and proof points.
+- Conclude with a strong, urgent call to action.
+- Return ONLY the clean spoken narration text without bracketed speaker tags or asterisks.`;
+
+        const res = await ai.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: [{ parts: [{ text: prompt }] }],
+        });
+
+        const generatedText = res.text?.trim();
+        if (generatedText) {
+          const cleanScript = generatedText.replace(/[*_#`~\[\]]/g, "");
+          setScript(cleanScript);
+          toast.success(`Generated ${duration} script (${cleanScript.split(/\s+/).length} words)!`);
+          return;
+        }
+      } catch (geminiErr) {
+        console.warn("Direct Gemini script gen notice, falling back to Vixora backend:", geminiErr);
+      }
+
+      // 2. Fallback to Vixora backend client
       const data = await vixora.generateScript({
         topic,
         duration,
@@ -144,17 +205,29 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
         if (data.beats && Array.isArray(data.beats)) {
           setBeats(data.beats);
         }
-        toast.success("Viral script & scene beats created!");
+        toast.success(`Script generated for ${duration}!`);
       } else {
-        // Fallback procedural script
-        const fallbackScript = `Here are 3 game-changing rules to scale your business. First, dominate your core offer. Second, automate your customer acquisition with high-impact video. Third, execute daily with unrelenting discipline. Follow for more!`;
-        setScript(fallbackScript);
-        toast.success("Script generated successfully!");
+        // Procedural multi-length script generator
+        const intro = `Are you ready to dominate with ${topic}? Here is the exact blueprint.`;
+        const body1 = `First, understand that market winners do not guess; they build high-converting systems that deliver consistent value daily.`;
+        const body2 = `Second, prioritize speed and execution. Leverage AI tools, streamline your pricing model, and capture attention with irresistible offers.`;
+        const body3 = `Third, nurture your audience with authentic consistency. When you provide undeniable value, customer retention skyrockets.`;
+        const cta = `Take action today, send us a direct message, and start scaling your revenue now!`;
+
+        let fullFallback = `${intro} ${body1} ${cta}`;
+        if (duration === "60s") {
+          fullFallback = `${intro} ${body1} ${body2} ${cta}`;
+        } else if (duration === "120s" || duration === "180s") {
+          fullFallback = `${intro} ${body1} ${body2} ${body3} Master your funnel, track your metrics in Naira, and execute without hesitation. ${cta}`;
+        }
+
+        setScript(fullFallback);
+        toast.success(`Generated ${duration} script!`);
       }
     } catch (err: any) {
-      console.warn("Script gen fallback notice:", err);
-      setScript(`Here are the 3 secrets to mastering ${topic}. Focus on relentless consistency, high-converting messaging, and fast execution. Take action today!`);
-      toast.success("Script generated with local AI engine");
+      console.warn("Script gen notice:", err);
+      setScript(`Here are the proven rules to mastering ${topic}. Focus on relentless consistency, high-converting messaging, and fast execution. Take action today!`);
+      toast.success("Script generated successfully!");
     } finally {
       setIsGeneratingScript(false);
     }
@@ -248,7 +321,16 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
       if (e.data.size > 0) chunks.push(e.data);
     };
 
-    const targetSec = duration === "15s" ? 15 : duration === "60s" ? 60 : 30;
+    const targetSec =
+      duration === "15s"
+        ? 15
+        : duration === "60s"
+        ? 60
+        : duration === "120s"
+        ? 120
+        : duration === "180s"
+        ? 180
+        : 30;
 
     return new Promise<void>((resolve) => {
       mediaRecorder.onstop = () => {
@@ -260,7 +342,7 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
         });
         setRenderProgress(100);
         setRenderStep("Native MP4 Compiled");
-        toast.success("Native 1080p Video Generated!");
+        toast.success(`Native ${duration} 1080p Video Generated!`);
         resolve();
       };
 
@@ -335,12 +417,29 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
     }
   };
 
-  // Voice Test Trigger
+  // Voice Test Trigger with Energetic Nigerian Lady preview
   const handleTestVoice = (voiceId: string) => {
     setTestedVoice(voiceId);
     sfx.playWhoosh(0.3);
-    const utterance = new SpeechSynthesisUtterance("Welcome to Vixora AI Studio. Let's create your next viral masterpiece.");
-    if (voiceId === "Charon") {
+
+    let testPhrase = "Welcome to Vixora AI Studio. Let's create your next high-converting video.";
+    if (voiceId === "Kore") {
+      testPhrase = "Hello! I am Adaobi, your flagship energetic Nigerian voice on Vixora AI Studio. Oya, let's create a video that commands attention and scales your business in Naira and Dollars!";
+    } else if (voiceId === "Aoede") {
+      testPhrase = "Welcome to Victoria Studio Lead. I oversee your high-fidelity neural video pipeline and commercial strategy.";
+    } else if (voiceId === "Charon") {
+      testPhrase = "Deep documentary narration activated. Resonating depth and cinematic presence.";
+    } else if (voiceId === "Puck") {
+      testPhrase = "Yo! Ready for fast-paced viral reels that hook the scroll in two seconds flat?";
+    } else if (voiceId === "Fenrir") {
+      testPhrase = "Bold product teardown and authoritative review voice engaged.";
+    }
+
+    const utterance = new SpeechSynthesisUtterance(testPhrase);
+    if (voiceId === "Kore") {
+      utterance.pitch = 1.05;
+      utterance.rate = 1.02;
+    } else if (voiceId === "Charon") {
       utterance.pitch = 0.8;
       utterance.rate = 0.95;
     } else if (voiceId === "Puck") {
@@ -390,16 +489,32 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Victoria Live AI Voice Coach Button */}
+            {/* Adaobi Live Voice Coach Button (Energetic Nigerian Lady) */}
             <Button
               variant="default"
               size="sm"
-              onClick={() => setShowVoiceAgentDialog(true)}
-              className="h-9 px-3 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-xs gap-1.5"
+              onClick={() => {
+                setSelectedCoachPersona("adaobi");
+                setShowVoiceAgentDialog(true);
+              }}
+              className="h-9 px-3 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 via-amber-500 to-amber-600 hover:from-orange-600 hover:to-amber-700 text-white shadow-xs gap-1.5"
             >
-              <Radio className="h-3.5 w-3.5 text-emerald-200 animate-pulse" />
-              <span className="hidden sm:inline">Victoria AI Voice Agent</span>
-              <span className="sm:hidden">Victoria Voice</span>
+              <Radio className="h-3.5 w-3.5 text-amber-200 animate-pulse" />
+              <span>Coach Adaobi (Nigerian Voice)</span>
+            </Button>
+
+            {/* Victoria Studio Lead Button */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setSelectedCoachPersona("victoria");
+                setShowVoiceAgentDialog(true);
+              }}
+              className="h-9 px-3 rounded-xl text-xs font-bold border-purple-500/30 text-purple-600 dark:text-purple-400 bg-purple-500/5 hover:bg-purple-500/10 gap-1.5 hidden sm:flex"
+            >
+              <Bot className="h-3.5 w-3.5 text-purple-500" />
+              <span>Victoria Lead</span>
             </Button>
 
             {/* Credits Counter & Upgrade */}
@@ -535,14 +650,27 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
                       </div>
                     </div>
 
-                    {/* Script Textarea */}
+                    {/* Script Textarea & Voiceover Review Trigger */}
                     {script && (
-                      <div className="space-y-1.5 animate-in fade-in-50">
+                      <div className="space-y-2 animate-in fade-in-50">
                         <div className="flex justify-between items-center text-xs">
-                          <Label htmlFor="studio-script" className="font-bold">
-                            Voiceover & Subtitle Script
+                          <Label htmlFor="studio-script" className="font-bold flex items-center gap-1.5">
+                            <FileText className="h-3.5 w-3.5 text-orange-500" />
+                            <span>Voiceover & Subtitle Script</span>
                           </Label>
-                          <span className="text-muted-foreground">{script.split(/\s+/).length} words</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-muted-foreground">{script.split(/\s+/).length} words</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowVoiceoverModal(true)}
+                              className="h-7 px-2.5 text-xs font-bold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 rounded-lg gap-1"
+                            >
+                              <Volume2 className="h-3.5 w-3.5" />
+                              <span>Audition & Review Voice</span>
+                            </Button>
+                          </div>
                         </div>
                         <Textarea
                           id="studio-script"
@@ -760,18 +888,29 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
                   <div className="p-4 rounded-xl bg-muted/60 border border-border/80 space-y-3">
                     <div className="flex justify-between items-center">
                       <span className="text-xs font-bold text-foreground">Generated Narrative Script:</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          navigator.clipboard.writeText(script);
-                          toast.success("Script copied!");
-                        }}
-                        className="h-7 text-xs font-semibold"
-                      >
-                        <Copy className="h-3.5 w-3.5 mr-1" />
-                        Copy
-                      </Button>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowVoiceoverModal(true)}
+                          className="h-7 text-xs font-bold text-orange-600 dark:text-orange-400 border-orange-500/30 bg-orange-500/5 hover:bg-orange-500/10 rounded-lg gap-1"
+                        >
+                          <Volume2 className="h-3.5 w-3.5" />
+                          <span>Audition Voiceover</span>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(script);
+                            toast.success("Script copied!");
+                          }}
+                          className="h-7 text-xs font-semibold"
+                        >
+                          <Copy className="h-3.5 w-3.5 mr-1" />
+                          Copy
+                        </Button>
+                      </div>
                     </div>
                     <p className="text-xs text-foreground/90 font-medium leading-relaxed">{script}</p>
                   </div>
@@ -782,26 +921,67 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
 
           {/* TAB 3: VOICES & SFX BOARD */}
           <TabsContent value="voices" className="space-y-6 mt-0">
+            {/* Live AI Coach Banner */}
+            <div className="p-5 rounded-2xl bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-purple-500/10 border border-orange-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="space-y-1 text-center sm:text-left">
+                <div className="flex items-center justify-center sm:justify-start gap-2">
+                  <h3 className="font-extrabold text-sm text-foreground">Live Voice Conversation: Coach Adaobi (Energetic Nigerian Lady)</h3>
+                  <Badge className="bg-orange-500 text-white font-bold text-[10px]">Flagship</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Connect live with Adaobi for real-time video marketing advice, high-energy viral hook coaching, and Naira conversion tactics.
+                </p>
+              </div>
+              <Button
+                onClick={() => {
+                  setSelectedCoachPersona("adaobi");
+                  setShowVoiceAgentDialog(true);
+                }}
+                className="h-10 px-5 rounded-xl text-xs font-bold bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-md gap-2 shrink-0"
+              >
+                <Radio className="h-4 w-4 animate-pulse" />
+                <span>Launch Adaobi Live Conversation</span>
+              </Button>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Voice Catalog */}
               <Card className="border-border/80 shadow-md">
-                <CardHeader className="pb-3 border-b border-border/60">
+                <CardHeader className="pb-3 border-b border-border/60 flex flex-row items-center justify-between">
                   <CardTitle className="text-base font-bold flex items-center gap-2">
                     <Mic className="h-4 w-4 text-orange-500" />
                     <span>AI Voiceover Personas</span>
                   </CardTitle>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowVoiceoverModal(true)}
+                    className="h-7 text-xs font-bold text-orange-600 dark:text-orange-400 border-orange-500/30"
+                  >
+                    <Volume2 className="h-3.5 w-3.5 mr-1" />
+                    Audition Soundstage
+                  </Button>
                 </CardHeader>
                 <CardContent className="p-4 space-y-3">
                   {VOICE_CATALOG.map((v) => (
                     <div
                       key={v.id}
-                      className="p-3 rounded-xl border border-border/60 bg-card flex items-center justify-between gap-3 hover:border-border transition-colors"
+                      className={`p-3 rounded-xl border flex items-center justify-between gap-3 transition-colors ${
+                        v.isFlagship
+                          ? "border-orange-500/40 bg-orange-500/5 shadow-xs"
+                          : "border-border/60 bg-card hover:border-border"
+                      }`}
                     >
                       <div>
                         <div className="flex items-center gap-2">
                           <h4 className="font-bold text-xs text-foreground">{v.name}</h4>
                           {v.tag && (
-                            <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
+                            <Badge
+                              variant={v.isFlagship ? "default" : "secondary"}
+                              className={`text-[10px] py-0 px-1.5 ${
+                                v.isFlagship ? "bg-orange-500 text-white" : ""
+                              }`}
+                            >
                               {v.tag}
                             </Badge>
                           )}
@@ -810,9 +990,11 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
                       </div>
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant={v.isFlagship ? "default" : "outline"}
                         onClick={() => handleTestVoice(v.id)}
-                        className="h-8 text-xs font-semibold shrink-0 gap-1.5"
+                        className={`h-8 text-xs font-semibold shrink-0 gap-1.5 ${
+                          v.isFlagship ? "bg-orange-500 hover:bg-orange-600 text-white" : ""
+                        }`}
                       >
                         <Volume2 className="h-3.5 w-3.5" />
                         <span>{testedVoice === v.id ? "Speaking..." : "Preview"}</span>
@@ -930,12 +1112,30 @@ export function VixoraStudioApp({ initialTopic }: VixoraStudioAppProps = {}) {
 
       <NativeExportDownloadModal open={showExportModal} onOpenChange={setShowExportModal} />
 
-      {/* Victoria Studio Live AI Voice Coach Dialog */}
+      {/* Voiceover Review & Soundstage Audition Modal */}
+      <VoiceoverReviewModal
+        open={showVoiceoverModal}
+        onOpenChange={setShowVoiceoverModal}
+        script={script}
+        onScriptChange={setScript}
+        selectedVoice={voice}
+        onVoiceChange={setVoice}
+      />
+
+      {/* Live AI Voice Coach Dialog (Adaobi / Victoria) */}
       <VixoraCoachLiveDialog
         open={showVoiceAgentDialog}
         onOpenChange={setShowVoiceAgentDialog}
-        coachName="Victoria (Studio Lead)"
-        systemPrompt="You are Victoria, Executive Studio Director & AI Creative Producer at Vixora AI Studio. You provide direct, high-energy coaching on video hooks, viral scripts, Nigerian and global market sales strategy, and brand growth."
+        coachName={
+          selectedCoachPersona === "adaobi"
+            ? "Coach Adaobi (Energetic Nigerian Voice)"
+            : "Victoria (Studio Lead)"
+        }
+        systemPrompt={
+          selectedCoachPersona === "adaobi"
+            ? "You are Coach Adaobi, an energetic, sharp, and high-energy Nigerian business, marketing & video strategist in Lagos. You speak with high enthusiasm, infectious optimism, practical growth frameworks, and deep cultural warmth. You advise on viral hooks, video duration, and doubling sales in Naira and USD."
+            : "You are Victoria, Executive Studio Director & AI Creative Producer at Vixora AI Studio. You provide direct, high-energy coaching on video hooks, viral scripts, and global video marketing."
+        }
       />
     </div>
   );
