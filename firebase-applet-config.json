@@ -1,12 +1,11 @@
 {
-  "projectId": "refreshing-rune-454812-q8",
-  "appId": "1:386135102110:web:334e9b26db398a5698618f",
-  "apiKey": "AIzaSyBWYvA98usL-Mdz0Lm9HtPqtPtfrt1x2Wc",
-  "authDomain": "refreshing-rune-454812-q8.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-copyofcreatorroo-0bdc4247-6fb8-41a8-bc54-3427ea9060ab",
-  "storageBucket": "refreshing-rune-454812-q8.firebasestorage.app",
-  "messagingSenderId": "386135102110",
+  "projectId": "gen-lang-client-0608170961",
+  "appId": "1:1059984699317:web:387e5c9b2db596f45db3fc",
+  "apiKey": "AIzaSyBmFKlk6QdZcj-R2Wx9Of-cxBmPS6_kCNc",
+  "authDomain": "gen-lang-client-0608170961.firebaseapp.com",
+  "storageBucket": "gen-lang-client-0608170961.firebasestorage.app",
+  "messagingSenderId": "1059984699317",
   "measurementId": "",
-  "oAuthClientId": "386135102110-d05m3u87i4j769s89bb7antpk78qtg52.apps.googleusercontent.com",
+  "oAuthClientId": "1059984699317-rmg1m4clmldrpf11ffphpm16a20ilc4n.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

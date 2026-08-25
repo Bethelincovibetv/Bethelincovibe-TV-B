@@ -7,10 +7,8 @@ import MiniApp from "@/components/blog/MiniApp";
 /**
  * Renders the blog post content with:
  *  - admin-managed custom HTML/script blocks (location = "blog-inline")
- *    inserted at stable random positions between paragraphs, and
- *  - interactive mini-apps declared by the AI writer as shortcodes, e.g.
- *      [miniapp type="roi" title="ROI Calculator"]
- *      [miniapp type="checklist" items="Register CAC|Open account|Get TIN"]
+ *  - interactive mini-apps declared by the AI writer as shortcodes
+ *  - contextual admin-managed referral & affiliate partner cards
  */
 
 const SHORTCODE = /\[miniapp\s+([^\]]+)\]/gi;
@@ -74,6 +72,19 @@ export default function BlogInlineInjections({
     staleTime: 1000 * 60 * 5,
   });
 
+  const { data: affiliateLinks } = useQuery({
+    queryKey: ["blog-affiliate-links-active"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("affiliate_links")
+        .select("*")
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      return data || [];
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
   // Stable seeded RNG (mulberry32) so positions don't shuffle on re-render
   const seededRand = (seed: number) => {
     let t = seed;
@@ -115,8 +126,6 @@ export default function BlogInlineInjections({
       rootsRef.current.push(r);
     });
 
-    if (!injections || injections.length === 0) return;
-
     // Find top-level block candidates between which we can insert
     const blocks = Array.from(root.children).filter((el) => {
       const tag = el.tagName.toLowerCase();
@@ -129,35 +138,77 @@ export default function BlogInlineInjections({
     for (let i = 0; i < postId.length; i++) seed = (seed * 31 + postId.charCodeAt(i)) | 0;
     const rand = seededRand(seed);
 
-    // Pick distinct insertion indexes, skipping the first 2 blocks
-    const used = new Set<number>();
-    injections.forEach((inj) => {
-      let tries = 0;
-      while (tries < 10) {
-        const idx = 2 + Math.floor(rand() * (blocks.length - 2));
-        if (!used.has(idx)) { used.add(idx); break; }
-        tries++;
-      }
-      const targetIdx = [...used][used.size - 1];
-      const target = blocks[targetIdx];
-      if (!target) return;
+    // 1. Insert Custom Code Injections
+    if (injections && injections.length > 0) {
+      const used = new Set<number>();
+      injections.forEach((inj) => {
+        let tries = 0;
+        while (tries < 10) {
+          const idx = 2 + Math.floor(rand() * (blocks.length - 2));
+          if (!used.has(idx)) { used.add(idx); break; }
+          tries++;
+        }
+        const targetIdx = [...used][used.size - 1];
+        const target = blocks[targetIdx];
+        if (!target) return;
 
-      const wrapper = document.createElement("div");
-      wrapper.className = "my-6";
-      wrapper.dataset.injection = `bi-${inj.id}`;
-      const tpl = document.createElement("template");
-      tpl.innerHTML = inj.code || "";
-      // Re-create script tags so they execute
-      tpl.content.querySelectorAll("script").forEach((oldScript) => {
-        const s = document.createElement("script");
-        [...oldScript.attributes].forEach((a) => s.setAttribute(a.name, a.value));
-        s.text = oldScript.textContent || "";
-        oldScript.replaceWith(s);
+        const wrapper = document.createElement("div");
+        wrapper.className = "my-6";
+        wrapper.dataset.injection = `bi-${inj.id}`;
+        const tpl = document.createElement("template");
+        tpl.innerHTML = inj.code || "";
+        tpl.content.querySelectorAll("script").forEach((oldScript) => {
+          const s = document.createElement("script");
+          [...oldScript.attributes].forEach((a) => s.setAttribute(a.name, a.value));
+          s.text = oldScript.textContent || "";
+          oldScript.replaceWith(s);
+        });
+        wrapper.appendChild(tpl.content);
+        target.parentNode?.insertBefore(wrapper, target);
       });
-      wrapper.appendChild(tpl.content);
-      target.parentNode?.insertBefore(wrapper, target);
-    });
-  }, [html, postId, injections, title]);
+    }
+
+    // 2. Contextual Referral Link Fallback Injection
+    if (affiliateLinks && affiliateLinks.length > 0) {
+      const pageText = (root.textContent || "").toLowerCase() + " " + title.toLowerCase();
+      const matchedAffiliates = affiliateLinks.filter((aff: any) => {
+        if (!aff.keywords || aff.keywords.length === 0) return false;
+        return aff.keywords.some((k: string) => pageText.includes(k.toLowerCase().trim()));
+      });
+
+      if (matchedAffiliates.length > 0) {
+        const aff = matchedAffiliates[0];
+        // Check if link already exists in the page
+        const alreadyHasLink = root.querySelector(`a[href*="${aff.url}"]`);
+        if (!alreadyHasLink) {
+          const targetIndex = Math.min(blocks.length - 1, 3);
+          const target = blocks[targetIndex];
+          if (target) {
+            const card = document.createElement("div");
+            card.className = "my-8 p-5 rounded-2xl bg-gradient-to-r from-primary/10 via-primary/5 to-purple-500/10 border border-primary/20 shadow-sm";
+            const isExt = aff.url.startsWith("http");
+            card.innerHTML = `
+              <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div class="space-y-1">
+                  <div class="flex items-center gap-1.5 text-xs font-extrabold uppercase tracking-wider text-primary">
+                    <span class="h-2 w-2 rounded-full bg-primary animate-pulse"></span>
+                    <span>Verified Partner Recommendation</span>
+                  </div>
+                  <h4 class="text-base font-extrabold text-foreground m-0">${aff.label}</h4>
+                  <p class="text-xs text-muted-foreground m-0">${aff.description || "Discover verified deals, tools, and supplier partnerships."}</p>
+                </div>
+                <a href="${aff.url}" ${isExt ? 'target="_blank" rel="noopener noreferrer"' : ""} class="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-extrabold text-xs shadow hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 no-underline">
+                  <span>Visit ${aff.label}</span>
+                  <span>→</span>
+                </a>
+              </div>
+            `;
+            target.parentNode?.insertBefore(card, target);
+          }
+        }
+      }
+    }
+  }, [html, postId, injections, affiliateLinks, title]);
 
   useEffect(() => () => {
     const roots = rootsRef.current;

@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Building2, FolderTree, ArrowLeft, Tv, Image as ImageIcon,
-  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server,
+  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server, MessageSquare,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ const allLinks = [
   { to: "/admin/jingles", label: "Background Jingles", icon: Music, group: "Content", feature: null },
 
   { to: "/admin/businesses", label: "Businesses", icon: Building2, group: "Directory", feature: "businesses" },
+  { to: "/admin/whatsapp-engine", label: "WhatsApp Engine", icon: MessageSquare, group: "Directory", feature: "whatsapp_engine" },
   { to: "/admin/directory-categories", label: "Directory Categories", icon: FolderTree, group: "Directory", feature: "businesses" },
   { to: "/admin/courses", label: "Learning Hub", icon: GraduationCap, group: "Directory", feature: "learn" },
   { to: "/admin/sales-pages", label: "Sales Pages", icon: Rocket, group: "Directory", feature: "sales_pages" },

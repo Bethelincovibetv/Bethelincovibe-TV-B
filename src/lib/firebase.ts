@@ -11,6 +11,7 @@ export const firebaseConfig = {
   storageBucket: firebaseConfigData.storageBucket || import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: firebaseConfigData.messagingSenderId || import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: firebaseConfigData.appId || import.meta.env.VITE_FIREBASE_APP_ID,
+  ...(firebaseConfigData.measurementId ? { measurementId: firebaseConfigData.measurementId } : {}),
 };
 
 // VAPID key for web push if configured
@@ -19,27 +20,35 @@ export const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY || undefined;
 // Initialize Firebase App singleton
 export const app: FirebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 
-// Initialize Messaging instance
+// Initialize Messaging instance safely
 export let messaging: Messaging | null = null;
 if (typeof window !== 'undefined') {
   isMessagingSupported().then((supported) => {
     if (supported) {
-      messaging = getMessaging(app);
+      try {
+        messaging = getMessaging(app);
+      } catch (err) {
+        // Silently handle if messaging not configured in this environment
+      }
     }
-  }).catch((err) => {
-    console.warn("Firebase Messaging is not supported in this environment:", err);
+  }).catch(() => {
+    // Messaging not supported in this environment
   });
 }
 
-// Initialize Analytics instance
+// Initialize Analytics instance safely (only when measurementId is configured and supported)
 export let analytics: Analytics | null = null;
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && firebaseConfigData.measurementId) {
   isAnalyticsSupported().then((supported) => {
     if (supported) {
-      analytics = getAnalytics(app);
+      try {
+        analytics = getAnalytics(app);
+      } catch (err) {
+        // Gracefully catch any network or initialization error
+      }
     }
-  }).catch((err) => {
-    console.warn("Firebase Analytics is not supported in this environment:", err);
+  }).catch(() => {
+    // Analytics not supported in this environment
   });
 }
 
@@ -52,8 +61,8 @@ export async function getFirebaseMessaging(): Promise<Messaging | null> {
       messaging = getMessaging(app);
       return messaging;
     }
-  } catch (err) {
-    console.warn("Failed to get Firebase Messaging:", err);
+  } catch {
+    // Graceful fallback
   }
   return null;
 }

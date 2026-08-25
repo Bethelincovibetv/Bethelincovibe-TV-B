@@ -106,6 +106,8 @@ import UserNotificationSettingsPage from "./pages/UserNotificationSettingsPage";
 import UserNotificationsPage from "./pages/UserNotificationsPage";
 import VideoCreator from "./pages/VideoCreator";
 import VixoraStudioApp from "./vixora/App";
+import WhatsAppStatusEngine from "./pages/WhatsAppStatusEngine";
+import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
 const queryClient = new QueryClient();
 
 function FeatureAwareServices() {
@@ -175,6 +177,9 @@ const App = () => (
               <Route path="/dashboard/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/dashboard/wallet/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/receipt/:id" element={<TransactionReceipt />} />
+              <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
+              <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
+              <Route path="/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/ad-earnings" element={<UserAdEarnings />} />
               <Route path="/dashboard/ads" element={<FeatureGate feature="advertise"><UserAds /></FeatureGate>} />
               <Route path="/dashboard/ads/:id/analytics" element={<FeatureGate feature="advertise"><UserAdAnalytics /></FeatureGate>} />
@@ -227,6 +232,7 @@ const App = () => (
               <Route path="video-creator" element={<VideoCreator />} />
               <Route path="slides" element={<AdminSlides />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="whatsapp-engine" element={<AdminWhatsAppEngine />} />
               <Route path="contacts" element={<AdminContacts />} />
               <Route path="settings" element={<AdminSettings />} />
               <Route path="features" element={<AdminFeatures />} />

@@ -98,6 +98,30 @@ export default function Index() {
       {/* Featured Businesses Slider */}
       {flags.businesses && <FeaturedBusinessSlider />}
 
+      {/* WhatsApp Status Growth & Monetization Spotlight */}
+      {flags.whatsapp_engine && (
+        <section className="container mx-auto px-4 py-8">
+          <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-700 via-teal-700 to-indigo-800 p-6 sm:p-8 text-white shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="space-y-2 max-w-xl">
+              <span className="inline-flex items-center text-[10px] font-extrabold uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full text-white backdrop-blur-md">
+                ⚡ Real Google Contacts & People API Integration
+              </span>
+              <h2 className="text-2xl sm:text-3xl font-black tracking-tight">
+                Grow Your WhatsApp Status Network & Earn
+              </h2>
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed font-medium">
+                Connect with verified Lagos entrepreneurs via consent-based Google Contacts sync. Expand your daily status audience and earn from sponsor ads.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row items-center gap-3 shrink-0 w-full md:w-auto">
+              <Button asChild size="lg" className="w-full sm:w-auto bg-white text-emerald-800 hover:bg-white/90 font-extrabold text-sm rounded-2xl shadow-lg h-11 px-6">
+                <Link to="/whatsapp-engine">Launch WhatsApp Engine <ArrowRight className="ml-1.5 h-4 w-4" /></Link>
+              </Button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* Features */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-xl mx-auto mb-10">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +15,7 @@ import { toast } from "sonner";
 import {
   Bot, Sparkles, Eye, Save, Loader2, TrendingUp, Zap, Clock, Link2, Trash2,
   Plus, Video, CheckCircle2, ArrowRight, Layers, ShieldCheck, Compass, FileText,
-  ExternalLink, Check, RefreshCw
+  ExternalLink, Check, RefreshCw, Sliders, DollarSign, Tag, ArrowUpRight
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -24,9 +24,17 @@ import {
   StrategicDirective,
   GeneratedArticle,
   TRENDING_MARKET_INTELLIGENCE,
+  fetchActiveReferralLinks,
+  matchReferralLinks,
+  AffiliateReferralLink,
 } from "@/lib/aiCollaborationEngine";
+import { cn } from "@/lib/utils";
 
-const generateSlug = (title: string) => title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const generateSlug = (title: string) =>
+  title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
 export default function AdminAIBlogger() {
   const { user } = useAuth();
@@ -37,15 +45,22 @@ export default function AdminAIBlogger() {
   const [categoryId, setCategoryId] = useState("");
   const [preview, setPreview] = useState<any>(null);
   const [trendingTopics, setTrendingTopics] = useState<string[]>([]);
+  const [isVlogFormat, setIsVlogFormat] = useState(false);
+  const [customVideoUrl, setCustomVideoUrl] = useState("");
 
   // --- Strategic Collaboration State ---
   const [activeDirective, setActiveDirective] = useState<StrategicDirective | null>(null);
-  const [brainstormTheme, setBrainstormTheme] = useState("Trending Lagos Businesses, High-Growth Niches & Video Vlogs");
+  const [brainstormTheme, setBrainstormTheme] = useState(
+    "Trending Lagos Businesses, High-Growth Niches, Sourcing & Video Vlogs"
+  );
   const [brainstormCount, setBrainstormCount] = useState<number>(3);
   const [isBrainstorming, setIsBrainstorming] = useState(false);
   const [batchGeneratedPosts, setBatchGeneratedPosts] = useState<GeneratedArticle[]>([]);
   const [isBatchGenerating, setIsBatchGenerating] = useState(false);
   const [isBatchPublishing, setIsBatchPublishing] = useState(false);
+
+  // --- Referral Matcher Testing State ---
+  const [referralTestQuery, setReferralTestQuery] = useState("");
 
   const { data: categories } = useQuery({
     queryKey: ["blog-categories"],
@@ -68,7 +83,10 @@ export default function AdminAIBlogger() {
     queryKey: ["autoblog-categories", schedule?.id],
     enabled: !!schedule?.id,
     queryFn: async () => {
-      const { data } = await supabase.from("autoblog_categories").select("category_id").eq("schedule_id", schedule!.id);
+      const { data } = await supabase
+        .from("autoblog_categories")
+        .select("category_id")
+        .eq("schedule_id", schedule!.id);
       return (data || []).map((d: any) => d.category_id);
     },
   });
@@ -90,6 +108,7 @@ export default function AdminAIBlogger() {
       if (error) throw error;
     }
     refetchSchedule();
+    toast.success("Autoblog schedule updated");
   };
 
   const toggleCategory = async (catId: string, checked: boolean) => {
@@ -106,34 +125,77 @@ export default function AdminAIBlogger() {
     refetchScheduleCats();
   };
 
-  // --- Affiliate links ---
-  const { data: affiliateLinks, refetch: refetchAffiliates } = useQuery({
-    queryKey: ["affiliate-links"],
+  // --- Referral & Affiliate Links ---
+  const { data: affiliateLinks = [], refetch: refetchAffiliates, isLoading: isLoadingAffiliates } = useQuery({
+    queryKey: ["affiliate-links-manager"],
     queryFn: async () => {
-      const { data } = await supabase.from("affiliate_links").select("*").order("created_at", { ascending: false });
-      return data ?? [];
+      const { data } = await supabase
+        .from("affiliate_links")
+        .select("*")
+        .order("created_at", { ascending: false });
+      return (data || []) as AffiliateReferralLink[];
     },
   });
 
-  const [newAff, setNewAff] = useState({ label: "", url: "", keywords: "" });
+  const [newAff, setNewAff] = useState({ label: "", url: "", keywords: "", description: "" });
+  const [isAddingAff, setIsAddingAff] = useState(false);
+
   const addAffiliate = async () => {
-    if (!newAff.label || !newAff.url) return toast.error("Label and URL required");
-    const { error } = await supabase.from("affiliate_links").insert({
-      label: newAff.label,
-      url: newAff.url,
-      keywords: newAff.keywords.split(",").map((k) => k.trim()).filter(Boolean),
-      active: true,
-    });
-    if (error) return toast.error(error.message);
-    setNewAff({ label: "", url: "", keywords: "" });
-    refetchAffiliates();
-    toast.success("Affiliate link added");
+    if (!newAff.label.trim() || !newAff.url.trim()) {
+      return toast.error("Label and destination URL are required");
+    }
+    setIsAddingAff(true);
+    try {
+      const kwList = newAff.keywords
+        .split(",")
+        .map((k) => k.trim())
+        .filter(Boolean);
+
+      const { error } = await supabase.from("affiliate_links").insert({
+        label: newAff.label.trim(),
+        url: newAff.url.trim(),
+        keywords: kwList.length > 0 ? kwList : [newAff.label.toLowerCase().trim()],
+        description: newAff.description.trim() || null,
+        active: true,
+      });
+      if (error) throw error;
+
+      setNewAff({ label: "", url: "", keywords: "", description: "" });
+      refetchAffiliates();
+      toast.success("Admin Referral / Affiliate Link saved and ready for AI auto-injection!");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to add affiliate link");
+    } finally {
+      setIsAddingAff(false);
+    }
   };
 
   const deleteAffiliate = async (id: string) => {
-    await supabase.from("affiliate_links").delete().eq("id", id);
-    refetchAffiliates();
+    try {
+      const { error } = await supabase.from("affiliate_links").delete().eq("id", id);
+      if (error) throw error;
+      refetchAffiliates();
+      toast.success("Referral link deleted");
+    } catch (e: any) {
+      toast.error(e.message);
+    }
   };
+
+  const toggleAffiliateActive = async (id: string, active: boolean) => {
+    try {
+      const { error } = await supabase.from("affiliate_links").update({ active }).eq("id", id);
+      if (error) throw error;
+      refetchAffiliates();
+    } catch (e: any) {
+      toast.error(e.message);
+    }
+  };
+
+  // Matched referrals test preview
+  const liveMatchedReferrals = useMemo(() => {
+    const testText = referralTestQuery || topic || "business directory supplier";
+    return matchReferralLinks(testText, keywords.split(","), "", affiliateLinks);
+  }, [referralTestQuery, topic, keywords, affiliateLinks]);
 
   // --- Single Post Generation ---
   const [trendingCategoryId, setTrendingCategoryId] = useState<string>("");
@@ -142,55 +204,69 @@ export default function AdminAIBlogger() {
       const { data, error } = await supabase.functions.invoke("ai-blogger", {
         body: { useTrending: "list", keywords, categoryId: trendingCategoryId || undefined },
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      if (error) {
+        // Fallback to internal trends
+        return { trending: TRENDING_MARKET_INTELLIGENCE.map((t) => t.topic) };
+      }
       return data;
     },
     onSuccess: (data) => {
-      if (data.trending) {
+      if (data?.trending) {
         setTrendingTopics(data.trending);
-        toast.success(`Trending topics${data.category ? ` for ${data.category}` : ""} loaded!`);
+        toast.success(`Trending topics loaded!`);
       }
     },
     onError: (e: any) => toast.error(e.message || "Failed to fetch trends"),
   });
 
-  const generateMutation = useMutation({
-    mutationFn: async (useTrending?: boolean) => {
-      const { data, error } = await supabase.functions.invoke("ai-blogger", {
-        body: { topic: useTrending ? "" : topic, keywords, tone, useTrending: useTrending || false },
+  const [isSingleGenerating, setIsSingleGenerating] = useState(false);
+
+  const handleGenerateSinglePost = async () => {
+    if (!topic.trim()) return toast.error("Please enter a topic or select a trending idea");
+    setIsSingleGenerating(true);
+    try {
+      const kwList = keywords.split(",").map((k) => k.trim()).filter(Boolean);
+      const selectedCat = categories?.find((c: any) => c.id === categoryId);
+
+      const generated = await generateStrategicArticle({
+        topic: topic.trim(),
+        angle: `Targeted analysis with step-by-step actionable advice and verified supplier links.`,
+        categoryName: selectedCat ? selectedCat.name : "Business & Startups",
+        isVlog: isVlogFormat,
+        videoUrl: customVideoUrl.trim() || undefined,
+        keywords: kwList,
       });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      return data;
-    },
-    onSuccess: (data) => {
-      setPreview(data);
-      toast.success("Post generated! Review and publish below.");
-    },
-    onError: (e: any) => toast.error(e.message || "Generation failed"),
-  });
+
+      setPreview(generated);
+      toast.success("Post generated with strategic referral integrations! Review below.");
+    } catch (err: any) {
+      toast.error("Generation error: " + err.message);
+    } finally {
+      setIsSingleGenerating(false);
+    }
+  };
 
   const publishMutation = useMutation({
     mutationFn: async (publish: boolean) => {
       if (!preview) throw new Error("Generate a post first");
-      const slug = generateSlug(preview.title);
+      const slug = preview.slug || generateSlug(preview.title);
       const { error } = await supabase.from("blog_posts").insert({
         title: preview.title,
         slug,
         excerpt: preview.excerpt,
         content: preview.content,
-        featured_image: preview.featured_image,
+        featured_image: preview.featured_image || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&auto=format&fit=crop",
         category_id: categoryId || null,
         published: publish,
         published_at: publish ? new Date().toISOString() : null,
         author_id: user?.id || null,
+        is_featured: true,
       });
       if (error) throw error;
     },
     onSuccess: (_, publish) => {
       qc.invalidateQueries({ queryKey: ["admin-posts"] });
-      toast.success(publish ? "Post published!" : "Post saved as draft!");
+      toast.success(publish ? "Post published live on blog!" : "Post saved as draft!");
       setPreview(null);
       setTopic("");
       setKeywords("");
@@ -243,7 +319,7 @@ export default function AdminAIBlogger() {
         generated.push(art);
       }
       setBatchGeneratedPosts(generated);
-      toast.success(`Generated ${generated.length} strategic articles & vlogs! Ready for batch publishing.`);
+      toast.success(`Generated ${generated.length} strategic articles & vlogs with referral links embedded!`);
     } catch (err: any) {
       toast.error("Batch generation error: " + err.message);
     } finally {
@@ -257,7 +333,6 @@ export default function AdminAIBlogger() {
     try {
       let published = 0;
       for (const post of batchGeneratedPosts) {
-        // Find or create category
         const matchCat = (categories || []).find(
           (c: any) => c.name.toLowerCase() === post.category_name?.toLowerCase()
         );
@@ -283,6 +358,7 @@ export default function AdminAIBlogger() {
           published_at: publishLive ? new Date().toISOString() : null,
           is_featured: true,
           author_id: user?.id || null,
+          featured_image: post.featured_image || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&auto=format&fit=crop",
         });
 
         if (!error) published++;
@@ -303,63 +379,257 @@ export default function AdminAIBlogger() {
   const isMulti = mode === "multi";
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Banner */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-gradient-to-r from-purple-600/15 via-indigo-600/10 to-primary/15 border border-purple-500/20 shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-md ring-2 ring-white/20 shrink-0">
-            <Video className="h-6 w-6" />
+    <div className="space-y-6 max-w-6xl pb-16">
+      {/* Top Header Banner with 3D Elevated Icon */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-3xl bg-gradient-to-r from-purple-600/15 via-indigo-600/10 to-pink-500/15 border border-purple-500/20 shadow-sm">
+        <div className="flex items-center gap-3.5">
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-purple-600 via-indigo-600 to-pink-600 text-white shadow-[0_6px_16px_-2px_rgba(124,58,237,0.5),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-1 ring-white/30">
+            <Bot className="h-6 w-6 drop-shadow-sm" strokeWidth={2.4} />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-black tracking-tight leading-none">
-                AI Lead Blogger & Vlogger Studio
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight leading-none text-foreground">
+                AI Lead Blogger & Strategic Referral Studio
               </h1>
               <Badge className="bg-purple-500/15 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-extrabold">
-                Strategic Co-Pilot Active
+                Referral Engine Active
               </Badge>
             </div>
-            <p className="text-xs text-muted-foreground font-medium mt-1">
-              Collaborate directly with the AI General Administrator to execute strategic Multi-Blog & Multi-Vlog campaigns with auto-category routing.
+            <p className="text-xs sm:text-sm text-muted-foreground font-medium mt-1">
+              Generate high-ranking commercial blog guides, embed video vlogs, and automatically weave admin referral links into strategic CTA buttons.
             </p>
           </div>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          asChild
-          className="h-8 font-bold text-xs rounded-xl gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10 self-start sm:self-auto shrink-0"
-        >
-          <Link to="/admin/platform-ai">
-            <Bot className="h-3.5 w-3.5" />
-            AI Strategy Director
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <Button
+            variant="outline"
+            size="sm"
+            asChild
+            className="h-9 font-bold text-xs rounded-xl gap-1.5 border-purple-500/30 text-purple-600 dark:text-purple-400 hover:bg-purple-500/10"
+          >
+            <Link to="/admin/posts">
+              <FileText className="h-3.5 w-3.5" />
+              Manage Blog Posts
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      {/* STRATEGIC COLLABORATION SUITE & MULTI-VLOG POSTING HUB */}
-      <Card className="border-indigo-500/30 bg-gradient-to-br from-card via-indigo-500/5 to-purple-500/5 shadow-md overflow-hidden">
-        <CardHeader className="border-b bg-indigo-500/10 py-3.5 px-4 sm:px-6">
+      {/* ADMIN REFERRAL & AFFILIATE LINK MANAGER (High Visibility) */}
+      <Card className="border-indigo-500/30 bg-gradient-to-br from-card via-indigo-500/5 to-purple-500/5 shadow-md rounded-3xl overflow-hidden">
+        <CardHeader className="border-b bg-indigo-500/10 py-4 px-5 sm:px-6">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-indigo-600" />
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-xs">
+                <Link2 className="h-5 w-5" />
+              </div>
               <div>
                 <CardTitle className="text-base font-black flex items-center gap-2">
-                  AI Admin & AI Blogger Strategic Collaboration Suite
+                  Admin Referral & Affiliate Link Injector
                 </CardTitle>
-                <CardDescription className="text-xs font-medium mt-0.5">
-                  The AI Admin (Boss) and AI Blogger (Worker) reason together to identify viral trends, auto-select categories, and create Multi-Blog & Vlog series.
+                <CardDescription className="text-xs font-medium">
+                  The AI blogger automatically scans article topics, matches these referral links, and weaves high-converting CTA buttons and recommendation cards.
                 </CardDescription>
               </div>
             </div>
             <Badge className="bg-indigo-600 text-white font-extrabold text-[10px]">
-              Multi-Blog & Vlog Engine
+              {affiliateLinks.length} Active Link{affiliateLinks.length === 1 ? "" : "s"}
             </Badge>
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:p-6 space-y-5">
+        <CardContent className="p-5 sm:p-6 space-y-5">
+          {/* Add New Referral Link Form */}
+          <div className="p-4 rounded-2xl bg-background/80 border border-indigo-500/20 space-y-3">
+            <h3 className="text-xs font-extrabold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+              <Plus className="h-3.5 w-3.5" /> Add New Referral / Affiliate Partner Link
+            </h3>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold">Partner / Button Label *</Label>
+                <Input
+                  placeholder="e.g. Verified Lagos Directory"
+                  value={newAff.label}
+                  onChange={(e) => setNewAff({ ...newAff, label: e.target.value })}
+                  className="h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold">Destination URL (Referral / Affiliate) *</Label>
+                <Input
+                  placeholder="https://... or /businesses"
+                  value={newAff.url}
+                  onChange={(e) => setNewAff({ ...newAff, url: e.target.value })}
+                  className="h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold">Match Keywords (comma-separated)</Label>
+                <Input
+                  placeholder="business, supplier, wholesale, lagos"
+                  value={newAff.keywords}
+                  onChange={(e) => setNewAff({ ...newAff, keywords: e.target.value })}
+                  className="h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold">CTA Card Pitch / Description</Label>
+                <Input
+                  placeholder="Find verified suppliers & boost sales"
+                  value={newAff.description}
+                  onChange={(e) => setNewAff({ ...newAff, description: e.target.value })}
+                  className="h-9 text-xs rounded-xl"
+                />
+              </div>
+            </div>
+
+            <Button
+              onClick={addAffiliate}
+              disabled={isAddingAff || !newAff.label.trim() || !newAff.url.trim()}
+              className="h-9 px-5 text-xs font-extrabold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-xs gap-1.5"
+            >
+              {isAddingAff ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Save Referral Partner
+            </Button>
+          </div>
+
+          {/* List of Configured Referral Links */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-extrabold text-muted-foreground uppercase tracking-wider">
+              Configured Referral Links ({affiliateLinks.length})
+            </h4>
+
+            <div className="grid gap-2.5 sm:grid-cols-2">
+              {affiliateLinks.map((a) => (
+                <div
+                  key={a.id}
+                  className="flex items-start justify-between gap-3 p-3.5 rounded-2xl border bg-card/90 shadow-xs hover:border-indigo-500/40 transition-colors"
+                >
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <div className="flex items-center gap-2">
+                      <p className="font-extrabold text-sm text-foreground truncate">{a.label}</p>
+                      <Badge
+                        variant={a.active ? "default" : "secondary"}
+                        className={cn(
+                          "text-[9px] px-1.5 py-0 h-4 font-bold",
+                          a.active ? "bg-emerald-600 text-white" : ""
+                        )}
+                      >
+                        {a.active ? "Active" : "Paused"}
+                      </Badge>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground font-mono truncate">{a.url}</p>
+
+                    {a.description && (
+                      <p className="text-xs text-foreground/80 line-clamp-1 italic">{a.description}</p>
+                    )}
+
+                    <div className="flex gap-1 flex-wrap pt-1">
+                      {(a.keywords || []).map((k: string, i: number) => (
+                        <span
+                          key={i}
+                          className="bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 text-[10px] font-bold px-2 py-0.5 rounded-md"
+                        >
+                          #{k}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Switch
+                      checked={a.active}
+                      onCheckedChange={(v) => toggleAffiliateActive(a.id, v)}
+                      title={a.active ? "Pause Referral" : "Activate Referral"}
+                    />
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteAffiliate(a.id)}
+                      className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+
+              {affiliateLinks.length === 0 && (
+                <div className="col-span-2 text-center py-6 border border-dashed rounded-2xl bg-muted/20">
+                  <p className="text-xs text-muted-foreground">
+                    No custom referral links added yet. Platform defaults (Directory, Sales Funnels, Video Studio) are currently active.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Live Strategic Referral Matcher Simulation */}
+          <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <Label className="text-xs font-extrabold text-indigo-700 dark:text-indigo-300 flex items-center gap-1.5">
+                <Sparkles className="h-3.5 w-3.5" /> Live AI Referral Matcher Preview
+              </Label>
+              <span className="text-[11px] text-muted-foreground">
+                Type any topic keyword to test which referral CTA buttons the AI blogger will auto-embed:
+              </span>
+            </div>
+
+            <div className="flex gap-2">
+              <Input
+                placeholder="e.g. food delivery, wholesale sourcing, solar inverter, marketing..."
+                value={referralTestQuery}
+                onChange={(e) => setReferralTestQuery(e.target.value)}
+                className="h-8 text-xs rounded-xl bg-background"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 flex-wrap pt-1">
+              <span className="text-[11px] font-bold text-muted-foreground">AI Will Embed:</span>
+              {liveMatchedReferrals.map((r, i) => (
+                <Badge
+                  key={i}
+                  className="bg-indigo-600 text-white text-[11px] font-extrabold px-2.5 py-0.5 rounded-lg flex items-center gap-1"
+                >
+                  <span>{r.label}</span>
+                  <ArrowUpRight className="h-3 w-3" />
+                </Badge>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* STRATEGIC COLLABORATION SUITE & MULTI-VLOG POSTING HUB */}
+      <Card className="border-purple-500/30 bg-gradient-to-br from-card via-purple-500/5 to-indigo-500/5 shadow-md rounded-3xl overflow-hidden">
+        <CardHeader className="border-b bg-purple-500/10 py-4 px-5 sm:px-6">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center text-white shadow-xs">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-black flex items-center gap-2">
+                  AI Admin & AI Blogger Multi-Post Collaboration Hub
+                </CardTitle>
+                <CardDescription className="text-xs font-medium">
+                  Brainstorm high-traffic directives and auto-generate comprehensive multi-article & vlog series with referral links pre-embedded.
+                </CardDescription>
+              </div>
+            </div>
+            <Badge className="bg-purple-600 text-white font-extrabold text-[10px]">
+              Multi-Post Engine
+            </Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-5 sm:p-6 space-y-5">
           {/* Strategic Directive Controls */}
           <div className="grid gap-3 sm:grid-cols-4 items-end">
             <div className="sm:col-span-2 space-y-1.5">
@@ -390,7 +660,7 @@ export default function AdminAIBlogger() {
             <Button
               onClick={handleStartStrategicBrainstorm}
               disabled={isBrainstorming}
-              className="h-10 font-extrabold text-xs bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl gap-2 shadow-sm"
+              className="h-10 font-extrabold text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-xl gap-2 shadow-sm"
             >
               {isBrainstorming ? (
                 <>
@@ -398,7 +668,7 @@ export default function AdminAIBlogger() {
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4" /> Start Joint Strategic Session
+                  <Zap className="h-4 w-4" /> Start Joint Strategy Session
                 </>
               )}
             </Button>
@@ -406,10 +676,10 @@ export default function AdminAIBlogger() {
 
           {/* Active Directive Output Feed */}
           {activeDirective && (
-            <div className="p-4 rounded-2xl border border-indigo-500/30 bg-background/95 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="p-4 rounded-2xl border border-purple-500/30 bg-background/95 space-y-4 animate-in fade-in slide-in-from-top-2 duration-200">
               <div className="flex items-center justify-between flex-wrap gap-2 border-b pb-3">
                 <div>
-                  <Badge variant="outline" className="text-[10px] font-extrabold uppercase bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                  <Badge variant="outline" className="text-[10px] font-extrabold uppercase bg-purple-500/10 text-purple-600 border-purple-500/30">
                     Executive Strategy Directive
                   </Badge>
                   <h3 className="text-sm font-black text-foreground mt-1">{activeDirective.theme}</h3>
@@ -420,15 +690,15 @@ export default function AdminAIBlogger() {
                 <Button
                   onClick={handleGenerateBatchPosts}
                   disabled={isBatchGenerating}
-                  className="h-9 font-black text-xs bg-purple-600 hover:bg-purple-700 text-white rounded-xl gap-1.5 shadow-sm"
+                  className="h-9 font-black text-xs bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-xl gap-1.5 shadow-sm"
                 >
                   {isBatchGenerating ? (
                     <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> AI Blogger Writing Articles & Vlogs…
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> AI Blogger Generating Full Series…
                     </>
                   ) : (
                     <>
-                      <Sparkles className="h-3.5 w-3.5" /> Generate All {activeDirective.suggestedTopics.length} Articles & Vlogs
+                      <Sparkles className="h-3.5 w-3.5" /> Generate All {activeDirective.suggestedTopics.length} Posts With Referral CTAs
                     </>
                   )}
                 </Button>
@@ -470,7 +740,7 @@ export default function AdminAIBlogger() {
                       {batchGeneratedPosts.length} Strategic Articles & Vlogs Ready
                     </h4>
                     <p className="text-xs text-muted-foreground">
-                      Full formatted copy, vlog embeds, auto-category mappings, and Lagos market frameworks are generated.
+                      Complete with formatted copy, vlog embeds, auto-category mappings, and embedded referral CTA buttons.
                     </p>
                   </div>
                 </div>
@@ -479,46 +749,41 @@ export default function AdminAIBlogger() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => handleBatchPublish(false)}
                     disabled={isBatchPublishing}
-                    className="h-9 font-bold text-xs rounded-xl"
+                    onClick={() => handleBatchPublish(false)}
+                    className="h-8 text-xs font-bold rounded-xl"
                   >
-                    Save All as Drafts
+                    Save All to Drafts
                   </Button>
                   <Button
                     size="sm"
-                    onClick={() => handleBatchPublish(true)}
                     disabled={isBatchPublishing}
-                    className="h-9 font-black text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-1.5 shadow-sm"
+                    onClick={() => handleBatchPublish(true)}
+                    className="h-8 text-xs font-extrabold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs"
                   >
-                    {isBatchPublishing ? (
-                      <>
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> Publishing to Live Site…
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-3.5 w-3.5" /> 1-Click Publish All to Site
-                      </>
-                    )}
+                    {isBatchPublishing ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                    Publish All Live Now
                   </Button>
                 </div>
               </div>
 
-              {/* Previews List */}
-              <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {batchGeneratedPosts.map((post, idx) => (
-                  <div key={idx} className="p-3.5 rounded-xl border bg-background flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Badge className="bg-emerald-500/15 text-emerald-700 border-emerald-500/30 text-[9px] font-extrabold">
-                          {post.is_vlog ? "Vlog Embedded" : "Article"}
-                        </Badge>
-                        <span className="text-[11px] font-bold text-primary">{post.category_name}</span>
-                        <span className="text-[10px] text-muted-foreground font-mono">/{post.slug}</span>
-                      </div>
-                      <h5 className="font-extrabold text-xs sm:text-sm text-foreground truncate">{post.title}</h5>
-                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{post.excerpt}</p>
+                  <div key={idx} className="p-3.5 rounded-xl border bg-card shadow-xs space-y-2">
+                    <div className="flex items-center justify-between gap-2">
+                      <Badge className="bg-primary/10 text-primary text-[10px] font-bold">
+                        {post.category_name || "General"}
+                      </Badge>
+                      {post.is_vlog && <Badge variant="secondary" className="text-[9px]">🎥 Vlog Video</Badge>}
                     </div>
+                    <h5 className="font-extrabold text-xs text-foreground line-clamp-2">{post.title}</h5>
+                    <p className="text-[11px] text-muted-foreground line-clamp-2">{post.excerpt}</p>
+                    {post.matched_referrals && post.matched_referrals.length > 0 && (
+                      <div className="flex items-center gap-1 text-[10px] text-indigo-600 dark:text-indigo-400 font-bold">
+                        <Link2 className="h-3 w-3" />
+                        <span>Embedded Referral: {post.matched_referrals.map((r) => r.label).join(", ")}</span>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -527,283 +792,262 @@ export default function AdminAIBlogger() {
         </CardContent>
       </Card>
 
-      {/* Auto-Publishing Schedule */}
-      <Card>
+      {/* SINGLE ARTICLE & VLOG GENERATOR */}
+      <Card className="rounded-3xl shadow-sm border-border/80">
         <CardHeader>
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <Clock className="h-5 w-5 text-primary" /> Background Auto-Publishing Scheduler
+          <CardTitle className="text-base font-extrabold flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" /> Single Article & Vlog Studio (With Referral Injection)
           </CardTitle>
+          <CardDescription className="text-xs">
+            Generate custom single articles or video vlogs with exact topic specifications and instant referral link integration.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-3">
-            <div className="flex items-center gap-3">
-              <Switch
-                checked={schedule?.enabled || false}
-                onCheckedChange={(checked) => updateSchedule({ enabled: checked })}
-              />
-              <Label className="text-sm font-semibold">Enable automatic background posting</Label>
-            </div>
-            <div className="flex items-center gap-2 rounded-full border p-1 bg-muted/30">
-              <button
-                onClick={() => updateSchedule({ mode: "single" })}
-                className={`px-3 py-1 text-xs rounded-full font-bold transition ${!isMulti ? "bg-primary text-primary-foreground" : ""}`}
-              >
-                Single Mode
-              </button>
-              <button
-                onClick={() => updateSchedule({ mode: "multi" })}
-                className={`px-3 py-1 text-xs rounded-full font-bold transition ${isMulti ? "bg-primary text-primary-foreground" : ""}`}
-              >
-                Multi Mode
-              </button>
-            </div>
-          </div>
-
-          {schedule?.enabled && (
-            <>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold">Post every (hours)</Label>
-                  <Select value={String(schedule?.interval_hours || 24)} onValueChange={(v) => updateSchedule({ interval_hours: parseInt(v) })}>
-                    <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="6">Every 6 hours</SelectItem>
-                      <SelectItem value="12">Every 12 hours</SelectItem>
-                      <SelectItem value="24">Every 24 hours</SelectItem>
-                      <SelectItem value="48">Every 2 days</SelectItem>
-                      <SelectItem value="72">Every 3 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold">Focus Keywords</Label>
-                  <Input value={schedule?.keywords || ""} onChange={(e) => updateSchedule({ keywords: e.target.value })} placeholder="e.g., Lagos, business" className="rounded-xl" />
-                </div>
-                {isMulti ? (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold">Posts per run</Label>
-                    <Select value={String(schedule?.posts_per_run || 1)} onValueChange={(v) => updateSchedule({ posts_per_run: parseInt(v) })}>
-                      <SelectTrigger className="rounded-xl"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {[1, 2, 3, 4, 5].map((n) => (
-                          <SelectItem key={n} value={String(n)}>{n} post{n > 1 ? "s" : ""}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold">Default Category</Label>
-                    <Select value={schedule?.category_id || ""} onValueChange={(v) => updateSchedule({ category_id: v || null })}>
-                      <SelectTrigger className="rounded-xl"><SelectValue placeholder="Auto-detect" /></SelectTrigger>
-                      <SelectContent>
-                        {categories?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </div>
-
-              {isMulti && (
-                <div className="space-y-2 border-t pt-4">
-                  <Label className="text-xs font-bold">Categories to rotate (multi-mode)</Label>
-                  <p className="text-xs text-muted-foreground">AI will cycle posts through these categories.</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                    {categories?.map((c: any) => (
-                      <label key={c.id} className="flex items-center gap-2 rounded-xl border p-2.5 cursor-pointer hover:bg-accent transition-colors">
-                        <Checkbox
-                          checked={scheduleCats?.includes(c.id) || false}
-                          onCheckedChange={(checked) => toggleCategory(c.id, !!checked)}
-                        />
-                        <span className="text-xs font-bold">{c.name}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 pt-2">
-                <Switch checked={schedule?.auto_approve !== false} onCheckedChange={(v) => updateSchedule({ auto_approve: v })} />
-                <Label className="text-xs font-semibold">Auto-publish immediately (off = save as draft for review)</Label>
-              </div>
-            </>
-          )}
-          {schedule?.last_run_at && (
-            <p className="text-xs text-muted-foreground">Last auto-post: {new Date(schedule.last_run_at).toLocaleString()}</p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Affiliate & Backlink Library */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <Link2 className="h-5 w-5 text-primary" /> Affiliate & Backlink Auto-Injector
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <p className="text-xs text-muted-foreground">AI will automatically link these keywords in generated posts. Use comma-separated keywords.</p>
-          <div className="grid gap-2 sm:grid-cols-4">
-            <Input placeholder="Label (e.g. Verified Lagos Directory)" value={newAff.label} onChange={(e) => setNewAff({ ...newAff, label: e.target.value })} className="rounded-xl text-xs" />
-            <Input placeholder="https://..." value={newAff.url} onChange={(e) => setNewAff({ ...newAff, url: e.target.value })} className="rounded-xl text-xs" />
-            <Input placeholder="keyword1, keyword2" value={newAff.keywords} onChange={(e) => setNewAff({ ...newAff, keywords: e.target.value })} className="rounded-xl text-xs" />
-            <Button onClick={addAffiliate} className="rounded-xl font-bold text-xs"><Plus className="h-4 w-4 mr-1" /> Add Link</Button>
-          </div>
-          <div className="space-y-2">
-            {affiliateLinks?.map((a: any) => (
-              <div key={a.id} className="flex items-center gap-3 p-3 border rounded-xl bg-card shadow-xs">
-                <div className="flex-1 min-w-0">
-                  <p className="font-bold text-xs">{a.label}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{a.url}</p>
-                  <div className="flex gap-1 flex-wrap mt-1">
-                    {(a.keywords || []).map((k: string, i: number) => <Badge key={i} variant="secondary" className="text-[10px]">{k}</Badge>)}
-                  </div>
-                </div>
-                <Button size="icon" variant="ghost" onClick={() => deleteAffiliate(a.id)} className="text-destructive"><Trash2 className="h-4 w-4" /></Button>
-              </div>
-            ))}
-            {!affiliateLinks?.length && <p className="text-xs text-muted-foreground italic">No affiliate links configured yet.</p>}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Manual Single Post Generator */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base font-bold flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-primary" /> Single Article & Vlog Generator
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="rounded-xl border border-dashed p-3 sm:p-4 space-y-3 min-w-0 bg-muted/10">
+          {/* Trending suggestions */}
+          <div className="rounded-2xl border border-dashed p-4 space-y-3 bg-muted/10">
             <div className="flex items-center justify-between gap-2 flex-wrap">
-              <Label className="flex items-center gap-2 text-xs font-bold">
-                <TrendingUp className="h-4 w-4 text-primary shrink-0" /> Trending Nigerian Market Topics
+              <Label className="flex items-center gap-2 text-xs font-extrabold">
+                <TrendingUp className="h-4 w-4 text-primary shrink-0" /> Trending Market Topics (Click to Auto-Fill)
               </Label>
-              <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
-                <Select value={trendingCategoryId || "all"} onValueChange={(v) => setTrendingCategoryId(v === "all" ? "" : v)}>
-                  <SelectTrigger className="h-8 w-full sm:w-[180px] text-xs rounded-xl"><SelectValue placeholder="All categories" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All categories</SelectItem>
-                    {categories?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Button variant="outline" size="sm" onClick={() => trendingMutation.mutate()} disabled={trendingMutation.isPending} className="w-full sm:w-auto rounded-xl text-xs font-bold">
-                  {trendingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
-                  Fetch Live Trends
-                </Button>
-              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => trendingMutation.mutate()}
+                disabled={trendingMutation.isPending}
+                className="h-7 rounded-xl text-xs font-bold"
+              >
+                {trendingMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Zap className="h-3 w-3 mr-1" />}
+                Refresh Trends
+              </Button>
             </div>
-            {trendingTopics.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {trendingTopics.map((t, i) => (
-                  <Badge
-                    key={i}
-                    variant="secondary"
-                    className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors text-xs py-1 px-2.5 rounded-lg"
-                    onClick={() => setTopic(t)}
-                  >
-                    {t}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {TRENDING_MARKET_INTELLIGENCE.map((t, i) => (
-                  <Badge
-                    key={i}
-                    variant="outline"
-                    className="cursor-pointer hover:bg-primary/10 hover:border-primary transition-colors text-[11px] py-1 px-2.5 rounded-lg"
-                    onClick={() => setTopic(t.topic)}
-                  >
-                    {t.isVlog ? "🎥 " : "📰 "}{t.topic}
-                  </Badge>
-                ))}
-              </div>
-            )}
+
+            <div className="flex flex-wrap gap-1.5">
+              {(trendingTopics.length > 0 ? trendingTopics.map((t) => ({ topic: t, isVlog: false })) : TRENDING_MARKET_INTELLIGENCE).map((t, i) => (
+                <Badge
+                  key={i}
+                  variant="outline"
+                  className="cursor-pointer hover:bg-primary/10 hover:border-primary transition-colors text-[11px] py-1 px-2.5 rounded-lg"
+                  onClick={() => setTopic(t.topic)}
+                >
+                  {t.isVlog ? "🎥 " : "📰 "}{t.topic}
+                </Badge>
+              ))}
+            </div>
           </div>
 
-          <div className="space-y-2 min-w-0">
+          <div className="space-y-1.5">
             <Label className="text-xs font-bold">Topic / Title Idea *</Label>
             <Textarea
               value={topic}
               onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g., How to start a high-margin food packaging business in Lagos"
+              placeholder="e.g. How to start a verified wholesale distribution business in Lagos"
               rows={2}
-              className="w-full text-xs rounded-xl min-w-0 break-words"
+              className="w-full text-xs rounded-xl"
             />
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="space-y-2 min-w-0">
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-1.5">
               <Label className="text-xs font-bold">Target Keywords</Label>
-              <Input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="e.g., Lagos, food, packaging" className="w-full text-xs rounded-xl" />
+              <Input
+                value={keywords}
+                onChange={(e) => setKeywords(e.target.value)}
+                placeholder="e.g. wholesale, supply chain, lagos, verified"
+                className="w-full text-xs rounded-xl h-9"
+              />
             </div>
-            <div className="space-y-2 min-w-0">
-              <Label className="text-xs font-bold">Tone</Label>
-              <Select value={tone} onValueChange={setTone}>
-                <SelectTrigger className="w-full text-xs rounded-xl"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="casual">Casual & Conversational</SelectItem>
-                  <SelectItem value="professional">Executive & Professional</SelectItem>
-                  <SelectItem value="educational">Educational & Step-by-Step</SelectItem>
-                  <SelectItem value="persuasive">High-Converting & Persuasive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 min-w-0">
-              <Label className="text-xs font-bold">Category</Label>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Target Category</Label>
               <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger className="w-full text-xs rounded-xl"><SelectValue placeholder="Select category" /></SelectTrigger>
+                <SelectTrigger className="w-full text-xs rounded-xl h-9">
+                  <SelectValue placeholder="Auto-Detect Category" />
+                </SelectTrigger>
                 <SelectContent>
-                  {categories?.map((c: any) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                  {categories?.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold">Writing Tone</Label>
+              <Select value={tone} onValueChange={setTone}>
+                <SelectTrigger className="w-full text-xs rounded-xl h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="casual">Casual & Engaging</SelectItem>
+                  <SelectItem value="professional">Executive & Authoritative</SelectItem>
+                  <SelectItem value="educational">Step-by-Step Educational</SelectItem>
+                  <SelectItem value="persuasive">High-Converting & Commercial</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button onClick={() => generateMutation.mutate(false)} disabled={!topic.trim() || generateMutation.isPending} className="flex-1 sm:flex-none rounded-xl font-bold text-xs">
-              {generateMutation.isPending ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Generating...</> : <><Sparkles className="h-4 w-4 mr-2" /> Generate Post</>}
-            </Button>
-            <Button variant="outline" onClick={() => generateMutation.mutate(true)} disabled={generateMutation.isPending} className="flex-1 sm:flex-none rounded-xl font-bold text-xs">
-              <TrendingUp className="h-4 w-4 mr-2" /> Generate from Trending
-            </Button>
+
+          {/* Vlog Format Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-background border">
+            <div className="flex items-center gap-2">
+              <Switch checked={isVlogFormat} onCheckedChange={setIsVlogFormat} id="vlog-switch" />
+              <Label htmlFor="vlog-switch" className="text-xs font-bold cursor-pointer flex items-center gap-1.5">
+                <Video className="h-4 w-4 text-purple-600" />
+                Include Video Vlog Embed
+              </Label>
+            </div>
+
+            {isVlogFormat && (
+              <Input
+                placeholder="YouTube / Video Embed URL (optional, fallback provided)"
+                value={customVideoUrl}
+                onChange={(e) => setCustomVideoUrl(e.target.value)}
+                className="h-8 text-xs rounded-xl sm:max-w-xs"
+              />
+            )}
           </div>
+
+          <Button
+            onClick={handleGenerateSinglePost}
+            disabled={isSingleGenerating || !topic.trim()}
+            className="w-full h-10 font-extrabold text-xs bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-700 text-white rounded-xl shadow-sm gap-2"
+          >
+            {isSingleGenerating ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> AI Writer Drafting Post & Weaving Referral CTAs…
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4" /> Generate Article & Inject Referral Links
+              </>
+            )}
+          </Button>
+
+          {/* Single Post Preview Modal / View */}
+          {preview && (
+            <div className="mt-6 p-5 rounded-2xl border-2 border-primary/30 bg-card space-y-4 animate-in fade-in">
+              <div className="flex items-center justify-between flex-wrap gap-2 border-b pb-3">
+                <div className="flex items-center gap-2">
+                  <Eye className="h-5 w-5 text-primary" />
+                  <h4 className="font-extrabold text-sm text-foreground">Generated Post Preview</h4>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={publishMutation.isPending}
+                    onClick={() => publishMutation.mutate(false)}
+                    className="h-8 text-xs font-bold rounded-xl"
+                  >
+                    Save as Draft
+                  </Button>
+                  <Button
+                    size="sm"
+                    disabled={publishMutation.isPending}
+                    onClick={() => publishMutation.mutate(true)}
+                    className="h-8 text-xs font-extrabold bg-primary text-primary-foreground rounded-xl shadow-xs"
+                  >
+                    {publishMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <Save className="h-3 w-3 mr-1" />}
+                    Publish to Live Blog
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-lg font-black text-foreground">{preview.title}</h3>
+                <p className="text-xs text-muted-foreground italic">{preview.excerpt}</p>
+                <div
+                  className="prose prose-sm max-w-none p-4 rounded-xl bg-background border mt-3 max-h-96 overflow-y-auto"
+                  dangerouslySetInnerHTML={{ __html: preview.content }}
+                />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Single Preview */}
-      {preview && (
-        <Card className="min-w-0 overflow-hidden border-primary/30 shadow-md">
-          <CardHeader className="p-4 sm:p-6 border-b bg-muted/20">
-            <CardTitle className="text-base font-bold flex items-center gap-2 flex-wrap">
-              <Eye className="h-5 w-5 shrink-0" /> Article Preview
-              {preview.trending_topic && <Badge variant="outline" className="text-xs"><TrendingUp className="h-3 w-3 mr-1" /> Trending</Badge>}
-              {preview.has_youtube && <Badge variant="outline" className="text-xs">🎬 Video Vlog</Badge>}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4 sm:p-6 space-y-4 min-w-0">
-            <div className="min-w-0">
-              <Label className="text-xs text-muted-foreground">Title</Label>
-              <h2 className="text-base sm:text-lg font-black break-words leading-snug text-foreground mt-0.5 min-w-0">{preview.title}</h2>
-            </div>
-            {preview.excerpt && (
-              <div className="min-w-0">
-                <Label className="text-xs text-muted-foreground">Excerpt</Label>
-                <p className="text-xs text-muted-foreground break-words mt-0.5 min-w-0">{preview.excerpt}</p>
+      {/* AUTOBLOG SCHEDULE SETTINGS */}
+      <Card className="rounded-3xl shadow-sm border-border/80">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-5 w-5 text-primary" />
+              <div>
+                <CardTitle className="text-base font-extrabold">Autonomous AI Blogger Scheduler</CardTitle>
+                <CardDescription className="text-xs">
+                  Automate regular content publishing with referral links embedded on autopilot.
+                </CardDescription>
               </div>
-            )}
-            {preview.featured_image && <img src={preview.featured_image} alt="" className="w-full max-h-64 object-cover rounded-xl" />}
-            <div className="border rounded-xl p-3 sm:p-4 max-h-[500px] overflow-y-auto min-w-0 bg-card">
-              <div className="prose prose-sm max-w-none break-words overflow-x-auto" dangerouslySetInnerHTML={{ __html: preview.content }} />
             </div>
-            <div className="flex gap-2 flex-wrap pt-2">
-              <Button onClick={() => publishMutation.mutate(true)} disabled={publishMutation.isPending} className="flex-1 sm:flex-none rounded-xl font-bold text-xs"><Save className="h-4 w-4 mr-1" /> Publish Now</Button>
-              <Button variant="outline" onClick={() => publishMutation.mutate(false)} disabled={publishMutation.isPending} className="flex-1 sm:flex-none rounded-xl font-bold text-xs">Save as Draft</Button>
-              <Button variant="ghost" onClick={() => setPreview(null)} className="w-full sm:w-auto rounded-xl text-xs">Discard</Button>
+            <Switch
+              checked={schedule?.enabled || false}
+              onCheckedChange={(enabled) => updateSchedule({ enabled })}
+            />
+          </div>
+        </CardHeader>
+
+        {schedule?.enabled && (
+          <CardContent className="space-y-4 border-t pt-4">
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Publish Interval</Label>
+                <Select
+                  value={String(schedule?.interval_hours || 24)}
+                  onValueChange={(v) => updateSchedule({ interval_hours: parseInt(v) })}
+                >
+                  <SelectTrigger className="rounded-xl h-9 text-xs font-bold"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="6">Every 6 hours</SelectItem>
+                    <SelectItem value="12">Every 12 hours</SelectItem>
+                    <SelectItem value="24">Every 24 hours (Daily)</SelectItem>
+                    <SelectItem value="48">Every 2 days</SelectItem>
+                    <SelectItem value="72">Every 3 days</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Focus Keywords</Label>
+                <Input
+                  value={schedule?.keywords || ""}
+                  onChange={(e) => updateSchedule({ keywords: e.target.value })}
+                  placeholder="e.g. Lagos, business, suppliers, tech"
+                  className="rounded-xl h-9 text-xs"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Default Category</Label>
+                <Select
+                  value={schedule?.category_id || ""}
+                  onValueChange={(v) => updateSchedule({ category_id: v || null })}
+                >
+                  <SelectTrigger className="rounded-xl h-9 text-xs"><SelectValue placeholder="Auto-detect" /></SelectTrigger>
+                  <SelectContent>
+                    {categories?.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <Switch
+                checked={schedule?.auto_approve !== false}
+                onCheckedChange={(v) => updateSchedule({ auto_approve: v })}
+                id="auto-pub"
+              />
+              <Label htmlFor="auto-pub" className="text-xs font-bold cursor-pointer">
+                Publish live immediately (off = save as draft for manual review)
+              </Label>
             </div>
           </CardContent>
-        </Card>
-      )}
+        )}
+      </Card>
     </div>
   );
 }

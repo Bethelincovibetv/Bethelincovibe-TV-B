@@ -35,6 +35,7 @@ export interface GeneratedArticle {
   featured_image?: string;
   tags?: string[];
   meta_description?: string;
+  matched_referrals?: Array<{ label: string; url: string }>;
 }
 
 export interface GeneratedCustomPage {
@@ -60,28 +61,37 @@ export interface GeneratedCustomPage {
   seo_description: string;
 }
 
+export interface AffiliateReferralLink {
+  id: string;
+  label: string;
+  url: string;
+  keywords: string[];
+  description?: string | null;
+  active: boolean;
+}
+
 // Built-in verified high-performing Lagos & Nigerian market trends
 export const TRENDING_MARKET_INTELLIGENCE = [
   {
     topic: "Scaling a Tech-Enabled SME in Lagos (2026 Strategy)",
     category: "Business & Startups",
     isVlog: true,
-    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ", // fallback placeholder
-    keywords: ["Lagos SME", "Business Growth", "Digital Marketing", "Cash Flow"],
+    videoUrl: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    keywords: ["Lagos SME", "Business Growth", "Digital Marketing", "Cash Flow", "Software"],
     angle: "Actionable playbook on customer acquisition, logistics optimization, and online sales channels.",
   },
   {
     topic: "Top Funding, Grants & Angel Investor Programs in Nigeria",
     category: "Finance & Investment",
     isVlog: false,
-    keywords: ["Nigeria Grants", "Startup Funding", "Pitch Deck", "Angel Capital"],
+    keywords: ["Nigeria Grants", "Startup Funding", "Pitch Deck", "Angel Capital", "Banking"],
     angle: "Comprehensive directory of active grants, application deadlines, and evaluation secrets.",
   },
   {
     topic: "Wholesale Sourcing & Verified Suppliers in Alaba & Computer Village",
     category: "Marketplace & Directory",
     isVlog: true,
-    keywords: ["Wholesale Nigeria", "Alaba Market", "Electronics Sourcing", "Verified Suppliers"],
+    keywords: ["Wholesale Nigeria", "Alaba Market", "Electronics Sourcing", "Verified Suppliers", "Imports"],
     angle: "Behind-the-scenes sourcing guide, price negotiation scripts, and scam avoidance tips.",
   },
   {
@@ -95,7 +105,7 @@ export const TRENDING_MARKET_INTELLIGENCE = [
     topic: "How to Build High-Converting WhatsApp Sales Funnels",
     category: "Marketing & Growth",
     isVlog: true,
-    keywords: ["WhatsApp Marketing", "Lagos Sales", "Automated Catalog", "Customer Retention"],
+    keywords: ["WhatsApp Marketing", "Lagos Sales", "Automated Catalog", "Customer Retention", "CRM"],
     angle: "Step-by-step broadcast workflows, catalog setup, and closing high-ticket deals on WhatsApp.",
   },
   {
@@ -133,8 +143,148 @@ export async function getGeminiClient(): Promise<GoogleGenAI | null> {
 }
 
 /**
+ * Fetch all active Admin-configured Referral and Affiliate Links
+ */
+export async function fetchActiveReferralLinks(): Promise<AffiliateReferralLink[]> {
+  try {
+    const { data, error } = await supabase
+      .from("affiliate_links")
+      .select("*")
+      .eq("active", true)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    if (data && data.length > 0) return data as AffiliateReferralLink[];
+  } catch (err) {
+    console.warn("Error fetching affiliate links:", err);
+  }
+
+  // Built-in platform defaults if no custom links are stored
+  return [
+    {
+      id: "ref_default_directory",
+      label: "Bethelincovibe Business Directory",
+      url: "/businesses",
+      keywords: ["business", "supplier", "store", "directory", "wholesale", "vendor", "partner"],
+      description: "Find verified suppliers and list your business on the verified portal",
+      active: true,
+    },
+    {
+      id: "ref_default_sales",
+      label: "Custom Sales Pages & Landing Funnels",
+      url: "/sales",
+      keywords: ["sales", "landing page", "funnel", "leads", "marketing", "conversion"],
+      description: "Launch instant high-converting sales funnels with Paystack & WhatsApp checkout",
+      active: true,
+    },
+    {
+      id: "ref_default_video",
+      label: "AI Video Creator Studio",
+      url: "/tools/video-creator",
+      keywords: ["video", "vlog", "marketing", "youtube", "tiktok", "reels", "ai video"],
+      description: "Auto-produce AI video reels and marketing clips in minutes",
+      active: true,
+    },
+  ];
+}
+
+/**
+ * Smart Match Referral Links against a Topic, Keywords, and Category
+ */
+export function matchReferralLinks(
+  topic: string,
+  keywords: string[] = [],
+  categoryName: string = "",
+  allLinks: AffiliateReferralLink[]
+): AffiliateReferralLink[] {
+  const queryTokens = [
+    topic.toLowerCase(),
+    categoryName.toLowerCase(),
+    ...keywords.map((k) => k.toLowerCase()),
+  ].join(" ");
+
+  const scored = allLinks.map((link) => {
+    let score = 0;
+    const labelLower = link.label.toLowerCase();
+    if (queryTokens.includes(labelLower)) score += 5;
+
+    for (const kw of link.keywords || []) {
+      const kwLower = kw.toLowerCase().trim();
+      if (!kwLower) continue;
+      if (queryTokens.includes(kwLower)) {
+        score += 3;
+      }
+    }
+
+    if (link.description && queryTokens.split(" ").some((w) => link.description?.toLowerCase().includes(w) && w.length > 4)) {
+      score += 1;
+    }
+
+    return { link, score };
+  });
+
+  const matching = scored
+    .filter((item) => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map((item) => item.link);
+
+  // If no direct keyword match, include up to 2 most prominent referral links
+  return matching.length > 0 ? matching : allLinks.slice(0, 2);
+}
+
+/**
+ * Automatically inject styled referral CTA boxes and buttons into HTML if not already placed
+ */
+export function injectStrategicReferrals(
+  htmlContent: string,
+  matchedReferrals: AffiliateReferralLink[],
+  topic: string
+): string {
+  if (!matchedReferrals || matchedReferrals.length === 0) return htmlContent;
+
+  let enhancedHtml = htmlContent;
+
+  matchedReferrals.slice(0, 2).forEach((ref, index) => {
+    // Check if the URL is already present in the article
+    if (enhancedHtml.includes(ref.url)) return;
+
+    const isExternal = ref.url.startsWith("http://") || ref.url.startsWith("https://");
+    const targetAttr = isExternal ? 'target="_blank" rel="noopener noreferrer"' : "";
+
+    const ctaCard = `
+      <div style="margin: 32px 0; padding: 22px 24px; border-radius: 18px; background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 50%, #f5f3ff 100%); border: 1.5px solid rgba(99, 102, 241, 0.25); box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.08);">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #6366f1;"></span>
+            <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: #4f46e5;">Recommended Resource & Partnership</span>
+          </div>
+          <h4 style="margin: 0; font-size: 17px; font-weight: 800; color: #1e1b4b; line-height: 1.3;">${ref.label}</h4>
+          ${ref.description ? `<p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.5;">${ref.description}</p>` : `<p style="margin: 0; font-size: 14px; color: #475569; line-height: 1.5;">Accelerate your results with our verified tools and exclusive partner offers.</p>`}
+          <div style="margin-top: 6px;">
+            <a href="${ref.url}" ${targetAttr} style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 10px 20px; border-radius: 12px; background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color: #ffffff; font-size: 14px; font-weight: 800; text-decoration: none; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.35); transition: transform 0.2s ease;">
+              <span>Explore ${ref.label}</span>
+              <span style="font-size: 16px;">→</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Try inserting after the 2nd </h2> or </p>
+    const h2Split = enhancedHtml.split("</h2>");
+    if (h2Split.length > 2 && index === 0) {
+      enhancedHtml = `${h2Split[0]}</h2>${h2Split[1]}</h2>${ctaCard}${h2Split.slice(2).join("</h2>")}`;
+    } else {
+      // Append before the closing tag or at the end
+      enhancedHtml += ctaCard;
+    }
+  });
+
+  return enhancedHtml;
+}
+
+/**
  * AI Admin Strategic Brainstorm with AI Blogger
- * Performs executive trend analysis, category selection, and formulates multi-post directives.
  */
 export async function conductStrategicBrainstorm(params: {
   theme?: string;
@@ -181,7 +331,7 @@ Return ONLY valid JSON matching this exact structure:
       "angle": "Strategic angle & key takeaways",
       "targetCategory": "Exact matching category from available list or logical new category",
       "isVlog": true,
-      "suggestedVideoUrl": "https://www.youtube.com/embed/VIDEO_ID or empty",
+      "suggestedVideoUrl": "https://www.youtube.com/embed/dQw4w9WgXcQ or empty",
       "keywords": ["keyword1", "keyword2", "keyword3"],
       "estimatedReadTime": "5 min read"
     }
@@ -217,7 +367,6 @@ Return ONLY valid JSON matching this exact structure:
 
   // Fallback Domain-Expert Strategy Matrix
   const selectedTopics = TRENDING_MARKET_INTELLIGENCE.slice(0, numberOfPosts).map((item, idx) => {
-    // Map to existing category if possible
     const match = availableCategories.find(
       (c) => c.name.toLowerCase().includes(item.category.toLowerCase().split(" ")[0])
     );
@@ -250,7 +399,7 @@ Return ONLY valid JSON matching this exact structure:
 
 /**
  * AI Blogger Content Generation Worker
- * Turns strategic topics into full-length, formatted, high-converting blog/vlog posts.
+ * Turns strategic topics into full-length, formatted, high-converting blog/vlog posts with strategic referral link insertion.
  */
 export async function generateStrategicArticle(params: {
   topic: string;
@@ -262,11 +411,18 @@ export async function generateStrategicArticle(params: {
   authorId?: string;
 }): Promise<GeneratedArticle> {
   const { topic, angle, categoryName, isVlog = false, videoUrl, keywords = [] } = params;
+
+  // 1. Fetch and match active admin referral links
+  const allReferralLinks = await fetchActiveReferralLinks();
+  const matchedReferrals = matchReferralLinks(topic, keywords, categoryName, allReferralLinks);
+
   const gemini = await getGeminiClient();
 
   if (gemini) {
     try {
-      const prompt = `You are the Lead AI Content Creator / Journalist for Bethelincovibe TV.
+      const referralPrompts = matchedReferrals.map((r) => `- "${r.label}" (URL: ${r.url}) | Keywords: ${r.keywords.join(", ")} | Description: ${r.description || "Partner Offer"}`).join("\n");
+
+      const prompt = `You are the Lead AI Content Creator & Journalist for Bethelincovibe TV.
 Your Executive AI Admin has assigned you the following directive:
 Topic: "${topic}"
 Strategic Angle: "${angle}"
@@ -274,15 +430,28 @@ Category: "${categoryName}"
 Format: ${isVlog ? "Rich Vlog Video Article (include video commentary & time-stamped key points)" : "In-Depth Illustrated Business Guide"}
 Keywords to Target: ${keywords.join(", ")}
 
+ADMIN-PROVIDED REFERRAL / AFFILIATE LINKS TO STRATEGICALLY INTEGRATE:
+${referralPrompts}
+
+STRATEGIC REFERRAL INSTRUCTIONS:
+- Whenever contextually appropriate (e.g. recommending tools, software, suppliers, directory listings, or resources related to the topic), strategically embed a high-converting call-to-action button or recommendation box linking to the referral URLs provided above.
+- Example CTA block:
+  <div style="margin: 28px 0; padding: 20px; border-radius: 16px; background: #f0f4ff; border: 1.5px solid #6366f1;">
+    <h4 style="margin:0 0 8px; color: #1e1b4b; font-weight:800;">🚀 Recommended Partner: [Label]</h4>
+    <p style="margin:0 0 12px; color: #475569; font-size: 14px;">[Brief value explanation]</p>
+    <a href="[URL]" style="display:inline-block; padding: 10px 20px; background: #4f46e5; color: #fff; font-weight: bold; border-radius: 10px; text-decoration: none;">Explore Offer →</a>
+  </div>
+- In addition, integrate natural contextual hyperlinks within paragraphs where relevant.
+
 Write a comprehensive, professional, captivating article in valid clean HTML (using <h2>, <h3>, <p>, <ul>, <li>, <blockquote>, <strong>).
-Include practical takeaways, Lagos/Nigeria market specifics, and a call-to-action inviting readers to check out verified businesses on Bethelincovibe TV.
+Include practical takeaways, Lagos/Nigeria market specifics, and the strategic referral integrations.
 
 Return ONLY valid JSON:
 {
   "title": "Final Catchy Headline",
   "slug": "url-friendly-slug",
   "excerpt": "2-3 sentence punchy summary",
-  "content": "<h2>Section 1</h2><p>Full article body...</p>",
+  "content": "<h2>Section 1</h2><p>Full article body with integrated referral links and CTA buttons...</p>",
   "tags": ["tag1", "tag2", "tag3"],
   "meta_description": "SEO description under 155 chars"
 }`;
@@ -308,6 +477,9 @@ Return ONLY valid JSON:
           `;
         }
 
+        // Ensure referral links are inserted if the AI omitted them
+        finalContent = injectStrategicReferrals(finalContent, matchedReferrals, topic);
+
         return {
           title: parsed.title || topic,
           slug: (parsed.slug || topic).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
@@ -317,6 +489,7 @@ Return ONLY valid JSON:
           video_url: videoUrl,
           tags: parsed.tags || keywords,
           meta_description: parsed.meta_description || parsed.excerpt,
+          matched_referrals: matchedReferrals.map((r) => ({ label: r.label, url: r.url })),
         };
       }
     } catch (err) {
@@ -324,7 +497,7 @@ Return ONLY valid JSON:
     }
   }
 
-  // High-Grade Domain Fallback
+  // Domain Fallback
   const slug = topic.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   let videoEmbedHtml = "";
   if (isVlog && videoUrl) {
@@ -335,7 +508,7 @@ Return ONLY valid JSON:
     `;
   }
 
-  const fallbackHtml = `
+  let fallbackHtml = `
     ${videoEmbedHtml}
     <h2>Executive Overview: ${topic}</h2>
     <p>${angle}</p>
@@ -354,12 +527,9 @@ Return ONLY valid JSON:
 
     <h3>3. Actionable Checklist for this Week</h3>
     <p>Audit your primary revenue drivers, establish direct communication with top suppliers, and ensure your enterprise is properly listed in the Bethelincovibe TV Business Directory.</p>
-
-    <div style="background:#eef2ff; border-left:4px solid #4f46e5; padding:16px 20px; border-radius:12px; margin-top:28px;">
-      <h4 style="margin:0 0 6px; color:#312e81; font-weight:800;">🚀 Connect with Verified Suppliers & Directory Listings</h4>
-      <p style="margin:0; font-size:14px; color:#3730a3;">Explore vetted suppliers, wholesale partners, and service providers across Lagos on <a href="/businesses" style="color:#4f46e5; font-weight:700;">Bethelincovibe TV Directory</a>.</p>
-    </div>
   `;
+
+  fallbackHtml = injectStrategicReferrals(fallbackHtml, matchedReferrals, topic);
 
   return {
     title: topic,
@@ -370,12 +540,12 @@ Return ONLY valid JSON:
     video_url: videoUrl,
     tags: keywords.length ? keywords : ["Business", "Nigeria", "Growth", "Vlog"],
     meta_description: angle.slice(0, 155),
+    matched_referrals: matchedReferrals.map((r) => ({ label: r.label, url: r.url })),
   };
 }
 
 /**
  * AI Admin Custom Page Architect
- * Generates an ultra-professional Landing / Sales / Showcase page ready for live publishing.
  */
 export async function generateCustomPage(params: {
   pageConcept: string;
@@ -417,17 +587,22 @@ Return ONLY valid JSON matching this exact structure:
   "benefits": [
     { "title": "Benefit Title 1", "desc": "Concrete description of the outcome." },
     { "title": "Benefit Title 2", "desc": "Concrete description of the outcome." },
-    { "title": "Benefit Title 3", "desc": "Concrete description of the outcome." },
-    { "title": "Benefit Title 4", "desc": "Concrete description of the outcome." }
+    { "title": "Benefit Title 3", "desc": "Concrete description of the outcome." }
   ],
   "social_proof": [
-    { "quote": "Working with this system doubled our revenue in 60 days.", "author": "Emeka O.", "role": "CEO, Lagos Retail Hub", "rating": 5 },
-    { "quote": "The clarity and professional execution exceeded all expectations.", "author": "Fatima A.", "role": "Founder, TechGrowth", "rating": 5 }
+    { "quote": "Real praise or case study quote", "author": "Name", "role": "CEO, Lagos SME", "rating": 5 }
   ],
-  "cta_text": "Get Started Today / Order Now",
-  "template_key": "modern",
-  "seo_title": "SEO Optimized Page Title",
-  "seo_description": "SEO meta description under 155 chars"
+  "price": ${pricingNaira},
+  "currency": "NGN",
+  "cta_text": "Claim Your Access Now",
+  "product_image_url": "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&auto=format&fit=crop",
+  "youtube_video_url": "",
+  "contact_whatsapp": "${contactWhatsApp}",
+  "contact_email": "${contactEmail}",
+  "template_key": "modern_saas",
+  "lead_capture_enabled": true,
+  "seo_title": "SEO Title",
+  "seo_description": "SEO Description"
 }`;
 
       const res = await gemini.models.generateContent({
@@ -438,69 +613,39 @@ Return ONLY valid JSON matching this exact structure:
       const text = res.text || "";
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        const p = JSON.parse(jsonMatch[0]);
-        return {
-          product_name: p.product_name || pageConcept,
-          slug: (p.slug || pageConcept).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""),
-          headline: p.headline || `Accelerate Your Growth with ${pageConcept}`,
-          subheadline: p.subheadline || `The complete professional solution designed specifically for ${targetAudience}.`,
-          product_description: p.product_description || `A comprehensive, turnkey solution built to streamline operations and maximize revenue.`,
-          problem: p.problem || `Most businesses struggle with inconsistent customer flow, complex tools, and lack of verified market access.`,
-          solution: p.solution || `We provide an all-in-one verified platform that automates discovery, boosts visibility, and drives measurable results.`,
-          benefits: Array.isArray(p.benefits) ? p.benefits : [
-            { title: "Rapid Setup & Launch", desc: "Get live within minutes with verified assets." },
-            { title: "Maximum Local Reach", desc: "Target thousands of verified buyers in Lagos." },
-            { title: "Direct WhatsApp Conversion", desc: "Turn visitors into direct paying customers." }
-          ],
-          social_proof: Array.isArray(p.social_proof) ? p.social_proof : [
-            { quote: "Exceptional platform performance and high ROI.", author: "Tunde B.", role: "Managing Partner", rating: 5 }
-          ],
-          price: pricingNaira,
-          currency: "NGN",
-          cta_text: p.cta_text || "Claim Exclusive Access Now",
-          product_image_url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&auto=format&fit=crop&q=80",
-          contact_whatsapp: contactWhatsApp,
-          contact_email: contactEmail,
-          template_key: p.template_key || "modern",
-          lead_capture_enabled: true,
-          seo_title: p.seo_title || `${pageConcept} | Bethelincovibe TV`,
-          seo_description: p.seo_description || `Discover the best solution for ${pageConcept} in Nigeria.`,
-        };
+        return JSON.parse(jsonMatch[0]);
       }
     } catch (err) {
-      console.warn("Gemini page generation fallback:", err);
+      console.warn("Custom page generation fallback:", err);
     }
   }
 
-  // High-Grade Domain Fallback Page
   const slug = pageConcept.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
   return {
     product_name: pageConcept,
     slug: `${slug}-${Date.now().toString(36)}`,
-    headline: `Unlock Premium Results with ${pageConcept}`,
-    subheadline: `The definitive, high-converting framework engineered for ${targetAudience}.`,
-    product_description: `Designed for discerning business leaders, this custom page delivers end-to-end capabilities, seamless customer acquisition, and high-trust conversion touchpoints.`,
-    problem: `Entrepreneurs frequently waste capital on fragmented tools, unreliable traffic sources, and low-converting pages that fail to build authority.`,
-    solution: `Our specialized framework unifies verified directory credibility, direct WhatsApp integration, and optimized user journeys to turn visitors into buyers.`,
+    headline: `Unlock Rapid Growth with ${pageConcept}`,
+    subheadline: `The complete, battle-tested solution engineered specifically for ambitious enterprises and traders.`,
+    product_description: `Designed to streamline your revenue generation and connect you with high-intent buyers across Nigeria.`,
+    problem: `Most businesses struggle with inconsistent leads and fragmented operational tools.`,
+    solution: `Our automated, verified platform provides instant clarity, customer trust, and seamless monetization.`,
     benefits: [
-      { title: "Verified Authority Badge", desc: "Gain instant credibility with our official platform backing." },
-      { title: "Direct WhatsApp Funnels", desc: "Capture qualified leads straight to your phone with zero delay." },
-      { title: "Zero Technical Hassle", desc: "Fully hosted, mobile-responsive, and ultra-fast loading." },
-      { title: "Dedicated Search Visibility", desc: "Indexed across Google and Bethelincovibe TV directories." },
+      { title: "Direct Customer Pipeline", desc: "Access high-intent inquiries directly via WhatsApp & Email." },
+      { title: "Verified Trust Badge", desc: "Stand out with platform-certified credibility and verified reviews." },
+      { title: "Instant Payment Collection", desc: "Accept Naira cards, bank transfers, and USSD in real-time." },
     ],
     social_proof: [
-      { quote: "Our inquiries tripled within 48 hours of launching this page.", author: "Chinedu M.", role: "Director, Apex Logistics", rating: 5 },
-      { quote: "Super clean layout and fantastic customer experience.", author: "Amina K.", role: "Founder, Luxe Beauty Hub", rating: 5 },
+      { quote: "This platform doubled our customer discovery in less than 30 days.", author: "Chidi O.", role: "Founder, Lagos Mart", rating: 5 },
     ],
     price: pricingNaira,
     currency: "NGN",
-    cta_text: "Contact Us & Get Started",
-    product_image_url: "https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=1200&auto=format&fit=crop&q=80",
+    cta_text: "Get Started Today",
+    product_image_url: "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&auto=format&fit=crop",
     contact_whatsapp: contactWhatsApp,
     contact_email: contactEmail,
-    template_key: "modern",
+    template_key: "modern_saas",
     lead_capture_enabled: true,
-    seo_title: `${pageConcept} - Bethelincovibe TV`,
-    seo_description: `Comprehensive guide and showcase for ${pageConcept}.`,
+    seo_title: `${pageConcept} | Official Portal`,
+    seo_description: `Discover how ${pageConcept} drives verified growth and customer acquisition in Nigeria.`,
   };
 }

@@ -8,9 +8,10 @@ export type FeatureKey =
   | "favorites" | "comments" | "push" | "daily_rewards" | "guest_blog"
   | "tv_videos" | "hero_slider" | "pwa_install" | "email_subscribe"
   | "ad_earnings" | "video_creator" | "sales_pages" | "ai_admin" | "ai_blogger"
-  | "products" | "search" | "register" | "ai_auto_blog_slider" | "learn" | "forum";
+  | "products" | "search" | "register" | "ai_auto_blog_slider" | "learn" | "forum" | "whatsapp_engine";
 
 export const FEATURE_META: { key: FeatureKey; label: string; description: string }[] = [
+  { key: "whatsapp_engine", label: "WhatsApp Status Engine", description: "Mutual Google Contacts exchange, audience growth, and status ad monetization" },
   { key: "blog", label: "Blog", description: "Blog posts, reading, and listing pages" },
   { key: "video_creator", label: "Video Studio & Creation", description: "AI Video Studio, video generator, and video creator navigation & dashboards" },
   { key: "products", label: "Product Marketplace", description: "Product listings, marketplace pages and selling" },
