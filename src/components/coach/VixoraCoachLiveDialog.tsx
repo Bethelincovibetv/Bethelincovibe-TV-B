@@ -42,7 +42,7 @@ export default function VixoraCoachLiveDialog({
   open,
   onOpenChange,
   systemPrompt,
-  coachName = "Coach Adaobi",
+  coachName = "Victoria (Studio Lead & AI Director)",
   businessContext = {},
 }: VixoraCoachLiveDialogProps) {
   const [status, setStatus] = useState<VoiceAgentState>("idle");
@@ -51,7 +51,7 @@ export default function VixoraCoachLiveDialog({
   const [muted, setMuted] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");
-  const [selectedVoice, setSelectedVoice] = useState<VixoraVoiceName>("Kore");
+  const [selectedVoice, setSelectedVoice] = useState<VixoraVoiceName>("Aoede");
   const [waveHeights, setWaveHeights] = useState<number[]>([15, 30, 45, 60, 40, 25, 50, 35, 20, 40, 30, 15]);
   const [continuousMode, setContinuousMode] = useState(true);
   const [showVoicePicker, setShowVoicePicker] = useState(false);

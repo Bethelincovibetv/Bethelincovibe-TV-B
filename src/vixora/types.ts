@@ -1,98 +1,145 @@
-export type VideoAspectRatio = "vertical" | "square" | "horizontal";
-export type VideoDuration = "15s" | "30s" | "60s" | "120s" | "180s";
 
-export interface VoiceOption {
-  id: string;
-  name: string;
-  gender: "Female" | "Male";
-  description: string;
-  tag?: string;
-  pitch?: number;
-  rate?: number;
-  isFlagship?: boolean;
+export interface UserProfile {
+  fullName: string;
+  email: string;
+  phone: string;
+  uid?: string;
+  displayName?: string;
+  apiKey?: string;
+  plan?: string;
+  isPro?: boolean;
+  credits?: number;
+  photoURL?: string;
+  niche?: string;
 }
 
-export interface ScriptBeat {
-  timestamp?: number;
-  durationSeconds?: number;
-  text: string;
-  caption?: string;
-  visualSearchQuery?: string;
-  visualKeywords?: string[];
-  sfxCue?: "whoosh" | "pop" | "sub_drop" | "sparkle" | "shutter" | "none";
-  bgTheme?: "lagos" | "sunset" | "cyber" | "finance" | "neon" | "minimal";
-  bgImageUrl?: string;
-}
-
-export interface VideoScene {
-  id: string;
-  text: string;
-  caption: string;
-  durationSeconds: number;
-  bgTheme: string;
-  bgImageUrl?: string;
-  visualKeywords: string[];
-  sfxCue?: string;
-}
-
-export interface MusicTrack {
-  id: string;
+export interface Module {
   title: string;
-  mood: string;
-  bpm: number;
-  duration: string;
-  audioUrl?: string;
-  synthesizeMood?: "energetic" | "calm" | "cinematic" | "tech" | "afrobeats";
+  content: string; // Markdown supported
 }
 
-export interface SFXItem {
-  id: string;
-  name: string;
-  category: "Transitions" | "Accents" | "Impacts" | "UI";
-  description: string;
-  cue: "whoosh" | "pop" | "sub_drop" | "sparkle" | "shutter" | "coin" | "chime";
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctAnswer: number; // Index of the correct option
 }
 
-export interface VideoRenderJob {
+export interface Course {
   id: string;
   topic: string;
-  script: string;
-  aspectRatio: VideoAspectRatio;
-  duration: VideoDuration;
-  voice: string;
-  musicTrackId?: string;
-  status: "idle" | "queued" | "generating_script" | "synthesizing_audio" | "rendering_frames" | "encoding_mp4" | "ready" | "failed";
-  progress: number;
-  currentStep: string;
-  videoUrl?: string;
-  thumbnailUrl?: string;
-  error?: string;
-  createdAt: string;
-  userId?: string;
+  title: string;
+  description: string;
+  difficulty: string;
+  objectives: string[];
+  modules: Module[];
+  quiz: QuizQuestion[];
+  generatedAt: string;
 }
 
-export interface StockAsset {
+export interface Certificate {
+  id: string;
+  courseTitle: string;
+  userName: string;
+  date: string;
+  score: number;
+}
+
+// Added Bank interface to fix import error in paystackService.ts
+export interface Bank {
+  name: string;
+  code: string;
+  id: number;
+  slug?: string;
+}
+
+export interface LearnedSkill {
+  id: string;
+  name: string;
+  description: string;
+  preferenceData?: string;
+  category?: 'format' | 'voice' | 'style' | 'custom';
+  createdAt: string;
+}
+
+export interface VideoTemplate {
   id: string;
   title: string;
-  url: string;
-  thumbUrl: string;
-  orientation: VideoAspectRatio;
-  tags: string[];
-  duration?: number;
-  source: string;
+  topic?: string;
+  description: string;
+  niche: string;
+  aspectRatio: 'vertical' | 'horizontal' | 'square';
+  targetDuration: string;
+  captionTemplate: string;
+  sfxEnabled: boolean;
+  bgMusicUrl?: string;
+  scriptStyle?: string;
+  createdBy?: string;
+  createdAt: string;
 }
 
-export interface UserSubscription {
-  plan: "Free" | "Starter" | "Creator" | "Agency";
-  creditsRemaining: number;
-  renewsOn?: string;
-  isActive: boolean;
+export interface RoadmapItem {
+  day?: number;
+  week?: number;
+  topic?: string;
+  hook?: string;
+  monetizationAngle?: string;
+  postTitle?: string;
+  platform?: 'Facebook' | 'WhatsApp' | 'TikTok' | 'Instagram' | 'YouTube' | string;
+  contentHook?: string;
+  mainMessage?: string;
+  callToAction?: string;
+  monetizationTip?: string;
+  scriptPrompt?: string;
 }
 
-export interface ApiCredentials {
-  geminiApiKey?: string;
-  supabaseUrl?: string;
-  supabaseAnonKey?: string;
-  paystackPublicKey?: string;
-  customApiBaseUrl?: string;
+export interface ContentRoadmap {
+  id: string;
+  title: string;
+  niche: string;
+  platform: string;
+  goal: string;
+  roadmapItems: RoadmapItem[];
+  faithAlignment: string;
+  userId?: string;
+  createdAt: string;
 }
+
+export interface SFXPlacement {
+  id: string;
+  sfxId: string;
+  name: string;
+  synthType: string;
+  timestamp: number; // in seconds
+}
+
+export interface CreatedVideo {
+  id: string;
+  topic: string;
+  scriptText: string;
+  videoUrl: string;
+  date: string;
+  aspectRatio: 'vertical' | 'horizontal' | 'square';
+  duration?: string;
+  resolution?: string;
+  format?: string;
+  userId?: string;
+  createdAt?: string;
+}
+
+export interface Project {
+  id: string;
+  title: string;
+  topic: string;
+  status: 'draft' | 'scripted' | 'rendered' | 'published';
+  aspectRatio: 'vertical' | 'horizontal' | 'square';
+  targetDuration: string;
+  createdAt: string;
+  updatedAt: string;
+  thumbnailUrl?: string;
+  scriptText?: string;
+  voiceoverUrl?: string;
+  videoUrl?: string;
+  chatHistory?: any[];
+  sourcedVideos?: any[];
+}
+

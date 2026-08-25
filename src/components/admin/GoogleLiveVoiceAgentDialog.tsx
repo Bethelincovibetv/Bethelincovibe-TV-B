@@ -7,7 +7,7 @@ import {
   Mic, MicOff, X, Loader2, Volume2, Sparkles, RefreshCw,
   Radio, Zap, Lock, CheckCircle2, Send, MessageSquare, Bot, User, CornerDownLeft
 } from "lucide-react";
-import { GoogleLiveVoiceAgent, VoiceAgentState } from "@/lib/googleLiveVoiceEngine";
+import { VixoraLiveVoiceAgent, VoiceAgentState, VixoraVoiceName } from "@/lib/vixoraVoiceEngine";
 import { toast } from "sonner";
 
 interface GoogleLiveVoiceAgentDialogProps {
@@ -36,8 +36,8 @@ export default function GoogleLiveVoiceAgentDialog({
   open,
   onOpenChange,
   onExecuteCommand,
-  title = "Google Live Voice Agent",
-  agentRole = "AI Executive Director · Google Kore Voice",
+  title = "Victoria AI Live Voice Executive",
+  agentRole = "Victoria AI · Executive Director & Studio Lead",
 }: GoogleLiveVoiceAgentDialogProps) {
   const [state, setState] = useState<VoiceAgentState>("idle");
   const [micPermission, setMicPermission] = useState<"granted" | "prompt" | "denied" | "requesting">("requesting");
@@ -45,11 +45,12 @@ export default function GoogleLiveVoiceAgentDialog({
   const [userTranscript, setUserTranscript] = useState("");
   const [manualText, setManualText] = useState("");
   const [aiResponse, setAiResponse] = useState("");
+  const [selectedVoice, setSelectedVoice] = useState<VixoraVoiceName>("Aoede");
   const [waveHeights, setWaveHeights] = useState<number[]>([12, 24, 36, 48, 30, 18, 42, 28, 15, 35, 25, 12]);
   const [continuousMode, setContinuousMode] = useState(true);
   const [chatTurns, setChatTurns] = useState<ChatTurn[]>([]);
 
-  const agentRef = useRef<GoogleLiveVoiceAgent | null>(null);
+  const agentRef = useRef<VixoraLiveVoiceAgent | null>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -62,7 +63,7 @@ export default function GoogleLiveVoiceAgentDialog({
       stopAgent();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+  }, [open, selectedVoice]);
 
   useEffect(() => {
     if (chatScrollRef.current) {
@@ -75,11 +76,11 @@ export default function GoogleLiveVoiceAgentDialog({
     setMicPermission("requesting");
     setPermissionError("");
 
-    const welcomeGreeting = "Hello! Google Live Voice Agent is active with Kore Voice. Speak naturally — I am listening and will reply once you pause.";
+    const welcomeGreeting = "Hello! Victoria AI Live Voice Agent is active. Speak naturally — I am listening in real-time and will reply once you finish speaking.";
 
-    const agent = new GoogleLiveVoiceAgent(
+    const agent = new VixoraLiveVoiceAgent(
       {
-        voiceName: "Kore",
+        voiceName: selectedVoice,
         silenceTimeoutMs: 1100, // Instant real-time response turnaround
         continuous: continuousMode,
         lang: "en-US",

@@ -430,7 +430,8 @@ Rules:
         ctx.fillStyle = "#ffffff";
         ctx.font = `bold ${Math.round(width * 0.042)}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         ctx.textAlign = "center";
-        ctx.fillText(topic.slice(0, 36) + (topic.length > 36 ? "..." : ""), width / 2, cardY + cardH * 0.62);
+        const displayTopic = topic || "";
+        ctx.fillText(displayTopic.slice(0, 36) + (displayTopic.length > 36 ? "..." : ""), width / 2, cardY + cardH * 0.62);
 
         // 5. Kinetic Subtitle Words
         const textWords = (script || topic).split(/\s+/).filter(Boolean);
@@ -687,21 +688,26 @@ Rules:
                     <div>
                       <span className="text-xs font-semibold text-muted-foreground mb-2 block">Quick Viral Presets:</span>
                       <div className="flex flex-wrap gap-2">
-                        {PROMPT_PRESETS.map((preset, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => {
-                              setTopic(preset.topic);
-                              setDuration(preset.duration);
-                              setAspectRatio(preset.aspectRatio);
-                              sfx.playPop(0.3);
-                            }}
-                            className="text-xs px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted border border-border/60 text-muted-foreground hover:text-foreground font-medium transition-colors"
-                          >
-                            {preset.topic.slice(0, 32)}...
-                          </button>
-                        ))}
+                        {PROMPT_PRESETS.map((preset, idx) => {
+                          const presetTopic = typeof preset === "string" ? preset : preset?.topic || "";
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setTopic(presetTopic);
+                                if (typeof preset !== "string" && preset) {
+                                  if (preset.duration) setDuration(preset.duration);
+                                  if (preset.aspectRatio) setAspectRatio(preset.aspectRatio);
+                                }
+                                sfx.playPop(0.3);
+                              }}
+                              className="text-xs px-2.5 py-1 rounded-lg bg-muted/60 hover:bg-muted border border-border/60 text-muted-foreground hover:text-foreground font-medium transition-colors"
+                            >
+                              {presetTopic.slice(0, 32)}...
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>
 

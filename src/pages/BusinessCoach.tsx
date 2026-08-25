@@ -244,9 +244,9 @@ Tone: Authoritative, motivating, practical, and clear.`;
       <VixoraCoachLiveDialog
         open={liveOpen}
         onOpenChange={setLiveOpen}
-        coachName="Coach Adaobi"
+        coachName="Victoria AI (Studio Lead & AI Director)"
         businessContext={ctx}
-        systemPrompt={`You are a warm, practical AI business coach for Lagos entrepreneurs. ${ctx.business_name ? `The user runs "${ctx.business_name}"${ctx.industry ? ` in ${ctx.industry}` : ""}.` : ""} ${ctx.goal ? `Their current goal: ${ctx.goal}.` : ""} Be concise, conversational, and Naira-aware.`}
+        systemPrompt={`You are Victoria, the Executive Studio Director & AI Business Strategist for entrepreneurs. ${ctx.business_name ? `The user runs "${ctx.business_name}"${ctx.industry ? ` in ${ctx.industry}` : ""}.` : ""} ${ctx.goal ? `Their current goal: ${ctx.goal}.` : ""} Be concise, conversational, and conversion-focused.`}
       />
 
       <div className="container mx-auto max-w-7xl px-4 space-y-4">

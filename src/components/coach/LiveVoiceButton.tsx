@@ -44,7 +44,7 @@ export default function LiveVoiceButton({
 
     const agent = new VixoraLiveVoiceAgent(
       {
-        voiceName: "Kore", // Vixora Kore Voice
+        voiceName: "Aoede", // Victoria Studio Lead & AI Director
         silenceTimeoutMs: 1100, // 1.1s instant pause before auto-response
         continuous: true,
         lang: "en-US",

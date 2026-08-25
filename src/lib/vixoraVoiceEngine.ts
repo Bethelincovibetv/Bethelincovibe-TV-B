@@ -24,26 +24,26 @@ export interface VixoraVoicePersona {
 
 export const VIXORA_VOICE_PERSONAS: VixoraVoicePersona[] = [
   {
+    id: "Aoede",
+    name: "Victoria (Studio Lead & AI Director)",
+    gender: "Female",
+    description: "Authoritative, ultra-polished Victoria Studio Lead & AI Creative Producer",
+    pitch: 1.0,
+    rate: 1.0,
+    tag: "Flagship Lead",
+  },
+  {
     id: "Kore",
-    name: "Adaobi (Kore Voice)",
+    name: "Adaobi (Energetic Nigerian Voice)",
     gender: "Female",
     description: "Energetic, articulate & sharp Lagos business strategist",
     pitch: 1.05,
     rate: 1.02,
-    tag: "Flagship",
-  },
-  {
-    id: "Aoede",
-    name: "Victoria (Studio Lead)",
-    gender: "Female",
-    description: "Authoritative, polished Victoria Studio Executive & AI Director",
-    pitch: 1.0,
-    rate: 1.0,
-    tag: "Studio Lead",
+    tag: "Commercial",
   },
   {
     id: "Puck",
-    name: "Puck (Dynamic)",
+    name: "Puck (Viral & High Energy)",
     gender: "Male",
     description: "Persuasive, high-energy marketing & sales coach",
     pitch: 1.0,
@@ -52,7 +52,7 @@ export const VIXORA_VOICE_PERSONAS: VixoraVoicePersona[] = [
   },
   {
     id: "Charon",
-    name: "Charon (Corporate)",
+    name: "Charon (Corporate Authority)",
     gender: "Male",
     description: "Deep, authoritative & corporate strategy mentor",
     pitch: 0.95,
@@ -61,7 +61,7 @@ export const VIXORA_VOICE_PERSONAS: VixoraVoicePersona[] = [
   },
   {
     id: "Fenrir",
-    name: "Fenrir (Cinematic)",
+    name: "Fenrir (Cinematic Visionary)",
     gender: "Male",
     description: "Rich storytelling, vision & venture building",
     pitch: 0.98,
@@ -70,7 +70,7 @@ export const VIXORA_VOICE_PERSONAS: VixoraVoicePersona[] = [
   },
   {
     id: "Zephyr",
-    name: "Zephyr (Calm)",
+    name: "Zephyr (Calm & Friendly)",
     gender: "Male",
     description: "Calm, friendly & supportive operations guide",
     pitch: 1.0,
@@ -96,16 +96,16 @@ export class VixoraLiveVoiceAgent extends GoogleLiveVoiceAgent {
   constructor(options: VixoraVoiceOptions = {}, callbacks: VoiceAgentCallbacks = {}) {
     super(
       {
-        voiceName: (options.voiceName as any) || "Kore",
+        voiceName: (options.voiceName as any) || "Aoede",
         lang: options.lang || "en-US",
         silenceTimeoutMs: options.silenceTimeoutMs || 1100, // Ultra snappy 1.1s real-time turnaround
         continuous: options.continuous ?? true,
-        pitch: options.pitch || 1.05,
-        rate: options.rate || 1.02,
+        pitch: options.pitch || 1.0,
+        rate: options.rate || 1.0,
       },
       callbacks
     );
-    this.customVoice = options.voiceName || "Kore";
+    this.customVoice = options.voiceName || "Aoede";
   }
 
   public setVoice(voice: VixoraVoiceName) {
@@ -113,7 +113,7 @@ export class VixoraLiveVoiceAgent extends GoogleLiveVoiceAgent {
     const persona = VIXORA_VOICE_PERSONAS.find((p) => p.id === voice);
     if (persona) {
       this.setVoiceConfig({
-        voiceName: (persona.id as any) || "Kore",
+        voiceName: (persona.id as any) || "Aoede",
         pitch: persona.pitch,
         rate: persona.rate,
       });

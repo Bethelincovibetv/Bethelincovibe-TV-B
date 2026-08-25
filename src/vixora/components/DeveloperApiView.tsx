@@ -1,263 +1,503 @@
-import React, { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Copy, Check, Terminal, Code2, Globe, Play, Server, Layers, CheckCircle2 } from "lucide-react";
-import { VIXORA_API_LIVE_BASE } from "../constants";
-import { vixora } from "@/services/vixoraClient";
-import { toast } from "sonner";
+import React, { useState, useEffect } from 'react';
+import { 
+  apiServerCreateVideo, 
+  apiServerGetVideoStatus, 
+  ServerCreateVideoRequest, 
+  ServerVideoStatusResponse 
+} from '../services/supabaseService';
+import { CompleteApiModal } from './CompleteApiModal';
 
-export function DeveloperApiView() {
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-  const [testTopic, setTestTopic] = useState("3 Secret AI Tools for Nigerian Businesses");
-  const [testOutput, setTestOutput] = useState<any>(null);
-  const [isTesting, setIsTesting] = useState(false);
+interface DeveloperApiViewProps {
+  themeMode?: 'dark' | 'light';
+  activeProjectId?: string | null;
+}
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedKey(label);
-    toast.success(`${label} copied to clipboard`);
-    setTimeout(() => setCopiedKey(null), 2000);
+export const DeveloperApiView: React.FC<DeveloperApiViewProps> = ({ themeMode = 'dark', activeProjectId }) => {
+  const [topic, setTopic] = useState('5 Golden Rules for Wealth and Investing');
+  const [script, setScript] = useState('First, spend less than you earn. Second, invest consistently every month. Third, avoid high-interest debt and let compounding work for you.');
+  const [aspectRatio, setAspectRatio] = useState<'vertical' | 'horizontal' | 'square'>('vertical');
+  const [duration, setDuration] = useState('30s');
+  const [voice, setVoice] = useState('Aoede');
+  const [resolution, setResolution] = useState('1080p');
+  const [format, setFormat] = useState('mp4');
+  
+  const [activeCodeLang, setActiveCodeLang] = useState<'curl' | 'js' | 'python' | 'php'>('curl');
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
+  const [copiedAllBundle, setCopiedAllBundle] = useState(false);
+  
+  // Interactive Tester State
+  const [isTriggering, setIsTriggering] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const [jobStatus, setJobStatus] = useState<ServerVideoStatusResponse | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
+
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://vixora.studio';
+
+  const requestPayload: ServerCreateVideoRequest = {
+    project_id: activeProjectId || 'proj_dev_test',
+    topic: topic.trim() || undefined,
+    script: script.trim() || undefined,
+    voice,
+    aspect_ratio: aspectRatio,
+    duration,
+    resolution,
+    format,
   };
 
-  const handleTestScriptEndpoint = async () => {
-    setIsTesting(true);
-    setTestOutput({ status: "Calling POST /api/public/v1/scripts/generate..." });
-    try {
-      const res = await vixora.generateScript({
-        topic: testTopic,
-        duration: "30s",
-        niche: "business",
-        tone: "energetic",
-      });
-      setTestOutput(res);
-      toast.success("API returned response successfully!");
-    } catch (e: any) {
-      setTestOutput({ error: e.message || "Request failed" });
-      toast.error("Endpoint test error");
-    } finally {
-      setIsTesting(false);
+  // Generate dynamic cURL command
+  const curlCommand = `curl -X POST "${baseUrl}/api/public/v1/videos/create" \\
+  -H "Content-Type: application/json" \\
+  -H "apikey: sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ" \\
+  -d '${JSON.stringify(requestPayload, null, 2)}'`;
+
+  // Generate JS / Fetch snippet
+  const jsSnippet = `const response = await fetch("${baseUrl}/api/public/v1/videos/create", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    "apikey": "sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ"
+  },
+  body: JSON.stringify(${JSON.stringify(requestPayload, null, 2)})
+});
+
+const data = await response.json();
+console.log("Job ID:", data.job_id);
+
+// Poll for status:
+const checkStatus = async (jobId) => {
+  const res = await fetch(\`${baseUrl}/api/public/v1/videos/status?job_id=\${jobId}\`);
+  return await res.json();
+};`;
+
+  // Generate Python snippet
+  const pythonSnippet = `import requests
+import json
+
+url = "${baseUrl}/api/public/v1/videos/create"
+headers = {
+    "Content-Type": "application/json",
+    "apikey": "sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ"
+}
+payload = ${JSON.stringify(requestPayload, null, 4)}
+
+response = requests.post(url, headers=headers, json=payload)
+data = response.json()
+print("Job ID:", data.get("job_id"))
+
+# Check status:
+status_url = f"${baseUrl}/api/public/v1/videos/status?job_id={data.get('job_id')}"
+status_res = requests.get(status_url).json()
+print("Status:", status_res.get("status"))`;
+
+  // Generate PHP snippet
+  const phpSnippet = `<?php
+$ch = curl_init("${baseUrl}/api/public/v1/videos/create");
+$payload = json_encode(${JSON.stringify(requestPayload, null, 2)});
+
+curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
+curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+    'Content-Type: application/json',
+    'apikey: sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ'
+));
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+$result = curl_exec($ch);
+curl_close($ch);
+
+$data = json_decode($result, true);
+echo "Job ID: " . $data['job_id'];
+?>`;
+
+  const getActiveCode = () => {
+    switch (activeCodeLang) {
+      case 'js': return jsSnippet;
+      case 'python': return pythonSnippet;
+      case 'php': return phpSnippet;
+      case 'curl':
+      default:
+        return curlCommand;
     }
   };
 
-  const curlExample = `curl -X POST "${VIXORA_API_LIVE_BASE}/api/public/v1/videos/create" \\
-  -H "Content-Type: application/json" \\
-  -d '{
-    "topic": "3 Productivity Hacks for Founders",
-    "duration": "30s",
-    "aspect_ratio": "vertical",
-    "voice": "Kore"
-  }'`;
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2500);
+  };
 
-  const tsExample = `import { VixoraClient } from '@/services/vixoraClient';
+  // Trigger test directly from Developer UI
+  const handleTestCreate = async () => {
+    setIsTriggering(true);
+    setTestError(null);
+    setJobStatus(null);
 
-const vixora = new VixoraClient('${VIXORA_API_LIVE_BASE}');
+    try {
+      const res = await apiServerCreateVideo(requestPayload);
+      if (!res.ok || !res.job_id) {
+        setTestError(res.error || 'Failed to trigger video generation');
+        setIsTriggering(false);
+        return;
+      }
 
-// 1. Generate Viral Script with Beats
-const scriptRes = await vixora.generateScript({
-  topic: 'Peak Energy Habits',
-  duration: '30s',
-});
+      setActiveJobId(res.job_id);
+    } catch (err: any) {
+      setTestError(err?.message || 'Error executing request');
+      setIsTriggering(false);
+    }
+  };
 
-// 2. Synthesize & Render Full HD Video
-const videoResult = await vixora.createAndRenderVideo({
-  topic: 'Peak Energy Habits',
-  script: scriptRes.script,
-  duration: '30s',
-  aspectRatio: 'vertical',
-  voice: 'Kore',
-  onProgress: (p) => console.log(\`\${p.step}: \${p.progress}%\`),
-});
+  // Poll active job status
+  useEffect(() => {
+    if (!activeJobId) return;
 
-console.log('Video ready at:', videoResult.videoUrl);`;
+    let interval: any = null;
+    const poll = async () => {
+      const statusRes = await apiServerGetVideoStatus(activeJobId);
+      if (statusRes && 'status' in statusRes) {
+        setJobStatus(statusRes);
+        if (statusRes.status === 'ready' || statusRes.status === 'failed') {
+          setIsTriggering(false);
+          clearInterval(interval);
+        }
+      }
+    };
+
+    poll();
+    interval = setInterval(poll, 2000);
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [activeJobId]);
 
   return (
-    <div className="space-y-6">
-      {/* Top Banner */}
-      <Card className="border-border/80 bg-gradient-to-r from-purple-950/20 via-background to-indigo-950/20 shadow-md">
-        <CardContent className="p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+    <div className="space-y-6 text-left animate-rise">
+      {/* Header Banner */}
+      <div className={`p-6 rounded-3xl border shadow-xl relative overflow-hidden ${
+        themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/80 border-white/10'
+      }`}>
+        <div className="absolute -top-12 -right-12 w-40 h-40 bg-purple-500/15 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 mr-1.5 animate-pulse inline-block"></span>
-                LIVE & ACTIVE
-              </Badge>
-              <Badge variant="secondary" className="text-xs font-mono">
-                v1.0.0
-              </Badge>
+              <span className="px-2.5 py-1 rounded-lg bg-ggd-orange/15 text-ggd-orange border border-ggd-orange/30 text-[9px] font-black uppercase tracking-wider">
+                Vixora Engine API v1
+              </span>
+              <span className="px-2.5 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 text-[9px] font-black uppercase tracking-wider">
+                REST Endpoints Operational
+              </span>
             </div>
-            <h2 className="text-xl font-bold text-foreground">Vixora Universal REST API & Webhooks</h2>
-            <p className="text-xs text-muted-foreground max-w-xl">
-              Integrate real-time video generation, TTS voiceovers, SFX sound design, and script generators directly into your mobile apps, SaaS, and automation pipelines.
+            <h2 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
+              Developer API & Remote Video Generator
+            </h2>
+            <p className={`text-xs ${themeMode === 'light' ? 'text-slate-600' : 'text-slate-400'}`}>
+              Trigger high-retention video creation server-side from your external website, SaaS backend, or webhook workflows.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <div className="p-2.5 rounded-xl bg-muted/60 border border-border/80 text-xs font-mono text-foreground flex items-center justify-between gap-3 overflow-x-auto max-w-xs md:max-w-md">
-              <Globe className="h-4 w-4 text-purple-500 shrink-0" />
-              <span className="truncate">{VIXORA_API_LIVE_BASE}</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 w-7 p-0 shrink-0"
-                onClick={() => copyToClipboard(VIXORA_API_LIVE_BASE, "Base URL")}
-              >
-                {copiedKey === "Base URL" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-              </Button>
-            </div>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <button
+              onClick={() => setShowCompleteModal(true)}
+              className="px-4 py-3 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-xl transition-all hover:scale-105"
+            >
+              <i className="fa-solid fa-file-lines text-sm"></i>
+              <span>Complete API & Integration Doc</span>
+            </button>
+
+            <button
+              onClick={() => copyToClipboard(curlCommand)}
+              className="btn-3d btn-3d-orange px-4 py-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer shadow-lg shrink-0"
+            >
+              <i className={`fa-solid ${copiedCode ? 'fa-check' : 'fa-copy'}`}></i>
+              <span>{copiedCode ? 'Copied cURL!' : 'Copy cURL'}</span>
+            </button>
           </div>
-        </CardContent>
-      </Card>
-
-      {/* Code Snippets & Playground */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 space-y-4">
-          <Tabs defaultValue="typescript" className="w-full">
-            <div className="flex items-center justify-between mb-2">
-              <TabsList>
-                <TabsTrigger value="typescript" className="text-xs font-semibold gap-1.5">
-                  <Code2 className="h-3.5 w-3.5" />
-                  TypeScript / React
-                </TabsTrigger>
-                <TabsTrigger value="curl" className="text-xs font-semibold gap-1.5">
-                  <Terminal className="h-3.5 w-3.5" />
-                  cURL
-                </TabsTrigger>
-              </TabsList>
-
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-8 text-xs font-semibold gap-1.5"
-                onClick={() => copyToClipboard(tsExample, "Code Sample")}
-              >
-                {copiedKey === "Code Sample" ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
-                <span>Copy Code</span>
-              </Button>
-            </div>
-
-            <TabsContent value="typescript" className="mt-0">
-              <pre className="p-4 rounded-xl bg-muted/70 text-xs font-mono text-foreground overflow-x-auto border border-border/80 leading-relaxed max-h-[380px]">
-                {tsExample}
-              </pre>
-            </TabsContent>
-
-            <TabsContent value="curl" className="mt-0">
-              <pre className="p-4 rounded-xl bg-muted/70 text-xs font-mono text-foreground overflow-x-auto border border-border/80 leading-relaxed max-h-[380px]">
-                {curlExample}
-              </pre>
-            </TabsContent>
-          </Tabs>
-
-          {/* Endpoints List */}
-          <Card className="border-border/80">
-            <CardHeader className="py-3 px-4 border-b border-border/60">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Server className="h-4 w-4 text-orange-500" />
-                <span>Available REST Endpoints</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4 space-y-2.5 text-xs font-mono">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/40">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0">POST</Badge>
-                  <span className="font-semibold text-foreground">/api/public/v1/videos/create</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground font-sans">Submit video rendering job</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/40">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-sky-600 text-white text-[10px] px-1.5 py-0">GET</Badge>
-                  <span className="font-semibold text-foreground">/api/public/v1/videos/status?job_id=...</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground font-sans">Poll rendering progress (0-100%)</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/40">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0">POST</Badge>
-                  <span className="font-semibold text-foreground">/api/public/v1/scripts/generate</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground font-sans">AI viral script & scene beats</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/40">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-emerald-600 text-white text-[10px] px-1.5 py-0">POST</Badge>
-                  <span className="font-semibold text-foreground">/api/public/v1/audio/tts</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground font-sans">Synthesize voiceover MP3 audio</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2 rounded-lg bg-muted/40 border border-border/40">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-purple-600 text-white text-[10px] px-1.5 py-0">POST</Badge>
-                  <span className="font-semibold text-foreground">/api/public/v1/auth/sync</span>
-                </div>
-                <span className="text-[11px] text-muted-foreground font-sans">Single Sign-On Session Sync</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Live Interactive Test Console */}
-        <div className="lg:col-span-5 space-y-4">
-          <Card className="border-border/80 shadow-md">
-            <CardHeader className="pb-3 border-b border-border/60">
-              <CardTitle className="text-sm font-bold flex items-center gap-2">
-                <Play className="h-4 w-4 text-emerald-500 fill-emerald-500" />
-                <span>Live Interactive Test Console</span>
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Test API responses in real-time from your browser.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 space-y-3">
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                  Test Script Topic:
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    value={testTopic}
-                    onChange={(e) => setTestTopic(e.target.value)}
-                    className="h-9 text-xs"
-                    placeholder="Enter test prompt..."
-                  />
-                  <Button
-                    onClick={handleTestScriptEndpoint}
-                    disabled={isTesting || !testTopic.trim()}
-                    size="sm"
-                    className="h-9 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs shrink-0"
-                  >
-                    {isTesting ? "Executing..." : "Send POST"}
-                  </Button>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-muted-foreground mb-1 block">
-                  Console Response:
-                </label>
-                <div className="p-3 rounded-xl bg-black/90 text-emerald-400 font-mono text-[11px] min-h-[220px] max-h-[280px] overflow-y-auto border border-border/40">
-                  {testOutput ? (
-                    <pre className="whitespace-pre-wrap">{JSON.stringify(testOutput, null, 2)}</pre>
-                  ) : (
-                    <span className="text-muted-foreground italic">
-                      Click "Send POST" above to inspect real-time JSON payloads...
-                    </span>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
+
+      {/* Grid: Parameters Configurator + Code Preview */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+        {/* Left Column: Interactive Parameters (5 cols) */}
+        <div className={`lg:col-span-5 p-5 rounded-3xl border shadow-xl space-y-4 ${
+          themeMode === 'light' ? 'bg-white border-slate-200' : 'bg-slate-900/90 border-white/10'
+        }`}>
+          <div className="flex items-center justify-between border-b pb-3 dark:border-white/10 border-slate-200">
+            <h3 className="text-xs font-black uppercase tracking-wider flex items-center gap-2">
+              <i className="fa-solid fa-sliders text-ggd-orange"></i>
+              <span>API Request Parameters</span>
+            </h3>
+            <span className="text-[9px] font-bold text-slate-400">POST /videos/create</span>
+          </div>
+
+          {/* Topic */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+              Topic (or Prompt)
+            </label>
+            <input
+              value={topic}
+              onChange={e => setTopic(e.target.value)}
+              className={`w-full p-3 rounded-xl border text-xs font-bold outline-none focus:border-ggd-orange ${
+                themeMode === 'light' ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-white/5 border-white/10 text-white'
+              }`}
+              placeholder="e.g. 5 Habit Hacks to Boost Focus"
+            />
+          </div>
+
+          {/* Script */}
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+              Direct Script (Optional - AI auto-writes if omitted)
+            </label>
+            <textarea
+              rows={3}
+              value={script}
+              onChange={e => setScript(e.target.value)}
+              className={`w-full p-3 rounded-xl border text-xs font-medium outline-none focus:border-ggd-orange ${
+                themeMode === 'light' ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-white/5 border-white/10 text-white'
+              }`}
+              placeholder="Enter spoken script sentences..."
+            />
+          </div>
+
+          {/* Controls Grid */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Aspect Ratio */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                Aspect Ratio
+              </label>
+              <select
+                value={aspectRatio}
+                onChange={e => setAspectRatio(e.target.value as any)}
+                className={`w-full p-2.5 rounded-xl border text-xs font-bold outline-none ${
+                  themeMode === 'light' ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-800 border-white/10 text-white'
+                }`}
+              >
+                <option value="vertical">9:16 Vertical (TikTok/Reels/Shorts)</option>
+                <option value="horizontal">16:9 Horizontal (YouTube/TV)</option>
+                <option value="square">1:1 Square (Instagram)</option>
+              </select>
+            </div>
+
+            {/* Duration */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                Target Duration
+              </label>
+              <select
+                value={duration}
+                onChange={e => setDuration(e.target.value)}
+                className={`w-full p-2.5 rounded-xl border text-xs font-bold outline-none ${
+                  themeMode === 'light' ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-800 border-white/10 text-white'
+                }`}
+              >
+                <option value="15s">15 Seconds (Ultra Hook)</option>
+                <option value="30s">30 Seconds (Optimal Short)</option>
+                <option value="60s">60 Seconds (Deep Dive)</option>
+              </select>
+            </div>
+
+            {/* Voice */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                Voice Avatar
+              </label>
+              <select
+                value={voice}
+                onChange={e => setVoice(e.target.value)}
+                className={`w-full p-2.5 rounded-xl border text-xs font-bold outline-none ${
+                  themeMode === 'light' ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-800 border-white/10 text-white'
+                }`}
+              >
+                <option value="Aoede">Aoede (Narrative & Warm)</option>
+                <option value="Puck">Puck (Fast & Energetic)</option>
+                <option value="Fenrir">Fenrir (Authoritative / Deep)</option>
+                <option value="Kore">Kore (Smooth & Professional)</option>
+                <option value="Charon">Charon (Dramatic)</option>
+              </select>
+            </div>
+
+            {/* Format */}
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider block">
+                Resolution & Format
+              </label>
+              <select
+                value={`${resolution}-${format}`}
+                onChange={e => {
+                  const [res, fmt] = e.target.value.split('-');
+                  setResolution(res);
+                  setFormat(fmt);
+                }}
+                className={`w-full p-2.5 rounded-xl border text-xs font-bold outline-none ${
+                  themeMode === 'light' ? 'bg-slate-50 border-slate-200 text-slate-900' : 'bg-slate-800 border-white/10 text-white'
+                }`}
+              >
+                <option value="1080p-mp4">1080p MP4 (High Quality)</option>
+                <option value="720p-mp4">720p MP4 (Fast Render)</option>
+                <option value="4k-mp4">4K Ultra HD MP4</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Test Trigger Button */}
+          <div className="pt-2">
+            <button
+              onClick={handleTestCreate}
+              disabled={isTriggering}
+              className="btn-3d btn-3d-purple w-full py-3.5 text-xs font-black uppercase tracking-wider shadow-xl flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
+            >
+              {isTriggering ? (
+                <>
+                  <i className="fa-solid fa-spinner animate-spin"></i>
+                  <span>Executing Server Generation...</span>
+                </>
+              ) : (
+                <>
+                  <i className="fa-solid fa-play text-amber-300"></i>
+                  <span>Test Run /videos/create API</span>
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Right Column: Code Snippets & Response Viewer (7 cols) */}
+        <div className="lg:col-span-7 space-y-4">
+          {/* Code Viewer Box */}
+          <div className="rounded-3xl bg-slate-950 border border-white/10 shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 bg-slate-900/90 border-b border-white/10">
+              {/* Language Selector */}
+              <div className="flex items-center gap-1.5">
+                {(['curl', 'js', 'python', 'php'] as const).map(lang => (
+                  <button
+                    key={lang}
+                    onClick={() => setActiveCodeLang(lang)}
+                    className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-all ${
+                      activeCodeLang === lang
+                        ? 'bg-ggd-orange text-white shadow-md'
+                        : 'text-slate-400 hover:text-white bg-white/5'
+                    }`}
+                  >
+                    {lang === 'js' ? 'JavaScript' : lang.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Copy Code */}
+              <button
+                onClick={() => copyToClipboard(getActiveCode())}
+                className="px-3 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[10px] font-bold uppercase transition-all flex items-center gap-1.5"
+              >
+                <i className={`fa-solid ${copiedCode ? 'fa-check text-emerald-400' : 'fa-copy'}`}></i>
+                <span>{copiedCode ? 'Copied' : 'Copy'}</span>
+              </button>
+            </div>
+
+            <div className="p-4 overflow-x-auto text-xs font-mono text-emerald-400/90 leading-relaxed max-h-72">
+              <pre>{getActiveCode()}</pre>
+            </div>
+          </div>
+
+          {/* Interactive Test Live Job Tracker */}
+          {(jobStatus || testError) && (
+            <div className={`p-5 rounded-3xl border shadow-xl animate-rise space-y-3 ${
+              jobStatus?.status === 'failed' || testError
+                ? 'bg-red-950/40 border-red-500/30'
+                : jobStatus?.status === 'ready'
+                ? 'bg-emerald-950/40 border-emerald-500/30'
+                : 'bg-slate-900/90 border-ggd-orange/40'
+            }`}>
+              <div className="flex items-center justify-between border-b pb-2.5 dark:border-white/10 border-slate-200">
+                <div className="flex items-center gap-2">
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    jobStatus?.status === 'ready' ? 'bg-emerald-400' : jobStatus?.status === 'failed' ? 'bg-red-400' : 'bg-amber-400 animate-pulse'
+                  }`}></span>
+                  <span className="text-xs font-black uppercase tracking-wider text-white">
+                    Job Reference: {jobStatus?.job_id || activeJobId}
+                  </span>
+                </div>
+                <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                  jobStatus?.status === 'ready'
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : jobStatus?.status === 'failed'
+                    ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                }`}>
+                  {jobStatus?.status || 'Processing'}
+                </span>
+              </div>
+
+              {testError && (
+                <p className="text-xs text-red-300 font-semibold">{testError}</p>
+              )}
+
+              {jobStatus && (
+                <div className="space-y-2">
+                  {/* Progress Bar */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[10px] text-slate-400 font-bold">
+                      <span>{jobStatus.current_step}</span>
+                      <span>{jobStatus.progress}%</span>
+                    </div>
+                    <div className="w-full h-2 rounded-full bg-black/40 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-orange-500 to-amber-400 transition-all duration-300"
+                        style={{ width: `${jobStatus.progress}%` }}
+                      ></div>
+                    </div>
+                  </div>
+
+                  {/* Ready Action Link */}
+                  {jobStatus.status === 'ready' && jobStatus.video_url && (
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30">
+                      <div className="flex items-center gap-2.5">
+                        <i className="fa-solid fa-circle-check text-emerald-400 text-base"></i>
+                        <div>
+                          <p className="text-xs font-black text-white uppercase">Video Generation Ready</p>
+                          <p className="text-[9px] text-emerald-300/80 font-mono truncate max-w-xs">Asset: {jobStatus.asset_id}</p>
+                        </div>
+                      </div>
+
+                      <a
+                        href={jobStatus.video_url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md"
+                      >
+                        <i className="fa-solid fa-download"></i>
+                        <span>Download MP4</span>
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Live Status Log Feed */}
+                  {jobStatus.logs && jobStatus.logs.length > 0 && (
+                    <div className="p-3 rounded-xl bg-black/50 border border-white/5 font-mono text-[10px] text-slate-300 space-y-1 max-h-36 overflow-y-auto">
+                      {jobStatus.logs.map((log, idx) => (
+                        <div key={idx} className="truncate">{log}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 1-Click Complete API & Integration Documentation Modal */}
+      <CompleteApiModal
+        isOpen={showCompleteModal}
+        onClose={() => setShowCompleteModal(false)}
+        themeMode={themeMode}
+        baseUrl={baseUrl}
+      />
     </div>
   );
-}
+};
 
 export default DeveloperApiView;
+
