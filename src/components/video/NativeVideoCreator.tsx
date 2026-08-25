@@ -659,7 +659,7 @@ export default function NativeVideoCreator({
                     <Badge className="bg-emerald-600 text-white text-[10px]">Connected</Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
-                    Supabase DB: <code>https://yyejcbbcqirsigphzxxo.supabase.co</code>
+                    Supabase DB: <code>https://gndcgttnpxsjufmehgyi.supabase.co</code>
                   </p>
                 </div>
 

@@ -8,8 +8,8 @@ export const supabaseService = {
   getClient(): SupabaseClient {
     if (!clientInstance) {
       const creds = apiKeyService.getCredentials();
-      const url = creds.supabaseUrl || "https://yyejcbbcqirsigphzxxo.supabase.co";
-      const key = creds.supabaseAnonKey || "sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ";
+      const url = creds.supabaseUrl || "https://gndcgttnpxsjufmehgyi.supabase.co";
+      const key = creds.supabaseAnonKey || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZGNndHRucHhzanVmbWVoZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjM5MTMsImV4cCI6MjA5NTI5OTkxM30.N4TQQbIGQfp80iCm8txx72_3XdnJ2HuK6-xQQ1yNJmQ";
       clientInstance = createClient(url, key);
     }
     return clientInstance;

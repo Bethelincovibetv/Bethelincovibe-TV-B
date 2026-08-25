@@ -16,12 +16,14 @@ export const apiKeyService = {
         supabaseUrl:
           parsed.supabaseUrl ||
           (import.meta as any).env?.VITE_SUPABASE_URL ||
-          "https://yyejcbbcqirsigphzxxo.supabase.co",
+          (import.meta as any).env?.SUPABASE_URL ||
+          "https://gndcgttnpxsjufmehgyi.supabase.co",
         supabaseAnonKey:
           parsed.supabaseAnonKey ||
           (import.meta as any).env?.VITE_SUPABASE_PUBLISHABLE_KEY ||
           (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
-          "sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ",
+          (import.meta as any).env?.SUPABASE_ANON_KEY ||
+          "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZGNndHRucHhzanVmbWVoZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjM5MTMsImV4cCI6MjA5NTI5OTkxM30.N4TQQbIGQfp80iCm8txx72_3XdnJ2HuK6-xQQ1yNJmQ",
         paystackPublicKey:
           parsed.paystackPublicKey ||
           (import.meta as any).env?.VITE_PAYSTACK_PUBLIC_KEY ||
@@ -33,8 +35,8 @@ export const apiKeyService = {
     } catch {
       return {
         geminiApiKey: "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk",
-        supabaseUrl: "https://yyejcbbcqirsigphzxxo.supabase.co",
-        supabaseAnonKey: "sb_publishable_bgmE8p2LPYQn2eVWBUEdMw_6R4GplVZ",
+        supabaseUrl: "https://gndcgttnpxsjufmehgyi.supabase.co",
+        supabaseAnonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZGNndHRucHhzanVmbWVoZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjM5MTMsImV4cCI6MjA5NTI5OTkxM30.N4TQQbIGQfp80iCm8txx72_3XdnJ2HuK6-xQQ1yNJmQ",
         customApiBaseUrl: "https://ais-dev-z3gmsn2xsvk2qfmakpvm37-164225214835.europe-west3.run.app",
       };
     }
