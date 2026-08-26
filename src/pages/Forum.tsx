@@ -79,6 +79,8 @@ export const FORUM_CATEGORIES = [
   },
 ];
 
+import { ForumAuthorBadge, AuthorProfileData } from "@/components/forum/ForumAuthorBadge";
+
 type Post = {
   id: string;
   user_id: string;
@@ -89,7 +91,7 @@ type Post = {
   replies_count: number;
   likes_count: number;
   created_at: string;
-  author?: { display_name: string | null; username: string | null; avatar_url: string | null };
+  author?: AuthorProfileData | null;
 };
 
 export default function Forum() {
@@ -118,10 +120,23 @@ export default function Forum() {
     const { data } = await qb;
     const list = (data as any[]) || [];
     const ids = Array.from(new Set(list.map((p) => p.user_id)));
-    let map: Record<string, any> = {};
+    let map: Record<string, AuthorProfileData> = {};
     if (ids.length) {
-      const { data: profs } = await supabase.from("profiles").select("user_id,display_name,username,avatar_url").in("user_id", ids);
-      (profs || []).forEach((p: any) => { map[p.user_id] = p; });
+      const [profsRes, suppsRes] = await Promise.all([
+        supabase.from("profiles").select("user_id,display_name,username,avatar_url").in("user_id", ids),
+        supabase.from("suppliers").select("id,user_id,name,slug,logo_url,is_verified,website,status").in("user_id", ids),
+      ]);
+      (profsRes.data || []).forEach((p: any) => {
+        map[p.user_id] = { ...p, business: null };
+      });
+      (suppsRes.data || []).forEach((supp: any) => {
+        if (supp.user_id) {
+          if (!map[supp.user_id]) {
+            map[supp.user_id] = { user_id: supp.user_id, display_name: supp.name };
+          }
+          map[supp.user_id].business = supp;
+        }
+      });
     }
     setPosts(list.map((p) => ({ ...p, author: map[p.user_id] })) as Post[]);
     setLoading(false);
@@ -461,7 +476,6 @@ export default function Forum() {
 
 function PostRow({ post, compact }: { post: Post; compact?: boolean }) {
   const cat = FORUM_CATEGORIES.find((c) => c.key === post.category);
-  const name = post.author?.display_name || post.author?.username || "Lagos Entrepreneur";
 
   return (
     <Link to={`/forum/${post.id}`} className="block group">
@@ -511,14 +525,9 @@ function PostRow({ post, compact }: { post: Post; compact?: boolean }) {
           )}
 
           {/* Footer Metadata */}
-          <div className="flex items-center justify-between pt-1 border-t border-border/40 text-xs text-muted-foreground">
+          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs text-muted-foreground flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <div className="h-6 w-6 rounded-full bg-gradient-to-tr from-primary to-amber-500 text-white font-black text-[10px] flex items-center justify-center uppercase shrink-0">
-                {name.slice(0, 2)}
-              </div>
-              <span className="font-semibold text-foreground/90 text-xs truncate max-w-[150px]">
-                {name}
-              </span>
+              <ForumAuthorBadge author={post.author} size="sm" />
             </div>
 
             <div className="flex items-center gap-2.5">

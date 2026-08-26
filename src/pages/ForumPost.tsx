@@ -13,6 +13,7 @@ import { formatDistanceToNow } from "date-fns";
 import { FORUM_CATEGORIES } from "./Forum";
 import { ForumFormattedContent } from "@/components/forum/ForumLinkPreview";
 import { ForumReactions } from "@/components/forum/ForumReactions";
+import { ForumAuthorBadge, AuthorProfileData } from "@/components/forum/ForumAuthorBadge";
 
 const SUCCESS_SOUND = "data:audio/wav;base64,UklGRpYBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YXIBAACAgYKChIWGiIqLjY6QkpOVl5manJ6gpKWmqKqsr7Gys7W3uLm6vL2/wMHCxMXGyMnKy8zNz9DR0tPU1dbX2Nrb3N3e3+Hi4+Tl5ufo6err7O3u7/Hy8/T19vf4+frJxL68t7Krp6KdmZSPi4eDfntyTycRBhEnT3uDh4uPlJmdoqersbq+wcTKzM3O0NHS1NXX2dvc3eHi5OXm6Ojp6+vt7e7v8PHy8/T19vf4+fr7+/z9/v7+///++AYAfHt6eXh3dnZ1c3JxcG9ubWxramppaWhoZ2dnZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm";
 
@@ -22,7 +23,7 @@ export default function ForumPost() {
   const navigate = useNavigate();
   const [post, setPost] = useState<any>(null);
   const [replies, setReplies] = useState<any[]>([]);
-  const [authors, setAuthors] = useState<Record<string, any>>({});
+  const [authors, setAuthors] = useState<Record<string, AuthorProfileData>>({});
   const [likedPost, setLikedPost] = useState(false);
   const [likedReplies, setLikedReplies] = useState<Record<string, boolean>>({});
   const [reply, setReply] = useState("");
@@ -39,9 +40,24 @@ export default function ForumPost() {
     const { data: rs } = await supabase.from("forum_replies" as any).select("*").eq("post_id", id).order("created_at", { ascending: true });
     setReplies((rs as any[]) || []);
     const ids = Array.from(new Set([(p as any).user_id, ...((rs as any[]) || []).map((r: any) => r.user_id)]));
-    const { data: profs } = await supabase.from("profiles").select("user_id,display_name,username,avatar_url").in("user_id", ids);
-    const map: Record<string, any> = {};
-    (profs || []).forEach((x: any) => { map[x.user_id] = x; });
+    
+    const [profsRes, suppsRes] = await Promise.all([
+      supabase.from("profiles").select("user_id,display_name,username,avatar_url").in("user_id", ids),
+      supabase.from("suppliers").select("id,user_id,name,slug,logo_url,is_verified,website,status").in("user_id", ids),
+    ]);
+
+    const map: Record<string, AuthorProfileData> = {};
+    (profsRes.data || []).forEach((x: any) => {
+      map[x.user_id] = { ...x, business: null };
+    });
+    (suppsRes.data || []).forEach((supp: any) => {
+      if (supp.user_id) {
+        if (!map[supp.user_id]) {
+          map[supp.user_id] = { user_id: supp.user_id, display_name: supp.name };
+        }
+        map[supp.user_id].business = supp;
+      }
+    });
     setAuthors(map);
     if (user) {
       const { data: votes } = await supabase.from("forum_votes" as any).select("target_type,target_id").eq("user_id", user.id);
@@ -135,14 +151,13 @@ export default function ForumPost() {
 
           <h1 className="text-xl md:text-2xl font-bold leading-snug">{post.title}</h1>
           
-          <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>By <span className="font-semibold text-foreground">{authorName}</span></span>
-            <span>·</span>
-            <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+          <div className="text-xs text-muted-foreground flex items-center justify-between gap-3 pt-1 border-t border-border/40 flex-wrap">
+            <ForumAuthorBadge author={author} size="md" />
+            <span className="text-[11px] font-medium">{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
           </div>
 
           {/* Formatted Post Content with YouTube, Video & Link Detection */}
-          <div className="pt-1">
+          <div className="pt-2">
             <ForumFormattedContent content={post.content} />
           </div>
 
@@ -180,9 +195,9 @@ export default function ForumPost() {
             return (
               <Card key={r.id} className="rounded-2xl border-border/70 shadow-xs">
                 <CardContent className="p-3.5 sm:p-4 space-y-2.5">
-                  <div className="text-xs text-muted-foreground flex items-center justify-between">
-                    <span className="font-bold text-foreground">{a?.display_name || a?.username || "Anonymous"}</span>
-                    <span>{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>
+                  <div className="text-xs text-muted-foreground flex items-center justify-between gap-2 flex-wrap">
+                    <ForumAuthorBadge author={a} size="sm" />
+                    <span className="text-[11px] font-medium">{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>
                   </div>
 
                   <ForumFormattedContent content={r.content} />
