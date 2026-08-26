@@ -436,43 +436,43 @@ export default function HowToGuide() {
                 }`}
               >
                 {/* Guide Top Header */}
-                <div className="p-5 sm:p-6 flex flex-col md:flex-row md:items-start justify-between gap-4">
-                  <div className="flex items-start gap-4">
+                <div className="p-5 sm:p-7 flex flex-col md:flex-row md:items-start justify-between gap-5">
+                  <div className="flex items-start gap-4 sm:gap-5">
                     {/* 3D Elevated Icon Box */}
                     <div
-                      className={`h-13 w-13 sm:h-14 sm:w-14 rounded-2xl bg-gradient-to-br ${guide.gradient} flex items-center justify-center text-white shrink-0 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.3),inset_0_2px_0_rgba(255,255,255,0.4)] ring-2 ring-white/20`}
+                      className={`h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br ${guide.gradient} flex items-center justify-center text-white shrink-0 shadow-[0_8px_20px_-4px_rgba(0,0,0,0.35),inset_0_2px_0_rgba(255,255,255,0.4)] ring-2 ring-white/20`}
                     >
-                      <Icon className="h-7 w-7 drop-shadow-sm" strokeWidth={2.2} />
+                      <Icon className="h-7 w-7 sm:h-8 sm:w-8 drop-shadow-sm" strokeWidth={2.4} />
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className={`text-[11px] font-bold ${guide.badgeColor}`}>
+                        <Badge variant="outline" className={`text-xs font-black px-2.5 py-0.5 ${guide.badgeColor}`}>
                           {guide.badge}
                         </Badge>
-                        <Badge variant="secondary" className="text-[10px] font-semibold">
+                        <Badge variant="secondary" className="text-xs font-bold px-2.5 py-0.5">
                           {guide.categoryLabel}
                         </Badge>
-                        <span className="text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
-                          <Clock className="h-3 w-3" /> {guide.estimatedTime} read
+                        <span className="text-xs text-muted-foreground flex items-center gap-1 font-bold">
+                          <Clock className="h-3.5 w-3.5 text-primary" /> {guide.estimatedTime} read
                         </span>
                       </div>
 
-                      <h2 className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                      <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
                         {guide.title}
                       </h2>
 
-                      <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+                      <p className="text-sm sm:text-[15px] font-medium text-foreground/90 leading-relaxed max-w-3xl">
                         {guide.summary}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0 self-end md:self-start pt-2 md:pt-0">
+                  <div className="flex items-center gap-2.5 shrink-0 self-end md:self-start pt-2 md:pt-0">
                     {guide.actionUrl && (
-                      <Button asChild size="sm" className="font-bold text-xs gap-1.5 shadow-sm">
+                      <Button asChild size="sm" className="font-black text-xs gap-1.5 shadow-md h-9 px-3.5">
                         <Link to={guide.actionUrl}>
-                          {guide.actionLabel || "Open Feature"} <ArrowRight className="h-3.5 w-3.5" />
+                          {guide.actionLabel || "Open Feature"} <ArrowRight className="h-4 w-4" />
                         </Link>
                       </Button>
                     )}
@@ -481,7 +481,7 @@ export default function HowToGuide() {
                       variant={isExpanded ? "default" : "outline"}
                       size="sm"
                       onClick={() => setActiveGuideId(isExpanded ? null : guide.id)}
-                      className="text-xs font-semibold"
+                      className="text-xs font-black h-9 px-3.5"
                     >
                       {isExpanded ? "Collapse Guide" : "View Step-by-Step"}
                     </Button>
@@ -490,24 +490,27 @@ export default function HowToGuide() {
 
                 {/* Expanded Step-by-Step Breakdown */}
                 {isExpanded && (
-                  <div className="border-t border-border/80 bg-muted/20 p-5 sm:p-6 space-y-6 animate-in fade-in-50 duration-200">
-                    <div className="space-y-3">
-                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                        <Layers className="h-3.5 w-3.5 text-primary" /> Step-by-Step Walkthrough
-                      </h3>
+                  <div className="border-t border-border/80 bg-muted/20 p-5 sm:p-7 space-y-6 animate-in fade-in-50 duration-200">
+                    <div className="space-y-3.5">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-xs sm:text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+                          <Layers className="h-4 w-4 text-primary" /> Actionable Step-by-Step Tutorial
+                        </h3>
+                        <span className="text-xs font-bold text-muted-foreground">Follow these {guide.steps.length} simple steps</span>
+                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {guide.steps.map((step) => (
                           <div
                             key={step.step}
-                            className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs flex items-start gap-3.5 hover:border-primary/30 transition-colors"
+                            className="p-5 rounded-2xl bg-card border border-border/90 shadow-sm flex items-start gap-4 hover:border-primary/40 hover:shadow-md transition-all"
                           >
-                            <div className="h-7 w-7 rounded-xl bg-primary/10 text-primary font-black text-xs flex items-center justify-center shrink-0 mt-0.5">
+                            <div className="h-8 w-8 rounded-xl bg-primary text-primary-foreground font-black text-sm flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
                               {step.step}
                             </div>
-                            <div className="space-y-1">
-                              <h4 className="text-xs font-bold text-foreground">{step.title}</h4>
-                              <p className="text-[11px] text-muted-foreground leading-relaxed">{step.desc}</p>
+                            <div className="space-y-1.5 min-w-0">
+                              <h4 className="text-sm sm:text-base font-black text-foreground">{step.title}</h4>
+                              <p className="text-xs sm:text-sm font-medium text-foreground/85 leading-relaxed">{step.desc}</p>
                             </div>
                           </div>
                         ))}
@@ -516,13 +519,13 @@ export default function HowToGuide() {
 
                     {/* Pro Tips Section */}
                     {guide.proTips && guide.proTips.length > 0 && (
-                      <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-2">
-                        <p className="text-xs font-bold text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
-                          <Lightbulb className="h-4 w-4 text-amber-500" /> Pro Tips for Best Results
+                      <div className="p-5 rounded-2xl bg-amber-500/10 border-2 border-amber-500/30 space-y-2.5 shadow-xs">
+                        <p className="text-sm font-black text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                          <Lightbulb className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0" /> 💡 Pro Knowledge &amp; Growth Tips
                         </p>
-                        <ul className="space-y-1.5 pl-5 list-disc text-xs text-amber-900/90 dark:text-amber-200/90">
+                        <ul className="space-y-2 pl-6 list-disc text-xs sm:text-sm font-medium text-amber-950 dark:text-amber-100">
                           {guide.proTips.map((tip, idx) => (
-                            <li key={idx} className="leading-relaxed">{tip}</li>
+                            <li key={idx} className="leading-relaxed font-semibold">{tip}</li>
                           ))}
                         </ul>
                       </div>
@@ -530,13 +533,13 @@ export default function HowToGuide() {
 
                     {/* FAQs if present */}
                     {guide.faqs && guide.faqs.length > 0 && (
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold text-foreground">Frequently Asked Questions</h4>
-                        <div className="space-y-2">
+                      <div className="space-y-3">
+                        <h4 className="text-sm font-black text-foreground">Common Questions &amp; Answers</h4>
+                        <div className="space-y-2.5">
                           {guide.faqs.map((faq, idx) => (
-                            <div key={idx} className="p-3 rounded-xl bg-card border text-xs space-y-1">
-                              <p className="font-semibold text-foreground">Q: {faq.q}</p>
-                              <p className="text-muted-foreground">A: {faq.a}</p>
+                            <div key={idx} className="p-4 rounded-xl bg-card border border-border/80 text-xs sm:text-sm space-y-1.5 shadow-xs">
+                              <p className="font-black text-foreground">Q: {faq.q}</p>
+                              <p className="font-medium text-foreground/85 leading-relaxed">A: {faq.a}</p>
                             </div>
                           ))}
                         </div>
@@ -544,27 +547,27 @@ export default function HowToGuide() {
                     )}
 
                     {/* Feedback row */}
-                    <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground border-t border-border/60">
-                      <div className="flex items-center gap-2">
-                        <span>Did this guide help you?</span>
+                    <div className="pt-3 flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm text-muted-foreground border-t border-border/70">
+                      <div className="flex items-center gap-2.5">
+                        <span className="font-bold text-foreground">Did this guide help you?</span>
                         {hasVoted ? (
-                          <Badge variant="secondary" className="text-[10px] text-emerald-600 bg-emerald-500/10">
-                            <Check className="h-3 w-3 mr-1" /> Thanks for your feedback!
+                          <Badge variant="secondary" className="text-xs font-bold text-emerald-600 bg-emerald-500/10 py-1 px-2.5">
+                            <Check className="h-3.5 w-3.5 mr-1" /> Thanks for your feedback!
                           </Badge>
                         ) : (
-                          <div className="flex gap-1.5">
+                          <div className="flex gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-[11px] px-2.5"
+                              className="h-8 text-xs font-bold px-3"
                               onClick={() => handleVote(guide.id, true)}
                             >
-                              👍 Yes
+                              👍 Yes, very clear
                             </Button>
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 text-[11px] px-2.5"
+                              className="h-8 text-xs font-bold px-3"
                               onClick={() => handleVote(guide.id, false)}
                             >
                               👎 Needs More Info
@@ -574,7 +577,7 @@ export default function HowToGuide() {
                       </div>
 
                       {guide.actionUrl && (
-                        <Button asChild size="sm" variant="ghost" className="h-7 text-xs font-bold text-primary">
+                        <Button asChild size="sm" variant="ghost" className="h-8 text-xs sm:text-sm font-black text-primary">
                           <Link to={guide.actionUrl}>
                             Go to {guide.actionLabel || "Feature"} →
                           </Link>

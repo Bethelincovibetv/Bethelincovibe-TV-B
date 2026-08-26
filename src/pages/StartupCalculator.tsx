@@ -64,60 +64,66 @@ export default function StartupCalculator() {
         <meta name="description" content="Free AI-powered startup business calculator for Nigerian entrepreneurs. Calculate runway, ROI, break-even and get smart business advice." />
       </Helmet>
 
-      <div className="container mx-auto px-4 py-8 max-w-5xl">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-1.5 rounded-full text-sm font-medium mb-4">
+      <div className="container mx-auto px-4 py-8 max-w-5xl space-y-8">
+        <div className="text-center mb-4">
+          <div className="inline-flex items-center gap-2 bg-primary/10 text-primary border border-primary/20 px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wider mb-3">
             <Sparkles className="h-4 w-4" />
-            AI-Powered
+            Interactive Business Financial Feasibility
           </div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-2">Startup Business Calculator</h1>
-          <p className="text-muted-foreground max-w-2xl mx-auto">
-            Test your business idea before you spend a single naira. Get runway, ROI, break-even and a real AI advisor's take.
+          <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-3 text-foreground">
+            Startup Business Feasibility Calculator
+          </h1>
+          <p className="text-base sm:text-lg font-medium text-foreground/85 max-w-2xl mx-auto leading-relaxed">
+            Test your business concept before risking capital. Calculate your financial runway, projected breakeven point, return on investment (ROI), and receive step-by-step AI advisory.
           </p>
         </div>
 
         <div className="grid lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Calculator className="h-5 w-5 text-primary" />Your Business</CardTitle>
-              <CardDescription>Fill in honest numbers for the most accurate read.</CardDescription>
+          <Card className="border-border/90 shadow-sm rounded-3xl">
+            <CardHeader className="pb-4">
+              <CardTitle className="text-xl font-black flex items-center gap-2 text-foreground">
+                <Calculator className="h-5 w-5 text-primary" /> Enter Your Business Financials
+              </CardTitle>
+              <CardDescription className="text-xs font-medium text-muted-foreground">
+                Provide estimated figures. The calculator projects profitability based on localized Nigerian market dynamics.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
-                  <Label htmlFor="idea">Business idea *</Label>
-                  <Textarea id="idea" rows={3} placeholder="e.g. Mobile car wash service for office workers in Lekki" value={form.businessIdea} onChange={(e) => update("businessIdea", e.target.value)} />
+                  <Label htmlFor="idea" className="font-bold text-xs text-foreground">Business Idea &amp; Value Proposition *</Label>
+                  <Textarea id="idea" rows={3} placeholder="e.g. Mobile car wash service for corporate workers in Lekki Phase 1" value={form.businessIdea} onChange={(e) => update("businessIdea", e.target.value)} className="mt-1 font-medium text-sm rounded-xl" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="ind">Industry</Label>
-                    <Input id="ind" placeholder="e.g. Food, Tech, Retail" value={form.industry} onChange={(e) => update("industry", e.target.value)} />
+                    <Label htmlFor="ind" className="font-bold text-xs text-foreground">Industry / Sector</Label>
+                    <Input id="ind" placeholder="e.g. Food, Logistics, Retail" value={form.industry} onChange={(e) => update("industry", e.target.value)} className="mt-1 font-medium text-sm rounded-xl" />
                   </div>
                   <div>
-                    <Label htmlFor="loc">Location</Label>
-                    <Input id="loc" value={form.location} onChange={(e) => update("location", e.target.value)} />
+                    <Label htmlFor="loc" className="font-bold text-xs text-foreground">Location</Label>
+                    <Input id="loc" value={form.location} onChange={(e) => update("location", e.target.value)} className="mt-1 font-medium text-sm rounded-xl" />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="cap">Startup capital (₦) *</Label>
-                  <Input id="cap" type="number" placeholder="500000" value={form.startupCapital} onChange={(e) => update("startupCapital", e.target.value)} />
+                  <Label htmlFor="cap" className="font-bold text-xs text-foreground">Starting Capital (₦) *</Label>
+                  <Input id="cap" type="number" placeholder="500000" value={form.startupCapital} onChange={(e) => update("startupCapital", e.target.value)} className="mt-1 font-medium text-sm rounded-xl" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <Label htmlFor="exp">Monthly expenses (₦)</Label>
-                    <Input id="exp" type="number" placeholder="150000" value={form.monthlyExpenses} onChange={(e) => update("monthlyExpenses", e.target.value)} />
+                    <Label htmlFor="exp" className="font-bold text-xs text-foreground">Monthly Operating Costs (₦)</Label>
+                    <Input id="exp" type="number" placeholder="150000" value={form.monthlyExpenses} onChange={(e) => update("monthlyExpenses", e.target.value)} className="mt-1 font-medium text-sm rounded-xl" />
                   </div>
                   <div>
-                    <Label htmlFor="rev">Expected monthly revenue (₦)</Label>
-                    <Input id="rev" type="number" placeholder="300000" value={form.expectedRevenue} onChange={(e) => update("expectedRevenue", e.target.value)} />
+                    <Label htmlFor="rev" className="font-bold text-xs text-foreground">Target Monthly Revenue (₦)</Label>
+                    <Input id="rev" type="number" placeholder="300000" value={form.expectedRevenue} onChange={(e) => update("expectedRevenue", e.target.value)} className="mt-1 font-medium text-sm rounded-xl" />
                   </div>
                 </div>
                 <div>
-                  <Label htmlFor="team">Team size</Label>
-                  <Input id="team" type="number" min="1" value={form.teamSize} onChange={(e) => update("teamSize", e.target.value)} />
+                  <Label htmlFor="team" className="font-bold text-xs text-foreground">Team Size (Full-time / Part-time)</Label>
+                  <Input id="team" type="number" min="1" value={form.teamSize} onChange={(e) => update("teamSize", e.target.value)} className="mt-1 font-medium text-sm rounded-xl" />
                 </div>
-                <Button type="submit" disabled={loading} className="w-full" size="lg">
-                  {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzing...</> : <><Sparkles className="h-4 w-4 mr-2" />Analyze My Business</>}
+                <Button type="submit" disabled={loading} className="w-full h-11 rounded-2xl font-black text-sm shadow-md" size="lg">
+                  {loading ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Analyzing Market Feasibility...</> : <><Sparkles className="h-4 w-4 mr-2" />Calculate Business Feasibility</>}
                 </Button>
               </form>
             </CardContent>
@@ -126,55 +132,60 @@ export default function StartupCalculator() {
           <div className="space-y-4">
             {metrics && (
               <div className="grid grid-cols-2 gap-3">
-                <Card>
-                  <CardContent className="pt-6">
-                    <Wallet className="h-5 w-5 text-primary mb-2" />
-                    <div className="text-2xl font-bold">{metrics.runwayMonths}</div>
-                    <div className="text-xs text-muted-foreground">Months of runway</div>
+                <Card className="rounded-2xl border-border/80 shadow-xs">
+                  <CardContent className="pt-5 pb-5">
+                    <Wallet className="h-5 w-5 text-primary mb-1.5" />
+                    <div className="text-2xl font-black text-foreground">{metrics.runwayMonths}</div>
+                    <div className="text-xs font-bold text-muted-foreground">Months of Runway</div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <TrendingUp className="h-5 w-5 text-primary mb-2" />
-                    <div className={`text-2xl font-bold ${metrics.monthlyProfit >= 0 ? "text-green-600" : "text-destructive"}`}>{fmt(metrics.monthlyProfit)}</div>
-                    <div className="text-xs text-muted-foreground">Monthly profit</div>
+                <Card className="rounded-2xl border-border/80 shadow-xs">
+                  <CardContent className="pt-5 pb-5">
+                    <TrendingUp className="h-5 w-5 text-primary mb-1.5" />
+                    <div className={`text-2xl font-black ${metrics.monthlyProfit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-destructive"}`}>{fmt(metrics.monthlyProfit)}</div>
+                    <div className="text-xs font-bold text-muted-foreground">Monthly Net Profit</div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <Target className="h-5 w-5 text-primary mb-2" />
-                    <div className="text-2xl font-bold">{metrics.breakEvenMonths}</div>
-                    <div className="text-xs text-muted-foreground">Months to break even</div>
+                <Card className="rounded-2xl border-border/80 shadow-xs">
+                  <CardContent className="pt-5 pb-5">
+                    <Target className="h-5 w-5 text-primary mb-1.5" />
+                    <div className="text-2xl font-black text-foreground">{metrics.breakEvenMonths}</div>
+                    <div className="text-xs font-bold text-muted-foreground">Months to Break Even</div>
                   </CardContent>
                 </Card>
-                <Card>
-                  <CardContent className="pt-6">
-                    <Sparkles className="h-5 w-5 text-primary mb-2" />
-                    <div className="text-2xl font-bold">{metrics.roi}%</div>
-                    <div className="text-xs text-muted-foreground">Annual ROI</div>
+                <Card className="rounded-2xl border-border/80 shadow-xs">
+                  <CardContent className="pt-5 pb-5">
+                    <Sparkles className="h-5 w-5 text-primary mb-1.5" />
+                    <div className="text-2xl font-black text-foreground">{metrics.roi}%</div>
+                    <div className="text-xs font-bold text-muted-foreground">Annual Return (ROI)</div>
                   </CardContent>
                 </Card>
               </div>
             )}
 
-            <Card className="min-h-[300px]">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-primary" />AI Advisor's Take</CardTitle>
+            <Card className="min-h-[300px] rounded-3xl border-border/90 shadow-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg font-black flex items-center gap-2 text-foreground">
+                  <Sparkles className="h-5 w-5 text-primary" /> AI Commercial Advisory &amp; Action Plan
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 {loading && (
-                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
-                    <Loader2 className="h-8 w-8 animate-spin mb-3 text-primary" />
-                    <p className="text-sm">Crunching the numbers and thinking it through...</p>
+                  <div className="flex flex-col items-center justify-center py-12 text-muted-foreground space-y-3">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    <p className="text-sm font-bold text-foreground">Analyzing revenue streams, operational margins, and localized risks...</p>
                   </div>
                 )}
                 {!loading && !analysis && (
-                  <div className="text-center py-12 text-muted-foreground text-sm">
-                    Fill in the form and click analyze to get your personalized business breakdown.
+                  <div className="text-center py-12 space-y-2">
+                    <p className="text-sm font-bold text-foreground">Ready to analyze your business model</p>
+                    <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                      Fill in the financial fields and click calculate to receive a breakdown of your cash runway, profit margins, and growth recommendations.
+                    </p>
                   </div>
                 )}
                 {analysis && (
-                  <div className="prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed">
+                  <div className="blog-article-content prose prose-sm dark:prose-invert max-w-none whitespace-pre-wrap leading-relaxed font-medium text-foreground">
                     {analysis}
                   </div>
                 )}
@@ -182,6 +193,51 @@ export default function StartupCalculator() {
             </Card>
           </div>
         </div>
+
+        {/* Educational Knowledge Card: Understanding Your Financial Metrics */}
+        <Card className="rounded-3xl border-primary/20 bg-gradient-to-br from-primary/5 via-card to-background p-6 sm:p-8 space-y-4 shadow-xs">
+          <div className="flex items-center gap-2 text-primary font-black text-xs uppercase tracking-wider">
+            <Sparkles className="h-4 w-4" />
+            <span>Educational Guide: Key Terms Explained for Every Business Owner</span>
+          </div>
+          <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+            How to Read &amp; Use Your Financial Projections
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 pt-2">
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-1.5">
+              <h3 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                <Wallet className="h-4 w-4 text-primary" /> Runway
+              </h3>
+              <p className="text-xs font-medium text-foreground/80 leading-relaxed">
+                The number of months your business can stay afloat on current capital before needing new revenue or external funding.
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-1.5">
+              <h3 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                <TrendingUp className="h-4 w-4 text-emerald-600" /> Monthly Profit
+              </h3>
+              <p className="text-xs font-medium text-foreground/80 leading-relaxed">
+                Total monthly revenue minus operating expenses (rent, inventory, wages, marketing, data).
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-1.5">
+              <h3 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                <Target className="h-4 w-4 text-indigo-600" /> Breakeven Point
+              </h3>
+              <p className="text-xs font-medium text-foreground/80 leading-relaxed">
+                The milestone where your cumulative sales cover your initial startup investments and ongoing operational costs.
+              </p>
+            </div>
+            <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-xs space-y-1.5">
+              <h3 className="text-sm font-black text-foreground flex items-center gap-1.5">
+                <Sparkles className="h-4 w-4 text-fuchsia-600" /> Annual ROI
+              </h3>
+              <p className="text-xs font-medium text-foreground/80 leading-relaxed">
+                Return on Investment: The percentage return generated on every naira of starting capital invested over a 12-month period.
+              </p>
+            </div>
+          </div>
+        </Card>
       </div>
     </>
   );

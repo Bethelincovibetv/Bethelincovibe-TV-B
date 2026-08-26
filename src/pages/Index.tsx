@@ -23,10 +23,10 @@ import iconFeaturedBiz3D from "@/assets/images/icon_featured_biz_3d_178755353600
 import iconMarketingSales3D from "@/assets/images/icon_marketing_sales_3d_1787553549641.jpg";
 
 const features = [
-  { icon: BookOpen, image3D: iconStartup3D, title: "Startup Guides", desc: "Step-by-step guides and sourcing playbooks to launch in Lagos", link: "/blog/category/startup-guides", color: "from-blue-500/20 to-indigo-500/20", feature: "blog" },
-  { icon: Building2, image3D: iconBusinessDir3D, title: "Business Directory", desc: "Discover and connect directly with trusted Lagos suppliers & brands", link: "/businesses", color: "from-amber-500/20 to-orange-500/20", feature: "businesses" },
-  { icon: TrendingUp, image3D: iconMarketingSales3D, title: "Marketing & Growth", desc: "Acquire customers with high-converting digital strategies & AI tools", link: "/blog/category/marketing-sales", color: "from-emerald-500/20 to-teal-500/20", feature: "blog" },
-  { icon: Sparkles, image3D: iconFeaturedBiz3D, title: "Featured Businesses", desc: "Spotlight on standout Nigerian entrepreneurs, wholesalers & founders", link: "/blog/category/featured-businesses", color: "from-purple-500/20 to-pink-500/20", feature: "blog" },
+  { icon: BookOpen, image3D: iconStartup3D, title: "Startup Guides & Playbooks", desc: "Learn step-by-step how to source from China, navigate clearing, register your CAC, and launch in Nigeria.", link: "/blog/category/startup-guides", color: "from-blue-500/20 to-indigo-500/20", feature: "blog" },
+  { icon: Building2, image3D: iconBusinessDir3D, title: "Verified Business Directory", desc: "Discover, contact, and partner with vetted Lagos suppliers, manufacturers, logistics agents, and artisans.", link: "/businesses", color: "from-amber-500/20 to-orange-500/20", feature: "businesses" },
+  { icon: TrendingUp, image3D: iconMarketingSales3D, title: "Marketing & Sales Funnels", desc: "Master customer acquisition, launch automated 1-page sales funnels, and boost WhatsApp status conversions.", link: "/blog/category/marketing-sales", color: "from-emerald-500/20 to-teal-500/20", feature: "blog" },
+  { icon: Sparkles, image3D: iconFeaturedBiz3D, title: "Founder Spotlights & Case Studies", desc: "Learn from real breakdown case studies of successful Nigerian entrepreneurs, wholesalers, and creators.", link: "/blog/category/featured-businesses", color: "from-purple-500/20 to-pink-500/20", feature: "blog" },
 ];
 
 export default function Index() {

@@ -20,7 +20,7 @@
     --secondary-foreground: 280 60% 30%;
 
     --muted: 240 5% 96%;
-    --muted-foreground: 240 5% 45%;
+    --muted-foreground: 240 6% 30%;
 
     --accent: 340 80% 55%;
     --accent-foreground: 0 0% 100%;
@@ -74,7 +74,7 @@
     --secondary-foreground: 280 30% 85%;
 
     --muted: 240 5% 18%;
-    --muted-foreground: 240 5% 65%;
+    --muted-foreground: 240 6% 78%;
 
     --accent: 340 80% 55%;
     --accent-foreground: 0 0% 100%;
@@ -116,15 +116,61 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-size: 16.5px;
-    line-height: 1.65;
+    font-weight: 480;
+    line-height: 1.68;
+    letter-spacing: -0.011em;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    text-rendering: optimizeLegibility;
   }
 
   @media (min-width: 768px) {
-    body { font-size: 17px; }
+    body {
+      font-size: 17px;
+      line-height: 1.72;
+    }
   }
 
-  h1 { @apply tracking-tight; }
-  h2, h3 { @apply tracking-tight; }
+  p {
+    font-weight: 480;
+    line-height: 1.7;
+    color: inherit;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 850;
+    color: hsl(var(--foreground));
+    letter-spacing: -0.025em;
+    line-height: 1.25;
+  }
+
+  h1 { font-weight: 900; }
+  h2 { font-weight: 850; }
+  h3 { font-weight: 800; }
+  h4 { font-weight: 750; }
+
+  strong, b {
+    font-weight: 800;
+    color: hsl(var(--foreground));
+  }
+
+  /* High-contrast clarity for all muted descriptions across the entire platform */
+  .text-muted-foreground {
+    color: hsl(var(--muted-foreground));
+    font-weight: 500;
+  }
+
+  /* Accessible badge and tag typography */
+  .badge, [class*="badge"] {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+
+  /* Accessible card descriptions */
+  .card-description, [class*="CardDescription"] {
+    font-weight: 500;
+    line-height: 1.6;
+    color: hsl(var(--muted-foreground));
+  }
 }
 
 @layer components {

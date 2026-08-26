@@ -10,7 +10,7 @@ import {
   Loader2, Sparkles, Send, Bot, CheckCircle2, ShieldCheck, Zap, RefreshCw,
   Building2, FileText, Sliders, AlertTriangle, Cpu, ChevronDown,
   ChevronUp, BarChart2, Video, Globe, Check, X, GraduationCap,
-  ExternalLink, Volume2, Square, Radio, Wrench, Lightbulb, Compass
+  ExternalLink, Volume2, Square, Radio, Wrench, Lightbulb, Compass, Play
 } from "lucide-react";
 import { toast } from "sonner";
 import { FEATURE_META, FeatureKey } from "@/contexts/FeatureFlagsContext";
@@ -27,6 +27,8 @@ import {
   generateAICourse,
   encodeCourseMetadata,
 } from "@/lib/aiCourseCreatorEngine";
+import { cleanRawAsterisks } from "@/lib/productAIEngine";
+
 
 type ToolLog = {
   tool: string;
@@ -1137,83 +1139,94 @@ Select a quick action chip above or type your exact directive!`;
 
               {/* Message Bubble */}
               <div
-                className={`max-w-[94%] sm:max-w-[85%] break-words overflow-hidden rounded-2xl px-3.5 py-2.5 text-xs sm:text-sm leading-relaxed shadow-xs ${
+                className={`max-w-[94%] sm:max-w-[85%] break-words overflow-hidden rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-xs ${
                   m.role === "user"
-                    ? "bg-primary text-primary-foreground font-semibold rounded-tr-none"
-                    : "bg-muted/60 text-foreground border border-border/70 rounded-tl-none whitespace-pre-wrap"
+                    ? "bg-primary text-primary-foreground font-bold rounded-tr-none"
+                    : "bg-muted/70 text-foreground border border-border/80 rounded-tl-none whitespace-pre-wrap font-medium"
                 }`}
               >
-                {m.content}
+                {cleanRawAsterisks(m.content)}
               </div>
 
               {/* Action Proposal & Preview Card */}
               {m.proposal && (
-                <div className="w-full max-w-[94%] sm:max-w-[85%] mt-1">
+                <div className="w-full max-w-[94%] sm:max-w-[85%] mt-1.5">
                   <Card
-                    className={`border shadow-xs rounded-2xl overflow-hidden transition-all ${
+                    className={`border shadow-sm rounded-2xl overflow-hidden transition-all ${
                       m.proposal.status === "executed"
-                        ? "bg-emerald-500/10 border-emerald-500/30"
+                        ? "bg-emerald-500/10 border-emerald-500/40"
                         : m.proposal.status === "dismissed"
                         ? "bg-muted/30 border-muted opacity-60"
-                        : "bg-card border-indigo-500/30 ring-1 ring-indigo-500/15"
+                        : "bg-card border-indigo-500/40 ring-1 ring-indigo-500/20"
                     }`}
                   >
-                    <div className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b bg-muted/20">
-                      <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b bg-muted/30">
+                      <div className="flex items-center gap-3 min-w-0">
                         <div
-                          className={`h-7 w-7 rounded-lg flex items-center justify-center font-bold shrink-0 ${
+                          className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold shrink-0 shadow-xs ${
                             m.proposal.status === "executed"
-                              ? "bg-emerald-500 text-white"
-                              : "bg-indigo-600 text-white shadow-xs"
+                              ? "bg-emerald-600 text-white"
+                              : "bg-indigo-600 text-white"
                           }`}
                         >
                           {m.proposal.type === "multi_blog_campaign" ? (
-                            <Video className="h-3.5 w-3.5" />
+                            <Video className="h-4 w-4" />
                           ) : m.proposal.type === "create_custom_page" ? (
-                            <Globe className="h-3.5 w-3.5" />
+                            <Globe className="h-4 w-4" />
                           ) : m.proposal.type === "create_ai_course" ? (
-                            <GraduationCap className="h-3.5 w-3.5" />
+                            <GraduationCap className="h-4 w-4" />
                           ) : (
-                            <ShieldCheck className="h-3.5 w-3.5" />
+                            <ShieldCheck className="h-4 w-4" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-extrabold text-xs text-foreground flex items-center gap-1.5 flex-wrap">
-                            <span className="truncate">{m.proposal.title}</span>
+                          <p className="font-black text-xs sm:text-sm text-foreground flex items-center gap-2 flex-wrap">
+                            <span className="truncate">{cleanRawAsterisks(m.proposal.title)}</span>
                             {m.proposal.status === "executed" && (
-                              <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[9px] font-extrabold py-0">
-                                <Check className="h-2.5 w-2.5 mr-0.5" /> Live
+                              <Badge className="bg-emerald-600 text-white border-0 text-[10px] font-black py-0.5 px-2 shadow-2xs">
+                                <Check className="h-3 w-3 mr-1" /> Action Executed Live
                               </Badge>
                             )}
                           </p>
-                          <p className="text-[10px] text-muted-foreground truncate mt-0.5">
-                            {m.proposal.rationale}
+                          <p className="text-xs font-medium text-muted-foreground truncate mt-0.5">
+                            {cleanRawAsterisks(m.proposal.rationale)}
                           </p>
                         </div>
                       </div>
 
                       {m.proposal.status === "pending" && (
-                        <div className="flex items-center gap-1.5 shrink-0 self-end sm:self-auto">
+                        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDismissProposal(m.id)}
                             disabled={busy}
-                            className="h-7 text-[11px] font-bold text-muted-foreground hover:text-destructive rounded-xl px-2"
+                            className="h-8 text-xs font-bold text-muted-foreground hover:text-destructive rounded-xl px-2.5"
                           >
-                            <X className="h-3 w-3 mr-0.5" /> Dismiss
+                            <X className="h-3.5 w-3.5 mr-1" /> Dismiss
                           </Button>
                           <Button
                             size="sm"
                             onClick={() => handleApproveProposal(m.id, m.proposal!)}
                             disabled={busy}
-                            className="h-7 text-[11px] font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-2.5 gap-1 shadow-xs"
+                            className="h-8 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-3.5 gap-1.5 shadow-md"
                           >
-                            <Check className="h-3 w-3" /> Approve & Execute
+                            {busy ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <span>Executing Action…</span>
+                              </>
+                            ) : (
+                              <>
+                                <Play className="h-3.5 w-3.5 fill-current" />
+                                <span>Approve &amp; Perform Action</span>
+                              </>
+                            )}
                           </Button>
                         </div>
                       )}
                     </div>
+
 
                     {/* Proposal Details */}
                     {m.proposal.type === "multi_blog_campaign" && m.proposal.previewData?.directive && (

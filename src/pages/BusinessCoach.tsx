@@ -364,16 +364,16 @@ Tone: Authoritative, motivating, practical, and clear.`;
 
               {messages.map((m, i) => (
                 <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[88%] sm:max-w-[80%] rounded-3xl p-4 text-xs leading-relaxed ${
+                  <div className={`max-w-[88%] sm:max-w-[80%] rounded-3xl p-4 sm:p-5 text-xs sm:text-sm leading-relaxed font-medium ${
                     m.role === "user"
-                      ? "bg-primary text-primary-foreground font-medium rounded-tr-xs shadow-sm"
-                      : "bg-muted/40 border border-border/60 text-foreground rounded-tl-xs space-y-2 shadow-xs"
+                      ? "bg-primary text-primary-foreground font-semibold rounded-tr-xs shadow-sm"
+                      : "bg-muted/50 border border-border/80 text-foreground rounded-tl-xs space-y-3 shadow-xs"
                   }`}>
                     {m.role === "assistant" && (
-                      <div className="flex items-center justify-between border-b border-border/40 pb-2 mb-2">
+                      <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-2">
                         <div className="flex items-center gap-2">
                           <img src={coachAvatarImg} alt="" className="h-5 w-5 rounded-lg object-cover" />
-                          <span className="font-extrabold text-[11px] text-primary">AI Coach Advice</span>
+                          <span className="font-black text-xs text-primary">Strategic Advisory</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <ListenButton text={cleanText(m.content)} />
@@ -384,17 +384,17 @@ Tone: Authoritative, motivating, practical, and clear.`;
                       </div>
                     )}
 
-                    <div className="whitespace-pre-wrap">{m.role === "assistant" ? cleanText(m.content) : m.content}</div>
+                    <div className="whitespace-pre-wrap font-medium leading-relaxed">{m.role === "assistant" ? cleanText(m.content) : m.content}</div>
 
                     {m.role === "assistant" && (
-                      <div className="pt-2 flex items-center gap-2 border-t border-border/30">
+                      <div className="pt-2 flex items-center gap-2 border-t border-border/50">
                         <Button
                           size="sm"
                           variant="secondary"
-                          className="rounded-xl h-7 text-[11px] font-bold px-2.5 bg-primary/10 hover:bg-primary/20 text-primary border-0"
+                          className="rounded-xl h-8 text-xs font-black px-3 bg-primary/10 hover:bg-primary/20 text-primary border-0"
                           onClick={() => saveAsTask(cleanText(m.content))}
                         >
-                          <Plus className="h-3 w-3 mr-1" /> Save to Execution Tracker
+                          <Plus className="h-3.5 w-3.5 mr-1" /> Add Action Item to Tracker
                         </Button>
                       </div>
                     )}

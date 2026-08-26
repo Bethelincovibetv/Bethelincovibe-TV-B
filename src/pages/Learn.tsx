@@ -402,11 +402,11 @@ export default function Learn() {
                       </div>
 
                       {/* Course Details Body */}
-                      <div className="p-4 space-y-2.5">
-                        <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-medium">
+                      <div className="p-4 sm:p-5 space-y-3">
+                        <div className="flex items-center gap-2 text-xs text-foreground/80 font-bold">
                           {c.duration_minutes && (
                             <span className="flex items-center gap-1">
-                              <Clock className="h-3 w-3" /> {c.duration_minutes} mins
+                              <Clock className="h-3.5 w-3.5 text-primary" /> {c.duration_minutes} mins
                             </span>
                           )}
                           <span>•</span>
@@ -414,33 +414,33 @@ export default function Learn() {
                           {meta.flashcards?.length > 0 && (
                             <>
                               <span>•</span>
-                              <span className="text-primary font-bold">{meta.flashcards.length} Cards</span>
+                              <span className="text-primary font-black">{meta.flashcards.length} Flashcards</span>
                             </>
                           )}
                         </div>
 
-                        <h3 className="font-extrabold text-sm sm:text-base text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
+                        <h3 className="font-black text-base sm:text-lg text-foreground line-clamp-2 leading-snug group-hover:text-primary transition-colors">
                           {c.title}
                         </h3>
 
-                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        <p className="text-xs sm:text-sm font-medium text-foreground/85 line-clamp-2 leading-relaxed">
                           {meta.cleanDescription || c.description}
                         </p>
 
-                        <div className="pt-1 flex items-center justify-between text-[11px] text-muted-foreground border-t border-border/60">
-                          <span className="flex items-center gap-1 font-semibold text-foreground">
-                            <User className="h-3 w-3 text-primary" />
+                        <div className="pt-2 flex items-center justify-between text-xs text-foreground/80 border-t border-border/70">
+                          <span className="flex items-center gap-1.5 font-bold text-foreground">
+                            <User className="h-3.5 w-3.5 text-primary" />
                             {c.instructor_name || "Lead Instructor"}
                           </span>
-                          <span className="text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
-                            <Award className="h-3 w-3" /> Certificate
+                          <span className="text-emerald-700 dark:text-emerald-300 font-extrabold flex items-center gap-1">
+                            <Award className="h-3.5 w-3.5" /> Certificate
                           </span>
                         </div>
                       </div>
                     </div>
 
                     {/* Bottom Action Button */}
-                    <div className="p-4 pt-0">
+                    <div className="p-4 sm:p-5 pt-0">
                       <Button
                         size="sm"
                         disabled={enroll.isPending}
@@ -448,7 +448,7 @@ export default function Learn() {
                           e.stopPropagation();
                           handleLaunchCourse(c);
                         }}
-                        className={`w-full h-9 rounded-xl font-black text-xs gap-1.5 shadow-sm ${
+                        className={`w-full h-10 rounded-xl font-black text-xs sm:text-sm gap-2 shadow-sm ${
                           accessible
                             ? "bg-primary text-primary-foreground"
                             : isFree
