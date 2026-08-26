@@ -79,12 +79,25 @@ export default function Footer() {
                 <span className="text-xl font-black tracking-tight text-foreground group-hover:text-primary transition-colors">
                   Bethelincovibe TV
                 </span>
-                <p className="text-xs font-semibold text-primary">Lagos Business Intelligence &amp; Media</p>
+                <p className="text-xs font-semibold text-primary">Business Growth Ecosystem &amp; Media</p>
               </div>
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed max-w-sm">
-              Empowering Nigerian entrepreneurs and MSMEs with actionable startup playbooks, verified business directories, and multi-channel marketing solutions.
+              Empowering entrepreneurs and small businesses with the tools, knowledge, visibility, AI-powered support, and community they need to grow.
             </p>
+            <div className="flex items-center gap-2 text-xs font-bold text-foreground/80 pt-0.5">
+              <span>Discover</span>
+              <span className="text-primary">•</span>
+              <span>Learn</span>
+              <span className="text-primary">•</span>
+              <span>Promote</span>
+              <span className="text-primary">•</span>
+              <span>Connect</span>
+              <span className="text-primary">•</span>
+              <span>Sell</span>
+              <span className="text-primary">•</span>
+              <span>Grow</span>
+            </div>
 
             <div className="pt-2">
               <p className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground/90 mb-3 flex items-center gap-1.5">
