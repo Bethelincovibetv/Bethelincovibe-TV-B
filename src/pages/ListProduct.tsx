@@ -14,8 +14,9 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import {
   Loader2, Trash2, ImagePlus, Package, Sparkles, Download,
-  UtensilsCrossed, CheckCircle2
+  UtensilsCrossed, CheckCircle2, Video, Play, ExternalLink
 } from "lucide-react";
+import ProductVideo from "@/components/directory/ProductVideo";
 import PhoneInput from "@/components/PhoneInput";
 import { slugify } from "@/lib/seo";
 import {
@@ -37,6 +38,7 @@ const emptyForm = {
   location: "Lagos, Nigeria",
   whatsapp: "",
   phone: "",
+  video_url: "",
   cover_image: "",
 };
 
@@ -146,6 +148,7 @@ export default function ListProduct() {
       location: form.location || (form.product_type === "digital" ? "Instant Online Download" : "Lagos, Nigeria"),
       whatsapp: form.whatsapp || null,
       phone: form.phone || null,
+      video_url: form.video_url || null,
       category_id: resolvedCatId || null,
       cover_image: form.cover_image || gallery[0] || null,
       images: gallery,
@@ -458,7 +461,40 @@ export default function ListProduct() {
               </p>
             </div>
 
-            {/* 8. Photo Uploads */}
+            {/* 8. YouTube / Video Showcase */}
+            <div className="space-y-2 rounded-2xl border border-red-500/20 bg-gradient-to-r from-red-500/5 via-rose-500/5 to-transparent p-3.5 sm:p-4">
+              <div className="flex items-center justify-between gap-2">
+                <Label htmlFor="p-video" className="font-black text-xs sm:text-sm text-foreground flex items-center gap-1.5">
+                  <div className="h-6 w-6 rounded-lg bg-red-600 text-white flex items-center justify-center shadow-xs">
+                    <Play className="h-3 w-3 fill-current ml-0.5" />
+                  </div>
+                  <span>Product YouTube Video Showcase (Optional)</span>
+                </Label>
+                <Badge variant="outline" className="text-[10px] font-bold border-red-500/30 text-red-600 dark:text-red-400">
+                  Boosts Sales
+                </Badge>
+              </div>
+              <Input
+                id="p-video"
+                value={form.video_url}
+                onChange={(e) => setForm({ ...form, video_url: e.target.value })}
+                placeholder="Paste YouTube link: e.g. https://www.youtube.com/watch?v=... or https://youtu.be/..."
+                className="h-11 rounded-xl text-xs sm:text-sm font-medium text-foreground bg-background border-border/80"
+              />
+              <p className="text-[11px] sm:text-xs font-medium text-muted-foreground">
+                Paste any YouTube, Vimeo, Loom, or TikTok link to show an embedded video walkthrough, unboxing, or course preview directly on your sales page.
+              </p>
+              {form.video_url && (
+                <div className="mt-2.5">
+                  <p className="text-[11px] font-bold text-foreground mb-1 flex items-center gap-1">
+                    <Video className="h-3.5 w-3.5 text-red-500" /> Live Video Preview:
+                  </p>
+                  <ProductVideo url={form.video_url} title={form.name || "Product Video Preview"} />
+                </div>
+              )}
+            </div>
+
+            {/* 9. Photo Uploads */}
             <div className="space-y-2">
               <Label className="font-black text-xs sm:text-sm text-foreground">
                 Product Images &amp; Mockups

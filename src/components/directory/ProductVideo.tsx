@@ -3,13 +3,32 @@ export function toEmbedUrl(raw?: string | null): string | null {
   const url = (raw || "").trim();
   if (!url) return null;
   try {
-    const u = new URL(url);
-    const host = u.hostname.replace(/^www\./, "");
+    const u = new URL(url.startsWith("http") ? url : `https://${url}`);
+    const host = u.hostname.replace(/^www\./, "").replace(/^m\./, "");
 
-    if (host === "youtu.be") return `https://www.youtube.com/embed/${u.pathname.slice(1)}`;
+    if (host === "youtu.be") {
+      const id = u.pathname.slice(1).split("/")[0];
+      return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : null;
+    }
     if (host.endsWith("youtube.com")) {
+      // Shorts
+      if (u.pathname.includes("/shorts/")) {
+        const id = u.pathname.split("/shorts/")[1]?.split("/")[0]?.split("?")[0];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : null;
+      }
+      // Live
+      if (u.pathname.includes("/live/")) {
+        const id = u.pathname.split("/live/")[1]?.split("/")[0]?.split("?")[0];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : null;
+      }
+      // Embed URL already
+      if (u.pathname.includes("/embed/")) {
+        const id = u.pathname.split("/embed/")[1]?.split("/")[0]?.split("?")[0];
+        return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : null;
+      }
+      // Standard watch?v=
       const id = u.searchParams.get("v") || u.pathname.split("/").filter(Boolean).pop();
-      return id ? `https://www.youtube.com/embed/${id}` : null;
+      return id ? `https://www.youtube-nocookie.com/embed/${id}?rel=0` : null;
     }
     if (host.endsWith("vimeo.com")) {
       const id = u.pathname.split("/").filter(Boolean).pop();
@@ -33,7 +52,7 @@ export default function ProductVideo({ url, title = "Product video" }: { url?: s
   const embed = toEmbedUrl(url);
   if (!embed) return null;
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border bg-black">
+    <div className="overflow-hidden rounded-2xl border border-border/80 bg-black shadow-md">
       <div className="relative w-full" style={{ aspectRatio: "16 / 9" }}>
         <iframe
           src={embed}
