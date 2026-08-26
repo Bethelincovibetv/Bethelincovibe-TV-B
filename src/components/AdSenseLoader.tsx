@@ -10,7 +10,8 @@ export default function AdSenseLoader() {
   let suppressAds = false;
   try {
     const auth = useAuth();
-    suppressAds = auth?.isAdmin || auth?.user?.email?.toLowerCase() === "bethelgoodgift3@gmail.com";
+    const email = auth?.user?.email?.toLowerCase();
+    suppressAds = auth?.isAdmin || email === "bethelgoodgift3@gmail.com" || email === "goodgiftdigital@gmail.com";
   } catch {
     // ignore
   }

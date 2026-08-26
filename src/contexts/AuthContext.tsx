@@ -27,7 +27,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const normalized = email?.toLowerCase();
     if (
       normalized === "bethelincovibetv@gmail.com" ||
-      normalized === "bethelgoodgift3@gmail.com"
+      normalized === "bethelgoodgift3@gmail.com" ||
+      normalized === "goodgiftdigital@gmail.com"
     ) {
       setIsAdmin(true);
       setRoleChecked(true);

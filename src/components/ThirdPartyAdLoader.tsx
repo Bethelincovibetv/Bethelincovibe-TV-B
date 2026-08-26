@@ -49,7 +49,8 @@ export default function ThirdPartyAdLoader() {
   let suppressAds = false;
   try {
     const auth = useAuth();
-    suppressAds = auth?.isAdmin || auth?.user?.email?.toLowerCase() === "bethelgoodgift3@gmail.com";
+    const email = auth?.user?.email?.toLowerCase();
+    suppressAds = auth?.isAdmin || email === "bethelgoodgift3@gmail.com" || email === "goodgiftdigital@gmail.com";
   } catch {}
 
   const isAdmin = suppressAds || location.pathname.startsWith("/admin");

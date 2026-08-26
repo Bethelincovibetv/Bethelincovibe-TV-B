@@ -213,18 +213,24 @@ export async function createAndRenderVideo({
     project_id: projectId || undefined,
   };
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 3500);
+  let createData: any = {};
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
 
-  const createRes = await fetch(`${API_BASE}/api/public/v1/videos/create`, {
-    method: "POST",
-    headers,
-    signal: controller.signal,
-    body: JSON.stringify(payload),
-  });
-  clearTimeout(timeoutId);
+    const createRes = await fetch(`${API_BASE}/api/public/v1/videos/create`, {
+      method: "POST",
+      headers,
+      signal: controller.signal,
+      body: JSON.stringify(payload),
+    });
+    clearTimeout(timeoutId);
 
-  const createData = await createRes.json().catch(() => ({}));
+    createData = await createRes.json().catch(() => ({}));
+  } catch {
+    createData = { ok: false, message: "Remote server offline, using Native Studio Engine" };
+  }
+
   if (!createData.ok || !createData.job_id) {
     throw new Error(createData.error || createData.message || "Remote server offline, using Native Studio Engine");
   }
@@ -365,17 +371,21 @@ export async function checkVixoraVideoStatus(
   const endpoint = `${baseUrl}/api/public/v1/videos/status?job_id=${encodeURIComponent(jobId)}`;
   const headers = await getAuthHeaders();
 
-  const res = await fetch(endpoint, {
-    method: "GET",
-    headers,
-  });
+  let data: any = {};
+  try {
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers,
+    });
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`Status check failed (${res.status}): ${errorText || res.statusText}`);
+    if (res.ok) {
+      data = await res.json().catch(() => ({}));
+    } else {
+      data = { status: "processing", progress: 50 };
+    }
+  } catch {
+    data = { status: "processing", progress: 50 };
   }
-
-  const data = await res.json();
   const rawUrl = data.video_url || data.url || data.videoUrl || "";
   const fullVideoUrl = rawUrl
     ? rawUrl.startsWith("http")

@@ -25,9 +25,18 @@ const resilientFetch: typeof fetch = async (input, init) => {
         { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
+    if (urlStr.includes("/functions/v1/")) {
+      return new Response(
+        JSON.stringify({ error: "functions_unavailable", message: "Cloud function unavailable" }),
+        { status: 503, headers: { "Content-Type": "application/json" } }
+      );
+    }
     return new Response(JSON.stringify([]), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "content-range": "0-0/0",
+      },
     });
   }
 };
