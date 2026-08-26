@@ -169,7 +169,7 @@ export function getStoredEmailProviders(): EmailProviderConfig[] {
         name: preset.name,
         type: preset.type,
         apiKey: "",
-        fromEmail: "bethelchukwunyere1@gmail.com",
+        fromEmail: "bethelincovibetv@gmail.com",
         fromName: "Bethelincovibe TV",
         domainOrRegion: preset.type === "mailgun" ? "mg.bethelincovibe.tv" : preset.type === "amazonses" ? "us-east-1" : undefined,
         enabled: idx === 0, // Enable first by default, others ready to toggle

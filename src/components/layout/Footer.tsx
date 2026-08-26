@@ -209,7 +209,7 @@ export default function Footer() {
                 <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> Lagos, Nigeria
               </p>
               <p className="flex items-center gap-2 font-medium">
-                <Mail className="h-3.5 w-3.5 text-primary shrink-0" /> bethelgoobdgift3@gmail.com
+                <Mail className="h-3.5 w-3.5 text-primary shrink-0" /> bethelincovibetv@gmail.com
               </p>
             </div>
           </div>

@@ -7,7 +7,7 @@ import voiceAvatarCharon from '@/assets/images/voice_avatar_charon_1786345498254
 import voiceAvatarFenrir from '@/assets/images/voice_avatar_fenrir_1786345507676.jpg';
 
 export const WHATSAPP_SUPPORT_NUMBER = '07043537401';
-export const SUPPORT_EMAIL = 'bethelgoodgift3@gmail.com';
+export const SUPPORT_EMAIL = 'bethelincovibetv@gmail.com';
 
 // Added missing PAYSTACK_SECRET_KEY export to resolve build errors in paystackService.ts
 // In production, sensitive keys should be managed via secure environment variables.

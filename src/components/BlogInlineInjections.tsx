@@ -219,7 +219,7 @@ export default function BlogInlineInjections({
   return (
     <div
       ref={ref}
-      className="prose prose-base md:prose-lg max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-p:leading-8 prose-li:leading-8 prose-img:rounded-xl prose-a:text-primary prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:not-italic prose-blockquote:text-lg"
+      className="blog-article-content prose prose-lg md:prose-xl max-w-none font-medium text-foreground leading-relaxed prose-headings:font-black prose-headings:tracking-tight prose-headings:text-foreground prose-p:font-medium prose-p:text-foreground/95 prose-p:leading-8 prose-p:text-[17.5px] md:prose-p:text-[19px] prose-li:font-medium prose-li:text-foreground/95 prose-li:leading-8 prose-strong:font-black prose-strong:text-foreground prose-img:rounded-2xl prose-a:font-bold prose-a:text-primary prose-a:underline prose-blockquote:font-semibold prose-blockquote:border-l-4 prose-blockquote:border-primary prose-blockquote:text-foreground prose-blockquote:bg-muted/40 prose-blockquote:p-4.5 prose-blockquote:rounded-r-xl"
     />
   );
 }

@@ -24,7 +24,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roleChecked, setRoleChecked] = useState(false);
 
   const checkAdminRole = async (userId: string, email?: string) => {
-    if (email?.toLowerCase() === "bethelgoodgift3@gmail.com") {
+    const normalized = email?.toLowerCase();
+    if (
+      normalized === "bethelincovibetv@gmail.com" ||
+      normalized === "bethelgoodgift3@gmail.com"
+    ) {
       setIsAdmin(true);
       setRoleChecked(true);
       return;

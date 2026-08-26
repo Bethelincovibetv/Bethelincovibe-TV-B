@@ -5,72 +5,104 @@ export default function PrivacyPolicy() {
   return (
     <>
       <Helmet>
-        <title>Privacy Policy - Bethelincovibe TV</title>
-        <meta name="description" content="Privacy Policy for Bethelincovibe TV. Learn how we collect, use, and protect your personal information." />
+        <title>Privacy Policy - Bethelincovibe TV | Business Growth Ecosystem</title>
+        <meta
+          name="description"
+          content="Privacy Policy for Bethelincovibe TV. Learn how our AI-powered business growth ecosystem collects, uses, and safeguards your business and personal information."
+        />
+        <link rel="canonical" href="https://bethelincovibetv.com/privacy-policy" />
       </Helmet>
-      <LegalPageLayout title="Privacy Policy" subtitle="How we collect, use & protect your information">
+      <LegalPageLayout
+        title="Privacy Policy"
+        subtitle="How we collect, use, and protect your information in the Bethelincovibe TV ecosystem"
+      >
+        <h2>1. Introduction</h2>
+        <p>
+          Welcome to Bethelincovibe TV ("we", "our", "us"). We are dedicated to empowering entrepreneurs, MSMEs, and creators while fiercely protecting your personal and business privacy. This Privacy Policy details how we collect, handle, store, and safeguard your information when you interact with our website, business directory, marketplace, AI coaching tools, and community services.
+        </p>
 
-
-        <h2>Introduction</h2>
-        <p>Welcome to Bethelincovibe TV ("we", "our", "us"). We are committed to protecting your personal information and your right to privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website.</p>
-
-        <h2>Information We Collect</h2>
-        <h3>Personal Information</h3>
-        <p>We may collect personal information that you voluntarily provide to us when you:</p>
+        <h2>2. Information We Collect</h2>
+        <h3>A. Information You Voluntarily Provide</h3>
+        <p>We may collect information you provide directly to us when you:</p>
         <ul>
-          <li>Register for an account</li>
-          <li>Subscribe to our newsletter</li>
-          <li>Contact us through our contact form</li>
-          <li>Interact with our website</li>
+          <li>Create an account or complete your entrepreneur user profile.</li>
+          <li>Submit a business or service listing for directory verification.</li>
+          <li>Publish products, wholesale inventories, or digital assets to the marketplace.</li>
+          <li>Generate single-page sales pages or configure WhatsApp leads routing.</li>
+          <li>Interact with the AI Business Coach or input queries into startup planning utilities.</li>
+          <li>Post topics, comments, or inquiries in the community forum.</li>
+          <li>Subscribe to our newsletters, intelligence briefs, or contact our support team.</li>
         </ul>
-        <p>This information may include your name, email address, and any other information you choose to provide.</p>
+        <p>
+          This may include your name, business name, phone number, WhatsApp contact, business email address, physical store address, category tags, product images, and commercial descriptions.
+        </p>
 
-        <h3>Automatically Collected Information</h3>
-        <p>When you visit our website, we may automatically collect certain information, including:</p>
+        <h3>B. Optional Integrations (Google Contacts &amp; Social Leads)</h3>
+        <p>
+          If you explicitly opt in to use our networking features (such as mutual WhatsApp contact synchronization), we use official client-side Google OAuth to facilitate the direct export or import of business contacts with your explicit, revocable consent. We never sell, rent, or misuse your private contact books.
+        </p>
+
+        <h3>C. Automatically Collected Device &amp; Usage Data</h3>
+        <p>When you browse our platform, our servers may automatically log:</p>
         <ul>
-          <li>Your IP address</li>
-          <li>Browser type and version</li>
-          <li>Operating system</li>
-          <li>Pages you visit and time spent on those pages</li>
-          <li>Referring website addresses</li>
+          <li>Browser type, operating system, and device screen resolution.</li>
+          <li>IP address and approximate geographic location (e.g. Lagos, Nigeria).</li>
+          <li>Pages visited, referring URLs, search queries, and duration of visits.</li>
         </ul>
 
-        <h2>How We Use Your Information</h2>
-        <p>We use the information we collect to:</p>
+        <h2>3. How We Use Your Information</h2>
+        <p>We use the data we collect to power and enhance the Bethelincovibe TV ecosystem:</p>
         <ul>
-          <li>Provide, operate, and maintain our website</li>
-          <li>Improve, personalize, and expand our website</li>
-          <li>Understand and analyze how you use our website</li>
-          <li>Communicate with you, including for customer service and updates</li>
-          <li>Send you marketing and promotional communications (with your consent)</li>
-          <li>Find and prevent fraud</li>
+          <li>To display and index verified business directory listings and products to interested buyers.</li>
+          <li>To deliver personalized, contextual responses via our AI Business Coach.</li>
+          <li>To facilitate direct buyer-to-seller communication via verified WhatsApp and phone channels.</li>
+          <li>To calculate platform analytics, track referral rewards, and maintain system health.</li>
+          <li>To distribute curated startup playbooks, market intelligence briefs, and platform updates.</li>
+          <li>To detect, prevent, and mitigate fraudulent listings, spam, and security risks.</li>
         </ul>
 
-        <h2>Cookies and Tracking Technologies</h2>
-        <p>We use cookies and similar tracking technologies to track activity on our website. Cookies are files with a small amount of data that may include an anonymous unique identifier.</p>
-        <p>You can instruct your browser to refuse all cookies or indicate when a cookie is being sent. However, if you do not accept cookies, you may not be able to use some portions of our website.</p>
+        <h2>4. Cookies, Analytics &amp; Third-Party Advertising</h2>
+        <p>
+          We use cookies and local storage to keep you authenticated, remember your preferences, and understand user traffic. Third-party advertising partners, including Google AdSense, may deploy cookies to deliver relevant commercial advertisements based on your browsing patterns.
+        </p>
+        <p>
+          You may manage or opt out of personalized Google advertising at any time by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer">Google Ads Settings</a>.
+        </p>
 
-        <h2>Third-Party Advertising</h2>
-        <p>We may use third-party advertising companies, including Google AdSense, to serve ads when you visit our website. These companies may use information about your visits to this and other websites to provide relevant advertisements. Google's use of advertising cookies enables it and its partners to serve ads based on your visit to our site and/or other sites on the Internet.</p>
-        <p>You may opt out of personalized advertising by visiting <a href="https://www.google.com/settings/ads" target="_blank" rel="noopener noreferrer">Google Ads Settings</a>.</p>
-
-        <h2>Third-Party Links</h2>
-        <p>Our website may contain links to third-party websites. We have no control over and assume no responsibility for the content, privacy policies, or practices of any third-party sites or services.</p>
-
-        <h2>Data Security</h2>
-        <p>We implement appropriate technical and organizational security measures to protect your personal information. However, no method of transmission over the Internet or electronic storage is 100% secure.</p>
-
-        <h2>Children's Privacy</h2>
-        <p>Our website is not intended for children under 13 years of age. We do not knowingly collect personal information from children under 13.</p>
-
-        <h2>Changes to This Privacy Policy</h2>
-        <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Last updated" date.</p>
-
-        <h2>Contact Us</h2>
-        <p>If you have any questions about this Privacy Policy, please contact us at:</p>
+        <h2>5. Data Sharing &amp; Third Parties</h2>
+        <p>
+          We do not sell your personal data. We only share information in the following limited circumstances:
+        </p>
         <ul>
-          <li>Email: bethelgoobdgift3@gmail.com</li>
-          <li>Location: Lagos, Nigeria</li>
+          <li><strong>Public Business Data:</strong> Information you publish to your public business profile, sales page, or marketplace listing is intended to be publicly discoverable by buyers.</li>
+          <li><strong>Service Providers:</strong> Trusted cloud infrastructure (e.g., Supabase database, hosting, email delivery) strictly bound by data confidentiality agreements.</li>
+          <li><strong>Legal Compliance:</strong> When required by enforceable legal requests or applicable regulations under the Federal Republic of Nigeria.</li>
+        </ul>
+
+        <h2>6. Data Security &amp; Retention</h2>
+        <p>
+          We deploy industry-standard encryption, role-based access controls, and secure database protocols to guard your personal and business records. While no internet transmission is 100% immune from risks, we continually audit and harden our security defenses.
+        </p>
+
+        <h2>7. Your Rights &amp; Choices</h2>
+        <p>You have the right to:</p>
+        <ul>
+          <li>Access, update, or edit your account information and business listings anytime via your dashboard.</li>
+          <li>Request deletion of your account and associated personal data.</li>
+          <li>Opt out of marketing emails by clicking the unsubscribe link in any newsletter.</li>
+        </ul>
+
+        <h2>8. Updates to This Privacy Policy</h2>
+        <p>
+          We may update this Privacy Policy periodically to reflect new ecosystem features. Any updates will be posted on this page with a revised date.
+        </p>
+
+        <h2>9. Contact Our Data Protection Team</h2>
+        <p>If you have any questions or data privacy requests, please contact us at:</p>
+        <ul>
+          <li><strong>Email:</strong> bethelincovibetv@gmail.com</li>
+          <li><strong>Location:</strong> Lagos, Nigeria</li>
+          <li><strong>Website:</strong> https://bethelincovibetv.com</li>
         </ul>
       </LegalPageLayout>
     </>
