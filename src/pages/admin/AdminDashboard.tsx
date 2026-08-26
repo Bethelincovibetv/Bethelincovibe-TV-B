@@ -1,15 +1,21 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   FileText, Building2, FolderTree, Users, Mail, Bot, Megaphone, Tv, Rocket, BarChart3, Sparkles, Settings, Bell, Image as ImageIcon,
-  TrendingUp, ArrowUpRight,
+  TrendingUp, ArrowUpRight, Cpu, Radio, ShieldCheck, Zap,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { SPECIALIZED_AI_AGENTS, loadPlatformAlerts, loadAgentTasks } from "@/lib/executiveAdminAIEngine";
 
 export default function AdminDashboard() {
   const { user } = useAuth();
+  const alerts = loadPlatformAlerts();
+  const tasks = loadAgentTasks();
+  const pendingTasks = tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length;
 
   const { data: stats } = useQuery({
     queryKey: ["admin-stats"],
@@ -78,6 +84,55 @@ export default function AdminDashboard() {
           Live data
         </div>
       </div>
+
+      {/* Executive Admin AI Command Center Feature Card */}
+      <Card className="p-4 sm:p-5 rounded-2xl border border-primary/25 bg-gradient-to-r from-primary/10 via-indigo-600/10 to-purple-600/10 shadow-xs relative overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-start gap-3.5 min-w-0">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-primary via-indigo-600 to-purple-600 text-white flex items-center justify-center shrink-0 shadow-md ring-2 ring-white/20">
+              <Bot className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-base sm:text-lg font-black tracking-tight text-foreground">
+                  Executive Admin AI Command Center
+                </h2>
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-black">
+                  Central Coordinator Active
+                </Badge>
+              </div>
+              <p className="text-xs text-muted-foreground mt-0.5 max-w-2xl">
+                Real-time strategic oversight of 11 Specialized AI Agents across Lagos &amp; Nigeria. Journey: Discover → Learn → Promote → Connect → Sell → Grow.
+              </p>
+              <div className="flex items-center gap-3 mt-2 text-[11px] font-medium text-foreground/80 flex-wrap">
+                <span className="flex items-center gap-1">
+                  <Cpu className="h-3.5 w-3.5 text-primary" />
+                  <strong>11</strong> Specialized Agents Ready
+                </span>
+                <span className="flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                  Health Score: <strong className="text-emerald-600 font-black">94/100</strong>
+                </span>
+                {pendingTasks > 0 && (
+                  <span className="flex items-center gap-1 text-amber-600 dark:text-amber-400 font-bold">
+                    <Zap className="h-3.5 w-3.5" />
+                    {pendingTasks} Active Directives
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap sm:flex-nowrap">
+            <Button size="sm" asChild className="h-9 px-4 font-black text-xs rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs gap-1.5">
+              <Link to="/admin/ai">
+                <Cpu className="h-4 w-4" />
+                Launch Command Center
+              </Link>
+            </Button>
+          </div>
+        </div>
+      </Card>
 
       {/* KPI grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

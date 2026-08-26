@@ -14,7 +14,7 @@ import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 const allLinks = [
   { to: "/admin", label: "Dashboard", icon: LayoutDashboard, end: true, group: "Overview", feature: null as string | null },
-  { to: "/admin/ai-admin", label: "AI Administrator", icon: Bot, group: "Overview", feature: "ai_admin" },
+  { to: "/admin/ai", label: "AI Administrator", icon: Bot, group: "Overview", feature: "ai_admin" },
   { to: "/admin/analytics", label: "Platform Analytics", icon: BarChart3, group: "Overview", feature: null },
 
   { to: "/admin/posts", label: "Posts", icon: FileText, group: "Content", feature: "blog" },
@@ -86,7 +86,8 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
           </p>
           <div className="flex flex-col gap-1.5">
             {links.map((l) => {
-              const active = l.end ? location.pathname === l.to : location.pathname.startsWith(l.to);
+              const isAiAdmin = (l.to === "/admin/ai" || l.to === "/admin/ai-admin") && (location.pathname === "/admin/ai" || location.pathname === "/admin/ai-admin");
+              const active = l.end ? location.pathname === l.to : (isAiAdmin || location.pathname.startsWith(l.to));
               const gradient = groupGradients[l.group] || "from-primary to-accent";
               return (
                 <Link key={l.to} to={l.to} onClick={onNavigate} className="group block">
@@ -349,79 +350,84 @@ export default function AdminLayout() {
         <main
           className={cn(
             "flex-1 max-w-full min-w-0",
-            location.pathname.startsWith("/admin/ai-admin") || location.pathname.startsWith("/admin/platform-ai")
-              ? "p-2 sm:p-3 md:p-4 flex flex-col min-h-0"
+            location.pathname.startsWith("/admin/ai") || location.pathname.startsWith("/admin/platform-ai")
+              ? "p-2 sm:p-3 md:p-4 flex flex-col min-h-0 pb-2"
               : "p-3 md:p-6"
           )}
-          style={{ paddingBottom: location.pathname.startsWith("/admin/ai-admin") || location.pathname.startsWith("/admin/platform-ai")
-            ? "calc(5.5rem + env(safe-area-inset-bottom, 0px))"
-            : "calc(6rem + env(safe-area-inset-bottom, 0px))" }}
+          style={{
+            paddingBottom:
+              location.pathname.startsWith("/admin/ai") || location.pathname.startsWith("/admin/platform-ai")
+                ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))"
+                : "calc(6rem + env(safe-area-inset-bottom, 0px))"
+          }}
         >
           <Outlet />
         </main>
 
-        {/* Mobile bottom tab bar — pill/floating style */}
-        <nav
-          className="md:hidden fixed bottom-0 inset-x-0 z-50 pointer-events-none"
-          style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-        >
-          <div className="mx-3 mb-3 pointer-events-auto">
-            <div className="bg-background/90 backdrop-blur-xl border border-border/60 rounded-2xl shadow-[0_10px_40px_-15px_rgba(0,0,0,0.25)] grid grid-cols-5 h-16 overflow-hidden">
-              {bottomTabs.map((t) => {
-                const active = t.end ? location.pathname === t.to : location.pathname.startsWith(t.to);
-                return (
-                  <NavLink
-                    key={t.to}
-                    to={t.to}
-                    className={cn(
+        {/* Mobile bottom tab bar — pill/floating style (hidden on Executive AI Admin page for maximum space) */}
+        {!(location.pathname.startsWith("/admin/ai") || location.pathname.startsWith("/admin/platform-ai")) && (
+          <nav
+            className="md:hidden fixed bottom-0 inset-x-0 z-50 pointer-events-none"
+            style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
+          >
+            <div className="mx-3 mb-3 pointer-events-auto">
+              <div className="bg-background/90 backdrop-blur-xl border border-border/60 rounded-2xl shadow-[0_10px_40px_-15px_rgba(0,0,0,0.25)] grid grid-cols-5 h-16 overflow-hidden">
+                {bottomTabs.map((t) => {
+                  const active = t.end ? location.pathname === t.to : location.pathname.startsWith(t.to);
+                  return (
+                    <NavLink
+                      key={t.to}
+                      to={t.to}
+                      className={cn(
+                        "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-all active:scale-95",
+                        active ? "text-primary" : "text-muted-foreground",
+                      )}
+                    >
+                      <div className={cn(
+                        "flex items-center justify-center h-8 w-10 rounded-xl transition-all",
+                        active && "bg-primary/12",
+                      )}>
+                        <t.icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
+                      </div>
+                      {t.label}
+                    </NavLink>
+                  );
+                })}
+                <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+                  <SheetTrigger asChild>
+                    <button className={cn(
                       "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-all active:scale-95",
-                      active ? "text-primary" : "text-muted-foreground",
-                    )}
-                  >
-                    <div className={cn(
-                      "flex items-center justify-center h-8 w-10 rounded-xl transition-all",
-                      active && "bg-primary/12",
+                      moreOpen ? "text-primary" : "text-muted-foreground",
                     )}>
-                      <t.icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
+                      <div className={cn(
+                        "flex items-center justify-center h-8 w-10 rounded-xl transition-all",
+                        moreOpen && "bg-primary/12",
+                      )}>
+                        <MoreHorizontal className="h-5 w-5" />
+                      </div>
+                      More
+                    </button>
+                  </SheetTrigger>
+                  <SheetContent side="bottom" className="h-[80vh] p-0 rounded-t-3xl flex flex-col border-0">
+                    <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-muted-foreground/30 shrink-0" />
+                    <div className="px-5 py-3 border-b shrink-0">
+                      <p className="text-lg font-bold">All Sections</p>
+                      <p className="text-xs text-muted-foreground">Jump to any admin area</p>
                     </div>
-                    {t.label}
-                  </NavLink>
-                );
-              })}
-              <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
-                <SheetTrigger asChild>
-                  <button className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-all active:scale-95",
-                    moreOpen ? "text-primary" : "text-muted-foreground",
-                  )}>
-                    <div className={cn(
-                      "flex items-center justify-center h-8 w-10 rounded-xl transition-all",
-                      moreOpen && "bg-primary/12",
-                    )}>
-                      <MoreHorizontal className="h-5 w-5" />
+                    <div className="flex-1 overflow-y-auto">
+                      <SidebarNav onNavigate={() => setMoreOpen(false)} />
                     </div>
-                    More
-                  </button>
-                </SheetTrigger>
-                <SheetContent side="bottom" className="h-[80vh] p-0 rounded-t-3xl flex flex-col border-0">
-                  <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-muted-foreground/30 shrink-0" />
-                  <div className="px-5 py-3 border-b shrink-0">
-                    <p className="text-lg font-bold">All Sections</p>
-                    <p className="text-xs text-muted-foreground">Jump to any admin area</p>
-                  </div>
-                  <div className="flex-1 overflow-y-auto">
-                    <SidebarNav onNavigate={() => setMoreOpen(false)} />
-                  </div>
-                  <div className="p-3 border-t shrink-0 bg-background" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
-                    <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2">
-                      <Link to="/" onClick={() => setMoreOpen(false)}><ArrowLeft className="h-4 w-4" />Back to Site</Link>
-                    </Button>
-                  </div>
-                </SheetContent>
-              </Sheet>
+                    <div className="p-3 border-t shrink-0 bg-background" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
+                      <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2">
+                        <Link to="/" onClick={() => setMoreOpen(false)}><ArrowLeft className="h-4 w-4" />Back to Site</Link>
+                      </Button>
+                    </div>
+                  </SheetContent>
+                </Sheet>
+              </div>
             </div>
-          </div>
-        </nav>
+          </nav>
+        )}
       </div>
     </div>
   );

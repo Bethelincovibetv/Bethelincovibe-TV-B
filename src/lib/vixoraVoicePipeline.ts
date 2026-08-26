@@ -68,7 +68,7 @@ export function getGeminiApiKey(): string {
 }
 
 /**
- * Request user microphone access
+ * Request user microphone access safely with clean constraints
  */
 export async function requestMicrophoneAccess(): Promise<{
   granted: boolean;
@@ -78,7 +78,7 @@ export async function requestMicrophoneAccess(): Promise<{
   if (typeof navigator === "undefined" || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     return {
       granted: false,
-      error: "Voice input isn't supported on this browser. Please try another browser.",
+      error: "Microphone access is not supported on this browser. Please try Chrome, Safari, or Edge.",
     };
   }
 
@@ -101,7 +101,7 @@ export async function requestMicrophoneAccess(): Promise<{
     return {
       granted: false,
       error: isDenied
-        ? "Microphone permission is required for voice conversations. Please allow microphone access."
+        ? "Microphone permission is required for voice conversations. Please allow microphone access in your browser."
         : err.message || "Microphone access failed. Please check device settings.",
     };
   }
@@ -126,40 +126,61 @@ export function cleanTextForSpeech(text: string): string {
     .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
     .replace(/\s+/g, " ")
     .trim()
-    .slice(0, 4000);
+    .slice(0, 3500);
 }
 
 /**
- * Reliable Speech-To-Text → Gemini LLM → Text-To-Speech Voice Engine
+ * Convert Blob to Base64 data string
+ */
+export async function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const result = (reader.result as string) || "";
+      const base64 = result.includes(",") ? result.split(",")[1] : result;
+      resolve(base64);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+/**
+ * VixoraVoicePipeline
  * 
- * Pipeline:
- * MICROPHONE → REAL SPEECH-TO-TEXT → USER TRANSCRIPT → GEMINI TEXT MODEL → AI RESPONSE TEXT → TTS → AI VOICE
+ * Traditional, ultra-reliable STT → LLM → TTS Voice Architecture:
+ * 1. MICROPHONE (Clean MediaStream & Analyser)
+ * 2. REAL SPEECH-TO-TEXT (Web Speech API with live interim updates + Gemini Multimodal Fallback)
+ * 3. USER TRANSCRIPT (Sent as verified text)
+ * 4. EXISTING GEMINI TEXT MODEL (Coach Bethel Goodgift Prompt + Gemini 3.7 Flash)
+ * 5. AI RESPONSE TEXT (Clean conversational text)
+ * 6. TEXT-TO-SPEECH (Web SpeechSynthesis / Voice synthesis)
+ * 7. AI VOICE RESPONSE with instant interruption support.
  */
 export class VixoraVoicePipeline {
   private state: VoiceState = "idle";
   private options: Required<VoicePipelineOptions>;
   private callbacks: VoicePipelineCallbacks;
 
-  // Speech Recognition (Primary STT)
+  // Primary STT (Web Speech API)
   private recognition: any = null;
   private isRecognitionActive = false;
   private silenceTimer: any = null;
-  private interimTranscript = "";
-  private accumulatedFinalTranscript = "";
-  private hasSpokenInTurn = false;
+  private currentSpokenText = "";
+  private hasSpokenInCurrentTurn = false;
 
-  // Fallback Audio Recorder (Secondary STT if Web Speech API unsupported)
+  // Secondary Fallback STT (MediaRecorder + Gemini STT)
   private mediaStream: MediaStream | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private audioChunks: Blob[] = [];
   private audioCtx: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
+  private isFallbackMode = false;
 
-  // TTS Speech Synthesis
-  private isSpeaking = false;
+  // Speech & Playback
   private currentUtterance: SpeechSynthesisUtterance | null = null;
 
-  // Visualizer
+  // Visualizer and Lifecycle
   private visualizerInterval: any = null;
   private isMuted = false;
   private isStopped = false;
@@ -169,15 +190,13 @@ export class VixoraVoicePipeline {
     const ctx = options.businessContext || {};
     const defaultPrompt =
       options.systemPrompt ||
-      `You are ${coachName}, the Chief AI Business Strategist at BTV & Bethelincovibe.
-You provide tactical, high-converting business advice, pricing models, marketing strategies, Nigerian & Global market insights, and step-by-step action plans.
-${ctx.business_name ? `Business Name: ${ctx.business_name}` : ""}
-${ctx.industry ? `Industry: ${ctx.industry}` : ""}
-${ctx.stage ? `Stage: ${ctx.stage}` : ""}
-${ctx.goal ? `Primary Goal: ${ctx.goal}` : ""}
-${ctx.monthly_revenue ? `Monthly Revenue: ${ctx.monthly_revenue}` : ""}
-Tone: Authoritative, motivating, practical, and conversational.
-Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken sentences). Do not use markdown asterisks or bullet lists.`;
+      `You are ${coachName}, an elite, high-energy Nigerian and Global business strategist and commercial growth mentor powered by BTV AI Studio.
+${ctx.business_name ? `The user's business is "${ctx.business_name}".` : ""}
+${ctx.industry ? `Industry: ${ctx.industry}.` : ""}
+${ctx.stage ? `Stage: ${ctx.stage}.` : ""}
+${ctx.goal ? `Goal: ${ctx.goal}.` : ""}
+${ctx.monthly_revenue ? `Monthly Revenue: ${ctx.monthly_revenue}.` : ""}
+Speak with high energy, commercial sharpness, and actionable practical insights. Keep responses concise and punchy (2-3 sentences max per spoken turn) so the live voice call feels natural, engaging, and fast. Refer to Naira (₦) or market expansion where appropriate. Never output markdown asterisks or bullet points.`;
 
     this.options = {
       voiceName: options.voiceName || "Aoede",
@@ -185,7 +204,7 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
       silenceTimeoutMs: options.silenceTimeoutMs || 1200,
       continuous: options.continuous ?? true,
       pitch: options.pitch || 1.0,
-      rate: options.rate || 1.0,
+      rate: options.rate || 1.02,
       systemPrompt: defaultPrompt,
       coachName: coachName,
       businessContext: ctx,
@@ -206,7 +225,6 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
   }
 
   private setState(state: VoiceState) {
-    console.log(`[VOICE] state transition: ${this.state} -> ${state}`);
     this.state = state;
     this.callbacks.onStateChange?.(state);
     this.updateVisualizer(state);
@@ -215,50 +233,51 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
   /**
    * Start the Voice Pipeline
    */
-  public async start(): Promise<boolean> {
+  public async start(welcomeGreeting?: string): Promise<boolean> {
     this.isStopped = false;
     this.stopTTS();
     this.setState("connecting");
 
-    console.log("[VOICE] microphone requested");
-
-    // 1. Check & request microphone permission
+    // 1. Request microphone access
     const micRes = await requestMicrophoneAccess();
     if (!micRes.granted) {
-      console.warn("[VOICE] microphone permission denied:", micRes.error);
       this.setState("mic-denied");
       this.callbacks.onPermissionChange?.("denied", micRes.error);
       this.callbacks.onError?.(
-        micRes.error || "Microphone permission is required for voice conversations."
+        micRes.error || "Microphone permission is required for voice conversation."
       );
       return false;
     }
 
     this.mediaStream = micRes.stream || null;
     this.callbacks.onPermissionChange?.("granted");
-    console.log("[VOICE] microphone permission granted");
 
-    // Setup Web Audio Analyser for accurate visualizer levels
+    // Setup Web Audio Analyser for live frequency visualization
     this.setupAudioAnalyser(this.mediaStream);
 
-    // 2. Initialize Speech-to-Text
-    const SpeechRecognition =
+    // 2. Determine STT Provider (Web Speech API primary, Gemini fallback)
+    const SpeechRecognitionClass =
       typeof window !== "undefined" &&
       ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
 
-    if (SpeechRecognition) {
-      this.initNativeSpeechRecognition(SpeechRecognition);
+    if (SpeechRecognitionClass) {
+      this.isFallbackMode = false;
+      this.initNativeSpeechRecognition(SpeechRecognitionClass);
       this.startListeningNative();
     } else {
-      console.log("[VOICE] Native SpeechRecognition not available, using Gemini Audio STT fallback");
+      this.isFallbackMode = true;
       this.startListeningFallback();
+    }
+
+    if (welcomeGreeting) {
+      this.speakWithTTS(welcomeGreeting);
     }
 
     return true;
   }
 
   /**
-   * Initialize native browser SpeechRecognition API
+   * Initialize native Web SpeechRecognition
    */
   private initNativeSpeechRecognition(SpeechRecognitionClass: any) {
     try {
@@ -275,7 +294,6 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
-        console.log("[VOICE] speech recognition started");
         this.isRecognitionActive = true;
         if (this.state !== "processing" && this.state !== "speaking") {
           this.setState("listening");
@@ -283,84 +301,70 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
       };
 
       recognition.onspeechstart = () => {
-        console.log("[VOICE] speech detected");
-        this.hasSpokenInTurn = true;
+        this.hasSpokenInCurrentTurn = true;
         if (this.silenceTimer) clearTimeout(this.silenceTimer);
       };
 
       recognition.onresult = (event: any) => {
         if (this.state === "processing" || this.state === "speaking") return;
 
-        let interim = "";
-        let finalChunk = "";
+        let finalPart = "";
+        let interimPart = "";
 
-        for (let i = event.resultIndex; i < event.results.length; i++) {
+        for (let i = 0; i < event.results.length; ++i) {
           const res = event.results[i];
           const transcript = res[0]?.transcript || "";
           if (res.isFinal) {
-            finalChunk += " " + transcript;
+            finalPart += transcript + " ";
           } else {
-            interim += transcript;
+            interimPart += transcript;
           }
         }
 
-        if (finalChunk.trim()) {
-          this.accumulatedFinalTranscript = (
-            this.accumulatedFinalTranscript +
-            " " +
-            finalChunk.trim()
-          ).trim();
-          console.log("[VOICE] final transcript chunk:", this.accumulatedFinalTranscript);
+        const fullCurrentTranscript = (finalPart + (interimPart ? " " + interimPart : "")).replace(/\s+/g, " ").trim();
+
+        if (fullCurrentTranscript) {
+          this.currentSpokenText = fullCurrentTranscript;
+          this.hasSpokenInCurrentTurn = true;
+          this.callbacks.onInterimTranscript?.(fullCurrentTranscript);
+
+          // Reset silence timer whenever a new syllable/word is recognized
+          this.resetSilenceTimer();
         }
-
-        const currentDisplay = (
-          this.accumulatedFinalTranscript +
-          (interim ? (this.accumulatedFinalTranscript ? " " : "") + interim : "")
-        ).trim();
-
-        if (currentDisplay) {
-          this.interimTranscript = currentDisplay;
-          console.log("[VOICE] interim transcript:", currentDisplay);
-          this.callbacks.onInterimTranscript?.(currentDisplay);
-          this.hasSpokenInTurn = true;
-        }
-
-        // Reset silence detection timer whenever user says a word
-        this.resetSilenceTimer();
       };
 
       recognition.onerror = (event: any) => {
-        console.warn("[VOICE] speech recognition error:", event.error);
         if (event.error === "not-allowed" || event.error === "permission-denied") {
           this.setState("mic-denied");
           this.callbacks.onError?.(
-            "Microphone permission is required for voice conversations. Please check your browser settings."
+            "Microphone access was denied. Please allow microphone permissions."
           );
         } else if (event.error === "no-speech") {
-          // Normal timeout if user was silent, we keep listening unless stopped
-          if (this.hasSpokenInTurn && this.accumulatedFinalTranscript.trim()) {
+          // Keep listening
+          if (this.hasSpokenInCurrentTurn && this.currentSpokenText.trim().length >= 2) {
             this.finalizeAndSendTranscript();
           }
         } else if (event.error === "network") {
-          console.warn("[VOICE] Speech recognition network glitch, attempting quick restart");
-        } else {
-          this.callbacks.onError?.("I couldn't understand that. Please try again.");
+          // If native recognition fails due to network, switch gracefully to fallback
+          if (!this.isFallbackMode) {
+            this.isFallbackMode = true;
+            this.startListeningFallback();
+          }
         }
       };
 
       recognition.onend = () => {
-        console.log("[VOICE] speech recognition ended");
         this.isRecognitionActive = false;
 
-        // If stopped intentionally or processing/speaking, do not auto-restart
         if (this.isStopped) return;
 
-        if (this.hasSpokenInTurn && (this.accumulatedFinalTranscript.trim() || this.interimTranscript.trim())) {
+        // If user finished a spoken turn when recognition ended
+        if (this.hasSpokenInCurrentTurn && this.currentSpokenText.trim().length >= 2) {
           this.finalizeAndSendTranscript();
           return;
         }
 
-        // If still in listening state and continuous, restart recognition
+        // Keep listening in continuous mode
         if (this.state === "listening" && !this.isStopped) {
           try {
             recognition.start();
@@ -370,95 +374,78 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
 
       this.recognition = recognition;
     } catch (err) {
-      console.error("[VOICE] Failed to initialize SpeechRecognition:", err);
+      console.warn("[VOICE] Native SpeechRecognition error, falling back to MediaRecorder:", err);
+      this.isFallbackMode = true;
+      this.startListeningFallback();
     }
   }
 
   private startListeningNative() {
-    this.accumulatedFinalTranscript = "";
-    this.interimTranscript = "";
-    this.hasSpokenInTurn = false;
+    this.currentSpokenText = "";
+    this.hasSpokenInCurrentTurn = false;
 
     if (!this.recognition) return;
     try {
       this.recognition.start();
     } catch (err: any) {
-      // If already started, ignore error
       if (!err.message?.includes("already started")) {
-        console.warn("[VOICE] Error starting recognition:", err);
+        console.warn("[VOICE] Recognition start error:", err);
       }
     }
   }
 
   /**
-   * Reset silence timer to auto-send when the user stops speaking
+   * Reset silence timer for automatic conversational turn-taking
    */
   private resetSilenceTimer() {
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
 
     this.silenceTimer = setTimeout(() => {
-      const textToFinalize = (
-        this.accumulatedFinalTranscript || this.interimTranscript
-      ).trim();
-
+      const textToFinalize = this.currentSpokenText.trim();
       if (textToFinalize && textToFinalize.length >= 2 && this.state === "listening") {
-        console.log("[VOICE] Silence detected. Finalizing user speech:", textToFinalize);
         this.finalizeAndSendTranscript();
       }
     }, this.options.silenceTimeoutMs);
   }
 
   /**
-   * Finalize the transcript and send it to the AI Business Coach
+   * Finalize the transcript and dispatch to Gemini LLM
    */
   public async finalizeAndSendTranscript() {
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
 
-    const finalText = (
-      this.accumulatedFinalTranscript || this.interimTranscript
-    ).trim();
-
-    // Reset transcription buffers
-    this.accumulatedFinalTranscript = "";
-    this.interimTranscript = "";
-    this.hasSpokenInTurn = false;
+    const finalText = this.currentSpokenText.trim();
+    this.currentSpokenText = "";
+    this.hasSpokenInCurrentTurn = false;
     this.callbacks.onInterimTranscript?.("");
 
     if (!finalText || finalText.length < 2) {
-      console.log("[VOICE] No speech captured or empty transcript.");
-      if (this.state === "listening" && !this.isStopped) {
-        // Keep listening
-        return;
-      }
       return;
     }
 
-    console.log("[VOICE] final transcript:", finalText);
     this.callbacks.onFinalTranscript?.(finalText);
     this.callbacks.onUserMessage?.(finalText);
 
-    // Stop recognition while AI is thinking/speaking
+    // Temporarily pause recognition while processing
     if (this.recognition && this.isRecognitionActive) {
       try {
         this.recognition.stop();
       } catch {}
     }
 
-    // Send to Gemini LLM
-    await this.processWithGemini(finalText);
+    await this.processWithGeminiTextModel(finalText);
   }
 
   /**
-   * Send finalized transcript to Gemini Text Model / AI Business Coach
+   * Process finalized user text using standard Gemini Text Model (LLM)
    */
-  private async processWithGemini(userText: string) {
+  private async processWithGeminiTextModel(userText: string) {
     this.setState("processing");
-    console.log("[VOICE] sending transcript to AI:", userText);
 
     let replyText = "";
 
     try {
-      // 1. Try Supabase Edge Function
+      // 1. Try Supabase business-coach edge function if configured
       try {
         const { data, error } = await supabase.functions.invoke("business-coach", {
           body: {
@@ -466,15 +453,12 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
             businessContext: this.options.businessContext,
           },
         });
-
         if (!error && data?.reply) {
           replyText = data.reply;
         }
-      } catch (e) {
-        console.warn("[VOICE] Supabase function fallback to direct Gemini:", e);
-      }
+      } catch {}
 
-      // 2. Direct Gemini Text Model (gemini-3.7-flash)
+      // 2. Direct Gemini 3.7 Flash Text Generation
       if (!replyText) {
         const apiKey = getGeminiApiKey();
         const ai = new GoogleGenAI({ apiKey });
@@ -486,7 +470,7 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
               role: "user",
               parts: [
                 {
-                  text: `${this.options.systemPrompt}\n\nUser Spoken Question: "${userText}"\n\nProvide a high-impact, actionable spoken response in 2-3 sentences.`,
+                  text: `${this.options.systemPrompt}\n\nUser Question: "${userText}"\n\nProvide an authoritative, actionable, practical spoken answer in 2 to 3 concise sentences. Never use markdown asterisks or bullet points.`,
                 },
               ],
             },
@@ -495,49 +479,51 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
 
         replyText =
           response.text?.trim() ||
-          "Here is what I recommend for your business growth: focus on high-converting client outreach and optimizing your pricing margin today.";
+          "Focus on validating customer demand, optimizing your pricing margins, and maintaining active client outreach this week.";
       }
 
-      console.log("[VOICE] AI response received:", replyText);
+      // Clean text for speech
+      replyText = replyText.replace(/[*_#`~]/g, " ").replace(/\s+/g, " ").trim();
+
       this.callbacks.onAIResponse?.(replyText);
 
-      // 3. Send AI response to Text-To-Speech
+      // 3. Send AI text response to Text-To-Speech (TTS)
       await this.speakWithTTS(replyText);
     } catch (err: any) {
-      console.error("[VOICE] AI generation error:", err);
+      console.error("[VOICE] Gemini reasoning error:", err);
       this.setState("error");
-      this.callbacks.onError?.("I couldn't generate a response right now. Please try again.");
+      this.callbacks.onError?.("I couldn't process that response. Please try speaking again.");
 
-      // Resume listening after 2 seconds if continuous
       if (this.options.continuous && !this.isStopped) {
         setTimeout(() => {
           if (!this.isStopped) {
             this.setState("listening");
-            this.startListeningNative();
+            if (this.isFallbackMode) {
+              this.startListeningFallback();
+            } else {
+              this.startListeningNative();
+            }
           }
-        }, 2000);
+        }, 1500);
       }
     }
   }
 
   /**
-   * Text-To-Speech using Web Speech Synthesis API
+   * Text-To-Speech Playback using Web Speech Synthesis
    */
   private async speakWithTTS(text: string): Promise<void> {
     const cleanSpeech = cleanTextForSpeech(text);
     if (!cleanSpeech) {
-      this.onSpeechEnd();
+      this.onSpeechFinished();
       return;
     }
 
     if (typeof window === "undefined" || !window.speechSynthesis) {
-      console.warn("[VOICE] SpeechSynthesis not supported");
-      this.callbacks.onError?.("The response is ready, but I couldn't play the voice.");
-      this.onSpeechEnd();
+      this.onSpeechFinished();
       return;
     }
 
-    console.log("[VOICE] sending response to TTS:", cleanSpeech);
     this.stopTTS();
     this.setState("speaking");
 
@@ -550,7 +536,6 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
         utterance.pitch = this.options.pitch || 1.0;
         utterance.lang = this.options.lang || "en-US";
 
-        // Select the most natural voice available
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
           const preferred =
@@ -561,7 +546,8 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
                   v.name.includes("Google") ||
                   v.name.includes("Samantha") ||
                   v.name.includes("Victoria") ||
-                  v.name.includes("Premium"))
+                  v.name.includes("Premium") ||
+                  v.name.includes("English"))
             ) ||
             voices.find((v) => v.lang.startsWith("en")) ||
             voices[0];
@@ -571,54 +557,46 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
           }
         }
 
-        utterance.onstart = () => {
-          console.log("[VOICE] TTS playback started");
-          this.isSpeaking = true;
-        };
-
         utterance.onend = () => {
-          console.log("[VOICE] TTS playback finished");
-          this.isSpeaking = false;
           this.currentUtterance = null;
-          this.onSpeechEnd();
+          this.onSpeechFinished();
           resolve();
         };
 
-        utterance.onerror = (e) => {
-          console.warn("[VOICE] TTS playback error/cancel:", e);
-          this.isSpeaking = false;
+        utterance.onerror = () => {
           this.currentUtterance = null;
-          this.onSpeechEnd();
+          this.onSpeechFinished();
           resolve();
         };
 
         window.speechSynthesis.speak(utterance);
       } catch (err) {
-        console.error("[VOICE] TTS execution error:", err);
-        this.isSpeaking = false;
-        this.onSpeechEnd();
+        this.onSpeechFinished();
         resolve();
       }
     });
   }
 
-  private onSpeechEnd() {
+  private onSpeechFinished() {
     if (this.isStopped) {
       this.setState("idle");
       return;
     }
 
     if (this.options.continuous) {
-      console.log("[VOICE] Ready for next spoken turn");
       this.setState("listening");
-      this.startListeningNative();
+      if (this.isFallbackMode) {
+        this.startListeningFallback();
+      } else {
+        this.startListeningNative();
+      }
     } else {
       this.setState("idle");
     }
   }
 
   /**
-   * Stop Text-To-Speech immediately
+   * Stop TTS immediately
    */
   public stopTTS() {
     if (typeof window !== "undefined" && window.speechSynthesis) {
@@ -626,26 +604,28 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
         window.speechSynthesis.cancel();
       } catch {}
     }
-    this.isSpeaking = false;
     this.currentUtterance = null;
   }
 
   /**
-   * Interrupt current AI speech and resume listening immediately
+   * User Voice Interruption: immediately cancel AI speech and listen
    */
   public interrupt() {
-    console.log("[VOICE] User interrupted speech");
     this.stopTTS();
     this.callbacks.onInterrupted?.();
     if (!this.isStopped) {
       this.setState("listening");
-      this.startListeningNative();
+      if (this.isFallbackMode) {
+        this.startListeningFallback();
+      } else {
+        this.startListeningNative();
+      }
     }
   }
 
   /**
-   * Fallback STT for browsers without Web Speech API
-   * Uses MediaRecorder to capture audio and Gemini Multimodal audio transcription
+   * Secondary Fallback STT for browsers without Web Speech API
+   * Uses MediaRecorder + Gemini 3.7 Flash Multimodal Audio transcription
    */
   private startListeningFallback() {
     if (!this.mediaStream) return;
@@ -666,48 +646,45 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
         this.setState("transcribing");
 
         try {
-          const reader = new FileReader();
-          reader.onloadend = async () => {
-            const base64 = ((reader.result as string) || "").split(",")[1];
-            if (!base64) return;
+          const base64 = await blobToBase64(blob);
+          if (!base64) return;
 
-            const apiKey = getGeminiApiKey();
-            const ai = new GoogleGenAI({ apiKey });
-            const resp = await ai.models.generateContent({
-              model: "gemini-3.7-flash",
-              contents: [
-                {
-                  parts: [
-                    { inlineData: { mimeType: mime.split(";")[0], data: base64 } },
-                    {
-                      text: "Transcribe what the user said in this audio word for word into English. Return ONLY the transcribed text without quotes or explanations.",
-                    },
-                  ],
-                },
-              ],
-            });
+          const apiKey = getGeminiApiKey();
+          const ai = new GoogleGenAI({ apiKey });
+          const resp = await ai.models.generateContent({
+            model: "gemini-3.7-flash",
+            contents: [
+              {
+                parts: [
+                  { inlineData: { mimeType: mime.split(";")[0], data: base64 } },
+                  {
+                    text: "Transcribe what the user said in this audio word for word into English. Return ONLY the transcribed text without quotes or explanations. If no words are spoken, return an empty string.",
+                  },
+                ],
+              },
+            ],
+          });
 
-            const transcript = resp.text?.trim() || "";
-            if (transcript) {
-              this.callbacks.onFinalTranscript?.(transcript);
-              this.callbacks.onUserMessage?.(transcript);
-              await this.processWithGemini(transcript);
-            } else {
-              this.setState("listening");
-            }
-          };
-          reader.readAsDataURL(blob);
+          const transcript = resp.text?.trim() || "";
+          if (transcript) {
+            this.callbacks.onFinalTranscript?.(transcript);
+            this.callbacks.onUserMessage?.(transcript);
+            await this.processWithGeminiTextModel(transcript);
+          } else {
+            this.setState("listening");
+            this.startListeningFallback();
+          }
         } catch (err) {
-          console.error("[VOICE] Gemini audio STT fallback failed:", err);
-          this.setState("error");
+          console.error("[VOICE] Fallback STT error:", err);
+          this.setState("listening");
         }
       };
 
-      recorder.start(500);
+      recorder.start(1000);
       this.mediaRecorder = recorder;
       this.setState("listening");
     } catch (err) {
-      console.error("[VOICE] Fallback recorder setup failed:", err);
+      console.error("[VOICE] MediaRecorder fallback init failed:", err);
     }
   }
 
@@ -732,7 +709,7 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
       source.connect(analyser);
       this.analyser = analyser;
     } catch (err) {
-      console.warn("[VOICE] Could not setup AudioContext analyser:", err);
+      console.warn("[VOICE] AudioContext analyser setup warning:", err);
     }
   }
 
@@ -794,7 +771,6 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
    * Cleanly stop all components of the pipeline
    */
   public stop() {
-    console.log("[VOICE] pipeline stopped");
     this.isStopped = true;
     if (this.silenceTimer) clearTimeout(this.silenceTimer);
     clearInterval(this.visualizerInterval);
@@ -831,8 +807,7 @@ Keep responses concise and direct for spoken conversation (2 to 4 punchy, spoken
     // Stop TTS
     this.stopTTS();
 
-    this.accumulatedFinalTranscript = "";
-    this.interimTranscript = "";
+    this.currentSpokenText = "";
     this.setState("idle");
   }
 }

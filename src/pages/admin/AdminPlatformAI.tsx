@@ -28,6 +28,25 @@ import {
   encodeCourseMetadata,
 } from "@/lib/aiCourseCreatorEngine";
 import { cleanRawAsterisks } from "@/lib/productAIEngine";
+import {
+  AgentTask,
+  PlatformAlert,
+  loadAgentTasks,
+  saveAgentTasks,
+  loadPlatformAlerts,
+  savePlatformAlerts,
+  generateExecutiveDailyBriefing,
+  AgentId,
+  PLATFORM_SSOT,
+  SPECIALIZED_AI_AGENTS,
+  appendAuditLog,
+} from "@/lib/executiveAdminAIEngine";
+import ExecutiveOverviewTab from "@/components/admin/executive/ExecutiveOverviewTab";
+import AgentFleetMatrixTab from "@/components/admin/executive/AgentFleetMatrixTab";
+import TaskQueueTab from "@/components/admin/executive/TaskQueueTab";
+import DailyBriefingModal from "@/components/admin/executive/DailyBriefingModal";
+import SingleSourceOfTruthModal from "@/components/admin/executive/SingleSourceOfTruthModal";
+import InvestigationModal from "@/components/admin/executive/InvestigationModal";
 
 
 type ToolLog = {
@@ -114,6 +133,73 @@ export default function AdminPlatformAI() {
   const currentAudioSourceRef = useRef<AudioBufferSourceNode | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Executive Coordination State
+  const [activeTab, setActiveTab] = useState<"overview" | "console" | "fleet" | "tasks">("overview");
+  const [tasks, setTasks] = useState<AgentTask[]>(() => loadAgentTasks());
+  const [alerts, setAlerts] = useState<PlatformAlert[]>(() => loadPlatformAlerts());
+  const [dailyBriefingOpen, setDailyBriefingOpen] = useState(false);
+  const [investigationOpen, setInvestigationOpen] = useState(false);
+  const [ssotOpen, setSsotOpen] = useState(false);
+
+  // Persistence helpers
+  const handleUpdateTasks = (updated: AgentTask[]) => {
+    setTasks(updated);
+    saveAgentTasks(updated);
+  };
+
+  const handleUpdateAlerts = (updated: PlatformAlert[]) => {
+    setAlerts(updated);
+    savePlatformAlerts(updated);
+  };
+
+  const handleCreateTask = (newTask: Partial<AgentTask>) => {
+    const task: AgentTask = {
+      id: `task_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      title: newTask.title || "Untitled Executive Directive",
+      description: newTask.description || "",
+      assignedAgentId: newTask.assignedAgentId || "ai_blogger",
+      journeyPillar: newTask.journeyPillar || "promote",
+      priority: newTask.priority || "medium",
+      status: "pending",
+      createdAt: new Date().toISOString(),
+      evaluation: {
+        missionAlignment: 9,
+        userValue: 8,
+        businessValue: 9,
+        strategicValue: 8,
+        complexity: "moderate",
+        securityRisk: "low",
+        scalability: "high",
+        dataBacking: "Executive Strategy Board",
+      },
+      ...newTask,
+    };
+    const updated = [task, ...tasks];
+    handleUpdateTasks(updated);
+    appendAuditLog("EXECUTIVE_ADMIN", "TASK_CREATED", `Created directive "${task.title}" for ${task.assignedAgentId}`);
+    toast.success(`Directive assigned to ${task.assignedAgentId}`);
+  };
+
+  const handleExecuteTask = async (task: AgentTask) => {
+    toast.info(`Executing directive: ${task.title} via Central AI Coordinator...`);
+    setActiveTab("console");
+    await handleAsk(`[DIRECTIVE FOR ${task.assignedAgentId.toUpperCase()}]: ${task.title}. Context: ${task.description}`);
+    const updated = tasks.map((t) => (t.id === task.id ? { ...t, status: "completed" as const, completedAt: new Date().toISOString() } : t));
+    handleUpdateTasks(updated);
+    appendAuditLog(task.assignedAgentId, "TASK_EXECUTED", `Executed task "${task.title}"`);
+  };
+
+  const handleDispatchToAgent = (agentId: AgentId, defaultPrompt?: string) => {
+    const agent = SPECIALIZED_AI_AGENTS.find((a) => a.id === agentId);
+    setActiveTab("console");
+    if (defaultPrompt) {
+      handleAsk(`[DIRECTIVE TO ${agent?.name || agentId}]: ${defaultPrompt}`);
+    } else {
+      setInput(`[${agent?.name || agentId}]: `);
+      inputRef.current?.focus();
+    }
+  };
 
   const toggleLog = (id: string) => {
     setExpandedLogs((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -932,10 +1018,10 @@ Select a quick action chip above or type your exact directive!`;
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col h-[calc(100dvh-9.5rem)] md:h-[calc(100dvh-7.5rem)] min-h-0 overflow-hidden gap-2">
-      {/* Executive Control Header Bar */}
+    <div className="w-full max-w-6xl mx-auto flex flex-col h-[calc(100dvh-5.5rem)] md:h-[calc(100dvh-5rem)] min-h-0 overflow-hidden gap-2.5">
+      {/* Executive Command Header Bar */}
       <div className="shrink-0 p-3 rounded-2xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-purple-600/15 border border-primary/20 shadow-xs flex flex-col gap-2.5">
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-indigo-600 to-purple-600 text-white shadow-sm ring-1 ring-white/25">
               <Bot className="h-5 w-5" strokeWidth={2.2} />
@@ -947,19 +1033,53 @@ Select a quick action chip above or type your exact directive!`;
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <h1 className="text-sm sm:text-base font-black tracking-tight leading-tight truncate">
-                  AI Administrator & Strategy Director
+                  Executive Admin AI
                 </h1>
                 <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-bold text-[9px] px-1.5 py-0">
-                  Active
+                  Central Intelligence Layer
                 </Badge>
               </div>
               <p className="text-[11px] text-muted-foreground font-medium truncate hidden sm:block">
-                Direct AI Blogger, create courses & custom pages, and coordinate system operations.
+                Reporting directly to Founder &amp; CEO Bethel Goodgift • Coordinating 11 Specialized AI Agents
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-1.5 shrink-0">
+          {/* Quick Executive Modals & Voice Triggers */}
+          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDailyBriefingOpen(true)}
+              className="h-7 sm:h-8 px-2 sm:px-2.5 font-bold text-[11px] rounded-xl gap-1 border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20"
+              title="Open Executive Daily Briefing"
+            >
+              <Sparkles className="h-3 w-3 text-purple-600" />
+              <span className="hidden xs:inline">Daily</span> Briefing
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setInvestigationOpen(true)}
+              className="h-7 sm:h-8 px-2 sm:px-2.5 font-bold text-[11px] rounded-xl gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20"
+              title="Conduct Multi-Agent Investigation"
+            >
+              <Lightbulb className="h-3 w-3 text-indigo-600" />
+              <span className="hidden sm:inline">Investigate</span>
+            </Button>
+
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSsotOpen(true)}
+              className="h-7 sm:h-8 px-2 font-bold text-[11px] rounded-xl border-primary/20 text-muted-foreground hover:text-foreground hidden md:inline-flex"
+              title="View Single Source of Truth & Principles"
+            >
+              <ShieldCheck className="h-3 w-3 text-emerald-600 mr-1" />
+              SSOT
+            </Button>
+
             <Button
               variant="default"
               size="sm"
@@ -985,26 +1105,73 @@ Select a quick action chip above or type your exact directive!`;
 
             <Button
               variant="outline"
-              size="sm"
-              asChild
-              className="h-7 sm:h-8 px-2 font-bold text-[11px] rounded-xl border-primary/20 text-primary hover:bg-primary/10 hidden md:inline-flex"
-            >
-              <Link to="/admin/ai-blogger">
-                <Video className="h-3 w-3 mr-1" />
-                AI Blogger Studio
-              </Link>
-            </Button>
-
-            <Button
-              variant="outline"
               size="icon"
               onClick={() => refetchStats()}
               disabled={statsLoading}
               className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl border-primary/20 bg-background/80"
-              title="Refresh Stats"
+              title="Refresh Platform Stats"
             >
               <RefreshCw className={`h-3 w-3 text-primary ${statsLoading ? "animate-spin" : ""}`} />
             </Button>
+          </div>
+        </div>
+
+        {/* Tab Navigation Pill Bar */}
+        <div className="flex items-center justify-between gap-1 border-t border-primary/15 pt-2">
+          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveTab("overview")}
+              className={`px-3 py-1 text-xs font-black rounded-xl transition-all ${
+                activeTab === "overview"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Overview &amp; Telemetry
+            </button>
+
+            <button
+              onClick={() => setActiveTab("console")}
+              className={`px-3 py-1 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 ${
+                activeTab === "console"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <Cpu className="h-3 w-3" />
+              <span>Strategy Console</span>
+              {busy && <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />}
+            </button>
+
+            <button
+              onClick={() => setActiveTab("fleet")}
+              className={`px-3 py-1 text-xs font-black rounded-xl transition-all ${
+                activeTab === "fleet"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              AI Agents Fleet ({SPECIALIZED_AI_AGENTS.length})
+            </button>
+
+            <button
+              onClick={() => setActiveTab("tasks")}
+              className={`px-3 py-1 text-xs font-black rounded-xl transition-all flex items-center gap-1 ${
+                activeTab === "tasks"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <span>Task Board</span>
+              <span className="text-[10px] px-1.5 py-0 rounded-full bg-primary/20 font-bold">
+                {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length}
+              </span>
+            </button>
+          </div>
+
+          <div className="hidden lg:flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Autonomous Coordination Engine: Healthy</span>
           </div>
         </div>
 
@@ -1039,19 +1206,65 @@ Select a quick action chip above or type your exact directive!`;
         )}
       </div>
 
-      {/* Main Agent Workspace (Properly constrained within flex-1 min-h-0) */}
-      <Card className="flex-1 min-h-0 flex flex-col overflow-hidden border border-border/80 shadow-sm rounded-2xl bg-card">
-        <CardHeader className="py-2 px-3 sm:px-4 border-b bg-muted/30 flex flex-row items-center justify-between shrink-0">
-          <CardTitle className="text-xs sm:text-sm font-black flex items-center gap-1.5 text-foreground">
-            <Cpu className="h-3.5 w-3.5 text-primary" /> Strategic Intelligence Console
-          </CardTitle>
-          {busy && (
-            <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              <span className="truncate max-w-[160px] sm:max-w-[240px]">{activeTask || "Processing…"}</span>
-            </div>
-          )}
-        </CardHeader>
+      {/* Tab 1: Executive Overview */}
+      {activeTab === "overview" && (
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <ExecutiveOverviewTab
+            stats={stats}
+            tasks={tasks}
+            alerts={alerts}
+            onOpenDailyBriefing={() => setDailyBriefingOpen(true)}
+            onOpenInvestigation={() => setInvestigationOpen(true)}
+            onOpenSSOT={() => setSsotOpen(true)}
+            onNavigateToTab={(t) => setActiveTab(t)}
+            onApproveDecision={(task) => handleExecuteTask(task)}
+            onResolveAlert={(alertId) => {
+              const updated = alerts.map((a) => (a.id === alertId ? { ...a, status: "resolved" as const } : a));
+              handleUpdateAlerts(updated);
+              toast.success("Alert marked as resolved");
+            }}
+          />
+        </div>
+      )}
+
+      {/* Tab 2: Agent Fleet Matrix */}
+      {activeTab === "fleet" && (
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <AgentFleetMatrixTab
+            onDispatchAgent={(agentId) => handleDispatchToAgent(agentId)}
+            onInvestigateAgent={(agentId) => {
+              setInvestigationOpen(true);
+            }}
+          />
+        </div>
+      )}
+
+      {/* Tab 3: Task Queue & Structured Protocol */}
+      {activeTab === "tasks" && (
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
+          <TaskQueueTab
+            tasks={tasks}
+            onUpdateTasks={handleUpdateTasks}
+            onCreateTask={handleCreateTask}
+            onExecuteTask={handleExecuteTask}
+          />
+        </div>
+      )}
+
+      {/* Tab 4: Strategic Intelligence Console (Chat, Live Voice, & Proposal Execution) */}
+      {activeTab === "console" && (
+        <Card className="flex-1 min-h-0 flex flex-col overflow-hidden border border-border/80 shadow-sm rounded-2xl bg-card">
+          <CardHeader className="py-2 px-3 sm:px-4 border-b bg-muted/30 flex flex-row items-center justify-between shrink-0">
+            <CardTitle className="text-xs sm:text-sm font-black flex items-center gap-1.5 text-foreground">
+              <Cpu className="h-3.5 w-3.5 text-primary" /> Strategic Intelligence Console
+            </CardTitle>
+            {busy && (
+              <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                <span className="truncate max-w-[160px] sm:max-w-[240px]">{activeTask || "Reasoning with Gemini 3.7 Flash..."}</span>
+              </div>
+            )}
+          </CardHeader>
 
         {/* Scrollable Conversation Feed */}
         <CardContent className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
@@ -1407,6 +1620,36 @@ Select a quick action chip above or type your exact directive!`;
           </form>
         </div>
       </Card>
+      )}
+
+      {/* Executive Daily Briefing Modal */}
+      <DailyBriefingModal
+        open={dailyBriefingOpen}
+        onOpenChange={setDailyBriefingOpen}
+        briefing={generateExecutiveDailyBriefing(stats, tasks, alerts)}
+        onDispatchTask={(taskProposal) => {
+          handleCreateTask(taskProposal);
+        }}
+      />
+
+      {/* Multi-Agent Deep Investigation Modal */}
+      <InvestigationModal
+        open={investigationOpen}
+        onOpenChange={setInvestigationOpen}
+        stats={stats}
+        onCreateTask={(task) => {
+          handleCreateTask(task);
+        }}
+        onDispatchDirective={(agentId, directive) => {
+          handleDispatchToAgent(agentId, directive);
+        }}
+      />
+
+      {/* Single Source of Truth Modal */}
+      <SingleSourceOfTruthModal
+        open={ssotOpen}
+        onOpenChange={setSsotOpen}
+      />
 
       {/* Google Live Voice Agent Modal Dialog */}
       <GoogleLiveVoiceAgentDialog

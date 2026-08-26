@@ -20,6 +20,8 @@ import CoursePlayerModal from "@/components/learn/CoursePlayerModal";
 import GeminiLiveDialog from "@/components/coach/GeminiLiveDialog";
 import { decodeCourseMetadata } from "@/lib/aiCourseCreatorEngine";
 import { copyToClipboard } from "@/lib/clipboard";
+import learnHeroImage from "@/assets/images/learning_hub_hero_1787779428622.jpg";
+import academyCardImage from "@/assets/images/learning_academy_card_1787779443703.jpg";
 
 type Course = {
   id: string;
@@ -170,34 +172,44 @@ export default function Learn() {
       <Helmet><title>Learning Hub & Masterclasses | Bethelincovibe TV</title></Helmet>
 
       {/* Top Header Banner */}
-      <div className="bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 text-white border-b border-border/40 shadow-xl px-4 py-8 mb-6">
-        <div className="container mx-auto max-w-7xl flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="space-y-2 text-center md:text-left">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 text-primary border border-primary/30 text-xs font-black">
-              <GraduationCap className="h-4 w-4" />
+      <div className="relative bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 text-white border-b border-border/40 shadow-xl overflow-hidden mb-6">
+        {/* Ambient AI Background Graphic */}
+        <div className="absolute inset-0 opacity-20 pointer-events-none mix-blend-luminosity">
+          <img
+            src={learnHeroImage}
+            alt="Academy Background"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover object-center"
+          />
+        </div>
+        <div className="absolute inset-0 bg-gradient-to-r from-slate-950/95 via-indigo-950/90 to-slate-950/95" />
+
+        <div className="relative container mx-auto max-w-7xl px-4 py-8 md:py-10 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="space-y-3 text-center md:text-left max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-black">
+              <GraduationCap className="h-4 w-4 text-purple-400" />
               Executive Business Academy
             </div>
-            <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-white">
+            <h1 className="text-2xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
               Bethelincovibe Learning Hub
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 max-w-xl font-medium">
+            <p className="text-xs sm:text-sm text-slate-200 font-medium leading-relaxed">
               Accelerate your revenue with expert masterclasses, video tutorials, active-recall flashcards, and verified completion certificates.
             </p>
           </div>
 
-          <div className="flex items-center gap-3 flex-wrap justify-center">
+          <div className="flex items-center gap-3 flex-wrap justify-center shrink-0">
             <Button
               onClick={() => setCoachOpen(true)}
-              className="h-11 px-5 rounded-2xl font-black text-xs bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white shadow-lg shadow-emerald-600/30 gap-2"
+              className="h-11 px-5 rounded-2xl font-black text-xs bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-700 hover:to-teal-600 text-white shadow-lg shadow-emerald-600/30 gap-2 transition-all hover:scale-105"
             >
               <Radio className="h-4 w-4 animate-pulse" /> Live Voice Coach
             </Button>
             <Button
               onClick={share}
-              variant="outline"
-              className="h-11 px-4 rounded-2xl font-bold text-xs border-white/20 text-white hover:bg-white/10 gap-1.5"
+              className="h-11 px-5 rounded-2xl font-black text-xs bg-white hover:bg-slate-100 text-purple-700 dark:text-purple-600 hover:text-purple-800 border border-purple-300 shadow-md gap-2 transition-all hover:scale-105"
             >
-              <Share2 className="h-4 w-4" /> Share Hub
+              <Share2 className="h-4 w-4 text-purple-700 dark:text-purple-600" /> Share Hub
             </Button>
           </div>
         </div>
@@ -364,18 +376,13 @@ export default function Learn() {
                     <div>
                       {/* Course Cover Image */}
                       <div className="relative aspect-video bg-muted overflow-hidden">
-                        {c.thumbnail_url ? (
-                          <img
-                            src={c.thumbnail_url}
-                            alt={c.title}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/10 to-indigo-500/10">
-                            <GraduationCap className="h-10 w-10 text-primary/60" />
-                          </div>
-                        )}
+                        <img
+                          src={c.thumbnail_url || academyCardImage}
+                          alt={c.title}
+                          referrerPolicy="no-referrer"
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          loading="lazy"
+                        />
 
                         {/* Top Badges */}
                         <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between">

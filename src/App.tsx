@@ -255,7 +255,9 @@ const App = () => (
               <Route path="settings" element={<AdminSettings />} />
               <Route path="features" element={<AdminFeatures />} />
               <Route path="ai-blogger" element={<AdminAIBlogger />} />
+              <Route path="ai" element={<AdminPlatformAI />} />
               <Route path="ai-admin" element={<AdminPlatformAI />} />
+              <Route path="executive-ai" element={<AdminPlatformAI />} />
               <Route path="guest-blogs" element={<AdminGuestBlogs />} />
               <Route path="custom-code" element={<AdminCustomCode />} />
               <Route path="blog-analytics" element={<AdminBlogAnalytics />} />
