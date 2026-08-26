@@ -48,30 +48,69 @@ export default function UserFavorites() {
 
   // Fetch saved favorites
   const loadFavorites = async () => {
-    if (!user) return;
     setFetching(true);
     try {
-      const { data: favs } = await supabase
-        .from("favorites")
-        .select("post_id, created_at")
-        .eq("user_id", user.id);
+      let ids: string[] = [];
 
-      const ids = (favs || []).map((f) => f.post_id).filter(Boolean);
+      // 1. Load from Supabase favorites table if user logged in
+      if (user) {
+        const { data: favs, error: favErr } = await supabase
+          .from("favorites")
+          .select("post_id, created_at")
+          .eq("user_id", user.id);
+
+        if (!favErr && favs) {
+          ids = favs.map((f) => f.post_id).filter(Boolean);
+        }
+      }
+
+      // 2. Also retrieve bookmarks from localStorage
+      try {
+        const localSaved: string[] = JSON.parse(localStorage.getItem("saved_posts") || "[]");
+        if (Array.isArray(localSaved) && localSaved.length > 0) {
+          // If logged in, sync any missing ones to DB in background
+          if (user) {
+            const missing = localSaved.filter((lid) => !ids.includes(lid));
+            if (missing.length > 0) {
+              const inserts = missing.map((pid) => ({ user_id: user.id, post_id: pid }));
+              supabase.from("favorites").insert(inserts).then(() => {});
+            }
+          }
+          ids = Array.from(new Set([...ids, ...localSaved]));
+        }
+      } catch (e) {
+        console.warn("Error reading local bookmarks:", e);
+      }
 
       if (ids.length === 0) {
         setPosts([]);
-        loadTrending();
+        await loadTrending();
         setFetching(false);
         return;
       }
 
-      const { data: blogData } = await supabase
+      // 3. Fetch blog posts without invalid non-existent columns
+      const { data: blogData, error: blogErr } = await supabase
         .from("blog_posts")
-        .select("id, title, slug, excerpt, featured_image, published_at, reading_time_minutes, author_name")
-        .in("id", ids)
-        .eq("published", true);
+        .select("id, title, slug, excerpt, content, featured_image, published, published_at, categories(name, slug)")
+        .in("id", ids);
 
-      setPosts((blogData as SavedPost[]) || []);
+      if (blogErr) {
+        throw blogErr;
+      }
+
+      const formattedPosts: SavedPost[] = (blogData || []).map((p: any) => ({
+        id: p.id,
+        title: p.title,
+        slug: p.slug,
+        excerpt: p.excerpt,
+        featured_image: p.featured_image,
+        published_at: p.published_at,
+        category: p.categories?.name,
+        reading_time_minutes: Math.max(1, Math.round(((p.content || p.excerpt || "").replace(/<[^>]+>/g, " ").trim().split(/\s+/).length) / 200)),
+      }));
+
+      setPosts(formattedPosts);
     } catch (err) {
       console.error("Error loading saved blogs:", err);
       toast.error("Could not load your saved articles");
@@ -87,7 +126,7 @@ export default function UserFavorites() {
         .from("blog_posts")
         .select("id, title, slug, excerpt, featured_image, published_at")
         .eq("published", true)
-        .order("views_count", { ascending: false })
+        .order("created_at", { ascending: false })
         .limit(4);
       setTrendingPosts(data || []);
     } catch (e) {
@@ -96,36 +135,47 @@ export default function UserFavorites() {
   };
 
   useEffect(() => {
-    if (user) {
-      loadFavorites();
-    }
-  }, [user]);
+    loadFavorites();
+  }, [user?.id]);
 
   // Remove / Unsave individual post
   const handleRemoveFavorite = async (postId: string, title: string) => {
-    if (!user) return;
     const prevPosts = [...posts];
     setPosts((current) => current.filter((p) => p.id !== postId));
 
+    // Remove from local storage
     try {
-      const { error } = await supabase
-        .from("favorites")
-        .delete()
-        .eq("user_id", user.id)
-        .eq("post_id", postId);
+      const list: string[] = JSON.parse(localStorage.getItem("saved_posts") || "[]");
+      const updated = list.filter((id) => id !== postId);
+      localStorage.setItem("saved_posts", JSON.stringify(updated));
+    } catch (e) {
+      console.warn("Error removing from local bookmarks:", e);
+    }
 
-      if (error) throw error;
+    // Remove from Supabase DB
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from("favorites")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("post_id", postId);
+
+        if (error) throw error;
+        toast.success(`Removed "${title}" from saved articles`);
+      } catch (err) {
+        console.error("Failed to remove bookmark:", err);
+        setPosts(prevPosts);
+        toast.error("Failed to remove article. Please try again.");
+      }
+    } else {
       toast.success(`Removed "${title}" from saved articles`);
-    } catch (err) {
-      console.error("Failed to remove bookmark:", err);
-      setPosts(prevPosts);
-      toast.error("Failed to remove article. Please try again.");
     }
   };
 
   // Clear all saved favorites
   const handleClearAll = async () => {
-    if (!user || posts.length === 0) return;
+    if (posts.length === 0) return;
     const confirm = window.confirm("Are you sure you want to clear all saved articles from your reading list?");
     if (!confirm) return;
 
@@ -133,14 +183,23 @@ export default function UserFavorites() {
     setPosts([]);
 
     try {
-      const { error } = await supabase.from("favorites").delete().eq("user_id", user.id);
-      if (error) throw error;
+      localStorage.removeItem("saved_posts");
+    } catch {}
+
+    if (user) {
+      try {
+        const { error } = await supabase.from("favorites").delete().eq("user_id", user.id);
+        if (error) throw error;
+        toast.success("All saved articles cleared");
+        await loadTrending();
+      } catch (err) {
+        console.error("Failed to clear bookmarks:", err);
+        setPosts(prev);
+        toast.error("Failed to clear bookmarks");
+      }
+    } else {
       toast.success("All saved articles cleared");
-      loadTrending();
-    } catch (err) {
-      console.error("Failed to clear bookmarks:", err);
-      setPosts(prev);
-      toast.error("Failed to clear bookmarks");
+      await loadTrending();
     }
   };
 

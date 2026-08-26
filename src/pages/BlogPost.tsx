@@ -137,14 +137,14 @@ export default function BlogPost() {
 
         <div className="flex items-start justify-between gap-3 mb-5 min-w-0">
           <h1 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight tracking-tight break-words min-w-0">{post.title}</h1>
-          <FavoriteButton postId={post.id} />
+          <FavoriteButton postId={post.id} showText={false} size="default" variant="outline" className="shrink-0 mt-1" />
         </div>
 
         {post.excerpt && (
           <p className="mb-6 text-base sm:text-lg md:text-xl leading-relaxed text-muted-foreground break-words min-w-0">{post.excerpt}</p>
         )}
 
-        <ArticleUtilityBar html={post.content || ""} url={postUrl} />
+        <ArticleUtilityBar html={post.content || ""} url={postUrl} postId={post.id} />
 
         <BlogReader title={post.title} html={post.content || ""} url={postUrl} />
 

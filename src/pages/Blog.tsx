@@ -9,6 +9,7 @@ import { Search, Sparkles, LayoutGrid, ArrowRight } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import heroBlog from "@/assets/hero-blog.jpg";
 import { Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
+import FavoriteButton from "@/components/FavoriteButton";
 
 export default function Blog() {
   const { categorySlug } = useParams();
@@ -152,13 +153,21 @@ export default function Blog() {
                               <span className="truncate max-w-[120px]">{catName}</span>
                             </div>
                           )}
+                          <div className="absolute top-3 right-3 z-10">
+                            <FavoriteButton postId={post.id} size="sm" variant="secondary" className="h-7 w-7 rounded-lg bg-background/90 backdrop-blur-md shadow-md" />
+                          </div>
                         </div>
                       )}
                       <CardHeader className="p-4 sm:p-5">
-                        {!post.featured_image && catName && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <Category3DVisual name={catName} size="sm" />
-                            <span className="text-xs text-primary font-bold uppercase tracking-wider">{catName}</span>
+                        {!post.featured_image && (
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            {catName ? (
+                              <div className="flex items-center gap-2">
+                                <Category3DVisual name={catName} size="sm" />
+                                <span className="text-xs text-primary font-bold uppercase tracking-wider">{catName}</span>
+                              </div>
+                            ) : <div />}
+                            <FavoriteButton postId={post.id} size="sm" variant="ghost" className="h-7 w-7" />
                           </div>
                         )}
                         <CardTitle className="text-base sm:text-lg font-bold line-clamp-2 break-words leading-snug group-hover:text-primary transition-colors">

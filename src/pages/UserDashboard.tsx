@@ -71,9 +71,17 @@ export default function UserDashboard() {
       }
     }
 
+    let totalFavs = fCount || 0;
+    try {
+      const localSaved: string[] = JSON.parse(localStorage.getItem("saved_posts") || "[]");
+      if (Array.isArray(localSaved) && localSaved.length > totalFavs) {
+        totalFavs = localSaved.length;
+      }
+    } catch {}
+
     setWallet(w);
     setProfile(p);
-    setFavCount(fCount || 0);
+    setFavCount(totalFavs);
     setSubmissions(subs || []);
     setBusinessCount(bCount || 0);
 
@@ -181,7 +189,7 @@ export default function UserDashboard() {
     { to: "/dashboard/purchases", label: "My Purchases", icon: ShoppingBag, color: "from-lime-500 to-green-600", show: flags.products },
     { to: "/dashboard/leads", label: "My Leads", icon: Mail, color: "from-pink-600 to-rose-500", show: flags.sales_pages },
     { to: "/dashboard/ads", label: "Run Ad", icon: Megaphone, color: "from-fuchsia-500 to-purple-600", show: flags.advertise },
-    { to: "/dashboard/favorites", label: "Saved Blogs", icon: Heart, color: "from-rose-500 to-orange-500", show: true },
+    { to: "/dashboard/favorites", label: "Saved Articles", icon: Heart, color: "from-rose-500 to-orange-500", show: true },
     { to: "/dashboard/submit-blog", label: "Submit Business", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
     { to: "/dashboard/businesses", label: "My Businesses", icon: Building2, color: "from-amber-500 to-yellow-500", show: flags.businesses },
     { to: "/dashboard/messages", label: "Messages", icon: Mail, color: "from-pink-500 to-rose-500", show: flags.businesses },
