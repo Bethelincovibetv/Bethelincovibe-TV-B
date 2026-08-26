@@ -29,14 +29,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setRoleChecked(true);
       return;
     }
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", userId)
-      .eq("role", "admin")
-      .maybeSingle();
-    setIsAdmin(!!data);
-    setRoleChecked(true);
+    try {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", userId)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdmin(!!data);
+    } catch {
+      setIsAdmin(false);
+    } finally {
+      setRoleChecked(true);
+    }
   };
 
   useEffect(() => {
@@ -54,16 +59,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        checkAdminRole(session.user.id, session.user.email);
-      } else {
+    supabase.auth.getSession()
+      .then(({ data: { session } }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          checkAdminRole(session.user.id, session.user.email);
+        } else {
+          setRoleChecked(true);
+        }
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.warn("Auth getSession fallback:", err?.message || err);
         setRoleChecked(true);
-      }
-      setLoading(false);
-    });
+        setLoading(false);
+      });
 
     return () => subscription.unsubscribe();
   }, []);

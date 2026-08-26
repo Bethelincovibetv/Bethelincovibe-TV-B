@@ -91,16 +91,14 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   throw new Error(JSON.stringify(errInfo));
 }
 
-// Test Connection on load
-async function testConnection() {
+// Connection status helper
+export async function testFirestoreConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
-  } catch (_error) {
-    // Gracefully ignore connection test errors
+    return true;
+  } catch {
+    return false;
   }
-}
-if (typeof window !== 'undefined') {
-  testConnection().catch(() => {});
 }
 
 // --- PWA & PUSH NOTIFICATIONS HELPERS ---

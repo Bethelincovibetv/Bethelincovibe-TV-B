@@ -54,24 +54,36 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const load = async () => {
-    const keys = FEATURE_META.map((m) => `feature_${m.key}`);
-    const { data } = await supabase.from("site_settings").select("key,value").in("key", keys);
-    const next = { ...defaultFlags };
-    (data || []).forEach((r: any) => {
-      const k = r.key.replace(/^feature_/, "") as FeatureKey;
-      next[k] = !["off", "false", "0", "disabled"].includes(String(r.value || "").toLowerCase());
-    });
-    setFlags(next);
-    setLoading(false);
+    try {
+      const keys = FEATURE_META.map((m) => `feature_${m.key}`);
+      const { data } = await supabase.from("site_settings").select("key,value").in("key", keys);
+      const next = { ...defaultFlags };
+      (data || []).forEach((r: any) => {
+        const k = r.key.replace(/^feature_/, "") as FeatureKey;
+        next[k] = !["off", "false", "0", "disabled"].includes(String(r.value || "").toLowerCase());
+      });
+      setFlags(next);
+    } catch (err) {
+      console.warn("Feature flags load fallback:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     load();
-    const ch = supabase
-      .channel("feature_flags")
-      .on("postgres_changes", { event: "*", schema: "public", table: "site_settings" }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    let ch: any = null;
+    try {
+      ch = supabase
+        .channel("feature_flags")
+        .on("postgres_changes", { event: "*", schema: "public", table: "site_settings" }, () => load())
+        .subscribe();
+    } catch {}
+    return () => {
+      if (ch) {
+        try { supabase.removeChannel(ch); } catch {}
+      }
+    };
   }, []);
 
   return <Ctx.Provider value={{ flags, loading }}>{children}</Ctx.Provider>;

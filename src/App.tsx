@@ -108,7 +108,19 @@ import VideoCreator from "./pages/VideoCreator";
 import VixoraStudioApp from "./vixora/App";
 import WhatsAppStatusEngine from "./pages/WhatsAppStatusEngine";
 import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error: any) => {
+        if (failureCount >= 2) return false;
+        if (error?.message?.includes?.("Failed to fetch") || error?.message?.includes?.("network_error")) return false;
+        return true;
+      },
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 2,
+    },
+  },
+});
 
 function FeatureAwareServices() {
   const { flags } = useFeatureFlags();
