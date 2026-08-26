@@ -108,6 +108,7 @@ import VideoCreator from "./pages/VideoCreator";
 import VixoraStudioApp from "./vixora/App";
 import WhatsAppStatusEngine from "./pages/WhatsAppStatusEngine";
 import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
+import Referral from "./pages/Referral";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -207,6 +208,11 @@ const App = () => (
               <Route path="/dashboard/leads" element={<UserLeads />} />
               
               <Route path="/dashboard/favorites" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />
+              <Route path="/dashboard/saved-blogs" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />
+              <Route path="/saved-blogs" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />
+              <Route path="/referral" element={<Referral />} />
+              <Route path="/referrals" element={<Referral />} />
+              <Route path="/dashboard/referrals" element={<Referral />} />
               <Route path="/dashboard/businesses" element={<FeatureGate feature="businesses"><UserBusinesses /></FeatureGate>} />
               <Route path="/dashboard/messages" element={<FeatureGate feature="businesses"><UserMessages /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/edit" element={<FeatureGate feature="businesses"><EditBusiness /></FeatureGate>} />

@@ -521,7 +521,17 @@ function PostRow({ post, compact }: { post: Post; compact?: boolean }) {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5">
+              {/youtube|youtu\.be|vimeo/i.test(post.content) && (
+                <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/10 text-red-600 dark:text-red-400 font-bold px-1.5 py-0.5 rounded-md">
+                  ▶ Video
+                </span>
+              )}
+              {/wa\.me|whatsapp/i.test(post.content) && (
+                <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-md">
+                  💬 WhatsApp
+                </span>
+              )}
               <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition">
                 <MessageSquare className="h-3.5 w-3.5 text-blue-500" />
                 {post.replies_count}

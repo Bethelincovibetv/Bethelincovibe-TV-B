@@ -163,6 +163,34 @@
     color: transparent;
   }
 
+  /* High-contrast rule: Any white or light button must have bold, crystal clear black text */
+  button.bg-white,
+  a.bg-white,
+  .btn-white,
+  .bg-white > button,
+  [data-variant="white"],
+  .button-white {
+    color: #09090b !important;
+    font-weight: 700;
+  }
+
+  button.bg-white svg,
+  a.bg-white svg,
+  .btn-white svg {
+    color: #09090b !important;
+  }
+
+  /* Ensure context buttons and light action buttons are always readable */
+  .context-btn,
+  [data-context-button] {
+    color: #09090b;
+    font-weight: 600;
+  }
+  .dark .context-btn,
+  .dark [data-context-button] {
+    color: #f8fafc;
+  }
+
   .surface-gradient { background: var(--gradient-surface); }
 }
 

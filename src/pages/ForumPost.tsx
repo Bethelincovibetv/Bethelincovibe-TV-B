@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Heart, MessageSquare, ArrowLeft, Trash2 } from "lucide-react";
+import { Heart, MessageSquare, ArrowLeft, Trash2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import { FORUM_CATEGORIES } from "./Forum";
+import { ForumFormattedContent } from "@/components/forum/ForumLinkPreview";
+import { ForumReactions } from "@/components/forum/ForumReactions";
 
 const SUCCESS_SOUND = "data:audio/wav;base64,UklGRpYBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YXIBAACAgYKChIWGiIqLjY6QkpOVl5manJ6gpKWmqKqsr7Gys7W3uLm6vL2/wMHCxMXGyMnKy8zNz9DR0tPU1dbX2Nrb3N3e3+Hi4+Tl5ufo6err7O3u7/Hy8/T19vf4+frJxL68t7Krp6KdmZSPi4eDfntyTycRBhEnT3uDh4uPlJmdoqersbq+wcTKzM3O0NHS1NXX2dvc3eHi5OXm6Ojp6+vt7e7v8PHy8/T19vf4+fr7+/z9/v7+///++AYAfHt6eXh3dnZ1c3JxcG9ubWxramppaWhoZ2dnZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm";
 
@@ -44,9 +46,9 @@ export default function ForumPost() {
     if (user) {
       const { data: votes } = await supabase.from("forum_votes" as any).select("target_type,target_id").eq("user_id", user.id);
       const v = (votes as any[]) || [];
-      setLikedPost(v.some((x: any) => x.target_type === "post" && x.target_id === id));
+      setLikedPost(v.some((x: any) => (x.target_type === "post" || x.target_type?.startsWith("react:")) && x.target_id === id));
       const lr: Record<string, boolean> = {};
-      v.filter((x: any) => x.target_type === "reply").forEach((x: any) => { lr[x.target_id] = true; });
+      v.filter((x: any) => x.target_type === "reply" || x.target_type?.startsWith("react:")).forEach((x: any) => { lr[x.target_id] = true; });
       setLikedReplies(lr);
     }
     setLoading(false);
@@ -54,33 +56,33 @@ export default function ForumPost() {
 
   useEffect(() => { load(); }, [id, user?.id]);
 
-  const toggleLike = async (target_type: "post" | "reply", target_id: string, liked: boolean) => {
-    if (!user) { toast.error("Sign in to like"); navigate("/login"); return; }
-    if (liked) {
-      await supabase.from("forum_votes" as any).delete().eq("user_id", user.id).eq("target_type", target_type).eq("target_id", target_id);
-    } else {
-      await supabase.from("forum_votes" as any).insert({ user_id: user.id, target_type, target_id });
-      playSuccess();
-    }
-    if (target_type === "post") {
-      setLikedPost(!liked);
-      setPost((p: any) => p ? { ...p, likes_count: p.likes_count + (liked ? -1 : 1) } : p);
-    } else {
-      setLikedReplies((m) => ({ ...m, [target_id]: !liked }));
-      setReplies((rs) => rs.map((r) => r.id === target_id ? { ...r, likes_count: r.likes_count + (liked ? -1 : 1) } : r));
-    }
-  };
-
   const submitReply = async () => {
     if (!user) { toast.error("Sign in to reply"); navigate("/login"); return; }
     if (!reply.trim()) return;
     setPosting(true);
-    const { error } = await supabase.from("forum_replies" as any).insert({ post_id: id, user_id: user.id, content: reply.trim() });
+    const replyContent = reply.trim();
+    const { error } = await supabase.from("forum_replies" as any).insert({ post_id: id, user_id: user.id, content: replyContent });
     setPosting(false);
     if (error) { toast.error(error.message); return; }
+
+    // Send activity notification to post author if not replying to own post
+    if (post && post.user_id && post.user_id !== user.id) {
+      const myAuthor = authors[user.id];
+      const commenterName = myAuthor?.display_name || myAuthor?.username || "A community member";
+      try {
+        await supabase.from("user_notifications").insert({
+          user_id: post.user_id,
+          title: `💬 New reply on "${post.title.slice(0, 35)}..."`,
+          body: `${commenterName} replied: "${replyContent.slice(0, 70)}..."`,
+          type: "forum_reply",
+          url: `/forum/${post.id}`,
+        });
+      } catch {}
+    }
+
     setReply("");
     playSuccess();
-    toast.success("Reply posted!");
+    toast.success("Reply posted successfully!");
     load();
   };
 
@@ -99,99 +101,138 @@ export default function ForumPost() {
   const authorName = author?.display_name || author?.username || "Anonymous";
 
   return (
-    <div className="container max-w-3xl py-4 pb-24">
+    <div className="container max-w-3xl py-4 pb-24 space-y-5">
       <Helmet>
-        <title>{post.title} | Forum</title>
+        <title>{post.title} | Community Forum</title>
         <meta name="description" content={post.content.slice(0, 150)} />
       </Helmet>
 
-      <Button variant="ghost" size="sm" onClick={() => navigate("/forum")} className="mb-3">
+      <Button variant="ghost" size="sm" onClick={() => navigate("/forum")} className="mb-2">
         <ArrowLeft className="h-4 w-4 mr-1" /> Back to Forum
       </Button>
 
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex items-center gap-2 mb-2 flex-wrap">
-            <Badge variant={post.kind === "question" ? "default" : "secondary"}>
-              {post.kind === "question" ? "❓ Q&A" : "💬 Discussion"}
-            </Badge>
-            {cat && (
-              <Badge variant="outline" className="gap-1.5 py-1">
-                <img src={cat.icon3d} alt={cat.label} className="h-4 w-4 rounded-xs object-cover" referrerPolicy="no-referrer" />
-                <span>{cat.label}</span>
+      {/* Main Post Card */}
+      <Card className="rounded-2xl shadow-sm border-border/80 overflow-hidden">
+        <CardContent className="p-4 sm:p-6 space-y-4">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Badge variant={post.kind === "question" ? "default" : "secondary"} className="rounded-lg">
+                {post.kind === "question" ? "❓ Q&A" : "💬 Discussion"}
               </Badge>
-            )}
-          </div>
-          <h1 className="text-xl md:text-2xl font-bold mb-2">{post.title}</h1>
-          <div className="text-xs text-muted-foreground mb-3">
-            By <span className="font-medium text-foreground">{authorName}</span> · {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
-          </div>
-          <p className="whitespace-pre-wrap text-sm md:text-base">{post.content}</p>
-          <div className="flex items-center gap-3 mt-4">
-            <Button
-              variant={likedPost ? "default" : "outline"}
-              size="sm"
-              onClick={() => toggleLike("post", post.id, likedPost)}
-              className="gap-1"
-            >
-              <Heart className={`h-4 w-4 ${likedPost ? "fill-current" : ""}`} /> {post.likes_count}
-            </Button>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <MessageSquare className="h-4 w-4" /> {post.replies_count} replies
-            </span>
+              {cat && (
+                <Badge variant="outline" className="gap-1.5 py-1 rounded-lg">
+                  <img src={cat.icon3d} alt={cat.label} className="h-4 w-4 rounded-xs object-cover" referrerPolicy="no-referrer" />
+                  <span>{cat.label}</span>
+                </Badge>
+              )}
+            </div>
             {user?.id === post.user_id && (
-              <Button variant="ghost" size="sm" onClick={deletePost} className="ml-auto text-destructive">
+              <Button variant="ghost" size="sm" onClick={deletePost} className="text-destructive h-8 px-2">
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}
           </div>
+
+          <h1 className="text-xl md:text-2xl font-bold leading-snug">{post.title}</h1>
+          
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>By <span className="font-semibold text-foreground">{authorName}</span></span>
+            <span>·</span>
+            <span>{formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}</span>
+          </div>
+
+          {/* Formatted Post Content with YouTube, Video & Link Detection */}
+          <div className="pt-1">
+            <ForumFormattedContent content={post.content} />
+          </div>
+
+          {/* 3D Emoji Reactions Bar */}
+          <div className="flex items-center justify-between gap-3 pt-3 border-t flex-wrap">
+            <ForumReactions
+              targetId={post.id}
+              targetType="post"
+              authorId={post.user_id}
+              postTitle={post.title}
+              initialLikes={post.likes_count}
+              initialLiked={likedPost}
+            />
+
+            <span className="text-xs text-muted-foreground flex items-center gap-1.5 ml-auto">
+              <MessageSquare className="h-4 w-4 text-primary" />
+              <span className="font-semibold">{replies.length} {replies.length === 1 ? "reply" : "replies"}</span>
+            </span>
+          </div>
         </CardContent>
       </Card>
 
-      <div className="mt-6">
-        <h2 className="font-semibold mb-3">{replies.length} {replies.length === 1 ? "Reply" : "Replies"}</h2>
-        <div className="grid gap-2 mb-4">
+      {/* Replies Thread */}
+      <div className="space-y-4">
+        <h2 className="font-extrabold text-base sm:text-lg flex items-center gap-2">
+          <span>Replies & Insights</span>
+          <Badge variant="secondary" className="rounded-full text-xs">
+            {replies.length}
+          </Badge>
+        </h2>
+
+        <div className="grid gap-3">
           {replies.map((r) => {
             const a = authors[r.user_id];
-            const liked = !!likedReplies[r.id];
             return (
-              <Card key={r.id}>
-                <CardContent className="p-3">
-                  <div className="text-xs text-muted-foreground mb-1">
-                    <span className="font-medium text-foreground">{a?.display_name || a?.username || "Anonymous"}</span> · {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}
+              <Card key={r.id} className="rounded-2xl border-border/70 shadow-xs">
+                <CardContent className="p-3.5 sm:p-4 space-y-2.5">
+                  <div className="text-xs text-muted-foreground flex items-center justify-between">
+                    <span className="font-bold text-foreground">{a?.display_name || a?.username || "Anonymous"}</span>
+                    <span>{formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</span>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm">{r.content}</p>
-                  <Button
-                    variant={liked ? "default" : "ghost"}
-                    size="sm"
-                    onClick={() => toggleLike("reply", r.id, liked)}
-                    className="mt-2 h-7 gap-1 text-xs"
-                  >
-                    <Heart className={`h-3 w-3 ${liked ? "fill-current" : ""}`} /> {r.likes_count}
-                  </Button>
+
+                  <ForumFormattedContent content={r.content} />
+
+                  <div className="pt-2 border-t flex items-center justify-between">
+                    <ForumReactions
+                      targetId={r.id}
+                      targetType="reply"
+                      authorId={r.user_id}
+                      postTitle={post.title}
+                      initialLikes={r.likes_count}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             );
           })}
         </div>
 
+        {/* Reply Box */}
         {user ? (
-          <Card>
-            <CardContent className="p-3">
-              <Textarea value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write a reply..." rows={4} />
-              <div className="flex justify-end mt-2">
-                <Button onClick={submitReply} disabled={posting || !reply.trim()}>
-                  {posting ? "Posting..." : "Post reply"}
+          <Card className="rounded-2xl border-primary/20 shadow-sm bg-card">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-foreground">Add to the Discussion</span>
+                <span className="text-[11px] text-muted-foreground">Supports YouTube & WhatsApp links</span>
+              </div>
+              <Textarea
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                placeholder="Share your experience, answer the question, or paste links/videos..."
+                rows={3}
+                className="rounded-xl resize-none text-sm"
+              />
+              <div className="flex justify-end">
+                <Button
+                  onClick={submitReply}
+                  disabled={posting || !reply.trim()}
+                  className="rounded-xl h-9 px-4 font-bold text-xs gap-1.5"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                  {posting ? "Posting..." : "Post Reply"}
                 </Button>
               </div>
             </CardContent>
           </Card>
         ) : (
-          <Card>
-            <CardContent className="p-4 text-center">
-              <p className="text-sm text-muted-foreground mb-2">Sign in to join the conversation.</p>
-              <Button onClick={() => navigate("/login")}>Sign in</Button>
-            </CardContent>
+          <Card className="rounded-2xl p-6 text-center bg-muted/20 border-dashed">
+            <p className="text-sm font-semibold text-muted-foreground mb-3">Sign in to join the discussion and share links.</p>
+            <Button onClick={() => navigate("/login")} className="rounded-xl font-bold">Sign In</Button>
           </Card>
         )}
       </div>

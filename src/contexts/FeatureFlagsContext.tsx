@@ -47,11 +47,25 @@ type FlagsMap = Record<FeatureKey, boolean>;
 
 const defaultFlags = FEATURE_META.reduce((acc, m) => ({ ...acc, [m.key]: true }), {} as FlagsMap);
 
-const Ctx = createContext<{ flags: FlagsMap; loading: boolean }>({ flags: defaultFlags, loading: true });
+const STORAGE_KEY = "app_feature_flags_v2";
+
+const getCachedFlags = (): { flags: FlagsMap; hasCache: boolean } => {
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return { flags: { ...defaultFlags, ...parsed }, hasCache: true };
+    }
+  } catch {}
+  return { flags: defaultFlags, hasCache: false };
+};
+
+const initialCached = getCachedFlags();
+const Ctx = createContext<{ flags: FlagsMap; loading: boolean }>({ flags: initialCached.flags, loading: !initialCached.hasCache });
 
 export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
-  const [flags, setFlags] = useState<FlagsMap>(defaultFlags);
-  const [loading, setLoading] = useState(true);
+  const [flags, setFlags] = useState<FlagsMap>(() => getCachedFlags().flags);
+  const [loading, setLoading] = useState(() => !getCachedFlags().hasCache);
 
   const load = async () => {
     try {
@@ -63,6 +77,9 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
         next[k] = !["off", "false", "0", "disabled"].includes(String(r.value || "").toLowerCase());
       });
       setFlags(next);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      } catch {}
     } catch (err) {
       console.warn("Feature flags load fallback:", err);
     } finally {
