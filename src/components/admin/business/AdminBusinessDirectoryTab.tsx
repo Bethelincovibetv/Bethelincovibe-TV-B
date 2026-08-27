@@ -13,10 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import {
   Building2, Plus, Pencil, Trash2, ImagePlus, X, Check, Clock, Zap, Sparkles,
   Search, ShieldCheck, ShieldAlert, Eye, ExternalLink, Globe, Phone, MapPin,
-  AlertTriangle, Filter, CheckCircle2, Video, Award, RefreshCw,
+  AlertTriangle, Filter, CheckCircle2, Video, Award, RefreshCw, Crown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
+import QueenServiceConciergeModal from "./QueenServiceConciergeModal";
 
 const generateSlug = (name: string) =>
   name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -80,6 +81,9 @@ export default function AdminBusinessDirectoryTab({
   // Quick Boost Modal
   const [boostModalBiz, setBoostModalBiz] = useState<any>(null);
   const [boostDurationDays, setBoostDurationDays] = useState<number>(14);
+
+  // Queen Concierge AI Setup Modal
+  const [queenModalBiz, setQueenModalBiz] = useState<any>(null);
 
   // Fetch Businesses
   const { data: businesses = [], isLoading, refetch } = useQuery({
@@ -838,6 +842,18 @@ export default function AdminBusinessDirectoryTab({
                         </>
                       )}
 
+                      {/* Queen AI Concierge 1-Click Setup */}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setQueenModalBiz(b)}
+                        className="rounded-xl h-8 px-2.5 text-xs font-bold bg-gradient-to-r from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30"
+                        title="Open Queen 1-Click AI Full Setup Concierge"
+                      >
+                        <Crown className="h-3.5 w-3.5 mr-1 fill-amber-500 text-amber-500" />
+                        Queen Setup
+                      </Button>
+
                       {/* View details */}
                       <Button
                         size="sm"
@@ -1235,6 +1251,31 @@ export default function AdminBusinessDirectoryTab({
                 </div>
               )}
 
+              {/* Queen AI Concierge Automated Setup Action Card */}
+              <div className="p-3.5 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-black text-foreground flex items-center gap-1.5">
+                    <Crown className="h-4 w-4 text-amber-500 fill-amber-500" />
+                    Queen Service Executive AI Setup
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    1-Click takeover: generate SEO &amp; brand copy, create services catalog, verify blue tick, rank featured &amp; launch live banner ad.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const target = viewDetailsBiz;
+                    setViewDetailsBiz(null);
+                    setQueenModalBiz(target);
+                  }}
+                  className="bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-700 hover:to-yellow-600 text-white font-bold text-xs rounded-xl shrink-0 gap-1.5 shadow-sm"
+                >
+                  <Crown className="h-3.5 w-3.5 fill-current" />
+                  Launch Queen Concierge
+                </Button>
+              </div>
+
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <Button asChild variant="outline" size="sm" className="rounded-xl font-bold">
                   <Link to={`/businesses/${viewDetailsBiz.slug}`} target="_blank" rel="noopener noreferrer">
@@ -1438,6 +1479,19 @@ export default function AdminBusinessDirectoryTab({
             </div>
           </DialogContent>
         </Dialog>
+      )}
+
+      {/* Queen Service AI Concierge Modal */}
+      {queenModalBiz && (
+        <QueenServiceConciergeModal
+          open={!!queenModalBiz}
+          onOpenChange={(open) => !open && setQueenModalBiz(null)}
+          business={queenModalBiz}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-queen-ads-count"] });
+          }}
+        />
       )}
     </div>
   );

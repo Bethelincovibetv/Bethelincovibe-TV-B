@@ -12,11 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   ShieldCheck, ShieldAlert, Plus, Pencil, Trash2, Search, Check, X,
-  Clock, DollarSign, Wallet, Sparkles, Building2, UserCheck, RefreshCw, ExternalLink
+  Clock, DollarSign, Wallet, Sparkles, Building2, UserCheck, RefreshCw, ExternalLink, Crown, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import { DEFAULT_VERIFICATION_PACKAGES, VerificationPackage } from "@/components/VerificationModal";
 import { Link } from "react-router-dom";
+import QueenServiceConciergeModal from "./QueenServiceConciergeModal";
+import { runQueenServiceAIAutomation } from "@/lib/queenBusinessServiceAIEngine";
 
 export default function AdminBusinessVerificationTab() {
   const queryClient = useQueryClient();
@@ -30,6 +32,11 @@ export default function AdminBusinessVerificationTab() {
   const [selectedBizId, setSelectedBizId] = useState("");
   const [selectedPlanDays, setSelectedPlanDays] = useState(365);
   const [grantNotes, setGrantNotes] = useState("");
+  const [autoRunQueenInGrant, setAutoRunQueenInGrant] = useState(true);
+
+  // Queen Concierge Modal State
+  const [queenModalOpen, setQueenModalOpen] = useState(false);
+  const [queenSelectedBiz, setQueenSelectedBiz] = useState<any>(null);
 
   // Plans Management State
   const [plans, setPlans] = useState<VerificationPackage[]>(DEFAULT_VERIFICATION_PACKAGES);
@@ -140,10 +147,12 @@ export default function AdminBusinessVerificationTab() {
       bizId,
       verified,
       days,
+      runQueenSetup = false,
     }: {
       bizId: string;
       verified: boolean;
       days?: number;
+      runQueenSetup?: boolean;
     }) => {
       const targetBiz = businesses.find((b: any) => b.id === bizId);
       if (!targetBiz) throw new Error("Business not found");
@@ -187,13 +196,33 @@ export default function AdminBusinessVerificationTab() {
             .eq("user_id", targetBiz.submitted_by);
         }
       }
+
+      // 3. If runQueenSetup is requested on verification, trigger the full AI pipeline
+      if (verified && runQueenSetup) {
+        try {
+          await runQueenServiceAIAutomation(targetBiz, {
+            verificationDays: days || 365,
+            featuredDurationDays: 30,
+            createBannerAdvert: true,
+            advertPlacement: "directory_top",
+            advertDurationDays: 30,
+            generateServicesCatalog: true,
+            sendOwnerNotification: true,
+          });
+        } catch (qErr) {
+          console.warn("Queen setup during verification warning:", qErr);
+        }
+      }
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
       queryClient.invalidateQueries({ queryKey: ["admin-business-owners"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-queen-ads-count"] });
       toast.success(
         variables.verified
-          ? "Blue Tick Verification granted successfully!"
+          ? variables.runQueenSetup
+            ? "👑 Blue Tick & Queen AI Full Setup completed successfully!"
+            : "Blue Tick Verification granted successfully!"
           : "Verification revoked."
       );
       setGrantModalOpen(false);
@@ -546,6 +575,20 @@ export default function AdminBusinessVerificationTab() {
                       <Button
                         size="sm"
                         variant="outline"
+                        onClick={() => {
+                          setQueenSelectedBiz(b);
+                          setQueenModalOpen(true);
+                        }}
+                        className="h-8 px-2.5 text-xs font-bold bg-gradient-to-r from-amber-500/10 to-yellow-500/10 hover:from-amber-500/20 hover:to-yellow-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 rounded-xl"
+                        title="Run Queen 1-Click AI Full Setup"
+                      >
+                        <Crown className="h-3.5 w-3.5 mr-1 fill-amber-500 text-amber-500" />
+                        Queen Setup
+                      </Button>
+
+                      <Button
+                        size="sm"
+                        variant="outline"
                         asChild
                         className="h-8 px-2.5 text-xs font-bold rounded-xl"
                       >
@@ -697,6 +740,23 @@ export default function AdminBusinessVerificationTab() {
               />
             </div>
 
+            {/* Queen Full AI Setup Auto-Run Switch */}
+            <div className="p-3 rounded-2xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 flex items-center justify-between gap-3">
+              <div className="space-y-0.5 pr-2">
+                <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                  <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                  Auto-Run Queen Service Full Setup
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Synthesize AI copy, 3-5 service catalog packages, top featured ranking &amp; live banner advert.
+                </p>
+              </div>
+              <Switch
+                checked={autoRunQueenInGrant}
+                onCheckedChange={setAutoRunQueenInGrant}
+              />
+            </div>
+
             <DialogFooter className="pt-2">
               <Button
                 variant="outline"
@@ -713,17 +773,32 @@ export default function AdminBusinessVerificationTab() {
                     bizId: selectedBizId,
                     verified: true,
                     days: selectedPlanDays,
+                    runQueenSetup: autoRunQueenInGrant,
                   })
                 }
                 disabled={!selectedBizId || updateVerificationMutation.isPending}
-                className="bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl"
+                className="bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white font-bold text-xs rounded-xl"
               >
-                Grant Blue Tick
+                Grant Blue Tick {autoRunQueenInGrant && "+ Queen Setup"}
               </Button>
             </DialogFooter>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Queen Concierge AI Setup Modal */}
+      {queenSelectedBiz && (
+        <QueenServiceConciergeModal
+          open={queenModalOpen}
+          onOpenChange={setQueenModalOpen}
+          business={queenSelectedBiz}
+          ownerProfile={profilesMap[queenSelectedBiz.submitted_by]}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
+            queryClient.invalidateQueries({ queryKey: ["admin-queen-ads-count"] });
+          }}
+        />
+      )}
 
       {/* Plan Edit Modal */}
       <Dialog open={planEditModalOpen} onOpenChange={setPlanEditModalOpen}>

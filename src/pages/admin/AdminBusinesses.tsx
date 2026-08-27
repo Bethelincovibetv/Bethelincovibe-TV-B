@@ -4,9 +4,10 @@ import { Helmet } from "react-helmet-async";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Building2, ShieldCheck, Sparkles, Package, Video, Wand2, Wallet,
-  SlidersHorizontal, LayoutDashboard
+  SlidersHorizontal, LayoutDashboard, Crown
 } from "lucide-react";
 
+import AdminQueenServiceTab from "@/components/admin/business/AdminQueenServiceTab";
 import AdminBusinessDirectoryTab from "@/components/admin/business/AdminBusinessDirectoryTab";
 import AdminBusinessVerificationTab from "@/components/admin/business/AdminBusinessVerificationTab";
 import AdminFeaturedBusinessesTab from "@/components/admin/business/AdminFeaturedBusinessesTab";
@@ -54,6 +55,14 @@ export default function AdminBusinesses({ defaultTab }: { defaultTab?: string })
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="overflow-x-auto pb-1 scrollbar-none">
           <TabsList className="bg-muted/70 p-1 rounded-2xl h-auto inline-flex min-w-full sm:min-w-0">
+            <TabsTrigger
+              value="queen_service"
+              className="rounded-xl px-3.5 py-2 text-xs font-bold gap-1.5 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-sm"
+            >
+              <Crown className="h-4 w-4 fill-current" />
+              👑 Queen AI Concierge
+            </TabsTrigger>
+
             <TabsTrigger
               value="directory"
               className="rounded-xl px-3.5 py-2 text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
@@ -113,6 +122,10 @@ export default function AdminBusinesses({ defaultTab }: { defaultTab?: string })
         </div>
 
         {/* Tab Contents */}
+        <TabsContent value="queen_service" className="space-y-6 m-0 focus-visible:outline-none">
+          <AdminQueenServiceTab />
+        </TabsContent>
+
         <TabsContent value="directory" className="space-y-6 m-0 focus-visible:outline-none">
           <AdminBusinessDirectoryTab onSelectTab={handleTabChange} />
         </TabsContent>
