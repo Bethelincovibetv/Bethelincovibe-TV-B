@@ -71,7 +71,7 @@ export default function UserBusinesses() {
 
   return (
     <>
-      <Helmet><title>My Businesses | Bethelincovibe TV</title></Helmet>
+      <Helmet><title>My Business | Bethelincovibe TV</title></Helmet>
       <div className="container mx-auto max-w-5xl px-4 py-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
           <div className="flex items-center gap-3">

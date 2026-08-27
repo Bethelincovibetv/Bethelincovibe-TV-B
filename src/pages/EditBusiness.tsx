@@ -122,8 +122,26 @@ export default function EditBusiness() {
               <div className="space-y-2"><Label>Address</Label><Input value={form.address || ""} onChange={(e) => setForm({ ...form, address: e.target.value })} /></div>
               <div className="space-y-2"><Label>Website</Label><Input value={form.website || ""} onChange={(e) => setForm({ ...form, website: e.target.value })} /></div>
               <div className="space-y-2"><Label>Description</Label><Textarea rows={4} value={form.description || ""} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <div className="space-y-2"><Label>Logo</Label><Input type="file" accept="image/*" onChange={onLogo} />
-                {form.logo_url && <img src={form.logo_url} className="h-16 rounded mt-2" alt="" />}
+              <div className="space-y-2">
+                <Label>Logo</Label>
+                <Input type="file" accept="image/*" onChange={onLogo} />
+                {form.logo_url && (
+                  <div className="mt-2 flex items-center gap-3 p-2 rounded-xl border bg-muted/30 w-fit">
+                    <div className="h-16 w-16 rounded-lg bg-card border overflow-hidden flex items-center justify-center p-1">
+                      <img src={form.logo_url} alt="Logo" className="h-full w-full object-contain" />
+                    </div>
+                    <div className="text-xs">
+                      <p className="font-semibold text-foreground">Current Logo</p>
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, logo_url: null }))}
+                        className="text-destructive hover:underline font-medium mt-0.5"
+                      >
+                        Remove logo
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -9,18 +9,89 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
-  Instagram, Twitter, Facebook, Linkedin, Globe, MessageCircle, Mail, Phone,
-  CheckCircle2, Pencil, Share2, ExternalLink, ChevronLeft, Briefcase, ShoppingBag,
-  Sparkles, Building2, LayoutGrid, Send, User, MapPin, Store, ArrowRight,
-  ShieldCheck, Star, Clock, FileText, Check, QrCode
+  Instagram,
+  Twitter,
+  Facebook,
+  Linkedin,
+  Globe,
+  MessageCircle,
+  Mail,
+  Phone,
+  Pencil,
+  Share2,
+  ExternalLink,
+  ChevronLeft,
+  Briefcase,
+  ShoppingBag,
+  Sparkles,
+  Building2,
+  LayoutGrid,
+  Send,
+  User,
+  MapPin,
+  Store,
+  ArrowRight,
+  ShieldCheck,
+  Star,
+  Clock,
+  Check,
+  QrCode,
+  Video,
+  Play,
+  Flame,
+  BadgeCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
 import QRCodeDialog from "@/components/QRCodeDialog";
+import VerifiedBadge, { VerifiedPillBadge } from "@/components/VerifiedBadge";
 import { waLink as buildWaLink } from "@/lib/phone";
 import { copyToClipboard } from "@/lib/clipboard";
+import { extractYouTubeVideoId } from "@/pages/UserProfileEdit";
+
+// Production-safe Vite asset imports for Vercel
+import bgTech from "@/assets/images/bg_tech_innovation_1787551368560.jpg";
+import bgFashion from "@/assets/images/bg_fashion_luxury_1787551382249.jpg";
+import bgCreative from "@/assets/images/bg_creative_design_1787551396312.jpg";
+
+const TEMPLATE_BACKGROUND_MAP: Record<string, { image: string; fallback: string; gradient: string }> = {
+  tech: {
+    image: bgTech,
+    fallback: "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1600&q=80",
+    gradient: "from-blue-600 via-indigo-600 to-cyan-700",
+  },
+  fashion: {
+    image: bgFashion,
+    fallback: "https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&w=1600&q=80",
+    gradient: "from-amber-500 via-yellow-600 to-orange-600",
+  },
+  creative: {
+    image: bgCreative,
+    fallback: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1600&q=80",
+    gradient: "from-purple-600 via-fuchsia-600 to-pink-600",
+  },
+  emerald: {
+    image: "",
+    fallback: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1600&q=80",
+    gradient: "from-emerald-600 via-teal-600 to-cyan-700",
+  },
+  sunset: {
+    image: "",
+    fallback: "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&w=1600&q=80",
+    gradient: "from-orange-500 via-rose-500 to-pink-600",
+  },
+  ocean: {
+    image: "",
+    fallback: "https://images.unsplash.com/photo-1472851294608-062f824d29cc?auto=format&fit=crop&w=1600&q=80",
+    gradient: "from-blue-600 via-indigo-600 to-sky-700",
+  },
+  noir: {
+    image: "",
+    fallback: "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=1600&q=80",
+    gradient: "from-zinc-800 via-zinc-900 to-black",
+  },
+};
 
 export default function PublicProfile() {
   const { username } = useParams();
@@ -30,7 +101,9 @@ export default function PublicProfile() {
   const [products, setProducts] = useState<any[]>([]);
   const [businesses, setBusinesses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"overview" | "products" | "sales" | "services" | "businesses" | "contact">("overview");
+  const [activeTab, setActiveTab] = useState<
+    "overview" | "products" | "sales" | "services" | "businesses" | "contact"
+  >("overview");
 
   // Inquiry form state
   const [inquiry, setInquiry] = useState({ name: "", phone: "", email: "", message: "" });
@@ -40,10 +113,18 @@ export default function PublicProfile() {
     (async () => {
       let q = supabase.from("profiles").select("*").eq("is_public", true).maybeSingle();
       if (username === "me") {
-        if (!user) { setLoading(false); return; }
+        if (!user) {
+          setLoading(false);
+          return;
+        }
         q = supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
       } else {
-        q = supabase.from("profiles").select("*").eq("username", username!).eq("is_public", true).maybeSingle();
+        q = supabase
+          .from("profiles")
+          .select("*")
+          .eq("username", username!)
+          .eq("is_public", true)
+          .maybeSingle();
       }
       const { data } = await q;
       setProfile(data);
@@ -52,7 +133,9 @@ export default function PublicProfile() {
         // Fetch Sales Pages
         const { data: sp } = await supabase
           .from("sales_pages")
-          .select("id, slug, product_name, headline, subheadline, price, currency, product_image_url, views_count, created_at")
+          .select(
+            "id, slug, product_name, headline, subheadline, price, currency, product_image_url, views_count, created_at"
+          )
           .eq("user_id", data.user_id)
           .eq("active", true)
           .order("created_at", { ascending: false });
@@ -61,8 +144,9 @@ export default function PublicProfile() {
         // Fetch Seller Products
         const { data: prod } = await supabase
           .from("directory_products")
-          .select("*")
+          .select("*, categories(name, slug)")
           .eq("user_id", data.user_id)
+          .eq("active", true)
           .order("created_at", { ascending: false });
         setProducts(prod || []);
 
@@ -94,7 +178,9 @@ export default function PublicProfile() {
           <User className="h-8 w-8" />
         </div>
         <h2 className="text-xl font-bold">Profile Not Found</h2>
-        <p className="text-sm text-muted-foreground">This user website or business profile does not exist or is private.</p>
+        <p className="text-sm text-muted-foreground">
+          This user website or business profile does not exist or is private.
+        </p>
         <Button asChild size="sm">
           <Link to="/">Return to Home</Link>
         </Button>
@@ -102,12 +188,30 @@ export default function PublicProfile() {
     );
   }
 
-  const sl = profile.social_links || {};
+  const sl = (profile.social_links as Record<string, any>) || {};
   const services: any[] = Array.isArray(profile.services) ? profile.services : [];
   const fullName = profile.display_name || profile.username || "Verified Business";
-  const seoDesc = profile.bio?.slice(0, 155) || `${fullName}'s official website and product catalog on Bethelincovibe TV`;
-  const waClean = (buildWaLink(profile.whatsapp) || "").replace("https://wa.me/", "").split("?")[0];
+  const seoDesc =
+    profile.bio?.slice(0, 155) ||
+    `${fullName}'s official website, product catalog & services on Bethelincovibe`;
+  const waClean = (buildWaLink(profile.whatsapp) || "")
+    .replace("https://wa.me/", "")
+    .split("?")[0];
   const isOwner = user && profile.user_id === user.id;
+
+  // Verification status
+  const isVerified =
+    !!sl.verified ||
+    (!!sl.verified_until && new Date(sl.verified_until) > new Date()) ||
+    businesses.some((b) => !!b.social_links?.verified);
+
+  // YouTube Video URL
+  const videoUrl = sl.youtube_video_url || businesses[0]?.social_links?.youtube_video_url;
+  const ytVideoId = extractYouTubeVideoId(videoUrl);
+
+  // Background resolution
+  const templateConfig = TEMPLATE_BACKGROUND_MAP[profile.background_template || "tech"] || TEMPLATE_BACKGROUND_MAP.tech;
+  const resolvedBgImage = profile.background_url || templateConfig.image || templateConfig.fallback;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -116,15 +220,19 @@ export default function PublicProfile() {
     description: profile.bio,
     image: profile.avatar_url,
     url: typeof window !== "undefined" ? window.location.href : undefined,
-    sameAs: Object.values(sl).filter(Boolean),
-    knowsAbout: services,
+    sameAs: Object.values(sl).filter((v) => typeof v === "string" && v.startsWith("http")),
+    knowsAbout: services.map((s) => s.title),
   };
 
   const onShare = async () => {
     const url = typeof window !== "undefined" ? window.location.href : "";
     try {
       if ((navigator as any).share) {
-        await (navigator as any).share({ title: `${fullName} - Official Profile Website`, text: profile.bio || undefined, url });
+        await (navigator as any).share({
+          title: `${fullName} - Official Profile Website`,
+          text: profile.bio || undefined,
+          url,
+        });
         return;
       }
     } catch {}
@@ -186,7 +294,7 @@ export default function PublicProfile() {
       <Helmet>
         <title>{fullName} - Official Website | Bethelincovibe TV</title>
         <meta name="description" content={seoDesc} />
-        <meta property="og:title" content={`${fullName} - Personal Website`} />
+        <meta property="og:title" content={`${fullName} - Official Business Profile`} />
         <meta property="og:description" content={seoDesc} />
         {profile.avatar_url && <meta property="og:image" content={profile.avatar_url} />}
         <link rel="canonical" href={typeof window !== "undefined" ? window.location.href : ""} />
@@ -195,37 +303,29 @@ export default function PublicProfile() {
 
       {/* Top Website Brand Banner / Hero Cover */}
       <div
-        className={`relative h-60 sm:h-72 overflow-hidden transition-all ${
-          profile.background_template === "emerald" ? "bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-700" :
-          profile.background_template === "sunset"  ? "bg-gradient-to-br from-orange-500 via-rose-500 to-pink-600" :
-          profile.background_template === "ocean"   ? "bg-gradient-to-br from-blue-600 via-indigo-600 to-sky-700" :
-          profile.background_template === "noir"    ? "bg-gradient-to-br from-zinc-800 via-zinc-900 to-black" :
-          profile.background_template === "fashion" ? "bg-gradient-to-br from-amber-500 via-yellow-600 to-orange-600" :
-          profile.background_template === "creative"? "bg-gradient-to-br from-purple-600 via-fuchsia-600 to-pink-600" :
-          "bg-gradient-to-br from-primary via-amber-600 to-orange-600"
-        }`}
+        className={`relative h-60 sm:h-72 overflow-hidden transition-all bg-gradient-to-br ${templateConfig.gradient}`}
       >
-        {(profile.background_url ||
-          (profile.background_template === "tech" ? "/src/assets/images/bg_tech_innovation_1787551368560.jpg" :
-           profile.background_template === "fashion" ? "/src/assets/images/bg_fashion_luxury_1787551382249.jpg" :
-           profile.background_template === "creative" ? "/src/assets/images/bg_creative_design_1787551396312.jpg" : null)
-        ) && (
+        {resolvedBgImage && (
           <img
-            src={
-              profile.background_url ||
-              (profile.background_template === "tech" ? "/src/assets/images/bg_tech_innovation_1787551368560.jpg" :
-               profile.background_template === "fashion" ? "/src/assets/images/bg_fashion_luxury_1787551382249.jpg" :
-               profile.background_template === "creative" ? "/src/assets/images/bg_creative_design_1787551396312.jpg" : "")
-            }
+            src={resolvedBgImage}
             alt={fullName}
             className="absolute inset-0 w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to Unsplash CDN image if local fails on any host
+              (e.target as HTMLImageElement).src = templateConfig.fallback;
+            }}
           />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-black/30 to-black/20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-black/40 to-black/20" />
 
         {/* Website Top Bar Nav */}
         <div className="container mx-auto max-w-7xl px-4 relative z-20 pt-4 flex items-center justify-between gap-2">
-          <Button asChild size="sm" variant="secondary" className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30 text-xs px-2.5 sm:px-3 shrink-0">
+          <Button
+            asChild
+            size="sm"
+            variant="secondary"
+            className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30 text-xs px-2.5 sm:px-3 shrink-0"
+          >
             <Link to="/businesses">
               <ChevronLeft className="h-4 w-4 sm:mr-1" />
               <span className="hidden sm:inline">Back to </span>Directory
@@ -248,64 +348,81 @@ export default function PublicProfile() {
                 </Button>
               }
             />
+
             <Button
-              onClick={onShare}
               size="sm"
               variant="secondary"
+              onClick={onShare}
               className="rounded-xl shadow-lg h-9 bg-white/20 backdrop-blur-md text-white border-white/30 hover:bg-white/30 text-xs px-2.5 sm:px-3"
             >
               <Share2 className="h-4 w-4 sm:mr-1" />
-              <span>Share</span>
+              <span className="hidden sm:inline">Share</span>
             </Button>
+
             {isOwner && (
-              <Button asChild size="sm" className="rounded-xl shadow-lg h-9 font-bold bg-white text-foreground hover:bg-slate-100 text-xs px-2.5 sm:px-3">
+              <Button
+                asChild
+                size="sm"
+                className="rounded-xl shadow-lg h-9 bg-primary text-primary-foreground font-extrabold text-xs px-3"
+              >
                 <Link to="/dashboard/profile-edit">
-                  <Pencil className="h-3.5 w-3.5 sm:mr-1" />
-                  <span className="hidden sm:inline">Edit </span>Site
+                  <Pencil className="h-3.5 w-3.5 mr-1" /> Edit Profile
                 </Link>
               </Button>
             )}
           </div>
         </div>
-
-        {/* Brand Tagline in Cover */}
-        <div className="container mx-auto max-w-7xl px-4 absolute bottom-6 z-20 hidden sm:block">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-black/40 backdrop-blur-md border border-white/20 text-xs font-semibold text-white">
-            <ShieldCheck className="h-4 w-4 text-emerald-400" />
-            Official Verified Business Site
-          </div>
-        </div>
       </div>
 
-      {/* Main Website Container */}
-      <div className="container mx-auto max-w-7xl px-4 relative z-30 -mt-16 sm:-mt-20">
+      {/* Main Content Body */}
+      <div className="container mx-auto max-w-7xl px-4 -mt-20 relative z-20">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-
-          {/* Left Side Navigation Sidebar & Business Identity Card */}
+          
+          {/* Left Column: Business Bio & Identity Card */}
           <div className="lg:col-span-4 space-y-4">
-            {/* Identity Card */}
-            <Card className="border-border/80 shadow-xl rounded-3xl overflow-visible bg-card/95 backdrop-blur-md">
-              <CardContent className="p-5 sm:p-6 text-center space-y-4">
-                {/* Avatar with 3D ring & prominent un-clipped elevation */}
-                <div className="relative inline-block -mt-16 sm:-mt-20 z-40">
-                  <div className="h-28 w-28 sm:h-32 sm:w-32 rounded-3xl ring-4 ring-background bg-gradient-to-tr from-primary to-amber-500 overflow-hidden flex items-center justify-center text-4xl font-black text-white shadow-2xl mx-auto">
+            <Card className="border-border/80 shadow-xl rounded-3xl overflow-hidden bg-card">
+              <CardContent className="p-6 text-center space-y-4">
+                {/* Logo / Avatar */}
+                <div className="relative inline-block mx-auto">
+                  <div className="h-28 w-28 rounded-3xl bg-muted overflow-hidden flex items-center justify-center text-3xl font-black text-primary ring-4 ring-card shadow-2xl mx-auto">
                     {profile.avatar_url ? (
-                      <img src={profile.avatar_url} alt={fullName} className="w-full h-full object-cover" />
+                      <img
+                        src={profile.avatar_url}
+                        alt={fullName}
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
-                      fullName?.[0]?.toUpperCase()
+                      (profile.display_name?.[0] || profile.username?.[0] || "B").toUpperCase()
                     )}
                   </div>
-                  <span className="absolute bottom-1 right-1 p-1.5 rounded-full bg-emerald-500 text-white ring-4 ring-background shadow-md">
-                    <CheckCircle2 className="h-4 w-4" />
-                  </span>
                 </div>
 
-                <div className="space-y-1">
-                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center justify-center gap-1.5">
-                    {fullName}
+                <div className="space-y-1.5">
+                  <h1 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center justify-center gap-1.5 flex-wrap">
+                    <span>{fullName}</span>
+                    {isVerified && (
+                      <VerifiedBadge
+                        verified={true}
+                        verifiedUntil={sl.verified_until}
+                        size="md"
+                      />
+                    )}
                   </h1>
+
                   {profile.username && (
                     <p className="text-xs font-bold text-primary">@{profile.username}</p>
+                  )}
+
+                  {isVerified && (
+                    <div className="pt-1 flex justify-center">
+                      <VerifiedPillBadge />
+                    </div>
+                  )}
+
+                  {sl.tagline && (
+                    <p className="text-xs font-extrabold text-muted-foreground italic pt-0.5">
+                      “{sl.tagline}”
+                    </p>
                   )}
                 </div>
 
@@ -327,18 +444,33 @@ export default function PublicProfile() {
                       </a>
                     </Button>
                   ) : profile.phone ? (
-                    <Button asChild className="w-full rounded-2xl font-bold bg-primary text-white gap-2">
+                    <Button
+                      asChild
+                      className="w-full rounded-2xl font-bold bg-primary text-white gap-2"
+                    >
                       <a href={`tel:${profile.phone}`}>
                         <Phone className="h-4 w-4" /> Call Business
                       </a>
                     </Button>
                   ) : profile.email ? (
-                    <Button asChild variant="outline" className="w-full rounded-2xl font-bold gap-2">
+                    <Button
+                      asChild
+                      variant="outline"
+                      className="w-full rounded-2xl font-bold gap-2"
+                    >
                       <a href={`mailto:${profile.email}`}>
                         <Mail className="h-4 w-4" /> Email Business
                       </a>
                     </Button>
                   ) : null}
+
+                  <Button
+                    variant="outline"
+                    onClick={() => setActiveTab("contact")}
+                    className="w-full rounded-2xl font-bold text-xs gap-1.5"
+                  >
+                    <Send className="h-3.5 w-3.5" /> Send Direct Inquiry
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -369,9 +501,11 @@ export default function PublicProfile() {
                         <span>{item.label}</span>
                       </div>
                       {item.count !== null && item.count > 0 && (
-                        <Badge className={`text-[10px] font-black px-2 py-0 rounded-full ${
-                          isActive ? "bg-white text-primary" : "bg-primary/10 text-primary"
-                        }`}>
+                        <Badge
+                          className={`text-[10px] font-black px-2 py-0 rounded-full ${
+                            isActive ? "bg-white text-primary" : "bg-primary/10 text-primary"
+                          }`}
+                        >
                           {item.count}
                         </Badge>
                       )}
@@ -384,7 +518,6 @@ export default function PublicProfile() {
 
           {/* Right Main Content Section */}
           <div className="lg:col-span-8 space-y-5">
-
             {/* Mobile Horizontal Navigation Tabs */}
             <div className="lg:hidden flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
               {navItems.map((item) => {
@@ -422,20 +555,30 @@ export default function PublicProfile() {
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-wrap">
-                      {profile.bio || "Welcome to my official business profile. Explore my products, services, and special sales offers below."}
+                      {profile.bio ||
+                        "Welcome to our official business profile. Explore our products, services, special offers, and contact us directly."}
                     </p>
 
                     {/* Quick Stats Grid */}
                     <div className="grid grid-cols-3 gap-3 pt-2">
-                      <div className="p-3.5 rounded-2xl bg-primary/10 border border-primary/20 text-center space-y-0.5">
+                      <div
+                        onClick={() => setActiveTab("products")}
+                        className="p-3.5 rounded-2xl bg-primary/10 border border-primary/20 text-center space-y-0.5 cursor-pointer hover:scale-[1.02] transition"
+                      >
                         <span className="text-xl font-black text-primary">{products.length}</span>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase">Products</p>
                       </div>
-                      <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-0.5">
+                      <div
+                        onClick={() => setActiveTab("sales")}
+                        className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-center space-y-0.5 cursor-pointer hover:scale-[1.02] transition"
+                      >
                         <span className="text-xl font-black text-amber-600">{salesPages.length}</span>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase">Offers</p>
                       </div>
-                      <div className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-center space-y-0.5">
+                      <div
+                        onClick={() => setActiveTab("services")}
+                        className="p-3.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 text-center space-y-0.5 cursor-pointer hover:scale-[1.02] transition"
+                      >
                         <span className="text-xl font-black text-blue-600">{services.length}</span>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase">Services</p>
                       </div>
@@ -443,7 +586,34 @@ export default function PublicProfile() {
                   </CardContent>
                 </Card>
 
-                {/* Featured Products Showcase Preview */}
+                {/* YouTube Business Story Video Section */}
+                {ytVideoId && (
+                  <Card className="border-red-500/30 shadow-md rounded-3xl bg-card overflow-hidden">
+                    <CardHeader className="pb-2 bg-red-500/5 border-b border-red-500/20">
+                      <div className="flex items-center justify-between">
+                        <CardTitle className="text-base font-extrabold flex items-center gap-2 text-foreground">
+                          <Video className="h-5 w-5 text-red-600" /> Watch Our Business Story
+                        </CardTitle>
+                        <Badge className="bg-red-600 text-white text-[10px] font-black gap-1">
+                          <Play className="h-2.5 w-2.5 fill-white" /> Official Video
+                        </Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="p-4 sm:p-5">
+                      <div className="aspect-video w-full rounded-2xl overflow-hidden shadow-lg bg-black border border-border">
+                        <iframe
+                          src={`https://www.youtube.com/embed/${ytVideoId}?rel=0`}
+                          title={`${fullName} Official Business Story`}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="w-full h-full border-0"
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Featured Products Showcase Preview (Clickable Products) */}
                 {products.length > 0 && (
                   <Card className="border-border/80 shadow-md rounded-3xl bg-card">
                     <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -460,23 +630,71 @@ export default function PublicProfile() {
                       </Button>
                     </CardHeader>
                     <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {products.slice(0, 2).map((p) => (
-                        <div key={p.id} className="rounded-2xl border border-border/60 bg-muted/30 p-3 space-y-2">
-                          <div className="aspect-video rounded-xl bg-muted overflow-hidden">
-                            {p.cover_image ? (
-                              <img src={p.cover_image} alt={p.name} className="w-full h-full object-cover" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                                <ShoppingBag className="h-8 w-8 opacity-40" />
+                      {products.slice(0, 4).map((p) => {
+                        const productUrl = `/products/${p.slug || p.id}`;
+                        return (
+                          <div
+                            key={p.id}
+                            className="group rounded-2xl border border-border/70 bg-card hover:shadow-lg transition-all p-3 space-y-2 flex flex-col justify-between"
+                          >
+                            <Link to={productUrl} className="space-y-2 block">
+                              <div className="aspect-video rounded-xl bg-muted overflow-hidden relative">
+                                {p.cover_image ? (
+                                  <img
+                                    src={p.cover_image}
+                                    alt={p.name}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                    <ShoppingBag className="h-8 w-8 opacity-40" />
+                                  </div>
+                                )}
+                                <Badge className="absolute top-2 right-2 bg-black/60 text-white font-bold text-[9px] backdrop-blur-md">
+                                  {p.product_type || "Product"}
+                                </Badge>
                               </div>
-                            )}
+                              <div>
+                                <p className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary transition">
+                                  {p.name}
+                                </p>
+                                <p className="text-xs font-extrabold text-primary">
+                                  ₦{Number(p.price || 0).toLocaleString()}
+                                </p>
+                              </div>
+                            </Link>
+
+                            <div className="flex gap-2 pt-1">
+                              <Button
+                                asChild
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 rounded-xl text-xs font-bold h-8"
+                              >
+                                <Link to={productUrl}>View Details</Link>
+                              </Button>
+
+                              {waClean && (
+                                <Button
+                                  asChild
+                                  size="sm"
+                                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs h-8 px-2.5"
+                                >
+                                  <a
+                                    href={`https://wa.me/${waClean}?text=Hello!%20I'm%20interested%20in%20"${encodeURIComponent(
+                                      p.name
+                                    )}"%20for%20₦${p.price}`}
+                                    target="_blank"
+                                    rel="noopener"
+                                  >
+                                    <MessageCircle className="h-3.5 w-3.5" />
+                                  </a>
+                                </Button>
+                              )}
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-bold text-foreground line-clamp-1">{p.name}</p>
-                            <p className="text-xs font-extrabold text-primary">₦{Number(p.price || 0).toLocaleString()}</p>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </CardContent>
                   </Card>
                 )}
@@ -506,12 +724,20 @@ export default function PublicProfile() {
                         >
                           {sp.product_image_url && (
                             <div className="aspect-video rounded-xl overflow-hidden bg-muted">
-                              <img src={sp.product_image_url} alt={sp.product_name} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                              <img
+                                src={sp.product_image_url}
+                                alt={sp.product_name}
+                                className="w-full h-full object-cover group-hover:scale-105 transition"
+                              />
                             </div>
                           )}
                           <div>
-                            <p className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary">{sp.headline || sp.product_name}</p>
-                            <p className="text-xs font-extrabold text-amber-600">₦{Number(sp.price || 0).toLocaleString()}</p>
+                            <p className="text-sm font-bold text-foreground line-clamp-1 group-hover:text-primary">
+                              {sp.headline || sp.product_name}
+                            </p>
+                            <p className="text-xs font-extrabold text-amber-600">
+                              ₦{Number(sp.price || 0).toLocaleString()}
+                            </p>
                           </div>
                         </Link>
                       ))}
@@ -534,58 +760,87 @@ export default function PublicProfile() {
                   <Card className="border-border/80 rounded-3xl p-12 text-center bg-card">
                     <ShoppingBag className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
                     <p className="text-sm font-bold">No Products Available</p>
-                    <p className="text-xs text-muted-foreground mt-1">This user has not uploaded products yet.</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This business has not uploaded products yet.
+                    </p>
                   </Card>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {products.map((p) => (
-                      <Card key={p.id} className="border-border/80 rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all bg-card flex flex-col justify-between">
-                        <div>
-                          {p.cover_image && (
-                            <div className="aspect-video bg-muted overflow-hidden relative">
-                              <img src={p.cover_image} alt={p.name} className="w-full h-full object-cover" />
-                              <Badge className="absolute top-2 right-2 bg-black/60 text-white font-bold text-[10px] backdrop-blur-md">
-                                {p.product_type || "Digital Product"}
-                              </Badge>
-                            </div>
-                          )}
-                          <CardContent className="p-4 space-y-2">
-                            <h3 className="text-base font-bold text-foreground line-clamp-1">{p.name}</h3>
-                            {p.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{p.description}</p>
-                            )}
-                            <p className="text-lg font-black text-primary">₦{Number(p.price || 0).toLocaleString()}</p>
-                          </CardContent>
-                        </div>
+                    {products.map((p) => {
+                      const productUrl = `/products/${p.slug || p.id}`;
+                      return (
+                        <Card
+                          key={p.id}
+                          className="border-border/80 rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all bg-card flex flex-col justify-between group"
+                        >
+                          <div>
+                            <Link to={productUrl} className="block">
+                              <div className="aspect-video bg-muted overflow-hidden relative">
+                                {p.cover_image ? (
+                                  <img
+                                    src={p.cover_image}
+                                    alt={p.name}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                                    <ShoppingBag className="h-10 w-10 opacity-30" />
+                                  </div>
+                                )}
+                                <Badge className="absolute top-2 right-2 bg-black/60 text-white font-bold text-[10px] backdrop-blur-md">
+                                  {p.product_type || "Product"}
+                                </Badge>
+                              </div>
+                            </Link>
 
-                        <div className="p-4 pt-0">
-                          {waClean ? (
+                            <CardContent className="p-4 space-y-2">
+                              <Link to={productUrl} className="block">
+                                <h3 className="text-base font-bold text-foreground line-clamp-1 group-hover:text-primary transition">
+                                  {p.name}
+                                </h3>
+                              </Link>
+                              {p.description && (
+                                <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                  {p.description}
+                                </p>
+                              )}
+                              <p className="text-lg font-black text-primary">
+                                ₦{Number(p.price || 0).toLocaleString()}
+                              </p>
+                            </CardContent>
+                          </div>
+
+                          <div className="p-4 pt-0 space-y-2">
                             <Button
                               asChild
                               size="sm"
-                              className="w-full rounded-2xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs"
-                            >
-                              <a
-                                href={`https://wa.me/${waClean}?text=Hello!%20I'm%20interested%20in%20buying%20"${encodeURIComponent(p.name)}"%20for%20₦${p.price}`}
-                                target="_blank"
-                                rel="noopener"
-                              >
-                                <MessageCircle className="h-4 w-4" /> Order via WhatsApp
-                              </a>
-                            </Button>
-                          ) : (
-                            <Button
-                              onClick={() => setActiveTab("contact")}
-                              size="sm"
                               variant="outline"
-                              className="w-full rounded-2xl font-bold text-xs"
+                              className="w-full rounded-2xl font-bold text-xs h-9"
                             >
-                              Inquire About Product
+                              <Link to={productUrl}>View Product Details</Link>
                             </Button>
-                          )}
-                        </div>
-                      </Card>
-                    ))}
+
+                            {waClean ? (
+                              <Button
+                                asChild
+                                size="sm"
+                                className="w-full rounded-2xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-xs h-9"
+                              >
+                                <a
+                                  href={`https://wa.me/${waClean}?text=Hello!%20I'm%20interested%20in%20buying%20"${encodeURIComponent(
+                                    p.name
+                                  )}"%20for%20₦${p.price}`}
+                                  target="_blank"
+                                  rel="noopener"
+                                >
+                                  <MessageCircle className="h-4 w-4" /> Order via WhatsApp
+                                </a>
+                              </Button>
+                            ) : null}
+                          </div>
+                        </Card>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -604,32 +859,51 @@ export default function PublicProfile() {
                   <Card className="border-border/80 rounded-3xl p-12 text-center bg-card">
                     <Sparkles className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
                     <p className="text-sm font-bold">No Active Offers</p>
-                    <p className="text-xs text-muted-foreground mt-1">This business has no special sales landing pages yet.</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This business has no special sales landing pages yet.
+                    </p>
                   </Card>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {salesPages.map((sp) => (
-                      <Card key={sp.id} className="border-amber-500/30 rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all bg-card flex flex-col justify-between">
+                      <Card
+                        key={sp.id}
+                        className="border-amber-500/30 rounded-3xl overflow-hidden shadow-sm hover:shadow-lg transition-all bg-card flex flex-col justify-between"
+                      >
                         <div>
                           {sp.product_image_url && (
                             <div className="aspect-video bg-muted overflow-hidden relative">
-                              <img src={sp.product_image_url} alt={sp.product_name} className="w-full h-full object-cover" />
+                              <img
+                                src={sp.product_image_url}
+                                alt={sp.product_name}
+                                className="w-full h-full object-cover"
+                              />
                               <Badge className="absolute top-2 right-2 bg-amber-600 text-white font-extrabold text-[10px]">
                                 SPECIAL OFFER
                               </Badge>
                             </div>
                           )}
                           <CardContent className="p-4 space-y-2">
-                            <h3 className="text-base font-bold text-foreground line-clamp-2">{sp.headline || sp.product_name}</h3>
+                            <h3 className="text-base font-bold text-foreground line-clamp-2">
+                              {sp.headline || sp.product_name}
+                            </h3>
                             {sp.subheadline && (
-                              <p className="text-xs text-muted-foreground line-clamp-2">{sp.subheadline}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                {sp.subheadline}
+                              </p>
                             )}
-                            <p className="text-lg font-black text-amber-600">₦{Number(sp.price || 0).toLocaleString()}</p>
+                            <p className="text-lg font-black text-amber-600">
+                              ₦{Number(sp.price || 0).toLocaleString()}
+                            </p>
                           </CardContent>
                         </div>
 
                         <div className="p-4 pt-0">
-                          <Button asChild size="sm" className="w-full rounded-2xl font-extrabold bg-gradient-to-r from-amber-500 to-orange-600 text-white gap-1.5 shadow-md">
+                          <Button
+                            asChild
+                            size="sm"
+                            className="w-full rounded-2xl font-extrabold bg-gradient-to-r from-amber-500 to-orange-600 text-white gap-1.5 shadow-md"
+                          >
                             <Link to={`/sales/${sp.slug}`}>
                               View Offer Page <ExternalLink className="h-4 w-4" />
                             </Link>
@@ -655,7 +929,9 @@ export default function PublicProfile() {
                   <Card className="border-border/80 rounded-3xl p-12 text-center bg-card">
                     <Briefcase className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
                     <p className="text-sm font-bold">No Services Listed</p>
-                    <p className="text-xs text-muted-foreground mt-1">This user has not listed services yet.</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      This user has not listed services yet.
+                    </p>
                   </Card>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -680,16 +956,22 @@ export default function PublicProfile() {
                   <Card className="border-border/80 rounded-3xl p-12 text-center bg-card">
                     <Building2 className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
                     <p className="text-sm font-bold">No Business Listings</p>
-                    <p className="text-xs text-muted-foreground mt-1">No directory listings submitted by this user.</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      No directory listings submitted by this user.
+                    </p>
                   </Card>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
                     {businesses.map((b) => (
-                      <Card key={b.id} className="border-border/80 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition bg-card">
+                      <Card
+                        key={b.id}
+                        className="border-border/80 rounded-3xl overflow-hidden shadow-sm hover:shadow-md transition bg-card"
+                      >
                         <CardContent className="p-5 flex flex-col sm:flex-row items-start justify-between gap-4">
                           <div className="space-y-2">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="text-base font-bold text-foreground">{b.name}</h3>
+                              {isVerified && <VerifiedBadge verified={true} size="xs" />}
                               {b.categories?.name && (
                                 <Badge variant="secondary" className="text-[10px] font-bold">
                                   {b.categories.name}
@@ -697,7 +979,9 @@ export default function PublicProfile() {
                               )}
                             </div>
                             {b.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{b.description}</p>
+                              <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                                {b.description}
+                              </p>
                             )}
                             {b.city && (
                               <p className="text-xs text-muted-foreground flex items-center gap-1 font-semibold">
@@ -706,9 +990,14 @@ export default function PublicProfile() {
                             )}
                           </div>
 
-                          <Button asChild size="sm" variant="outline" className="rounded-2xl shrink-0 font-bold text-xs gap-1">
-                            <Link to={`/directory/${b.id}`}>
-                              View Business Listing <ArrowRight className="h-3.5 w-3.5" />
+                          <Button
+                            asChild
+                            size="sm"
+                            variant="outline"
+                            className="rounded-2xl shrink-0 font-bold text-xs gap-1"
+                          >
+                            <Link to={`/businesses/${b.slug}`}>
+                              View Business Page <ArrowRight className="h-3.5 w-3.5" />
                             </Link>
                           </Button>
                         </CardContent>
@@ -788,13 +1077,21 @@ export default function PublicProfile() {
                     {/* Social Channels List */}
                     {(sl.instagram || sl.facebook || sl.twitter || sl.linkedin || sl.website) && (
                       <div className="pt-4 border-t border-border/60 space-y-2">
-                        <p className="text-xs font-bold text-muted-foreground uppercase">Connect on Social Media</p>
+                        <p className="text-xs font-bold text-muted-foreground uppercase">
+                          Connect on Social Media
+                        </p>
                         <div className="flex flex-wrap gap-2">
                           {sl.website && <SocialBtn href={sl.website} icon={Globe} label="Website" />}
-                          {sl.instagram && <SocialBtn href={sl.instagram} icon={Instagram} label="Instagram" />}
-                          {sl.facebook && <SocialBtn href={sl.facebook} icon={Facebook} label="Facebook" />}
+                          {sl.instagram && (
+                            <SocialBtn href={sl.instagram} icon={Instagram} label="Instagram" />
+                          )}
+                          {sl.facebook && (
+                            <SocialBtn href={sl.facebook} icon={Facebook} label="Facebook" />
+                          )}
                           {sl.twitter && <SocialBtn href={sl.twitter} icon={Twitter} label="Twitter" />}
-                          {sl.linkedin && <SocialBtn href={sl.linkedin} icon={Linkedin} label="LinkedIn" />}
+                          {sl.linkedin && (
+                            <SocialBtn href={sl.linkedin} icon={Linkedin} label="LinkedIn" />
+                          )}
                         </div>
                       </div>
                     )}
@@ -802,7 +1099,6 @@ export default function PublicProfile() {
                 </Card>
               </div>
             )}
-
           </div>
         </div>
       </div>
@@ -811,7 +1107,11 @@ export default function PublicProfile() {
       <div className="lg:hidden fixed bottom-16 left-0 right-0 z-40 px-3">
         <div className="bg-card/95 backdrop-blur-md border border-border/80 shadow-2xl rounded-2xl p-2 flex gap-2 max-w-md mx-auto">
           {waClean ? (
-            <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs" size="sm" asChild>
+            <Button
+              className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-xs"
+              size="sm"
+              asChild
+            >
               <a href={`https://wa.me/${waClean}`} target="_blank" rel="noopener">
                 <MessageCircle className="h-4 w-4 mr-1" /> WhatsApp
               </a>
@@ -824,7 +1124,12 @@ export default function PublicProfile() {
             </Button>
           ) : null}
 
-          <Button variant="outline" size="sm" className="flex-1 rounded-xl font-bold text-xs" onClick={() => setActiveTab("contact")}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 rounded-xl font-bold text-xs"
+            onClick={() => setActiveTab("contact")}
+          >
             <Send className="h-3.5 w-3.5 mr-1" /> Inquiry
           </Button>
 

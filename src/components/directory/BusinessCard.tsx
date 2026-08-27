@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Phone, Globe, Sparkles, Star, BadgeCheck, Images } from "lucide-react";
+import { MapPin, Phone, Globe, Sparkles, Star, Images } from "lucide-react";
 import { getCategoryIcon } from "@/lib/categoryIcons";
+import VerifiedBadge from "@/components/VerifiedBadge";
 
 export type DirectoryBusiness = {
   id: string;
@@ -43,7 +44,7 @@ export default function BusinessCard({
   if (view === "list") {
     return (
       <Link to={`/businesses/${s.slug}`} className="group block">
-        <article className="flex gap-3 rounded-2xl border bg-card p-3 transition-all hover:shadow-lg hover:border-primary/40 active:scale-[0.995]">
+        <article className="flex gap-3.5 rounded-2xl border bg-card p-3.5 transition-all hover:shadow-lg hover:border-primary/40 active:scale-[0.995]">
           <div className="relative h-24 w-24 sm:h-28 sm:w-28 shrink-0 overflow-hidden rounded-xl bg-muted">
             {hero ? (
               <img
@@ -59,17 +60,26 @@ export default function BusinessCard({
               </div>
             )}
             {boosted && (
-              <Badge className="absolute left-1 top-1 h-5 gap-0.5 bg-amber-500 px-1.5 text-[9px] text-white hover:bg-amber-500">
+              <Badge className="absolute left-1 top-1 h-5 gap-0.5 bg-amber-500 px-1.5 text-[9px] text-white hover:bg-amber-500 shadow-sm z-10">
                 <Sparkles className="h-2.5 w-2.5" />Sponsored
               </Badge>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex items-start gap-1.5">
-              <h3 className="truncate text-[15px] font-semibold leading-snug group-hover:text-primary">{s.name}</h3>
-              <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+            <div className="flex items-start gap-2">
+              {s.logo_url && s.logo_url !== hero && (
+                <div className="h-7 w-7 rounded-lg bg-card ring-1 ring-border shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
+                  <img src={s.logo_url} alt="" className="h-full w-full object-contain p-0.5" />
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h3 className="truncate text-[15px] font-semibold leading-snug group-hover:text-primary">{s.name}</h3>
+                  <VerifiedBadge verified={true} size="sm" />
+                </div>
+                {s.categories && <p className="text-xs font-medium text-primary mt-0.5">{s.categories.name}</p>}
+              </div>
             </div>
-            {s.categories && <p className="text-xs font-medium text-primary">{s.categories.name}</p>}
             {s.description && <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{s.description}</p>}
             
             {serviceList.length > 0 && (
@@ -127,34 +137,35 @@ export default function BusinessCard({
               <Icon className="h-12 w-12 text-primary-foreground/90" />
             </div>
           )}
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/55 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/40 to-transparent" />
           {boosted && (
-            <Badge className="absolute right-2 top-2 h-5 gap-0.5 bg-amber-500 text-[10px] text-white hover:bg-amber-500 shadow-sm">
+            <Badge className="absolute right-2 top-2 h-5 gap-0.5 bg-amber-500 text-[10px] text-white hover:bg-amber-500 shadow-sm z-10">
               <Sparkles className="h-2.5 w-2.5" />Sponsored
             </Badge>
           )}
           {s.categories && (
-            <span className="absolute bottom-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-primary backdrop-blur">
+            <span className="absolute top-2 left-2 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-semibold text-primary backdrop-blur shadow-sm z-10">
               {s.categories.name}
             </span>
           )}
         </div>
 
-        <div className="flex flex-1 flex-col gap-2 p-3.5">
-          <div className="flex items-start gap-2">
+        <div className="flex flex-1 flex-col gap-2 p-3.5 pt-0">
+          <div className="flex items-start gap-2.5 pt-2">
             {s.logo_url && (
-              <img
-                src={s.logo_url}
-                alt=""
-                aria-hidden="true"
-                loading="lazy"
-                className="-mt-8 h-11 w-11 shrink-0 rounded-xl object-cover ring-4 ring-card"
-              />
+              <div className="relative -mt-7 shrink-0 z-20 h-12 w-12 rounded-xl bg-card p-0.5 shadow-md ring-2 ring-card overflow-hidden flex items-center justify-center">
+                <img
+                  src={s.logo_url}
+                  alt={s.name}
+                  loading="lazy"
+                  className="h-full w-full rounded-[10px] object-contain"
+                />
+              </div>
             )}
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 pt-0.5">
               <div className="flex items-start gap-1.5">
                 <h3 className="truncate text-[15px] font-semibold leading-snug group-hover:text-primary">{s.name}</h3>
-                <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                <VerifiedBadge verified={true} size="sm" />
               </div>
               {s.address && (
                 <p className="mt-0.5 flex items-center gap-1 truncate text-[11px] text-muted-foreground">

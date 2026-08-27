@@ -17,6 +17,7 @@ import ServicePreviewDialog from "@/components/ServicePreviewDialog";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import BusinessCard from "@/components/directory/BusinessCard";
 import ProductCard from "@/components/directory/ProductCard";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
@@ -225,18 +226,28 @@ export default function BusinessProfile() {
           )}
         </div>
 
-        <div className="container mx-auto max-w-5xl px-4 -mt-14 relative">
+        <div className="container mx-auto max-w-5xl px-4 -mt-14 relative z-10">
           {/* Identity card */}
-          <Card className="overflow-hidden shadow-xl border-0">
+          <Card className="overflow-visible shadow-xl border-0 bg-card rounded-2xl">
             <CardContent className="p-5 sm:p-6">
               <div className="flex items-start gap-4">
-                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl ring-4 ring-background bg-muted overflow-hidden flex items-center justify-center text-2xl font-bold text-primary shadow-lg flex-shrink-0 -mt-12 sm:-mt-14">
-                  {biz.logo_url ? <img src={biz.logo_url} alt={biz.name} className="w-full h-full object-contain p-1" /> : biz.name[0]}
+                <div className="h-20 w-20 sm:h-24 sm:w-24 rounded-2xl ring-4 ring-card bg-card overflow-hidden flex items-center justify-center text-2xl font-bold text-primary shadow-xl flex-shrink-0 -mt-12 sm:-mt-14 relative z-20">
+                  {biz.logo_url ? (
+                    <img
+                      src={biz.logo_url}
+                      alt={biz.name}
+                      className="w-full h-full object-contain p-1.5 bg-card"
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
+                      {biz.name?.[0]?.toUpperCase() || "B"}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0 pt-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <h1 className="text-xl sm:text-2xl font-bold leading-tight truncate">{biz.name}</h1>
-                    <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
+                    <VerifiedBadge verified={true} size="md" />
                   </div>
                   <div className="flex items-center gap-3 flex-wrap mt-0.5">
                     {biz.categories && (

@@ -208,7 +208,23 @@ export default function ListBusiness() {
                 <Label>Logo</Label>
                 <Input type="file" accept="image/*" onChange={handleLogoUpload} disabled={uploading === "logo"} />
                 {uploading === "logo" && <p className="text-xs text-muted-foreground">Uploading…</p>}
-                {form.logo_url && <img src={form.logo_url} alt="Logo preview" className="h-20 w-20 rounded object-cover mt-2 border" />}
+                {form.logo_url && (
+                  <div className="mt-2 flex items-center gap-3 p-2 rounded-xl border bg-muted/30 w-fit">
+                    <div className="h-16 w-16 rounded-lg bg-card border overflow-hidden flex items-center justify-center p-1">
+                      <img src={form.logo_url} alt="Logo preview" className="h-full w-full object-contain" />
+                    </div>
+                    <div className="text-xs">
+                      <p className="font-semibold text-foreground">Logo Uploaded</p>
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, logo_url: "" }))}
+                        className="text-destructive hover:underline font-medium mt-0.5"
+                      >
+                        Remove logo
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-2">

@@ -24,6 +24,7 @@ import ProductCard, { formatPrice, DirectoryProduct } from "@/components/directo
 import ProductVideo from "@/components/directory/ProductVideo";
 import BuyDigitalProduct from "@/components/directory/BuyDigitalProduct";
 import FavoriteButton from "@/components/FavoriteButton";
+import VerifiedBadge from "@/components/VerifiedBadge";
 import { recordPageView } from "@/lib/analyticsTracker";
 import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
 import { toast } from "sonner";
@@ -71,7 +72,7 @@ export default function ProductDetail() {
         if (data.user_id) {
           const { data: p } = await supabase
             .from("profiles")
-            .select("display_name, username, avatar_url, whatsapp, bio")
+            .select("display_name, username, avatar_url, whatsapp, bio, social_links")
             .eq("user_id", data.user_id)
             .maybeSingle();
           setSeller(p);
@@ -636,7 +637,10 @@ export default function ProductDetail() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-bold text-foreground">{seller.display_name || "Verified Creator"}</p>
+                        <div className="flex items-center gap-1.5 truncate">
+                          <p className="truncate text-sm font-bold text-foreground">{seller.display_name || "Verified Creator"}</p>
+                          <VerifiedBadge verified={!!seller?.social_links?.verified || (!!seller?.social_links?.verified_until && new Date(seller.social_links.verified_until) > new Date())} size="sm" />
+                        </div>
                         <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5 truncate">
                           <ShieldCheck className="h-3 w-3 text-primary shrink-0" /> Verified Vendor
                         </p>
@@ -984,7 +988,10 @@ export default function ProductDetail() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-xs sm:text-sm font-bold text-foreground">{seller.display_name || "Verified Seller"}</p>
+                          <div className="flex items-center gap-1.5 truncate">
+                            <p className="truncate text-xs sm:text-sm font-bold text-foreground">{seller.display_name || "Verified Seller"}</p>
+                            <VerifiedBadge verified={!!seller?.social_links?.verified || (!!seller?.social_links?.verified_until && new Date(seller.social_links.verified_until) > new Date())} size="sm" />
+                          </div>
                           <p className="flex items-center gap-1 text-[10px] sm:text-[11px] text-muted-foreground mt-0.5 truncate">
                             <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" /> Verified Vendor
                           </p>
