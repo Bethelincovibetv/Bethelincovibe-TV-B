@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import EmailSubscribeForm from "@/components/EmailSubscribeForm";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import {
   MessageCircle, Sparkles, Compass, FolderTree, ShieldCheck, Mail, MapPin,
   FileText, ShoppingBag, Building2, PlusCircle, GraduationCap, Info, PhoneCall,
@@ -11,6 +13,13 @@ import BrandSocialLinks from "@/components/BrandSocialLinks";
 
 /** Minimal footer used on internal utility pages. */
 export function MinimalFooter() {
+  const { user } = useAuth();
+  const { flags } = useFeatureFlags();
+
+  if (!user && flags.footer_for_non_members === false) {
+    return null;
+  }
+
   return (
     <footer className="border-t border-border/80 bg-gradient-to-b from-muted/30 via-background to-muted/20 mt-auto">
       <div className="container mx-auto flex flex-col items-center gap-4 px-4 py-8 text-xs text-muted-foreground sm:flex-row sm:justify-between">
@@ -33,11 +42,18 @@ export function MinimalFooter() {
 }
 
 export default function Footer() {
+  const { user } = useAuth();
+  const { flags } = useFeatureFlags();
   const [waUrl, setWaUrl] = useState("");
+
   useEffect(() => {
     supabase.from("site_settings").select("value").eq("key", "whatsapp_community_url").maybeSingle()
       .then(({ data }) => { if (data?.value) setWaUrl(data.value); });
   }, []);
+
+  if (!user && flags.footer_for_non_members === false) {
+    return null;
+  }
 
   return (
     <footer className="relative border-t border-border/80 bg-gradient-to-b from-card via-muted/30 to-muted/60 mt-auto overflow-hidden">

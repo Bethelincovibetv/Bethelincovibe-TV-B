@@ -4,6 +4,7 @@ import Footer, { MinimalFooter } from "./Footer";
 import MobileTabBar from "./MobileTabBar";
 import AdPlaceholder from "@/components/AdPlaceholder";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
+import { useAuth } from "@/contexts/AuthContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
 /** Individual business listing pages get a clean, full-width layout (no footer link menus). */
@@ -13,9 +14,11 @@ function isListingDetail(pathname: string) {
 
 export default function PublicLayout() {
   const { flags } = useFeatureFlags();
+  const { user } = useAuth();
   const { pathname } = useLocation();
   const clean = isListingDetail(pathname);
   const isHome = pathname === "/";
+  const showFooter = !clean && (Boolean(user) || flags.footer_for_non_members !== false);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -24,7 +27,7 @@ export default function PublicLayout() {
         <ErrorBoundary label="Route"><Outlet /></ErrorBoundary>
       </main>
       {flags.advertise && !clean && <AdPlaceholder placement="footer" className="container mx-auto px-4 mb-2" />}
-      {!clean && (
+      {showFooter && (
         <ErrorBoundary label="Footer" fallback={null}>
           {isHome ? <Footer /> : <MinimalFooter />}
         </ErrorBoundary>
