@@ -12,14 +12,18 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2, ArrowLeft } from "lucide-react";
+import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2, ArrowLeft, Wand2 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
+import BusinessDefaultLogo from "@/components/directory/BusinessDefaultLogo";
+import AILogoGeneratorModal from "@/components/AILogoGeneratorModal";
 
 export default function UserBusinesses() {
   const { user, loading } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [stats, setStats] = useState<Record<string, any>>({});
   const [busy, setBusy] = useState(true);
+  const [logoModalOpen, setLogoModalOpen] = useState(false);
+  const [activeLogoBiz, setActiveLogoBiz] = useState<any | null>(null);
 
   const removeListing = async (id: string) => {
     await supabase.from("supplier_images").delete().eq("supplier_id", id);
@@ -27,6 +31,22 @@ export default function UserBusinesses() {
     if (error) { toast.error(error.message); return; }
     setItems((prev) => prev.filter((b) => b.id !== id));
     toast.success("Listing deleted");
+  };
+
+  const handleApplyLogoToBiz = async (logoUrl: string) => {
+    if (!activeLogoBiz) return;
+    const { error } = await supabase
+      .from("suppliers")
+      .update({ logo_url: logoUrl })
+      .eq("id", activeLogoBiz.id);
+    if (error) {
+      toast.error("Failed to update logo: " + error.message);
+      return;
+    }
+    setItems((prev) =>
+      prev.map((item) => (item.id === activeLogoBiz.id ? { ...item, logo_url: logoUrl } : item))
+    );
+    toast.success(`✨ AI Logo saved to ${activeLogoBiz.name}!`);
   };
 
 
@@ -114,8 +134,10 @@ export default function UserBusinesses() {
                 <Card key={b.id} className="overflow-hidden">
                   <CardHeader className="flex flex-row items-start gap-3 pb-3">
                     {b.logo_url ? (
-                      <img src={b.logo_url} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" alt="" />
-                    ) : <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>}
+                      <img src={b.logo_url} className="h-12 w-12 rounded-xl object-contain ring-2 ring-primary/20 bg-card p-1" alt="" />
+                    ) : (
+                      <BusinessDefaultLogo name={b.name} category={b.categories?.name} size="md" shape="rounded-xl" className="h-12 w-12 ring-2 ring-primary/20" />
+                    )}
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base truncate flex items-center gap-2">
                         {b.name}
@@ -128,6 +150,11 @@ export default function UserBusinesses() {
                         {b.categories && <span className="text-xs text-muted-foreground">{b.categories.name}</span>}
                         {Array.isArray(b.services) && b.services.length > 0 && (
                           <span className="text-xs text-primary font-medium">{b.services.length} services listed</span>
+                        )}
+                        {!b.logo_url && (
+                          <Badge variant="outline" className="text-[10px] text-amber-600 bg-amber-500/10 border-amber-500/30">
+                            Auto AI Logo Active
+                          </Badge>
                         )}
                       </div>
                     </div>
@@ -166,6 +193,18 @@ export default function UserBusinesses() {
                           <Link to={`/businesses/${b.slug}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />View Public Site</Link>
                         </Button>
                       )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setActiveLogoBiz(b);
+                          setLogoModalOpen(true);
+                        }}
+                        className="rounded-xl font-semibold border-amber-500/40 text-amber-600 hover:bg-amber-500/10"
+                      >
+                        <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                        AI Logo Studio
+                      </Button>
                       <Button asChild size="sm" variant="outline" className="rounded-xl font-medium">
                         <Link to="/dashboard/profile-edit"><Pencil className="h-3.5 w-3.5 mr-1" />Edit Profile</Link>
                       </Button>
@@ -205,6 +244,20 @@ export default function UserBusinesses() {
           </div>
         )}
       </div>
+
+      {activeLogoBiz && (
+        <AILogoGeneratorModal
+          open={logoModalOpen}
+          onOpenChange={(isOpen) => {
+            setLogoModalOpen(isOpen);
+            if (!isOpen) setActiveLogoBiz(null);
+          }}
+          businessName={activeLogoBiz.name}
+          category={activeLogoBiz.categories?.name || "Enterprise"}
+          currentLogoUrl={activeLogoBiz.logo_url}
+          onSelectLogo={handleApplyLogoToBiz}
+        />
+      )}
     </>
   );
 }

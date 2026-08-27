@@ -13,34 +13,6 @@ const SUPABASE_PUBLISHABLE_KEY =
   import.meta.env.SUPABASE_ANON_KEY ||
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImduZGNndHRucHhzanVmbWVoZ3lpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk3MjM5MTMsImV4cCI6MjA5NTI5OTkxM30.N4TQQbIGQfp80iCm8txx72_3XdnJ2HuK6-xQQ1yNJmQ";
 
-// Resilient fetch wrapper to prevent "Failed to fetch" uncaught exceptions during offline/network drops
-const resilientFetch: typeof fetch = async (input, init) => {
-  try {
-    return await fetch(input, init);
-  } catch (err: any) {
-    const urlStr = typeof input === "string" ? input : (input as Request)?.url || "";
-    if (urlStr.includes("/auth/v1/")) {
-      return new Response(
-        JSON.stringify({ error: "network_error", message: "Network unavailable" }),
-        { status: 400, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    if (urlStr.includes("/functions/v1/")) {
-      return new Response(
-        JSON.stringify({ error: "functions_unavailable", message: "Cloud function unavailable" }),
-        { status: 503, headers: { "Content-Type": "application/json" } }
-      );
-    }
-    return new Response(JSON.stringify([]), {
-      status: 200,
-      headers: {
-        "Content-Type": "application/json",
-        "content-range": "0-0/0",
-      },
-    });
-  }
-};
-
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
@@ -50,7 +22,5 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
   },
-  global: {
-    fetch: resilientFetch,
-  },
 });
+

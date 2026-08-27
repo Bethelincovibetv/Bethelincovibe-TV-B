@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { MapPin, Phone, Globe, Sparkles, Star, Images } from "lucide-react";
 import { getCategoryIcon } from "@/lib/categoryIcons";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import BusinessDefaultLogo from "./BusinessDefaultLogo";
 
 export type DirectoryBusiness = {
   id: string;
@@ -67,10 +68,12 @@ export default function BusinessCard({
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-2">
-              {s.logo_url && s.logo_url !== hero && (
+              {s.logo_url && s.logo_url !== hero ? (
                 <div className="h-7 w-7 rounded-lg bg-card ring-1 ring-border shadow-xs overflow-hidden shrink-0 flex items-center justify-center">
                   <img src={s.logo_url} alt="" className="h-full w-full object-contain p-0.5" />
                 </div>
+              ) : (
+                <BusinessDefaultLogo name={s.name} category={s.categories?.name} size="sm" shape="rounded-xl" className="h-7 w-7 ring-1 ring-border shrink-0" />
               )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -152,7 +155,7 @@ export default function BusinessCard({
 
         <div className="flex flex-1 flex-col gap-2 p-3.5 pt-0">
           <div className="flex items-start gap-2.5 pt-2">
-            {s.logo_url && (
+            {s.logo_url ? (
               <div className="relative -mt-7 shrink-0 z-20 h-12 w-12 rounded-xl bg-card p-0.5 shadow-md ring-2 ring-card overflow-hidden flex items-center justify-center">
                 <img
                   src={s.logo_url}
@@ -160,6 +163,10 @@ export default function BusinessCard({
                   loading="lazy"
                   className="h-full w-full rounded-[10px] object-contain"
                 />
+              </div>
+            ) : (
+              <div className="relative -mt-7 shrink-0 z-20">
+                <BusinessDefaultLogo name={s.name} category={s.categories?.name} size="md" shape="rounded-xl" className="h-12 w-12 shadow-md ring-2 ring-card" />
               </div>
             )}
             <div className="min-w-0 flex-1 pt-0.5">

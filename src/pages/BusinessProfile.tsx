@@ -20,6 +20,7 @@ import ProductCard from "@/components/directory/ProductCard";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import BusinessMapView from "@/components/maps/BusinessMapView";
 import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
+import BusinessDefaultLogo from "@/components/directory/BusinessDefaultLogo";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
@@ -241,9 +242,7 @@ export default function BusinessProfile() {
                       className="w-full h-full object-contain p-1.5 bg-card"
                     />
                   ) : (
-                    <div className="w-full h-full bg-primary/10 flex items-center justify-center text-primary font-bold text-2xl">
-                      {biz.name?.[0]?.toUpperCase() || "B"}
-                    </div>
+                    <BusinessDefaultLogo name={biz.name} category={biz.categories?.name} size="lg" shape="rounded-2xl" className="w-full h-full" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0 pt-1">

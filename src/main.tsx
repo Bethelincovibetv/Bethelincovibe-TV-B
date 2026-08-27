@@ -3,41 +3,27 @@ import App from "./App.tsx";
 import "./index.css";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Gracefully prevent unhandled network / fetch errors from crashing the application
+// Gracefully handle benign third-party or network rejections without crashing React
 if (typeof window !== "undefined") {
+  const isBenignError = (str: string) => {
+    const s = (str || "").toLowerCase();
+    return (
+      s.includes("failed to fetch") ||
+      s.includes("network_error") ||
+      s.includes("network error") ||
+      s.includes("load failed") ||
+      s.includes("onesignal") ||
+      s.includes("google") ||
+      s.includes("aborted") ||
+      s.includes("loading chunk")
+    );
+  };
+
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
     const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();
-    if (
-      msg.includes("failed to fetch") ||
-      msg.includes("network_error") ||
-      msg.includes("network error") ||
-      msg.includes("load failed") ||
-      msg.includes("network request failed") ||
-      msg.includes("onesignal") ||
-      msg.includes("google") ||
-      msg.includes("ggd") ||
-      msg.includes("aborted") ||
-      msg.includes("fetch")
-    ) {
-      // Prevent console pollution from benign network dropouts or blocked third-party resources
-      event.preventDefault();
-      event.stopPropagation();
-    }
-  });
-
-  window.addEventListener("error", (event) => {
-    const msg = (event.message || event.error?.message || "").toLowerCase();
-    if (
-      msg.includes("failed to fetch") ||
-      msg.includes("script error") ||
-      msg.includes("networkerror") ||
-      msg.includes("loading chunk") ||
-      msg.includes("ggd") ||
-      msg.includes("fetch")
-    ) {
-      event.preventDefault();
-      event.stopPropagation();
+    if (isBenignError(msg)) {
+      event.preventDefault?.();
     }
   });
 }
@@ -47,4 +33,5 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </ErrorBoundary>
 );
+
 

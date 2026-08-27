@@ -1,31 +1,33 @@
 import { useEffect } from "react";
 
-// Known aggressive popunder and malware ad networks
-const BLOCKED_PATTERNS = [
-  /adsterra/i,
-  /alwingulla/i,
-  /highperformancegate/i,
-  /effectivecpmgate/i,
-  /pl[0-9]{5,}\./i,
-  /onclickalgo/i,
-  /popunder/i,
+// Known aggressive popunder and malware ad network domains
+const BLOCKED_DOMAINS = [
+  "adsterra",
+  "alwingulla",
+  "highperformancegate",
+  "effectivecpmgate",
+  "onclickalgo",
+  "popunder",
 ];
 
 function isBlocked(str: string): boolean {
   if (!str) return false;
-  return BLOCKED_PATTERNS.some((pattern) => pattern.test(str));
+  const s = str.toLowerCase();
+  // Never block internal app scripts or vite chunks
+  if (s.startsWith("/") || s.includes("localhost") || s.includes("run.app") || s.includes("supabase.co") || s.includes("google") || s.includes("onesignal")) {
+    return false;
+  }
+  return BLOCKED_DOMAINS.some((domain) => s.includes(domain));
 }
 
 function purgeAdElements() {
   if (typeof document === "undefined") return;
 
-  // 1. Remove blocked script tags
-  const scripts = document.querySelectorAll("script");
+  // 1. Remove blocked external script tags
+  const scripts = document.querySelectorAll("script[src]");
   scripts.forEach((script) => {
-    const src = script.src || "";
-    const content = script.textContent || "";
-    const dataset = Object.values(script.dataset || {}).join(" ");
-    if (isBlocked(src) || isBlocked(content) || isBlocked(dataset)) {
+    const src = script.getAttribute("src") || "";
+    if (isBlocked(src)) {
       script.remove();
     }
   });
@@ -33,29 +35,19 @@ function purgeAdElements() {
   // 2. Remove blocked iframes
   const iframes = document.querySelectorAll("iframe");
   iframes.forEach((iframe) => {
-    const src = iframe.src || "";
-    const name = iframe.name || "";
-    const title = iframe.title || "";
-    const id = iframe.id || "";
-    const className = typeof iframe.className === "string" ? iframe.className : "";
-    if (
-      isBlocked(src) ||
-      isBlocked(name) ||
-      isBlocked(title) ||
-      isBlocked(id) ||
-      isBlocked(className)
-    ) {
+    const src = iframe.getAttribute("src") || "";
+    const name = iframe.getAttribute("name") || "";
+    const id = iframe.getAttribute("id") || "";
+    if (isBlocked(src) || isBlocked(name) || isBlocked(id)) {
       iframe.remove();
     }
   });
 
-  // 3. Remove blocked meta tags or custom divs
-  const metas = document.querySelectorAll('meta[data-adsterra], meta[name*="adsterra" i]');
-  metas.forEach((meta) => meta.remove());
-
+  // 3. Remove blocked adsterra containers
   const adContainers = document.querySelectorAll('[class*="adsterra" i], [id*="adsterra" i]');
   adContainers.forEach((el) => el.remove());
 }
+
 
 /**
  * AdBlocker utility component

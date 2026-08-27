@@ -364,10 +364,10 @@ export default function Index() {
             <h2 className="text-2xl md:text-3xl font-bold mb-4">Ready to Grow Your Business?</h2>
             <p className="mb-8 opacity-90 max-w-md mx-auto">Join thousands of Lagos entrepreneurs using Bethelincovibe TV to connect, promote, and sell.</p>
             <div className="flex flex-wrap items-center justify-center gap-3">
-              <Button size="lg" variant="secondary" className="rounded-xl font-bold" asChild>
+              <Button size="lg" className="rounded-xl font-black bg-white text-purple-900 hover:bg-slate-100 hover:text-black shadow-md border-0" asChild>
                 <Link to={flags.register ? "/register" : "/login"}>Get Started Free</Link>
               </Button>
-              <Button size="lg" variant="outline" className="rounded-xl font-bold border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10" asChild>
+              <Button size="lg" className="rounded-xl font-black bg-white text-purple-700 hover:bg-slate-100 hover:text-black shadow-md border-0" asChild>
                 <Link to="/products">Explore Marketplace</Link>
               </Button>
             </div>
