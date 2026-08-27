@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Building2, FolderTree, ArrowLeft, Tv, Image as ImageIcon,
-  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server, MessageSquare,
+  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server, MessageSquare, ShieldCheck, Package,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -26,7 +26,10 @@ const allLinks = [
   { to: "/admin/slides", label: "Slides", icon: ImageIcon, group: "Content", feature: "hero_slider" },
   { to: "/admin/jingles", label: "Background Jingles", icon: Music, group: "Content", feature: null },
 
-  { to: "/admin/businesses", label: "Businesses", icon: Building2, group: "Directory", feature: "businesses" },
+  { to: "/admin/businesses", label: "Business Hub", icon: Building2, group: "Directory", feature: "businesses" },
+  { to: "/admin/verification", label: "Verification (Blue Tick)", icon: ShieldCheck, group: "Directory", feature: "businesses" },
+  { to: "/admin/featured", label: "Featured Promos", icon: Sparkles, group: "Directory", feature: "businesses" },
+  { to: "/admin/featured-products", label: "Marketplace Products", icon: Package, group: "Directory", feature: "businesses" },
   { to: "/admin/whatsapp-engine", label: "WhatsApp Engine", icon: MessageSquare, group: "Directory", feature: "whatsapp_engine" },
   { to: "/admin/directory-categories", label: "Directory Categories", icon: FolderTree, group: "Directory", feature: "businesses" },
   { to: "/admin/courses", label: "Learning Hub", icon: GraduationCap, group: "Directory", feature: "learn" },

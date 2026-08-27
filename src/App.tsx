@@ -242,6 +242,12 @@ const App = () => (
               <Route index element={<AdminDashboard />} />
               <Route path="posts" element={<AdminPosts />} />
               <Route path="businesses" element={<AdminBusinesses />} />
+              <Route path="verification" element={<AdminBusinesses defaultTab="verification" />} />
+              <Route path="featured" element={<AdminBusinesses defaultTab="featured_biz" />} />
+              <Route path="featured-products" element={<AdminBusinesses defaultTab="featured_products" />} />
+              <Route path="business-videos" element={<AdminBusinesses defaultTab="videos" />} />
+              <Route path="business-ai" element={<AdminBusinesses defaultTab="ai_settings" />} />
+              <Route path="business-transactions" element={<AdminBusinesses defaultTab="transactions" />} />
               <Route path="suppliers" element={<AdminBusinesses />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="blog-categories" element={<AdminCategories categoryType="blog" />} />
