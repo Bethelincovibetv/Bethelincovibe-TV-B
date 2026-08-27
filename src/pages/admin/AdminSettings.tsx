@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { apiKeyService } from "@/vixora/services/apiKeyService";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2 } from "lucide-react";
+import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2, Key } from "lucide-react";
 import { NOTIFICATION_SOUND_PRESETS, previewNotificationSound, uploadNotificationAudio, setCachedSoundPreference, NotificationSoundPreset } from "@/lib/notificationSound";
 
 const SOCIAL_KEYS = [
@@ -118,6 +119,16 @@ export default function AdminSettings() {
     const changed = KEYS.filter((k) => values[k] !== undefined && values[k] !== (settings?.[k] ?? ""));
     if (changed.length === 0) { toast.info("No changes to save"); return; }
     for (const k of changed) await save.mutateAsync({ key: k, value: values[k] });
+
+    // Synchronize keys with local client credentials store
+    const syncPayload: any = {};
+    if (values["gemini_api_key"]) syncPayload.geminiApiKey = values["gemini_api_key"];
+    if (values["paystack_public_key"]) syncPayload.paystackPublicKey = values["paystack_public_key"];
+    if (values["vixora_api_url"]) syncPayload.customApiBaseUrl = values["vixora_api_url"];
+    if (Object.keys(syncPayload).length > 0) {
+      apiKeyService.saveCredentials(syncPayload);
+    }
+
     toast.success(`Saved ${changed.length} setting${changed.length > 1 ? "s" : ""}`);
   };
 
@@ -451,10 +462,34 @@ export default function AdminSettings() {
               </div>
               <div>
                 <Label>Text model</Label>
-                <Input value={get("ai_text_model")} onChange={(e) => set("ai_text_model", e.target.value)} placeholder="google/gemini-2.5-flash or gemini-2.0-flash-exp" className="font-mono text-xs" />
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  Lovable AI examples: <code>google/gemini-2.5-flash</code>, <code>google/gemini-2.5-pro</code>, <code>openai/gpt-5-mini</code>.<br/>
-                  Gemini direct (free tier): <code>gemini-2.0-flash</code> (default), <code>gemini-2.0-flash-exp</code>, <code>gemini-1.5-flash</code>.
+                <div className="flex gap-2 items-center mb-1.5">
+                  <Input value={get("ai_text_model")} onChange={(e) => set("ai_text_model", e.target.value)} placeholder="gemini-3.7-flash or gemini-2.5-flash" className="font-mono text-xs" />
+                </div>
+                <div className="flex flex-wrap gap-1.5 mt-1.5">
+                  {[
+                    "gemini-3.7-flash",
+                    "gemini-2.5-flash",
+                    "gemini-2.5-pro",
+                    "gemini-2.0-flash",
+                    "google/gemini-2.5-flash",
+                    "openai/gpt-5-mini",
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => set("ai_text_model", preset)}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded border transition-colors ${
+                        get("ai_text_model") === preset
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-muted hover:bg-accent text-foreground border-border"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Direct Gemini models: <code>gemini-3.7-flash</code> (recommended for speed & intelligence), <code>gemini-2.5-flash</code>, <code>gemini-2.0-flash</code>.
                 </p>
               </div>
               <p className="text-[11px] text-muted-foreground">
