@@ -83,13 +83,14 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
     <nav className="flex flex-col gap-5 p-3.5">
       {Object.entries(groups).map(([group, links]) => (
         <div key={group}>
-          <p className="px-3 pb-2 text-xs font-extrabold uppercase tracking-wider text-primary/80 flex items-center gap-1.5">
+          <p className="px-3 pb-2 text-xs font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
             <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             {group}
           </p>
           <div className="flex flex-col gap-1.5">
             {links.map((l) => {
-              const isAiAdmin = (l.to === "/admin/ai" || l.to === "/admin/ai-admin") && (location.pathname === "/admin/ai" || location.pathname === "/admin/ai-admin");
+              const isAiAdmin = (l.to === "/admin/ai" || l.to === "/admin/ai-admin" || l.to === "/admin/executive-ai") && 
+                (location.pathname === "/admin/ai" || location.pathname === "/admin/ai-admin" || location.pathname === "/admin/executive-ai");
               const active = l.end ? location.pathname === l.to : (isAiAdmin || location.pathname.startsWith(l.to));
               const gradient = groupGradients[l.group] || "from-primary to-accent";
               return (
@@ -98,10 +99,10 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                     variant="ghost"
                     size="sm"
                     className={cn(
-                      "w-full justify-start gap-3 h-11 px-3 rounded-2xl transition-all duration-200",
+                      "w-full justify-start gap-3 h-12 px-3 rounded-2xl transition-all duration-200",
                       active
-                        ? "bg-primary/10 border border-primary/20 text-primary font-extrabold shadow-sm"
-                        : "hover:bg-secondary/70 hover:shadow-xs",
+                        ? "bg-primary/15 border-2 border-primary/30 text-primary font-black shadow-sm"
+                        : "hover:bg-secondary/80 hover:shadow-xs",
                     )}
                   >
                     {/* 3D Elevated Icon Badge */}
@@ -113,14 +114,14 @@ function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
                         gradient
                       )}
                     >
-                      <l.icon className="h-5 w-5 drop-shadow-sm" strokeWidth={2.2} />
+                      <l.icon className="h-5 w-5 drop-shadow-sm" strokeWidth={2.4} />
                     </div>
 
-                    <span className={cn("truncate font-bold text-sm sm:text-base leading-tight", active ? "text-primary font-extrabold" : "text-foreground/90")}>
+                    <span className={cn("truncate font-bold text-sm sm:text-base leading-tight", active ? "text-primary font-black" : "text-foreground")}>
                       {l.label}
                     </span>
 
-                    {active && <span className="ml-auto h-2 w-2 rounded-full bg-primary shadow-[0_0_8px_hsl(var(--primary))]" />}
+                    {active && <span className="ml-auto h-2.5 w-2.5 rounded-full bg-primary shadow-[0_0_10px_hsl(var(--primary))]" />}
                   </Button>
                 </Link>
               );
@@ -139,6 +140,12 @@ export default function AdminLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const isExecutivePage = 
+    location.pathname === "/admin/ai" || 
+    location.pathname.startsWith("/admin/ai") || 
+    location.pathname.startsWith("/admin/platform-ai") || 
+    location.pathname.startsWith("/admin/executive-ai");
 
   const currentLink = allLinks.find((l) =>
     l.end ? location.pathname === l.to : location.pathname.startsWith(l.to),
@@ -181,13 +188,13 @@ export default function AdminLayout() {
         <div className="flex items-center gap-3 p-4 border-b bg-gradient-to-br from-primary/15 via-accent/10 to-transparent">
           <img src="/logo.png" alt="Admin" className="h-11 w-11 rounded-2xl ring-2 ring-primary/40 shadow-md object-contain" />
           <div className="min-w-0">
-            <p className="font-extrabold text-base leading-tight text-foreground">Admin Console</p>
-            <p className="text-xs font-semibold text-muted-foreground truncate">Bethelincovibe TV</p>
+            <p className="font-black text-lg leading-tight text-foreground">Admin Console</p>
+            <p className="text-xs font-bold text-muted-foreground truncate">Bethelincovibe TV • Management</p>
           </div>
         </div>
         <div className="flex-1 overflow-y-auto"><SidebarNav /></div>
         <div className="p-3.5 border-t bg-card/50">
-          <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2.5 h-11 text-sm font-bold rounded-xl">
+          <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2.5 h-11 text-sm font-black rounded-xl">
             <Link to="/"><ArrowLeft className="h-4 w-4 text-primary" />Back to Site</Link>
           </Button>
         </div>
@@ -196,30 +203,30 @@ export default function AdminLayout() {
       <div className="flex-1 flex flex-col min-w-0">
         {/* Mobile-app style top bar */}
         <header
-          className="bg-background/85 backdrop-blur-xl border-b sticky top-0 z-40 flex items-center gap-2 px-3"
-          style={{ paddingTop: "env(safe-area-inset-top, 0px)", height: "calc(3.5rem + env(safe-area-inset-top, 0px))" }}
+          className="bg-background/90 backdrop-blur-xl border-b sticky top-0 z-40 flex items-center gap-2 px-3 sm:px-4"
+          style={{ paddingTop: "env(safe-area-inset-top, 0px)", height: "calc(3.75rem + env(safe-area-inset-top, 0px))" }}
         >
           {/* Mobile: back arrow on sub-pages, menu on root */}
           {isRootAdmin ? (
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="md:hidden h-10 w-10 shrink-0 rounded-full">
-                  <Menu className="h-5 w-5" />
+                <Button variant="ghost" size="icon" className="md:hidden h-11 w-11 shrink-0 rounded-2xl hover:bg-secondary">
+                  <Menu className="h-6 w-6 text-foreground" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-72 p-0 flex flex-col">
-                <div className="flex items-center gap-2.5 p-4 border-b shrink-0 bg-gradient-to-br from-primary/10 to-transparent">
-                  <img src="/logo.png" alt="Admin" className="h-9 w-9 rounded-xl ring-2 ring-primary/30" />
+                <div className="flex items-center gap-2.5 p-4 border-b shrink-0 bg-gradient-to-br from-primary/15 via-accent/10 to-transparent">
+                  <img src="/logo.png" alt="Admin" className="h-10 w-10 rounded-xl ring-2 ring-primary/30" />
                   <div>
-                    <p className="font-bold text-sm">Admin Console</p>
-                    <p className="text-[10px] text-muted-foreground">Bethelincovibe TV</p>
+                    <p className="font-black text-base text-foreground">Admin Console</p>
+                    <p className="text-xs font-semibold text-muted-foreground">Bethelincovibe TV</p>
                   </div>
                 </div>
                 <div className="flex-1 overflow-y-auto">
                   <SidebarNav onNavigate={() => setMobileOpen(false)} />
                 </div>
-                <div className="p-3 border-t shrink-0 bg-background">
-                  <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2">
+                <div className="p-3.5 border-t shrink-0 bg-background" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
+                  <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2 h-11 font-bold">
                     <Link to="/" onClick={() => setMobileOpen(false)}><ArrowLeft className="h-4 w-4" />Back to Site</Link>
                   </Button>
                 </div>
@@ -230,10 +237,10 @@ export default function AdminLayout() {
               variant="ghost"
               size="icon"
               onClick={() => navigate(-1)}
-              className="md:hidden h-10 w-10 shrink-0 rounded-full active:scale-95 transition-transform"
+              className="md:hidden h-11 w-11 shrink-0 rounded-2xl active:scale-95 transition-transform hover:bg-secondary"
               aria-label="Back"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-6 w-6 text-foreground" />
             </Button>
           )}
 
@@ -241,11 +248,11 @@ export default function AdminLayout() {
           <div className="flex-1 min-w-0 md:hidden">
             {!searchOpen && (
               <div className="flex flex-col leading-tight">
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">
-                  {currentLink?.group ?? "Admin"}
+                <span className="text-[11px] text-primary font-black uppercase tracking-wider">
+                  {currentLink?.group ?? "Admin Management"}
                 </span>
-                <span className="text-base font-bold truncate">
-                  {currentLink?.label ?? "Admin"}
+                <span className="text-base sm:text-lg font-black tracking-tight text-foreground truncate">
+                  {currentLink?.label ?? "Admin Management"}
                 </span>
               </div>
             )}
@@ -257,9 +264,9 @@ export default function AdminLayout() {
                   placeholder="Search sections, users…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="pl-8 pr-8 h-9 text-sm rounded-full bg-secondary/60 border-transparent focus-visible:bg-background"
+                  className="pl-8 pr-8 h-10 text-sm font-medium rounded-full bg-secondary/60 border-transparent focus-visible:bg-background"
                 />
-                <button onClick={closeSearch} className="absolute right-2 top-2.5" aria-label="Close search">
+                <button onClick={closeSearch} className="absolute right-2.5 top-3" aria-label="Close search">
                   <X className="h-4 w-4 text-muted-foreground" />
                 </button>
               </div>
@@ -268,15 +275,15 @@ export default function AdminLayout() {
 
           {/* Desktop search */}
           <div className="relative flex-1 max-w-md hidden md:block">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search sections, users…"
+              placeholder="Search admin sections, users…"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 pr-8 h-9 text-sm rounded-full bg-secondary/50 border-transparent focus-visible:bg-background"
+              className="pl-9 pr-8 h-10 text-sm font-medium rounded-full bg-secondary/50 border-transparent focus-visible:bg-background"
             />
             {search && (
-              <button onClick={() => setSearch("")} className="absolute right-2 top-2.5">
+              <button onClick={() => setSearch("")} className="absolute right-3 top-3">
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
             )}
@@ -288,7 +295,7 @@ export default function AdminLayout() {
               variant="ghost"
               size="icon"
               onClick={() => setSearchOpen(true)}
-              className="md:hidden h-10 w-10 shrink-0 rounded-full"
+              className="md:hidden h-10 w-10 shrink-0 rounded-2xl"
               aria-label="Search"
             >
               <Search className="h-5 w-5" />
@@ -311,16 +318,16 @@ export default function AdminLayout() {
             <div className="absolute left-2 right-2 md:left-14 md:right-auto md:w-[28rem] top-full mt-1 bg-popover border rounded-2xl shadow-2xl max-h-[70vh] overflow-y-auto z-50">
               {filteredLinks.length > 0 && (
                 <div className="p-2">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1">Sections</p>
+                  <p className="text-xs font-black text-muted-foreground uppercase px-2 py-1">Sections</p>
                   {filteredLinks.map((l) => (
                     <Link key={l.to} to={l.to} onClick={closeSearch}
-                      className="flex items-center gap-2.5 px-2 py-2.5 rounded-lg hover:bg-secondary text-sm">
-                      <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                      className="flex items-center gap-2.5 px-2 py-2.5 rounded-xl hover:bg-secondary text-sm font-bold">
+                      <div className="h-8 w-8 rounded-xl bg-primary/10 flex items-center justify-center">
                         <l.icon className="h-4 w-4 text-primary" />
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium truncate">{l.label}</p>
-                        <p className="text-[10px] text-muted-foreground">{l.group}</p>
+                        <p className="font-bold truncate text-foreground">{l.label}</p>
+                        <p className="text-[11px] text-muted-foreground font-medium">{l.group}</p>
                       </div>
                     </Link>
                   ))}
@@ -328,15 +335,15 @@ export default function AdminLayout() {
               )}
               {userResults && userResults.length > 0 && (
                 <div className="p-2 border-t">
-                  <p className="text-[10px] font-semibold text-muted-foreground uppercase px-2 py-1">Users</p>
+                  <p className="text-xs font-black text-muted-foreground uppercase px-2 py-1">Users</p>
                   {userResults.map((u: any) => (
                     <Link key={u.user_id} to="/admin/users" onClick={closeSearch}
-                      className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-secondary text-sm">
+                      className="flex items-center gap-2.5 px-2 py-2 rounded-xl hover:bg-secondary text-sm">
                       {u.avatar_url
                         ? <img src={u.avatar_url} alt="" className="h-8 w-8 rounded-full object-cover" />
-                        : <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold">{(u.display_name || u.email || "?")[0]?.toUpperCase()}</div>}
+                        : <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-xs font-bold">{(u.display_name || u.email || "?")[0]?.toUpperCase()}</div>}
                       <div className="min-w-0">
-                        <p className="truncate font-medium">{u.display_name || u.username || u.email}</p>
+                        <p className="truncate font-bold text-foreground">{u.display_name || u.username || u.email}</p>
                         {u.email && <p className="truncate text-[11px] text-muted-foreground">{u.email}</p>}
                       </div>
                     </Link>
@@ -353,22 +360,21 @@ export default function AdminLayout() {
         <main
           className={cn(
             "flex-1 max-w-full min-w-0",
-            location.pathname.startsWith("/admin/ai") || location.pathname.startsWith("/admin/platform-ai")
-              ? "p-2 sm:p-3 md:p-4 flex flex-col min-h-0 pb-2"
-              : "p-3 md:p-6"
+            isExecutivePage
+              ? "p-1.5 sm:p-2.5 md:p-4 flex flex-col min-h-0 pb-1 sm:pb-2"
+              : "p-3 sm:p-4 md:p-6"
           )}
           style={{
-            paddingBottom:
-              location.pathname.startsWith("/admin/ai") || location.pathname.startsWith("/admin/platform-ai")
-                ? "calc(0.75rem + env(safe-area-inset-bottom, 0px))"
-                : "calc(6rem + env(safe-area-inset-bottom, 0px))"
+            paddingBottom: isExecutivePage
+              ? "calc(0.5rem + env(safe-area-inset-bottom, 0px))"
+              : "calc(6rem + env(safe-area-inset-bottom, 0px))"
           }}
         >
           <Outlet />
         </main>
 
-        {/* Mobile bottom tab bar — pill/floating style (hidden on Executive AI Admin page for maximum space) */}
-        {!(location.pathname.startsWith("/admin/ai") || location.pathname.startsWith("/admin/platform-ai")) && (
+        {/* Mobile bottom tab bar — pill/floating style (completely hidden on Executive AI Admin page to maximize screen space) */}
+        {!isExecutivePage && (
           <nav
             className="md:hidden fixed bottom-0 inset-x-0 z-50 pointer-events-none"
             style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
@@ -382,13 +388,13 @@ export default function AdminLayout() {
                       key={t.to}
                       to={t.to}
                       className={cn(
-                        "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-all active:scale-95",
-                        active ? "text-primary" : "text-muted-foreground",
+                        "flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-all active:scale-95",
+                        active ? "text-primary font-black" : "text-muted-foreground",
                       )}
                     >
                       <div className={cn(
                         "flex items-center justify-center h-8 w-10 rounded-xl transition-all",
-                        active && "bg-primary/12",
+                        active && "bg-primary/15",
                       )}>
                         <t.icon className={cn("h-5 w-5 transition-transform", active && "scale-110")} />
                       </div>
@@ -399,12 +405,12 @@ export default function AdminLayout() {
                 <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
                   <SheetTrigger asChild>
                     <button className={cn(
-                      "flex flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition-all active:scale-95",
-                      moreOpen ? "text-primary" : "text-muted-foreground",
+                      "flex flex-col items-center justify-center gap-0.5 text-[11px] font-bold transition-all active:scale-95",
+                      moreOpen ? "text-primary font-black" : "text-muted-foreground",
                     )}>
                       <div className={cn(
                         "flex items-center justify-center h-8 w-10 rounded-xl transition-all",
-                        moreOpen && "bg-primary/12",
+                        moreOpen && "bg-primary/15",
                       )}>
                         <MoreHorizontal className="h-5 w-5" />
                       </div>
@@ -414,14 +420,14 @@ export default function AdminLayout() {
                   <SheetContent side="bottom" className="h-[80vh] p-0 rounded-t-3xl flex flex-col border-0">
                     <div className="mx-auto mt-2 mb-1 h-1.5 w-12 rounded-full bg-muted-foreground/30 shrink-0" />
                     <div className="px-5 py-3 border-b shrink-0">
-                      <p className="text-lg font-bold">All Sections</p>
-                      <p className="text-xs text-muted-foreground">Jump to any admin area</p>
+                      <p className="text-xl font-black text-foreground">Admin Management</p>
+                      <p className="text-xs font-semibold text-muted-foreground">Jump to any admin console section</p>
                     </div>
                     <div className="flex-1 overflow-y-auto">
                       <SidebarNav onNavigate={() => setMoreOpen(false)} />
                     </div>
-                    <div className="p-3 border-t shrink-0 bg-background" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
-                      <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2">
+                    <div className="p-3.5 border-t shrink-0 bg-background" style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))" }}>
+                      <Button variant="ghost" size="sm" asChild className="w-full justify-start gap-2 h-11 font-bold">
                         <Link to="/" onClick={() => setMoreOpen(false)}><ArrowLeft className="h-4 w-4" />Back to Site</Link>
                       </Button>
                     </div>

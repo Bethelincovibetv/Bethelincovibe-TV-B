@@ -142,6 +142,7 @@ export default function AdminPlatformAI() {
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Executive Coordination State
+  const [headerCollapsed, setHeaderCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState<"overview" | "console" | "fleet" | "tasks">("overview");
   const [tasks, setTasks] = useState<AgentTask[]>(() => loadAgentTasks());
   const [alerts, setAlerts] = useState<PlatformAlert[]>(() => loadPlatformAlerts());
@@ -1071,13 +1072,18 @@ Select a quick action chip above or type your exact directive!`;
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto flex flex-col h-[calc(100dvh-5.5rem)] md:h-[calc(100dvh-5rem)] min-h-0 overflow-hidden gap-2.5">
+    <div className="w-full max-w-6xl mx-auto flex flex-col h-[calc(100dvh-4.25rem)] md:h-[calc(100dvh-4.5rem)] min-h-0 overflow-hidden gap-2">
       {/* Executive Command Header Bar */}
-      <div className="shrink-0 p-3 rounded-2xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-purple-600/15 border border-primary/20 shadow-xs flex flex-col gap-2.5">
-        <div className="flex items-center justify-between gap-2 flex-wrap sm:flex-nowrap">
+      <div className={`shrink-0 rounded-2xl bg-gradient-to-r from-primary/15 via-indigo-600/10 to-purple-600/15 border border-primary/20 shadow-xs flex flex-col transition-all duration-200 ${
+        headerCollapsed ? "p-2 gap-1.5" : "p-3 sm:p-3.5 gap-2.5"
+      }`}>
+        {/* Top bar row */}
+        <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="relative flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-indigo-600 to-purple-600 text-white shadow-sm ring-1 ring-white/25">
-              <Bot className="h-5 w-5" strokeWidth={2.2} />
+            <div className={`relative flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary via-indigo-600 to-purple-600 text-white shadow-sm ring-1 ring-white/25 transition-all ${
+              headerCollapsed ? "h-8 w-8" : "h-9 w-9 sm:h-10 sm:w-10"
+            }`}>
+              <Bot className={headerCollapsed ? "h-4 w-4" : "h-5 w-5"} strokeWidth={2.2} />
               <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 border border-background"></span>
@@ -1085,99 +1091,129 @@ Select a quick action chip above or type your exact directive!`;
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 flex-wrap">
-                <h1 className="text-sm sm:text-base font-black tracking-tight leading-tight truncate">
+                <h1 className="text-base sm:text-lg md:text-xl font-black tracking-tight leading-tight truncate text-foreground">
                   Executive Admin AI
                 </h1>
-                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-bold text-[9px] px-1.5 py-0">
-                  Central Intelligence Layer
+                <Badge className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40 font-bold text-[10px] px-2 py-0">
+                  Active
                 </Badge>
               </div>
-              <p className="text-[11px] text-muted-foreground font-medium truncate hidden sm:block">
-                Reporting directly to Founder &amp; CEO Bethel Goodgift • Coordinating 11 Specialized AI Agents
-              </p>
+              {!headerCollapsed && (
+                <p className="text-xs text-muted-foreground font-semibold truncate hidden sm:block">
+                  Coordinating 11 Specialized AI Agents • Lagos &amp; Global Operations
+                </p>
+              )}
             </div>
           </div>
 
-          {/* Quick Executive Modals & Voice Triggers */}
-          <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setDailyBriefingOpen(true)}
-              className="h-7 sm:h-8 px-2 sm:px-2.5 font-bold text-[11px] rounded-xl gap-1 border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20"
-              title="Open Executive Daily Briefing"
-            >
-              <Sparkles className="h-3 w-3 text-purple-600" />
-              <span className="hidden xs:inline">Daily</span> Briefing
-            </Button>
+          {/* Quick Executive Modals, Voice Triggers & Header Collapse Toggle */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {!headerCollapsed && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDailyBriefingOpen(true)}
+                  className="h-8 px-2.5 font-bold text-xs rounded-xl gap-1 border-purple-500/30 bg-purple-500/10 text-purple-700 dark:text-purple-300 hover:bg-purple-500/20 hidden xs:inline-flex"
+                  title="Open Executive Daily Briefing"
+                >
+                  <Sparkles className="h-3.5 w-3.5 text-purple-600" />
+                  <span className="hidden sm:inline">Daily</span> Briefing
+                </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setInvestigationOpen(true)}
-              className="h-7 sm:h-8 px-2 sm:px-2.5 font-bold text-[11px] rounded-xl gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20"
-              title="Conduct Multi-Agent Investigation"
-            >
-              <Lightbulb className="h-3 w-3 text-indigo-600" />
-              <span className="hidden sm:inline">Investigate</span>
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setInvestigationOpen(true)}
+                  className="h-8 px-2.5 font-bold text-xs rounded-xl gap-1 border-indigo-500/30 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-500/20 hidden sm:inline-flex"
+                  title="Conduct Multi-Agent Investigation"
+                >
+                  <Lightbulb className="h-3.5 w-3.5 text-indigo-600" />
+                  <span>Investigate</span>
+                </Button>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setSsotOpen(true)}
-              className="h-7 sm:h-8 px-2 font-bold text-[11px] rounded-xl border-primary/20 text-muted-foreground hover:text-foreground hidden md:inline-flex"
-              title="View Single Source of Truth & Principles"
-            >
-              <ShieldCheck className="h-3 w-3 text-emerald-600 mr-1" />
-              SSOT
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSsotOpen(true)}
+                  className="h-8 px-2.5 font-bold text-xs rounded-xl border-primary/20 text-muted-foreground hover:text-foreground hidden md:inline-flex"
+                  title="View Single Source of Truth & Principles"
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 mr-1" />
+                  SSOT
+                </Button>
+              </>
+            )}
 
             <Button
               variant="default"
               size="sm"
               onClick={() => setLiveVoiceOpen(true)}
-              className="h-7 sm:h-8 px-2 sm:px-3 font-extrabold text-[11px] rounded-xl gap-1 bg-gradient-to-r from-purple-600 via-indigo-600 to-primary text-white shadow-xs hover:opacity-95 ring-1 ring-white/20"
+              className="h-8 px-2.5 sm:px-3 font-black text-xs rounded-xl gap-1.5 bg-gradient-to-r from-purple-600 via-indigo-600 to-primary text-white shadow-xs hover:opacity-95 ring-1 ring-white/20"
             >
-              <Radio className="h-3 w-3 animate-pulse text-amber-300" />
-              <span className="hidden xs:inline">Google Live</span>
-              <span>(Kore)</span>
+              <Radio className="h-3.5 w-3.5 animate-pulse text-amber-300" />
+              <span>Live Kore Voice</span>
             </Button>
 
+            {!headerCollapsed && (
+              <>
+                <Button
+                  variant={showStats ? "secondary" : "outline"}
+                  size="sm"
+                  onClick={() => setShowStats(!showStats)}
+                  className="h-8 px-2.5 font-bold text-xs rounded-xl gap-1 border-primary/20"
+                  title="Toggle Live Platform Stats"
+                >
+                  <BarChart2 className="h-3.5 w-3.5 text-primary" />
+                  <span className="hidden sm:inline">Stats</span>
+                  {showStats ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => refetchStats()}
+                  disabled={statsLoading}
+                  className="h-8 w-8 rounded-xl border-primary/20 bg-background/80"
+                  title="Refresh Platform Stats"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 text-primary ${statsLoading ? "animate-spin" : ""}`} />
+                </Button>
+              </>
+            )}
+
+            {/* Collapse/Expand Toggle Button */}
             <Button
-              variant={showStats ? "secondary" : "outline"}
+              variant="ghost"
               size="sm"
-              onClick={() => setShowStats(!showStats)}
-              className="h-7 sm:h-8 px-2 sm:px-2.5 font-bold text-[11px] rounded-xl gap-1 border-primary/20"
-              title="Toggle Live Platform Stats"
+              onClick={() => setHeaderCollapsed(!headerCollapsed)}
+              className="h-8 px-2 font-black text-xs rounded-xl text-primary bg-primary/10 hover:bg-primary/20 gap-1"
+              title={headerCollapsed ? "Expand Header Details" : "Collapse Header (Maximize Chat Space)"}
             >
-              <BarChart2 className="h-3 w-3 text-primary" />
-              <span className="hidden sm:inline">Stats</span>
-              {showStats ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
-            </Button>
-
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => refetchStats()}
-              disabled={statsLoading}
-              className="h-7 w-7 sm:h-8 sm:w-8 rounded-xl border-primary/20 bg-background/80"
-              title="Refresh Platform Stats"
-            >
-              <RefreshCw className={`h-3 w-3 text-primary ${statsLoading ? "animate-spin" : ""}`} />
+              {headerCollapsed ? (
+                <>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                  <span className="text-[11px] hidden xs:inline">Expand</span>
+                </>
+              ) : (
+                <>
+                  <ChevronUp className="h-3.5 w-3.5" />
+                  <span className="text-[11px] hidden xs:inline">Compact</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
 
         {/* Tab Navigation Pill Bar */}
-        <div className="flex items-center justify-between gap-1 border-t border-primary/15 pt-2">
-          <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+        <div className={`flex items-center justify-between gap-1 ${headerCollapsed ? "pt-1" : "border-t border-primary/15 pt-2"}`}>
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`px-3 py-1 text-xs font-black rounded-xl transition-all ${
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-black rounded-xl transition-all whitespace-nowrap ${
                 activeTab === "overview"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-background/70 hover:bg-background text-muted-foreground hover:text-foreground border border-border/40"
               }`}
             >
               Overview &amp; Telemetry
@@ -1185,23 +1221,23 @@ Select a quick action chip above or type your exact directive!`;
 
             <button
               onClick={() => setActiveTab("console")}
-              className={`px-3 py-1 text-xs font-black rounded-xl transition-all flex items-center gap-1.5 ${
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === "console"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-background/70 hover:bg-background text-muted-foreground hover:text-foreground border border-border/40"
               }`}
             >
-              <Cpu className="h-3 w-3" />
+              <Cpu className="h-3.5 w-3.5" />
               <span>Strategy Console</span>
-              {busy && <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-ping" />}
+              {busy && <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />}
             </button>
 
             <button
               onClick={() => setActiveTab("fleet")}
-              className={`px-3 py-1 text-xs font-black rounded-xl transition-all ${
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-black rounded-xl transition-all whitespace-nowrap ${
                 activeTab === "fleet"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-background/70 hover:bg-background text-muted-foreground hover:text-foreground border border-border/40"
               }`}
             >
               AI Agents Fleet ({SPECIALIZED_AI_AGENTS.length})
@@ -1209,51 +1245,51 @@ Select a quick action chip above or type your exact directive!`;
 
             <button
               onClick={() => setActiveTab("tasks")}
-              className={`px-3 py-1 text-xs font-black rounded-xl transition-all flex items-center gap-1 ${
+              className={`px-3.5 py-1.5 text-xs sm:text-sm font-black rounded-xl transition-all flex items-center gap-1.5 whitespace-nowrap ${
                 activeTab === "tasks"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-background/60 hover:bg-background text-muted-foreground hover:text-foreground"
+                  ? "bg-primary text-primary-foreground shadow-sm"
+                  : "bg-background/70 hover:bg-background text-muted-foreground hover:text-foreground border border-border/40"
               }`}
             >
               <span>Task Board</span>
-              <span className="text-[10px] px-1.5 py-0 rounded-full bg-primary/20 font-bold">
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-primary/20 font-black">
                 {tasks.filter((t) => t.status === "pending" || t.status === "in_progress").length}
               </span>
             </button>
           </div>
 
-          <div className="hidden lg:flex items-center gap-1 text-[11px] font-bold text-muted-foreground">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Autonomous Coordination Engine: Healthy</span>
+          <div className="hidden lg:flex items-center gap-1.5 text-xs font-bold text-muted-foreground shrink-0">
+            <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Coordination Engine: Healthy</span>
           </div>
         </div>
 
         {/* Collapsible Stats Bar (Compact & Responsive) */}
-        {showStats && (
-          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1 border-t border-primary/15 animate-in fade-in slide-in-from-top-1 duration-150">
-            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase">Businesses</p>
-              <p className="text-xs font-black text-foreground">{stats?.businesses ?? "—"}</p>
+        {!headerCollapsed && showStats && (
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1.5 border-t border-primary/15 animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="p-2 rounded-xl bg-card/80 border text-center">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Businesses</p>
+              <p className="text-sm font-black text-foreground">{stats?.businesses ?? "—"}</p>
             </div>
-            <div className={`p-1.5 rounded-xl border text-center ${stats?.pendingBusinesses ? "bg-amber-500/10 border-amber-500/30" : "bg-card/80"}`}>
-              <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase">Pending</p>
-              <p className="text-xs font-black text-amber-600 dark:text-amber-400">{stats?.pendingBusinesses ?? 0}</p>
+            <div className={`p-2 rounded-xl border text-center ${stats?.pendingBusinesses ? "bg-amber-500/10 border-amber-500/30" : "bg-card/80"}`}>
+              <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider">Pending</p>
+              <p className="text-sm font-black text-amber-600 dark:text-amber-400">{stats?.pendingBusinesses ?? 0}</p>
             </div>
-            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase">Articles</p>
-              <p className="text-xs font-black text-foreground">{stats?.posts ?? "—"}</p>
+            <div className="p-2 rounded-xl bg-card/80 border text-center">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Articles</p>
+              <p className="text-sm font-black text-foreground">{stats?.posts ?? "—"}</p>
             </div>
-            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase">Pages</p>
-              <p className="text-xs font-black text-foreground">{stats?.salesPages ?? "—"}</p>
+            <div className="p-2 rounded-xl bg-card/80 border text-center">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Pages</p>
+              <p className="text-sm font-black text-foreground">{stats?.salesPages ?? "—"}</p>
             </div>
-            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase">Features</p>
-              <p className="text-xs font-black text-foreground">{stats ? `${stats.enabledFlags}/${stats.totalFlags}` : "—"}</p>
+            <div className="p-2 rounded-xl bg-card/80 border text-center">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Features</p>
+              <p className="text-sm font-black text-foreground">{stats ? `${stats.enabledFlags}/${stats.totalFlags}` : "—"}</p>
             </div>
-            <div className="p-1.5 rounded-xl bg-card/80 border text-center">
-              <p className="text-[9px] font-bold text-muted-foreground uppercase">Ads</p>
-              <p className="text-xs font-black text-emerald-600 dark:text-emerald-400">{stats?.globalAds ? "ON" : "OFF"}</p>
+            <div className="p-2 rounded-xl bg-card/80 border text-center">
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Ads</p>
+              <p className="text-sm font-black text-emerald-600 dark:text-emerald-400">{stats?.globalAds ? "ON" : "OFF"}</p>
             </div>
           </div>
         )}
@@ -1312,37 +1348,37 @@ Select a quick action chip above or type your exact directive!`;
 
       {/* Tab 4: Strategic Intelligence Console (Chat, Live Voice, & Proposal Execution) */}
       {activeTab === "console" && (
-        <Card className="flex-1 min-h-0 flex flex-col overflow-hidden border border-border/80 shadow-sm rounded-2xl bg-card">
-          <CardHeader className="py-2 px-3 sm:px-4 border-b bg-muted/30 flex flex-row items-center justify-between shrink-0">
-            <CardTitle className="text-xs sm:text-sm font-black flex items-center gap-1.5 text-foreground">
-              <Cpu className="h-3.5 w-3.5 text-primary" /> Strategic Intelligence Console
+        <Card className="flex-1 min-h-0 flex flex-col overflow-hidden border-2 border-border/80 shadow-md rounded-2xl sm:rounded-3xl bg-card">
+          <CardHeader className="py-2.5 px-3.5 sm:px-5 border-b bg-muted/40 flex flex-row items-center justify-between shrink-0">
+            <CardTitle className="text-sm sm:text-base font-black flex items-center gap-2 text-foreground">
+              <Cpu className="h-4 w-4 text-primary" /> Strategic Intelligence Console
             </CardTitle>
             {busy && (
-              <div className="flex items-center gap-1.5 text-[11px] font-bold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full border border-primary/20">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                <span className="truncate max-w-[160px] sm:max-w-[240px]">{activeTask || "Reasoning with Gemini 3.7 Flash..."}</span>
+              <div className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/25">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <span className="truncate max-w-[160px] sm:max-w-[260px]">{activeTask || "Reasoning with Gemini 3.7 Flash..."}</span>
               </div>
             )}
           </CardHeader>
 
         {/* Scrollable Conversation Feed */}
-        <CardContent className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 min-h-0">
+        <CardContent className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 min-h-0">
           {messages.length === 0 && (
-            <div className="space-y-4 py-3 sm:py-6 text-center max-w-xl mx-auto">
-              <div className="h-10 w-10 sm:h-12 sm:w-12 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 to-indigo-600/20 border border-primary/30 flex items-center justify-center text-primary shadow-xs">
-                <Sparkles className="h-5 w-5 sm:h-6 sm:w-6" />
+            <div className="space-y-4 sm:space-y-5 py-4 sm:py-8 text-center max-w-2xl mx-auto">
+              <div className="h-12 w-12 sm:h-14 sm:w-14 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 via-indigo-600/20 to-purple-600/20 border-2 border-primary/30 flex items-center justify-center text-primary shadow-sm">
+                <Sparkles className="h-6 w-6 sm:h-7 sm:w-7" />
               </div>
               <div>
-                <h3 className="text-sm sm:text-base font-black tracking-tight text-foreground">
+                <h3 className="text-base sm:text-lg md:text-xl font-black tracking-tight text-foreground">
                   Ready to direct platform operations
                 </h3>
-                <p className="text-[11px] sm:text-xs text-muted-foreground mt-1 max-w-md mx-auto leading-relaxed">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-lg mx-auto leading-relaxed font-medium">
                   Collaborate directly with AI Blogger for multi-part video series, build custom landing pages, generate masterclasses, or auto-tune platform settings.
                 </p>
               </div>
 
               {/* Categorized Quick Action Suggestions Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-left pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-left pt-1">
                 {CATEGORIZED_SUGGESTIONS.map((item, idx) => {
                   const Icon = item.icon;
                   return (
@@ -1350,16 +1386,16 @@ Select a quick action chip above or type your exact directive!`;
                       key={idx}
                       onClick={() => handleAsk(item.prompt)}
                       disabled={busy}
-                      className="p-2.5 sm:p-3 rounded-xl border border-border/80 bg-background hover:bg-secondary/70 hover:border-primary/40 text-left transition-all flex items-start gap-2.5 group active:scale-[0.99]"
+                      className="p-3 sm:p-3.5 rounded-2xl border border-border/80 bg-background hover:bg-secondary/70 hover:border-primary/40 text-left transition-all flex items-start gap-3 group active:scale-[0.99] shadow-2xs"
                     >
-                      <div className="h-7 w-7 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
-                        <Icon className="h-3.5 w-3.5" />
+                      <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
+                        <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
-                        <p className="text-[9px] font-extrabold uppercase tracking-wider text-primary truncate">
+                        <p className="text-[10px] font-black uppercase tracking-wider text-primary truncate">
                           {item.category}
                         </p>
-                        <p className="text-xs font-bold text-foreground/90 group-hover:text-foreground line-clamp-1 leading-snug">
+                        <p className="text-xs sm:text-sm font-bold text-foreground/90 group-hover:text-foreground line-clamp-2 leading-snug">
                           {item.title}
                         </p>
                       </div>
@@ -1372,22 +1408,22 @@ Select a quick action chip above or type your exact directive!`;
 
           {/* Messages */}
           {messages.map((m) => (
-            <div key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} gap-1`}>
-              <div className="text-[10px] font-bold text-muted-foreground/80 uppercase px-1 flex items-center justify-between w-full max-w-[94%] sm:max-w-[85%]">
+            <div key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} gap-1.5`}>
+              <div className="text-[11px] font-bold text-muted-foreground/90 uppercase px-1 flex items-center justify-between w-full max-w-[96%] sm:max-w-[90%] md:max-w-[85%]">
                 <div className="flex items-center gap-1.5">
                   {m.role === "user" ? (
-                    <span>You (Admin)</span>
+                    <span className="font-extrabold text-foreground/80">You (Admin)</span>
                   ) : (
                     <>
-                      <Bot className="h-3 w-3 text-primary" />
-                      <span>AI Strategy Director</span>
+                      <Bot className="h-3.5 w-3.5 text-primary" />
+                      <span className="font-extrabold text-primary">AI Strategy Director</span>
                     </>
                   )}
                 </div>
                 {m.role === "assistant" && (
                   <button
                     onClick={() => speakMessageWithKore(m.id, m.content)}
-                    className={`flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full transition-colors ${
+                    className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full transition-colors ${
                       speakingMsgId === m.id
                         ? "bg-purple-600 text-white animate-pulse"
                         : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
@@ -1396,12 +1432,12 @@ Select a quick action chip above or type your exact directive!`;
                   >
                     {speakingMsgId === m.id ? (
                       <>
-                        <Square className="h-2.5 w-2.5" />
+                        <Square className="h-3 w-3" />
                         <span>Stop Voice</span>
                       </>
                     ) : (
                       <>
-                        <Volume2 className="h-2.5 w-2.5 text-purple-500" />
+                        <Volume2 className="h-3 w-3 text-purple-500" />
                         <span>Kore Voice</span>
                       </>
                     )}
@@ -1409,12 +1445,12 @@ Select a quick action chip above or type your exact directive!`;
                 )}
               </div>
 
-              {/* Message Bubble */}
+              {/* Message Bubble with Increased Font Size & Readability */}
               <div
-                className={`max-w-[94%] sm:max-w-[85%] break-words overflow-hidden rounded-2xl px-4 py-3 text-xs sm:text-sm leading-relaxed shadow-xs ${
+                className={`max-w-[96%] sm:max-w-[90%] md:max-w-[85%] break-words overflow-hidden rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base leading-relaxed shadow-sm ${
                   m.role === "user"
                     ? "bg-primary text-primary-foreground font-bold rounded-tr-none"
-                    : "bg-muted/70 text-foreground border border-border/80 rounded-tl-none whitespace-pre-wrap font-medium"
+                    : "bg-card text-foreground border border-border/90 rounded-tl-none whitespace-pre-wrap font-normal"
                 }`}
               >
                 {cleanRawAsterisks(m.content)}
@@ -1422,45 +1458,45 @@ Select a quick action chip above or type your exact directive!`;
 
               {/* Action Proposal & Preview Card */}
               {m.proposal && (
-                <div className="w-full max-w-[94%] sm:max-w-[85%] mt-1.5">
+                <div className="w-full max-w-[96%] sm:max-w-[90%] md:max-w-[85%] mt-1.5">
                   <Card
-                    className={`border shadow-sm rounded-2xl overflow-hidden transition-all ${
+                    className={`border-2 shadow-sm rounded-2xl sm:rounded-3xl overflow-hidden transition-all ${
                       m.proposal.status === "executed"
                         ? "bg-emerald-500/10 border-emerald-500/40"
                         : m.proposal.status === "dismissed"
                         ? "bg-muted/30 border-muted opacity-60"
-                        : "bg-card border-indigo-500/40 ring-1 ring-indigo-500/20"
+                        : "bg-card border-indigo-500/40 ring-2 ring-indigo-500/20"
                     }`}
                   >
-                    <div className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b bg-muted/30">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b bg-muted/40">
+                      <div className="flex items-center gap-3.5 min-w-0">
                         <div
-                          className={`h-9 w-9 rounded-xl flex items-center justify-center font-bold shrink-0 shadow-xs ${
+                          className={`h-11 w-11 rounded-2xl flex items-center justify-center font-bold shrink-0 shadow-xs ${
                             m.proposal.status === "executed"
                               ? "bg-emerald-600 text-white"
                               : "bg-indigo-600 text-white"
                           }`}
                         >
                           {m.proposal.type === "multi_blog_campaign" ? (
-                            <Video className="h-4 w-4" />
+                            <Video className="h-5 w-5" />
                           ) : m.proposal.type === "create_custom_page" ? (
-                            <Globe className="h-4 w-4" />
+                            <Globe className="h-5 w-5" />
                           ) : m.proposal.type === "create_ai_course" ? (
-                            <GraduationCap className="h-4 w-4" />
+                            <GraduationCap className="h-5 w-5" />
                           ) : (
-                            <ShieldCheck className="h-4 w-4" />
+                            <ShieldCheck className="h-5 w-5" />
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="font-black text-xs sm:text-sm text-foreground flex items-center gap-2 flex-wrap">
+                          <p className="font-black text-sm sm:text-base text-foreground flex items-center gap-2 flex-wrap">
                             <span className="truncate">{cleanRawAsterisks(m.proposal.title)}</span>
                             {m.proposal.status === "executed" && (
-                              <Badge className="bg-emerald-600 text-white border-0 text-[10px] font-black py-0.5 px-2 shadow-2xs">
-                                <Check className="h-3 w-3 mr-1" /> Action Executed Live
+                              <Badge className="bg-emerald-600 text-white border-0 text-xs font-black py-0.5 px-2.5 rounded-full shadow-2xs">
+                                <Check className="h-3.5 w-3.5 mr-1" /> Action Executed Live
                               </Badge>
                             )}
                           </p>
-                          <p className="text-xs font-medium text-muted-foreground truncate mt-0.5">
+                          <p className="text-xs sm:text-sm font-medium text-muted-foreground truncate mt-0.5">
                             {cleanRawAsterisks(m.proposal.rationale)}
                           </p>
                         </div>
@@ -1473,24 +1509,24 @@ Select a quick action chip above or type your exact directive!`;
                             size="sm"
                             onClick={() => handleDismissProposal(m.id)}
                             disabled={busy}
-                            className="h-8 text-xs font-bold text-muted-foreground hover:text-destructive rounded-xl px-2.5"
+                            className="h-9 text-xs sm:text-sm font-bold text-muted-foreground hover:text-destructive rounded-xl px-3"
                           >
-                            <X className="h-3.5 w-3.5 mr-1" /> Dismiss
+                            <X className="h-4 w-4 mr-1" /> Dismiss
                           </Button>
                           <Button
                             size="sm"
                             onClick={() => handleApproveProposal(m.id, m.proposal!)}
                             disabled={busy}
-                            className="h-8 text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-3.5 gap-1.5 shadow-md"
+                            className="h-9 text-xs sm:text-sm font-black bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 gap-1.5 shadow-md"
                           >
                             {busy ? (
                               <>
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                                 <span>Executing Action…</span>
                               </>
                             ) : (
                               <>
-                                <Play className="h-3.5 w-3.5 fill-current" />
+                                <Play className="h-4 w-4 fill-current" />
                                 <span>Approve &amp; Perform Action</span>
                               </>
                             )}
@@ -1502,23 +1538,23 @@ Select a quick action chip above or type your exact directive!`;
 
                     {/* Proposal Details */}
                     {m.proposal.type === "multi_blog_campaign" && m.proposal.previewData?.directive && (
-                      <div className="p-2.5 bg-muted/10 text-xs space-y-2">
-                        <p className="font-bold text-[10px] text-muted-foreground uppercase tracking-wider">
+                      <div className="p-3 bg-muted/10 text-xs sm:text-sm space-y-2">
+                        <p className="font-bold text-xs text-muted-foreground uppercase tracking-wider">
                           Target Categories & Series Topics:
                         </p>
-                        <div className="grid gap-1.5 grid-cols-1 sm:grid-cols-2">
+                        <div className="grid gap-2 grid-cols-1 sm:grid-cols-2">
                           {m.proposal.previewData.directive.suggestedTopics?.map((t: any, idx: number) => (
-                            <div key={idx} className="p-2 rounded-xl bg-background border flex items-center justify-between gap-1.5">
+                            <div key={idx} className="p-2.5 rounded-xl bg-background border flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <p className="font-extrabold text-[11px] text-foreground truncate flex items-center gap-1">
-                                  {t.isVlog ? <Video className="h-3 w-3 text-indigo-600 shrink-0" /> : <FileText className="h-3 w-3 text-purple-600 shrink-0" />}
+                                <p className="font-black text-xs sm:text-sm text-foreground truncate flex items-center gap-1.5">
+                                  {t.isVlog ? <Video className="h-3.5 w-3.5 text-indigo-600 shrink-0" /> : <FileText className="h-3.5 w-3.5 text-purple-600 shrink-0" />}
                                   <span className="truncate">{t.title}</span>
                                 </p>
-                                <p className="text-[10px] text-muted-foreground truncate">
+                                <p className="text-xs text-muted-foreground truncate">
                                   Category: <span className="font-bold text-primary">{t.targetCategory}</span>
                                 </p>
                               </div>
-                              <Badge variant="outline" className="text-[9px] shrink-0 font-bold py-0">
+                              <Badge variant="outline" className="text-[10px] shrink-0 font-bold py-0.5">
                                 {t.isVlog ? "Vlog" : "Blog"}
                               </Badge>
                             </div>
@@ -1528,15 +1564,15 @@ Select a quick action chip above or type your exact directive!`;
                     )}
 
                     {m.proposal.type === "create_custom_page" && m.proposal.previewData?.pageData && (
-                      <div className="p-2.5 bg-muted/10 text-xs space-y-1.5">
-                        <div className="flex items-center justify-between flex-wrap gap-1">
-                          <p className="font-bold text-[11px] text-muted-foreground">
+                      <div className="p-3 bg-muted/10 text-xs sm:text-sm space-y-2">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <p className="font-bold text-xs sm:text-sm text-muted-foreground">
                             Route: <strong className="text-primary font-mono">/sales/{m.proposal.previewData.pageData.slug}</strong>
                           </p>
                           {m.proposal.status === "executed" && (
-                            <Button size="sm" variant="outline" asChild className="h-6 text-[10px] font-bold rounded-lg gap-1">
+                            <Button size="sm" variant="outline" asChild className="h-7 text-xs font-bold rounded-xl gap-1">
                               <Link to={`/sales/${m.proposal.previewData.pageData.slug}`} target="_blank">
-                                View Page <ExternalLink className="h-3 w-3" />
+                                View Page <ExternalLink className="h-3.5 w-3.5" />
                               </Link>
                             </Button>
                           )}
@@ -1545,23 +1581,23 @@ Select a quick action chip above or type your exact directive!`;
                     )}
 
                     {m.proposal.type === "create_ai_course" && m.proposal.previewData?.course && (
-                      <div className="p-2.5 bg-muted/10 text-xs space-y-2">
-                        <div className="flex items-start gap-2.5">
+                      <div className="p-3 bg-muted/10 text-xs sm:text-sm space-y-2.5">
+                        <div className="flex items-start gap-3">
                           <div className="min-w-0 flex-1">
-                            <p className="font-extrabold text-xs text-foreground truncate">
+                            <p className="font-black text-sm text-foreground truncate">
                               {m.proposal.previewData.course.title}
                             </p>
-                            <div className="flex flex-wrap gap-1 mt-1">
-                              <Badge variant="outline" className="text-[9px] font-bold py-0">
+                            <div className="flex flex-wrap gap-1.5 mt-1.5">
+                              <Badge variant="outline" className="text-[10px] font-bold py-0.5">
                                 {m.proposal.previewData.course.category}
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] font-bold bg-primary/10 text-primary border-primary/20 py-0">
+                              <Badge variant="outline" className="text-[10px] font-bold bg-primary/10 text-primary border-primary/20 py-0.5">
                                 {m.proposal.previewData.course.modules?.length || 0} Modules
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] font-bold bg-purple-500/10 text-purple-600 border-purple-500/20 py-0">
+                              <Badge variant="outline" className="text-[10px] font-bold bg-purple-500/10 text-purple-600 border-purple-500/20 py-0.5">
                                 {m.proposal.previewData.course.flashcards?.length || 0} Flashcards
                               </Badge>
-                              <Badge variant="outline" className="text-[9px] font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0">
+                              <Badge variant="outline" className="text-[10px] font-bold bg-emerald-500/10 text-emerald-600 border-emerald-500/20 py-0.5">
                                 {m.proposal.previewData.course.quiz?.length || 0} Quiz Qs
                               </Badge>
                             </div>
@@ -1569,10 +1605,10 @@ Select a quick action chip above or type your exact directive!`;
                         </div>
 
                         {m.proposal.status === "executed" && (
-                          <div className="pt-1.5 border-t flex justify-end">
-                            <Button size="sm" variant="outline" asChild className="h-6 text-[10px] font-bold rounded-lg gap-1">
+                          <div className="pt-2 border-t flex justify-end">
+                            <Button size="sm" variant="outline" asChild className="h-7 text-xs font-bold rounded-xl gap-1">
                               <Link to="/learn" target="_blank">
-                                View in Learning Hub <ExternalLink className="h-3 w-3" />
+                                View in Learning Hub <ExternalLink className="h-3.5 w-3.5" />
                               </Link>
                             </Button>
                           </div>
@@ -1585,29 +1621,29 @@ Select a quick action chip above or type your exact directive!`;
 
               {/* Collapsible Action Logs */}
               {m.toolLogs && m.toolLogs.length > 0 && (
-                <div className="w-full max-w-[94%] sm:max-w-[85%] mt-0.5">
+                <div className="w-full max-w-[96%] sm:max-w-[90%] md:max-w-[85%] mt-0.5">
                   <button
                     onClick={() => toggleLog(m.id)}
-                    className="flex items-center justify-between w-full p-1.5 text-[11px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 rounded-xl transition-colors"
+                    className="flex items-center justify-between w-full p-2 text-xs font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/15 border border-emerald-500/20 rounded-xl transition-colors"
                   >
                     <span className="flex items-center gap-1.5 truncate">
-                      <CheckCircle2 className="h-3 w-3 shrink-0" />
+                      <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                       Executed {m.toolLogs.length} Action(s)
                     </span>
-                    {expandedLogs[m.id] ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
+                    {expandedLogs[m.id] ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                   </button>
 
                   {expandedLogs[m.id] && (
                     <div className="space-y-1 mt-1 pl-2 border-l-2 border-emerald-500/40">
                       {m.toolLogs.map((log, lIdx) => (
-                        <div key={lIdx} className="flex items-center justify-between text-[11px] bg-background/90 p-1.5 rounded-xl border border-border/60">
-                          <div className="flex items-center gap-1.5 font-bold min-w-0">
-                            <Badge variant="outline" className="text-[9px] uppercase font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30 py-0 shrink-0">
+                        <div key={lIdx} className="flex items-center justify-between text-xs bg-background/90 p-2 rounded-xl border border-border/60">
+                          <div className="flex items-center gap-2 font-bold min-w-0">
+                            <Badge variant="outline" className="text-[10px] uppercase font-black bg-emerald-500/10 text-emerald-600 border-emerald-500/30 py-0 shrink-0">
                               {log.tool}
                             </Badge>
-                            <span className="truncate text-foreground/90">{log.summary}</span>
+                            <span className="truncate text-foreground/90 font-medium">{log.summary}</span>
                           </div>
-                          <span className="text-[9px] text-muted-foreground shrink-0 font-mono ml-1.5">{log.timestamp}</span>
+                          <span className="text-[10px] text-muted-foreground shrink-0 font-mono ml-2">{log.timestamp}</span>
                         </div>
                       ))}
                     </div>
@@ -1620,15 +1656,15 @@ Select a quick action chip above or type your exact directive!`;
           <div ref={endRef} />
         </CardContent>
 
-        {/* Quick Suggestion Chips (Compact Horizontal Scroll) */}
+        {/* Quick Suggestion Chips (Horizontal Scroll) */}
         {messages.length > 0 && (
-          <div className="px-2.5 py-1.5 border-t bg-muted/20 flex gap-1.5 overflow-x-auto no-scrollbar shrink-0">
+          <div className="px-3 py-2 border-t bg-muted/20 flex gap-2 overflow-x-auto no-scrollbar shrink-0">
             {CATEGORIZED_SUGGESTIONS.map((item, idx) => (
               <button
                 key={idx}
                 onClick={() => handleAsk(item.prompt)}
                 disabled={busy}
-                className="whitespace-nowrap px-2.5 py-0.5 text-[10px] font-bold rounded-full border border-border bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all shrink-0 active:scale-95"
+                className="whitespace-nowrap px-3 py-1 text-xs font-bold rounded-full border border-border bg-background hover:bg-primary/10 hover:text-primary hover:border-primary/30 transition-all shrink-0 active:scale-95 shadow-2xs"
               >
                 {item.title}
               </button>
@@ -1636,14 +1672,14 @@ Select a quick action chip above or type your exact directive!`;
           </div>
         )}
 
-        {/* Bottom Input Form */}
-        <div className="p-2.5 border-t bg-card shrink-0">
+        {/* Bottom Input Form with Larger Inputs and Touch Targets */}
+        <div className="p-3 sm:p-3.5 border-t bg-card shrink-0">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               handleAsk(input);
             }}
-            className="flex items-center gap-1.5"
+            className="flex items-center gap-2"
           >
             <VoiceInputButton
               onTranscript={(spokenText) => {
@@ -1652,26 +1688,26 @@ Select a quick action chip above or type your exact directive!`;
               }}
               onOpenLiveAgent={() => setLiveVoiceOpen(true)}
               disabled={busy}
-              className="h-10 w-10 rounded-xl shrink-0 border-border"
+              className="h-11 w-11 sm:h-12 sm:w-12 rounded-2xl shrink-0 border-border shadow-xs"
             />
             <Input
               ref={inputRef}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Direct AI Blogger, create course/page, auto-tune..."
+              placeholder="Direct AI Blogger, create course/page, auto-tune platform..."
               disabled={busy}
-              className="h-10 font-medium text-xs sm:text-sm rounded-xl px-3 bg-background border-border shadow-xs focus-visible:ring-1 focus-visible:ring-primary flex-1 min-w-0"
+              className="h-11 sm:h-12 font-medium text-sm sm:text-base rounded-2xl px-3.5 bg-background border-border shadow-xs focus-visible:ring-2 focus-visible:ring-primary flex-1 min-w-0"
             />
             <Button
               type="submit"
               disabled={busy || !input.trim()}
-              className="h-10 px-3.5 sm:px-4 font-black text-xs rounded-xl shrink-0 gap-1.5 shadow-xs bg-indigo-600 hover:bg-indigo-700 text-white"
+              className="h-11 sm:h-12 px-4 sm:px-5 font-black text-sm rounded-2xl shrink-0 gap-1.5 shadow-md bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
               ) : (
                 <>
-                  <Send className="h-3.5 w-3.5" />
+                  <Send className="h-4 w-4 sm:h-4.5 sm:w-4.5" />
                   <span className="hidden sm:inline">Instruct</span>
                 </>
               )}
