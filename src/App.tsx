@@ -31,6 +31,7 @@ import BoostBusiness from "./pages/BoostBusiness";
 import StartupCalculator from "./pages/StartupCalculator";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
+import Support from "./pages/Support";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -224,7 +225,8 @@ const App = () => (
               <Route path="/dashboard/submit-blog" element={<FeatureGate feature="guest_blog"><SubmitBlog /></FeatureGate>} />
               <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
+              <Route path="/support" element={<Support />} />
+              <Route path="/contact" element={<Support />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<FeatureGate feature="register"><Register /></FeatureGate>} />
               <Route path="/forgot-password" element={<ForgotPassword />} />

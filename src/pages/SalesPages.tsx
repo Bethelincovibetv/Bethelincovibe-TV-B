@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Plus, Eye, Edit, Copy as CopyIcon, Trash2, MessageCircle, Share2, BarChart3, Sparkles, ArrowLeft, LineChart } from "lucide-react";
 import { copyToClipboard } from "@/lib/clipboard";
+import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 
 export default function SalesPages() {
   const { user, loading } = useAuth();
@@ -92,6 +93,27 @@ export default function SalesPages() {
           <Button asChild className="bg-gradient-to-r from-primary to-purple-600">
             <Link to="/dashboard/sales-pages/new"><Plus className="h-4 w-4 mr-1" />New</Link>
           </Button>
+        </div>
+
+        {/* AI Marketplace & Commerce Funnel Specialist */}
+        <div className="mb-6">
+          <FrontendSpecialistWidget
+            agentId="marketplace_ai"
+            mode="banner"
+            title="Head of Marketplace Commerce & Funnels"
+            subtitle="Drafts high-converting sales landing page copy, WhatsApp checkout pitches, and bundle offers."
+            initialOpen={false}
+            contextData={{
+              page: "sales_pages_dashboard",
+              totalPages: pages.length,
+            }}
+            customPrompts={[
+              "Write High-Converting Sales Copy for a Skincare Product",
+              "Draft WhatsApp Direct Order Script for Fast Closes",
+              "Structure an Irresistible 2-in-1 Product Bundle",
+              "How to price wholesale vs retail for Lagos customers"
+            ]}
+          />
         </div>
 
         {pages.length === 0 ? (

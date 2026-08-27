@@ -408,7 +408,7 @@ async function runServerVideoPipeline(jobId: string): Promise<void> {
 Return ONLY the spoken narrator script text in 3-5 concise, punchy sentences without markdown bullet headers or director notes.`;
       
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: 'gemini-3.7-flash',
         contents: prompt,
       });
 

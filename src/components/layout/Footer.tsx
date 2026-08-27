@@ -236,7 +236,7 @@ export default function Footer() {
           <p>© {new Date().getFullYear()} <span className="font-bold text-foreground">Bethelincovibe TV</span>. Built for Nigeria's thriving entrepreneurs.</p>
           <div className="flex items-center gap-5 font-semibold">
             <Link to="/about" className="hover:text-primary transition-colors">About</Link>
-            <Link to="/contact" className="hover:text-primary transition-colors">Contact</Link>
+            <Link to="/support" className="hover:text-primary transition-colors">Support</Link>
             <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
             <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
             <Link to="/disclaimer" className="hover:text-primary transition-colors">Disclaimer</Link>

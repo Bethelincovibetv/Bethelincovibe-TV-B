@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
 import { getGeminiClient } from "@/lib/aiCollaborationEngine";
+import { WORKFORCE_HEADSHOTS } from "@/lib/aiWorkforceRegistry";
 
 // ==========================================
 // 1. SINGLE SOURCE OF TRUTH (SSOT)
@@ -97,6 +98,10 @@ export interface SpecializedAgentDefinition {
   currentFocus: string;
   iconName: string;
   systemPromptRole: string;
+  profilePhotoUrl?: string;
+  department?: string;
+  employeeName?: string;
+  jobTitle?: string;
 }
 
 export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
@@ -104,6 +109,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "executive_admin_ai",
     name: "Executive Admin AI",
     codename: "Victoria Executive",
+    employeeName: "Victoria Vance",
+    jobTitle: "Chief Operating Intelligence & Executive Coordinator",
+    department: "Executive Leadership",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.executive_admin_ai,
     role: "Central Operating Intelligence & Coordinator",
     description:
       "Coordinates all 11 specialized AI agents, enforces the single source of truth, monitors ecosystem health, synthesizes investigations, and assists the Founder & CEO.",
@@ -126,6 +135,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "support_ai",
     name: "Customer Support AI",
     codename: "Aria Support",
+    employeeName: "Aria Chen",
+    jobTitle: "Customer Success & Merchant Onboarding Specialist",
+    department: "Customer Experience",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.support_ai,
     role: "User Assistance & Onboarding Specialist",
     description: "Handles customer inquiries, account onboarding, troubleshooting, guide lookups, and escalates difficult cases.",
     color: "text-blue-500",
@@ -144,6 +157,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "marketing_ai",
     name: "Marketing AI",
     codename: "Nova Marketing",
+    employeeName: "Sarah Jenkins",
+    jobTitle: "Director of Marketing & Growth Promotions",
+    department: "Marketing & Growth",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.marketing_ai,
     role: "Campaign Strategy & Promotions Director",
     description: "Generates high-converting marketing campaigns, promotional concepts, social copy, broadcast newsletters, and acquisition playbooks.",
     color: "text-rose-500",
@@ -162,6 +179,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "content_ai",
     name: "Content AI (AI Blogger & Vlogger)",
     codename: "Lexi Content",
+    employeeName: "Lexi Rivera",
+    jobTitle: "Chief Content Officer & Lead Editorial Producer",
+    department: "Editorial & Media",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.content_ai,
     role: "Editorial, SEO Articles & Vlog Producer",
     description: "Produces in-depth business education, market research guides, video scripts, multi-post series, and editorial content.",
     color: "text-fuchsia-500",
@@ -180,6 +201,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "marketplace_ai",
     name: "Marketplace AI",
     codename: "Atlas Commerce",
+    employeeName: "Atlas Mercer",
+    jobTitle: "Head of Marketplace Commerce & Sourcing",
+    department: "Commerce & Marketplace",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.marketplace_ai,
     role: "Commerce, Sourcing & Merchant Coordinator",
     description: "Optimizes product directory listings, supplier verification, inventory analytics, pricing margins, and custom sales pages.",
     color: "text-amber-500",
@@ -198,6 +223,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "community_ai",
     name: "Community AI",
     codename: "Echo Community",
+    employeeName: "Echo Williams",
+    jobTitle: "Lead Community Architect & Forum Moderator",
+    department: "Community & Partnerships",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.community_ai,
     role: "Forum Moderation & Networking Matchmaker",
     description: "Facilitates entrepreneur networking, moderates discussions, sparks engaging topics, and coordinates community events.",
     color: "text-emerald-500",
@@ -216,6 +245,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "coach_ai",
     name: "Business Coach AI",
     codename: "Socrates Coach",
+    employeeName: "Dr. Socrates Bennett",
+    jobTitle: "Executive Strategy & Entrepreneurship Advisor",
+    department: "Education & Coaching",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.coach_ai,
     role: "Executive Strategy & Entrepreneurship Advisor",
     description: "Delivers 1-on-1 AI business coaching, revenue model critiques, pricing margin audits, and masterclass curriculums.",
     color: "text-indigo-500",
@@ -234,6 +267,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "analytics_ai",
     name: "Analytics AI",
     codename: "Nexus Analytics",
+    employeeName: "Nexus Adeyemi",
+    jobTitle: "Chief Data & Anomaly Analyst",
+    department: "Data Intelligence",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.analytics_ai,
     role: "Data Intelligence & Anomaly Detection",
     description: "Monitors platform traffic, conversion funnels, user retention cohorts, top-performing listings, and identifies business anomalies.",
     color: "text-cyan-500",
@@ -252,6 +289,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "finance_ai",
     name: "Finance AI",
     codename: "Ledger Finance",
+    employeeName: "Ledger Okonjo",
+    jobTitle: "Director of Monetization & Treasury Auditor",
+    department: "Finance & Monetization",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.finance_ai,
     role: "Monetization & Transaction Auditor",
     description: "Monitors wallet balances, ad spend ROI, payment gateway conversions, credit allocations, and identifies monetization levers.",
     color: "text-teal-500",
@@ -270,6 +311,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "security_ai",
     name: "Security & Trust AI",
     codename: "Sentinel Security",
+    employeeName: "Sentinel Briggs",
+    jobTitle: "Chief Trust, Safety & Cybersecurity Lead",
+    department: "Security & Trust",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.security_ai,
     role: "Trust, Safety & Fraud Prevention Lead",
     description: "Monitors suspicious activities, fake listings, brute force attempts, unauthorized data access, and enforces trust & safety rules.",
     color: "text-red-500",
@@ -288,6 +333,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "seo_ai",
     name: "SEO AI",
     codename: "Vortex SEO",
+    employeeName: "Vortex Sterling",
+    jobTitle: "Principal Search Visibility & SEO Architect",
+    department: "Search & Discovery",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.seo_ai,
     role: "Search Visibility & Metadata Architect",
     description: "Optimizes search engine indexing, structured JSON-LD schema, keyword densities, internal linking, and organic discovery.",
     color: "text-violet-500",
@@ -306,6 +355,10 @@ export const SPECIALIZED_AI_AGENTS: SpecializedAgentDefinition[] = [
     id: "growth_ai",
     name: "Growth AI",
     codename: "Catalyst Growth",
+    employeeName: "Catalyst Romero",
+    jobTitle: "Director of Viral Loops & Growth Architecture",
+    department: "Growth Engineering",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.growth_ai,
     role: "Viral Loops & User Acquisition Architect",
     description: "Engineers referral mechanisms, viral sharing loops, onboarding gamification, daily login retention, and activation funnels.",
     color: "text-lime-500",
@@ -635,7 +688,7 @@ Provide a structured, rigorous, data-grounded synthesis in valid JSON matching t
 }`;
 
       const res = await ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.7-flash",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         config: { responseMimeType: "application/json" },
       });

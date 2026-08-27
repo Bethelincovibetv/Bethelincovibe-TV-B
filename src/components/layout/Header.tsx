@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Menu, X, LogOut, LayoutDashboard, Home, FileText, Info, Mail, Calculator, User, Megaphone, Building2, Film, MessageCircle } from "lucide-react";
+import { Menu, X, LogOut, LayoutDashboard, Home, FileText, Info, Headphones, Calculator, User, Megaphone, Building2, Film, MessageCircle } from "lucide-react";
 import SiteSearch from "@/components/SiteSearch";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -18,7 +18,7 @@ const allNavLinks = [
   { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, feature: "tools" },
   { to: "/advertise", label: "Advertise", icon: Megaphone, feature: "advertise" },
   { to: "/about", label: "About", icon: Info, feature: null },
-  { to: "/contact", label: "Contact", icon: Mail, feature: null },
+  { to: "/support", label: "Support", icon: Headphones, feature: null },
 ];
 
 export default function Header() {

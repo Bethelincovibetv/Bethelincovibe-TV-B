@@ -20,6 +20,7 @@ import CoursePlayerModal from "@/components/learn/CoursePlayerModal";
 import GeminiLiveDialog from "@/components/coach/GeminiLiveDialog";
 import { decodeCourseMetadata } from "@/lib/aiCourseCreatorEngine";
 import { copyToClipboard } from "@/lib/clipboard";
+import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 import learnHeroImage from "@/assets/images/learning_hub_hero_1787779428622.jpg";
 import academyCardImage from "@/assets/images/learning_academy_card_1787779443703.jpg";
 
@@ -325,6 +326,26 @@ export default function Learn() {
 
           {/* RIGHT MAIN CONTENT AREA */}
           <div className="space-y-5">
+            {/* Learning Hub AI Coach & Flashcard Specialist */}
+            <FrontendSpecialistWidget
+              agentId="coach_ai"
+              mode="banner"
+              title="Executive Strategy & Entrepreneurship Advisor"
+              subtitle="Generates custom flashcards, author quizzes, and analyzes business revenue models."
+              initialOpen={false}
+              contextData={{
+                page: "learning_hub",
+                activeCategory: selectedCategory,
+                totalCourses: courses?.length || 0,
+              }}
+              customPrompts={[
+                "Generate 10 Active-Recall Flashcards for SME Cashflow",
+                "Create a 5-Question Quiz on Pricing Power",
+                "Explain Unit Economics for Nigerian Startups",
+                "Recommend courses for WhatsApp Commerce"
+              ]}
+            />
+
             {/* Search Bar & Stats Bar */}
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
               <div className="relative w-full sm:w-80">

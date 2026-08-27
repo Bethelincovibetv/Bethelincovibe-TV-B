@@ -17,7 +17,10 @@ if (typeof window !== "undefined") {
       s.includes("ggd") ||
       s.includes("aborted") ||
       s.includes("loading chunk") ||
-      s.includes("dynamically imported module")
+      s.includes("dynamically imported module") ||
+      s.includes("permission_denied") ||
+      s.includes("caller does not have permission") ||
+      s.includes("specialist agent query error")
     );
   };
 

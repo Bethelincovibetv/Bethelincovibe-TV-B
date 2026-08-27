@@ -19,6 +19,7 @@ import {
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import AdsterraAd from "@/components/AdsterraAd";
+import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 
 import catStarting3D from "@/assets/images/forum_cat_starting_1787550425478.jpg";
 import catMarketing3D from "@/assets/images/forum_cat_marketing_1787550438860.jpg";
@@ -370,6 +371,27 @@ export default function Forum() {
           })}
         </div>
       </div>
+
+      {/* Community AI Architect & Moderator Assistant */}
+      <FrontendSpecialistWidget
+        agentId="community_ai"
+        mode="banner"
+        title="Lead Community Architect & Moderator"
+        subtitle="Summarizes forum discussions, connects founders, and sparks SME growth threads."
+        initialOpen={false}
+        contextData={{
+          currentCategory: cat,
+          activeTab: tab,
+          totalPosts: posts.length,
+          page: "forum_hub",
+        }}
+        customPrompts={[
+          "Summarize trending topics in the forum",
+          "Suggest a high-engagement trade discussion",
+          "Help me find verified suppliers in Nigeria",
+          "Explain community moderation guidelines"
+        ]}
+      />
 
       {/* Search & Tabs Filter Row */}
       <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 pt-2">

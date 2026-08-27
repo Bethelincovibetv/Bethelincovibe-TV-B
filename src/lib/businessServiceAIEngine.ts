@@ -70,7 +70,7 @@ RULES:
     const gemini = await getGeminiClient();
     if (gemini) {
       const response = await gemini.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.7-flash",
         contents: prompt,
         config: {
           temperature: 0.7,
@@ -139,7 +139,7 @@ Output valid JSON only.`;
     const gemini = await getGeminiClient();
     if (gemini) {
       const response = await gemini.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.7-flash",
         contents: prompt,
         config: {
           temperature: 0.7,

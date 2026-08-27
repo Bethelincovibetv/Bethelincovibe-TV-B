@@ -463,15 +463,14 @@ export default function AdminSettings() {
               <div>
                 <Label>Text model</Label>
                 <div className="flex gap-2 items-center mb-1.5">
-                  <Input value={get("ai_text_model")} onChange={(e) => set("ai_text_model", e.target.value)} placeholder="gemini-3.7-flash or gemini-2.5-flash" className="font-mono text-xs" />
+                  <Input value={get("ai_text_model")} onChange={(e) => set("ai_text_model", e.target.value)} placeholder="gemini-3.7-flash or gemini-3.1-pro-preview" className="font-mono text-xs" />
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {[
                     "gemini-3.7-flash",
-                    "gemini-2.5-flash",
-                    "gemini-2.5-pro",
-                    "gemini-2.0-flash",
-                    "google/gemini-2.5-flash",
+                    "gemini-3.1-pro-preview",
+                    "gemini-flash-latest",
+                    "google/gemini-3.7-flash",
                     "openai/gpt-5-mini",
                   ].map((preset) => (
                     <button
@@ -489,7 +488,7 @@ export default function AdminSettings() {
                   ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Direct Gemini models: <code>gemini-3.7-flash</code> (recommended for speed & intelligence), <code>gemini-2.5-flash</code>, <code>gemini-2.0-flash</code>.
+                  Direct Gemini models: <code>gemini-3.7-flash</code> (recommended for speed & intelligence), <code>gemini-3.1-pro-preview</code>.
                 </p>
               </div>
               <p className="text-[11px] text-muted-foreground">

@@ -459,7 +459,7 @@ export async function generateAILogos(
     if (gemini) {
       // Background prompt for brand slogan ideas
       gemini.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.7-flash",
         contents: `Suggest a 2-word punchy luxury tagline for a brand called "${businessName}" in "${category}". Return just the 2 words uppercase.`,
       }).then((res) => {
         const text = res?.text?.trim();

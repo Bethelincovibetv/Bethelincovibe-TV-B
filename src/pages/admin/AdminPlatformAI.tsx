@@ -62,6 +62,17 @@ import {
   runComprehensiveSystemHealthDiagnostic,
 } from "@/lib/executiveOrchestrationEngine";
 
+import {
+  DigitalEmployeeProfile,
+  getWorkforceRegistry,
+  getExecutiveProfile,
+  findAgentForTask,
+  getAgentProfile,
+  generateWorkforceSystemContext,
+} from "@/lib/aiWorkforceRegistry";
+import AgentProfileCard from "@/components/admin/executive/AgentProfileCard";
+import AgentProfileModal from "@/components/admin/executive/AgentProfileModal";
+
 type ToolLog = {
   tool: string;
   summary: string;
@@ -76,6 +87,7 @@ export interface PendingActionProposal {
   rationale: string;
   previewData: any;
   status: "pending" | "executed" | "dismissed";
+  assignedAgent?: DigitalEmployeeProfile;
 }
 
 type Msg = {
@@ -84,6 +96,8 @@ type Msg = {
   content: string;
   toolLogs?: ToolLog[];
   proposal?: PendingActionProposal;
+  agentCards?: DigitalEmployeeProfile[];
+  assignedAgent?: DigitalEmployeeProfile;
 };
 
 interface SuggestionItem {
@@ -160,6 +174,8 @@ export default function AdminPlatformAI() {
   const [activityIntelligenceOpen, setActivityIntelligenceOpen] = useState(false);
   const [chatTemplate, setChatTemplate] = useState<ChatTemplate>(() => loadSavedChatTemplate());
   const [templateModalOpen, setTemplateModalOpen] = useState(false);
+  const [selectedProfileAgent, setSelectedProfileAgent] = useState<DigitalEmployeeProfile | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
 
   const handleSelectChatTemplate = (template: ChatTemplate) => {
     setChatTemplate(template);
@@ -717,6 +733,100 @@ export default function AdminPlatformAI() {
       const lower = prompt.toLowerCase();
       const categories = stats?.categoriesList || [];
 
+      // 0. Check if intent is querying about the Digital Employee Workforce or team introduction
+      if (
+        lower.includes("team") ||
+        lower.includes("workforce") ||
+        lower.includes("digital employee") ||
+        lower.includes("who is on your") ||
+        lower.includes("meet the team") ||
+        lower.includes("introduce your team") ||
+        lower.includes("list agents") ||
+        lower.includes("list all agents") ||
+        lower.includes("show agents") ||
+        lower.includes("show workforce")
+      ) {
+        setActiveTask("Victoria Vance presenting the Digital Employee Workforce…");
+        const registry = getWorkforceRegistry();
+        const replyContent = `### 👥 Bethelincovibe TV — Digital Employee Workforce Directory
+
+I am **Victoria Vance**, Chief Operating Intelligence & Executive Coordinator. I report directly to **Founder & CEO Bethel Goodgift** and coordinate our elite team of **${registry.length} specialized digital employees**.
+
+Every specialist operates autonomously 24/7 across editorial, commerce, community, masterclasses, analytics, treasury auditing, cybersecurity, and viral growth:
+
+- **Executive Coordinator:** Victoria Vance
+- **Customer Success & Merchant Onboarding:** Aria Chen
+- **Marketing & Growth Promotions:** Sarah Jenkins
+- **Editorial & Media Producer:** Lexi Rivera
+- **Commerce & Marketplace Sourcing:** Atlas Mercer
+- **Community & Forum Moderator:** Echo Williams
+- **Executive Strategy & Coaching:** Dr. Socrates Bennett
+- **Chief Data & Anomaly Analyst:** Nexus Adeyemi
+- **Monetization & Treasury Auditor:** Ledger Okonjo
+- **Trust, Safety & Cybersecurity Lead:** Sentinel Briggs
+- **Search Visibility & SEO Architect:** Vortex Sterling
+- **Viral Loops & Growth Architecture:** Catalyst Romero
+
+Explore employee profiles below or click **"Dispatch"** to assign a direct task:`;
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_${Date.now()}`,
+            role: "assistant",
+            content: replyContent,
+            agentCards: registry,
+          },
+        ]);
+        setBusy(false);
+        setActiveTask(null);
+        return `Here is our digital employee workforce directory of ${registry.length} specialists.`;
+      }
+
+      // Check if querying a specific agent or responsibility
+      if (
+        lower.startsWith("who handles") ||
+        lower.startsWith("who is responsible for") ||
+        lower.startsWith("who is in charge of") ||
+        lower.startsWith("who does") ||
+        lower.startsWith("who creates") ||
+        lower.startsWith("who writes") ||
+        lower.startsWith("who manages") ||
+        (lower.includes("who") && (lower.includes("marketing") || lower.includes("content") || lower.includes("security") || lower.includes("finance") || lower.includes("seo") || lower.includes("growth") || lower.includes("support") || lower.includes("coach") || lower.includes("sourcing") || lower.includes("marketplace") || lower.includes("analytics")))
+      ) {
+        const matchedAgent = findAgentForTask(lower);
+        setActiveTask(`Identifying assigned specialist: ${matchedAgent.name}…`);
+
+        const replyContent = `### 👤 Assigned Specialist: ${matchedAgent.name}
+**Position:** ${matchedAgent.jobTitle}  
+**Department:** ${matchedAgent.department}  
+**Reporting Line:** ${matchedAgent.executiveRelationship}
+
+**Core Operational Focus:**  
+${matchedAgent.currentFocus}
+
+**Primary Responsibilities:**  
+${matchedAgent.responsibilities.map((r) => `• ${r}`).join("\n")}
+
+**Key AI Capabilities:**  
+${matchedAgent.capabilities.map((c) => `• \`${c}\``).join("  ·  ")}
+
+You can assign a direct directive to ${matchedAgent.name} using the card below or click **"Profile"** to inspect full system permissions and tools accessed.`;
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            id: `msg_${Date.now()}`,
+            role: "assistant",
+            content: replyContent,
+            agentCards: [matchedAgent],
+          },
+        ]);
+        setBusy(false);
+        setActiveTask(null);
+        return `${matchedAgent.name} is our ${matchedAgent.jobTitle}.`;
+      }
+
       // 1. Check if intent is Directing AI Blogger for Multi-Blog / Multi-Vlog Posting
       if (
         (lower.includes("blogger") || lower.includes("blog") || lower.includes("vlog") || lower.includes("post") || lower.includes("article")) &&
@@ -936,9 +1046,13 @@ Review the proposed masterclass below. Click **"Approve & Publish Masterclass"**
           .map((m) => `${m.role === "user" ? "Administrator" : "AI Admin"}: ${m.content}`)
           .join("\n\n");
 
-        const systemPrompt = `You are the Chief AI Administrator & Strategic Operations Director of Bethelincovibe TV.
-You are in an executive consultation with the Platform Owner / Human Admin.
-You possess full administrative authority and work directly with your team (including the AI Blogger/Vlogger).
+        const workforceContext = generateWorkforceSystemContext();
+        const systemPrompt = `You are Victoria Vance, Chief Operating Intelligence & Executive Coordinator of Bethelincovibe TV.
+You report directly to Founder & CEO Bethel Goodgift (and the human Platform Admin).
+You possess executive administrative authority and coordinate our elite team of 11+ specialized Digital Employees.
+
+Your Digital Employee Workforce:
+${workforceContext}
 
 Platform Real-time Context:
 - Registered Businesses: ${stats?.businesses} (Pending Review: ${stats?.pendingBusinesses})
@@ -949,7 +1063,8 @@ Platform Real-time Context:
 - Ads Active: ${stats?.globalAds}
 
 Tone & Format Guidelines:
-- Be highly intelligent, consultative, articulate, proactive, and concise.
+- Professional, articulate, decisive, and respectful executive composure.
+- Refer to team members by their real names and job titles (e.g. "Sarah Jenkins, our Director of Marketing", "Lexi Rivera, our Lead Content Officer", "Atlas Mercer, Head of Commerce").
 - Structure responses clearly with neat bullet points and bold section headers.
 - Never output overflowing markdown tables or unbroken text blocks.
 - When an action is requested, explain what you recommend and propose the exact steps.`;
@@ -1498,6 +1613,33 @@ Select a quick action chip above or type your exact directive!`;
                 {cleanRawAsterisks(m.content)}
               </div>
 
+              {/* Digital Employee Cards Grid */}
+              {m.agentCards && m.agentCards.length > 0 && (
+                <div className="w-full max-w-[96%] sm:max-w-[90%] md:max-w-[85%] mt-2 space-y-2">
+                  <div className="flex items-center justify-between px-1">
+                    <p className="text-[11px] font-black text-muted-foreground uppercase tracking-wider">
+                      Specialist Digital Employees ({m.agentCards.length})
+                    </p>
+                    <span className="text-[10px] font-bold text-primary">Click card to dispatch or view profile</span>
+                  </div>
+                  <div className={`grid gap-2.5 ${m.agentCards.length === 1 ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"}`}>
+                    {m.agentCards.map((agent) => (
+                      <AgentProfileCard
+                        key={agent.id}
+                        agent={agent}
+                        onViewProfile={(a) => {
+                          setSelectedProfileAgent(a);
+                          setIsProfileModalOpen(true);
+                        }}
+                        onDispatch={(a, directive) => {
+                          handleDispatchToAgent(a.systemAgentId, directive);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Action Proposal & Preview Card */}
               {m.proposal && (
                 <div className="w-full max-w-[96%] sm:max-w-[90%] md:max-w-[85%] mt-1.5">
@@ -1815,6 +1957,16 @@ Select a quick action chip above or type your exact directive!`;
       <ActivityIntelligenceModal
         open={activityIntelligenceOpen}
         onOpenChange={setActivityIntelligenceOpen}
+      />
+
+      {/* Digital Employee Profile & Direct Action Modal */}
+      <AgentProfileModal
+        agent={selectedProfileAgent}
+        open={isProfileModalOpen}
+        onOpenChange={setIsProfileModalOpen}
+        onDispatchDirective={(agentId, directive) => {
+          handleDispatchToAgent(agentId, directive);
+        }}
       />
 
       {/* Google Live Voice Agent Modal Dialog */}

@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
+import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 
 export default function UserAds() {
   const { user, loading } = useAuth();
@@ -194,6 +195,27 @@ export default function UserAds() {
             <p className="text-xl font-black mt-1 text-foreground">{avgCtr}%</p>
           </Card>
         </div>
+
+        {/* AI Marketing Director & Ad Copy Specialist */}
+        <FrontendSpecialistWidget
+          agentId="marketing_ai"
+          mode="banner"
+          title="Director of Marketing & Growth Promotions"
+          subtitle="Generates high-converting ad headlines, promotional hooks, and WhatsApp campaign scripts."
+          initialOpen={false}
+          contextData={{
+            page: "ads_manager",
+            walletBalance: balance,
+            activeAdsCount: ads.length,
+            costPerDay,
+          }}
+          customPrompts={[
+            "Draft 3 High-Converting Ad Headlines for my Product",
+            "Write a WhatsApp Promo Broadcast for Lagos Buyers",
+            "Suggest best banner placement for maximum ROI",
+            "Create a Limited-Time Discount Pitch"
+          ]}
+        />
 
         {/* Create Ad Section */}
         <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden bg-card">

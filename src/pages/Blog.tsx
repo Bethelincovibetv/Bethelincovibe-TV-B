@@ -10,6 +10,7 @@ import PageHero from "@/components/PageHero";
 import heroBlog from "@/assets/hero-blog.jpg";
 import { Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
 import FavoriteButton from "@/components/FavoriteButton";
+import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 
 export default function Blog() {
   const { categorySlug } = useParams();
@@ -106,6 +107,28 @@ export default function Blog() {
               );
             })}
           </div>
+        </div>
+
+        {/* Editorial Desk AI Specialist */}
+        <div className="mb-8">
+          <FrontendSpecialistWidget
+            agentId="content_ai"
+            mode="banner"
+            title="Chief Content Officer & Lead Editorial Producer"
+            subtitle="Search global wholesale import roadmaps (Guangzhou, Yiwu, Dubai, Turkey) and curated market intelligence."
+            initialOpen={false}
+            contextData={{
+              page: "blog_hub",
+              currentCategory: currentCategory?.name || "All",
+              totalArticles: posts?.length || 0,
+            }}
+            customPrompts={[
+              "Search Guangzhou Wholesale Sourcing Guide",
+              "Watch Turkey & Dubai Fashion Import Roadmaps",
+              "Draft an Editorial Founder Showcase",
+              "Explain Lagos Trade Market Pricing Intelligence"
+            ]}
+          />
         </div>
 
         {/* Search Bar */}

@@ -4,6 +4,7 @@ import NativeVideoCreator from "@/components/video/NativeVideoCreator";
 import VixoraStudioApp from "@/vixora/App";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, Clapperboard } from "lucide-react";
+import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 
 export default function VideoCreator() {
   const [searchParams] = useSearchParams();
@@ -12,8 +13,8 @@ export default function VideoCreator() {
 
   return (
     <div className="min-h-screen bg-background pb-12">
-      <div className="container mx-auto px-4 pt-4 max-w-7xl">
-        <div className="flex items-center justify-between gap-4 mb-4 pb-3 border-b">
+      <div className="container mx-auto px-4 pt-4 max-w-7xl space-y-4">
+        <div className="flex items-center justify-between gap-4 pb-3 border-b">
           <div className="flex items-center gap-2">
             <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-purple-600 via-pink-600 to-amber-500 text-white flex items-center justify-center shadow-xs">
               <Sparkles className="h-5 w-5" />
@@ -41,6 +42,26 @@ export default function VideoCreator() {
             </TabsList>
           </Tabs>
         </div>
+
+        {/* Video Production AI Specialist Assistant */}
+        <FrontendSpecialistWidget
+          agentId="content_ai"
+          mode="banner"
+          title="Lead Video Producer & Storyboard Director"
+          subtitle="Brainstorm 30-second reel hooks, viral script narration, and cinematic visual scene cues."
+          initialOpen={false}
+          contextData={{
+            page: "video_creator",
+            mode: studioMode,
+            currentTopic: topicParam,
+          }}
+          customPrompts={[
+            "Draft a 30-Second Viral Video Script for a Product Launch",
+            "Write a High-Energy Hook for TikTok / Instagram Reels",
+            "Generate Scene-by-Scene Visual Prompts for AI Video",
+            "Suggest Voiceover Narration with Nigerian English Cadence"
+          ]}
+        />
 
         {studioMode === "creator" ? (
           <NativeVideoCreator initialTopic={topicParam} />
