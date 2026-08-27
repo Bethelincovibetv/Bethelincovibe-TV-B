@@ -18,6 +18,8 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 import BusinessCard from "@/components/directory/BusinessCard";
 import ProductCard from "@/components/directory/ProductCard";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import BusinessMapView from "@/components/maps/BusinessMapView";
+import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
@@ -362,12 +364,21 @@ export default function BusinessProfile() {
 
           {/* Services - clickable to chat */}
           {services.length > 0 && (
-            <Card className="mt-4">
-              <CardContent className="p-5">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3 flex items-center gap-1.5">
-                  <Briefcase className="h-3.5 w-3.5" /> Services — tap to inquire
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            <Card className="mt-4 border-primary/20 shadow-sm overflow-hidden">
+              <CardContent className="p-5 sm:p-6">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <div>
+                    <h2 className="text-sm sm:text-base font-black uppercase tracking-wide text-foreground flex items-center gap-2">
+                      <Briefcase className="h-4 w-4 text-primary" />
+                      Featured Services &amp; Solutions ({services.length})
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Professional verified services. Tap any service to chat directly with this business.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {services.map((svc: any, i: number) => (
                     svc?.link_url ? (
                       <ServicePreviewDialog key={i} service={svc} />
@@ -378,22 +389,64 @@ export default function BusinessProfile() {
                         businessName={biz.name}
                         serviceTitle={svc.title}
                         trigger={
-                          <button className="group text-left rounded-xl border bg-card hover:border-primary hover:shadow-md transition overflow-hidden active:scale-95">
+                          <button className="group text-left rounded-2xl border bg-card hover:border-primary hover:shadow-lg transition-all overflow-hidden active:scale-98 flex flex-col h-full">
                             {svc.image_url ? (
-                              <div className="aspect-video bg-muted overflow-hidden">
-                                <img src={svc.image_url} alt={svc.title} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+                              <div className="aspect-[16/10] w-full bg-muted overflow-hidden relative">
+                                <img
+                                  src={svc.image_url}
+                                  alt={svc.title}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                  loading="lazy"
+                                />
+                                {svc.price && (
+                                  <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-md text-white text-[11px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
+                                    {svc.price}
+                                  </div>
+                                )}
                               </div>
                             ) : (
-                              <div className="aspect-video bg-gradient-to-br from-primary/15 to-accent/15 flex items-center justify-center">
-                                <Briefcase className="h-7 w-7 text-primary/70" />
+                              <div className="aspect-[16/10] w-full bg-gradient-to-br from-primary/15 via-indigo-500/10 to-accent/15 flex flex-col items-center justify-center p-4 relative">
+                                <Briefcase className="h-8 w-8 text-primary/70 mb-1" />
+                                {svc.price && (
+                                  <div className="absolute bottom-2 left-2 bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                    {svc.price}
+                                  </div>
+                                )}
                               </div>
                             )}
-                            <div className="p-2.5">
-                              <p className="font-semibold text-sm truncate">{svc.title}</p>
-                              {svc.description && <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{svc.description}</p>}
-                              <p className="text-[11px] text-primary font-medium mt-1.5 flex items-center gap-1">
-                                <MessageCircle className="h-3 w-3" /> Chat now
-                              </p>
+                            <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                              <div>
+                                <p className="font-bold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                                  {svc.title}
+                                </p>
+                                {svc.description && (
+                                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                                    {svc.description}
+                                  </p>
+                                )}
+
+                                {/* Deliverable bullets if present */}
+                                {Array.isArray(svc.benefits) && svc.benefits.length > 0 && (
+                                  <div className="mt-2.5 space-y-1 pt-2 border-t border-border/60">
+                                    {svc.benefits.slice(0, 2).map((b: string, bi: number) => (
+                                      <div key={bi} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
+                                        <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                                        <span className="truncate">{b}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              <div className="pt-2 flex items-center justify-between border-t border-border/40 text-[11px]">
+                                <span className="text-primary font-bold flex items-center gap-1">
+                                  <MessageCircle className="h-3.5 w-3.5" />
+                                  {svc.cta_text || "Inquire & Chat"}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground font-medium group-hover:translate-x-0.5 transition-transform">
+                                  Instant Response →
+                                </span>
+                              </div>
                             </div>
                           </button>
                         }
@@ -444,10 +497,12 @@ export default function BusinessProfile() {
             </Card>
           )}
 
-          {/* Contact */}
+          {/* Contact & Google Maps Section */}
           <Card className="mt-4">
-            <CardContent className="p-5">
-              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Contact & Location</h2>
+            <CardContent className="p-5 space-y-4">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-1">
+                Contact &amp; Physical Address
+              </h2>
               <div className="grid gap-2">
                 {biz.phone && <InfoRow icon={Phone} label="Phone" value={biz.phone} href={`tel:${biz.phone}`} onClick={() => track(biz.id, "call")} />}
                 {sl.email && <InfoRow icon={Mail} label="Email" value={sl.email} href={`mailto:${sl.email}`} onClick={() => track(biz.id, "email")} />}
@@ -463,7 +518,7 @@ export default function BusinessProfile() {
 
               {/* Socials */}
               {(sl.instagram || sl.facebook || sl.twitter || sl.linkedin || youtubeUrl) && (
-                <div className="mt-4 pt-4 border-t flex flex-wrap gap-2">
+                <div className="mt-3 pt-3 border-t flex flex-wrap gap-2">
                   {sl.instagram && <SocialBtn href={sl.instagram} icon={Instagram} label="Instagram" />}
                   {sl.facebook && <SocialBtn href={sl.facebook} icon={Facebook} label="Facebook" />}
                   {sl.twitter && <SocialBtn href={sl.twitter} icon={Twitter} label="Twitter" />}
@@ -472,17 +527,22 @@ export default function BusinessProfile() {
                 </div>
               )}
 
-              {biz.address && (
-                <div className="mt-4 overflow-hidden rounded-xl border">
-                  <iframe
-                    title={`Map showing ${biz.name}`}
-                    loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    className="h-56 w-full border-0"
-                    src={`https://maps.google.com/maps?q=${encodeURIComponent(biz.address)}&output=embed`}
+              {/* Interactive Google Map */}
+              <div className="mt-4 pt-4 border-t">
+                <GoogleMapsProvider>
+                  <BusinessMapView
+                    businessName={biz.name}
+                    address={biz.address}
+                    city={biz.city || "Lagos"}
+                    state={biz.state || "Lagos State"}
+                    country={biz.country || "Nigeria"}
+                    latitude={biz.latitude ? parseFloat(biz.latitude) : null}
+                    longitude={biz.longitude ? parseFloat(biz.longitude) : null}
+                    phone={biz.phone}
+                    whatsapp={waClean}
                   />
-                </div>
-              )}
+                </GoogleMapsProvider>
+              </div>
             </CardContent>
           </Card>
 

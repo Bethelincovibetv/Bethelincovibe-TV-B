@@ -34,6 +34,8 @@ import {
 import { toast } from "sonner";
 import PhoneInput from "@/components/PhoneInput";
 import AIProfileEnhancerDialog from "@/components/AIProfileEnhancerDialog";
+import AIServiceDesignerDialog from "@/components/AIServiceDesignerDialog";
+import ServiceGraphicPickerModal from "@/components/ServiceGraphicPickerModal";
 import VerificationModal from "@/components/VerificationModal";
 import VerifiedBadge, { VerifiedPillBadge } from "@/components/VerifiedBadge";
 
@@ -116,6 +118,9 @@ export default function UserProfileEdit() {
   const [uploading, setUploading] = useState(false);
   const [uploadingCover, setUploadingCover] = useState(false);
   const [aiEnhancerOpen, setAiEnhancerOpen] = useState(false);
+  const [aiDesignerOpen, setAiDesignerOpen] = useState(false);
+  const [graphicPickerOpen, setGraphicPickerOpen] = useState(false);
+  const [activeGraphicServiceIndex, setActiveGraphicServiceIndex] = useState<number | null>(null);
   const [verifyModalOpen, setVerifyModalOpen] = useState(false);
   const [userSupplierId, setUserSupplierId] = useState<string | null>(null);
 
@@ -639,24 +644,34 @@ export default function UserProfileEdit() {
 
           {/* Services Section */}
           <div className="space-y-3 border-t pt-5">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <Label className="flex items-center gap-1.5 text-xs font-black">
-                  <Briefcase className="h-4 w-4 text-primary" /> Services & What We Offer
+                  <Briefcase className="h-4 w-4 text-primary" /> Services & What We Offer ({(profile.services || []).length})
                 </Label>
                 <p className="text-[11px] text-muted-foreground">
-                  Each service renders with full image previews and direct WhatsApp action links.
+                  Each service renders with full HD image previews, benefits, and direct WhatsApp action links.
                 </p>
               </div>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => setAiEnhancerOpen(true)}
-                className="rounded-xl text-xs font-bold text-primary gap-1"
-              >
-                <Wand2 className="h-3.5 w-3.5" /> AI Suggest Services
-              </Button>
+              <div className="flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => setAiDesignerOpen(true)}
+                  className="rounded-xl text-xs font-black gap-1 bg-gradient-to-r from-primary to-purple-600 text-white shadow-sm"
+                >
+                  <Wand2 className="h-3.5 w-3.5" /> AI Service Designer
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={addService}
+                  className="rounded-xl text-xs font-bold"
+                >
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Add Manual
+                </Button>
+              </div>
             </div>
 
             {(profile.services || []).map((svc: any, i: number) => (
@@ -685,19 +700,40 @@ export default function UserProfileEdit() {
                   onChange={(e) => updateService(i, { description: e.target.value })}
                   className="rounded-xl text-xs leading-relaxed"
                 />
-                <Input
-                  placeholder="Direct action link (e.g. wa.me link or product landing URL)"
-                  value={svc.link_url || ""}
-                  onChange={(e) => updateService(i, { link_url: e.target.value })}
-                  className="rounded-xl text-xs h-9"
-                />
-                <div className="flex items-center gap-3 pt-1">
-                  {svc.image_url && (
-                    <img src={svc.image_url} alt="" className="h-12 w-12 rounded-xl object-cover" />
-                  )}
-                  <label className="text-xs text-primary font-bold cursor-pointer flex items-center gap-1">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Price (e.g. ₦50,000 or Free Quote)"
+                    value={svc.price || ""}
+                    onChange={(e) => updateService(i, { price: e.target.value })}
+                    className="rounded-xl text-xs h-9"
+                  />
+                  <Input
+                    placeholder="Direct action link (e.g. wa.me link or product URL)"
+                    value={svc.link_url || ""}
+                    onChange={(e) => updateService(i, { link_url: e.target.value })}
+                    className="rounded-xl text-xs h-9"
+                  />
+                </div>
+                <div className="flex items-center justify-between pt-1">
+                  <div className="flex items-center gap-3">
+                    {svc.image_url && (
+                      <img src={svc.image_url} alt="" className="h-12 w-12 rounded-xl object-cover border" />
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveGraphicServiceIndex(i);
+                        setGraphicPickerOpen(true);
+                      }}
+                      className="text-xs text-primary font-bold hover:underline flex items-center gap-1"
+                    >
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                      {svc.image_url ? "Browse Stock Visuals" : "Source HD Stock Visual"}
+                    </button>
+                  </div>
+                  <label className="text-xs text-muted-foreground hover:text-foreground font-semibold cursor-pointer flex items-center gap-1">
                     <ImagePlus className="h-3.5 w-3.5" />
-                    {svc.image_url ? "Replace photo" : "Upload service photo"}
+                    Upload Custom
                     <input
                       type="file"
                       accept="image/*"
@@ -711,16 +747,6 @@ export default function UserProfileEdit() {
                 </div>
               </Card>
             ))}
-
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              onClick={addService}
-              className="w-full rounded-2xl text-xs font-bold"
-            >
-              <Plus className="h-4 w-4 mr-1" /> Add Another Service
-            </Button>
           </div>
 
           {/* Contact & WhatsApp */}
@@ -819,6 +845,45 @@ export default function UserProfileEdit() {
           }));
         }}
       />
+
+      {/* AI Business Service Designer Dialog */}
+      <AIServiceDesignerDialog
+        open={aiDesignerOpen}
+        onOpenChange={setAiDesignerOpen}
+        businessName={profile.display_name || profile.username || "My Business"}
+        category={profile.background_template || "Professional Services"}
+        cityOrRegion="Nigeria"
+        onApplyServices={(newServices) => {
+          setProfile((prev: any) => ({
+            ...prev,
+            services: [...(prev.services || []), ...newServices],
+          }));
+          toast.success("AI Services added to profile! Click 'Save & Publish' to save.");
+        }}
+      />
+
+      {/* Service Graphic Picker Modal */}
+      {activeGraphicServiceIndex !== null && (
+        <ServiceGraphicPickerModal
+          open={graphicPickerOpen}
+          onOpenChange={setGraphicPickerOpen}
+          serviceTitle={profile.services?.[activeGraphicServiceIndex]?.title || profile.display_name}
+          categoryHint={profile.background_template}
+          currentImageUrl={profile.services?.[activeGraphicServiceIndex]?.image_url}
+          onSelectImage={(url) => {
+            setProfile((prev: any) => {
+              const list = [...(prev.services || [])];
+              if (list[activeGraphicServiceIndex]) {
+                list[activeGraphicServiceIndex] = {
+                  ...list[activeGraphicServiceIndex],
+                  image_url: url,
+                };
+              }
+              return { ...prev, services: list };
+            });
+          }}
+        />
+      )}
 
       {/* Paid Verification Modal */}
       <VerificationModal

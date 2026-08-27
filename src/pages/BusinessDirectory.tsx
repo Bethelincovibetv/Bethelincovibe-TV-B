@@ -9,21 +9,28 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, Building2, LayoutGrid, Rows3, SlidersHorizontal, X, BookOpen, ArrowRight, Sparkles } from "lucide-react";
+import {
+  Search, Plus, Building2, LayoutGrid, Rows3, SlidersHorizontal, X,
+  BookOpen, ArrowRight, Sparkles, MapPin, Map as MapIcon
+} from "lucide-react";
 import BusinessCard from "@/components/directory/BusinessCard";
 import CategoryTile from "@/components/directory/CategoryTile";
+import DirectoryInteractiveMap from "@/components/maps/DirectoryInteractiveMap";
+import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import AdsterraAd from "@/components/AdsterraAd";
+import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
 
 type Sort = "recommended" | "newest" | "az" | "za";
+type ViewMode = "grid" | "list" | "map";
 
 export default function BusinessDirectory() {
   const [searchParams, setSearchParams] = useSearchParams();
   const categorySlug = searchParams.get("category");
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [sort, setSort] = useState<Sort>("recommended");
-  const [view, setView] = useState<"grid" | "list">("grid");
+  const [view, setView] = useState<ViewMode>("grid");
 
   const { data: categories } = useQuery({
     queryKey: ["business-categories"],
@@ -259,22 +266,39 @@ export default function BusinessDirectory() {
               </SelectContent>
             </Select>
 
-            <div className="ml-auto flex items-center gap-1 rounded-full border p-0.5">
+            <div className="ml-auto flex items-center gap-1 rounded-full border p-0.5 bg-card/50">
               <button
                 onClick={() => setView("grid")}
                 aria-label="Grid view"
                 aria-pressed={view === "grid"}
-                className={`rounded-full p-1.5 transition ${view === "grid" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                className={`rounded-full p-1.5 transition flex items-center gap-1 text-xs font-semibold px-2 ${
+                  view === "grid" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <LayoutGrid className="h-4 w-4" />
+                <LayoutGrid className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Grid</span>
               </button>
               <button
                 onClick={() => setView("list")}
                 aria-label="List view"
                 aria-pressed={view === "list"}
-                className={`rounded-full p-1.5 transition ${view === "list" ? "bg-primary text-primary-foreground" : "text-muted-foreground"}`}
+                className={`rounded-full p-1.5 transition flex items-center gap-1 text-xs font-semibold px-2 ${
+                  view === "list" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                <Rows3 className="h-4 w-4" />
+                <Rows3 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">List</span>
+              </button>
+              <button
+                onClick={() => setView("map")}
+                aria-label="Map view"
+                aria-pressed={view === "map"}
+                className={`rounded-full p-1.5 transition flex items-center gap-1 text-xs font-semibold px-2 ${
+                  view === "map" ? "bg-primary text-primary-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <MapPin className="h-3.5 w-3.5 text-rose-500" />
+                <span>Map</span>
               </button>
             </div>
           </div>
@@ -282,16 +306,16 @@ export default function BusinessDirectory() {
           <div className="no-scrollbar -mx-1 mt-2.5 flex gap-2 overflow-x-auto px-1 pb-1">
             <Badge
               variant={!categorySlug ? "default" : "secondary"}
-              className="shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs"
+              className="shrink-0 cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-semibold"
               onClick={() => setSearchParams({})}
             >
-              All
+              All Categories
             </Badge>
-            {categories?.map((cat: any) => (
+            {(categories && categories.length > 0 ? categories : PRESET_BUSINESS_CATEGORIES)?.map((cat: any) => (
               <Badge
                 key={cat.id}
                 variant={categorySlug === cat.slug ? "default" : "secondary"}
-                className="shrink-0 cursor-pointer rounded-full px-3 py-1.5 text-xs"
+                className="shrink-0 cursor-pointer rounded-full px-3.5 py-1.5 text-xs font-medium"
                 onClick={() => setSearchParams({ category: cat.slug })}
               >
                 {cat.name}
@@ -301,11 +325,11 @@ export default function BusinessDirectory() {
         </div>
 
         {/* Category tiles */}
-        {!categorySlug && !search && !!categories?.length && (
+        {!categorySlug && !search && (
           <section className="mb-8" aria-labelledby="browse-cat">
             <h2 id="browse-cat" className="mb-3 text-lg font-bold md:text-xl">Browse by category</h2>
             <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-              {categories.map((cat: any) => (
+              {(categories && categories.length > 0 ? categories : PRESET_BUSINESS_CATEGORIES).map((cat: any) => (
                 <CategoryTile key={cat.id} name={cat.name} slug={cat.slug} />
               ))}
             </div>
@@ -335,11 +359,19 @@ export default function BusinessDirectory() {
             ))}
           </div>
         ) : sorted.length > 0 ? (
-          <div className={view === "grid" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-3"}>
-            {sorted.map((s: any) => (
-              <BusinessCard key={s.id} business={s} images={allImages?.[s.id] ?? []} view={view} searchTerm={search} />
-            ))}
-          </div>
+          view === "map" ? (
+            <div className="mb-8">
+              <GoogleMapsProvider>
+                <DirectoryInteractiveMap businesses={sorted} />
+              </GoogleMapsProvider>
+            </div>
+          ) : (
+            <div className={view === "grid" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-3"}>
+              {sorted.map((s: any) => (
+                <BusinessCard key={s.id} business={s} images={allImages?.[s.id] ?? []} view={view} searchTerm={search} />
+              ))}
+            </div>
+          )
         ) : (
           <div className="rounded-2xl border border-dashed py-16 text-center text-muted-foreground">
             <Building2 className="mx-auto mb-3 h-12 w-12 opacity-40" />
