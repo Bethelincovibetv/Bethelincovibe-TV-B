@@ -10,7 +10,7 @@ import {
   Loader2, Sparkles, Send, Bot, CheckCircle2, ShieldCheck, Zap, RefreshCw,
   Building2, FileText, Sliders, AlertTriangle, Cpu, ChevronDown,
   ChevronUp, BarChart2, Video, Globe, Check, X, GraduationCap,
-  ExternalLink, Volume2, Square, Radio, Wrench, Lightbulb, Compass, Play
+  ExternalLink, Volume2, Square, Radio, Wrench, Lightbulb, Compass, Play, Palette
 } from "lucide-react";
 import { toast } from "sonner";
 import { FEATURE_META, FeatureKey } from "@/contexts/FeatureFlagsContext";
@@ -50,6 +50,12 @@ import InvestigationModal from "@/components/admin/executive/InvestigationModal"
 import SystemHealthDiagnosticsModal from "@/components/admin/executive/SystemHealthDiagnosticsModal";
 import MultiAgentPromotionModal from "@/components/admin/executive/MultiAgentPromotionModal";
 import ActivityIntelligenceModal from "@/components/admin/executive/ActivityIntelligenceModal";
+import ChatTemplateSelectorModal from "@/components/admin/executive/ChatTemplateSelectorModal";
+import {
+  ChatTemplate,
+  loadSavedChatTemplate,
+  saveChatTemplateChoice,
+} from "@/lib/chatThemeTemplates";
 import {
   executeMultiAgentBusinessPromotion,
   executeProfileAndGraphicEnhanceChain,
@@ -152,6 +158,14 @@ export default function AdminPlatformAI() {
   const [systemHealthOpen, setSystemHealthOpen] = useState(false);
   const [multiAgentPromoOpen, setMultiAgentPromoOpen] = useState(false);
   const [activityIntelligenceOpen, setActivityIntelligenceOpen] = useState(false);
+  const [chatTemplate, setChatTemplate] = useState<ChatTemplate>(() => loadSavedChatTemplate());
+  const [templateModalOpen, setTemplateModalOpen] = useState(false);
+
+  const handleSelectChatTemplate = (template: ChatTemplate) => {
+    setChatTemplate(template);
+    saveChatTemplateChoice(template.id);
+    toast.success(`Active Template: ${template.name}`);
+  };
 
   // Persistence helpers
   const handleUpdateTasks = (updated: AgentTask[]) => {
@@ -1349,32 +1363,60 @@ Select a quick action chip above or type your exact directive!`;
       {/* Tab 4: Strategic Intelligence Console (Chat, Live Voice, & Proposal Execution) */}
       {activeTab === "console" && (
         <Card className="flex-1 min-h-0 flex flex-col overflow-hidden border-2 border-border/80 shadow-md rounded-2xl sm:rounded-3xl bg-card">
-          <CardHeader className="py-2.5 px-3.5 sm:px-5 border-b bg-muted/40 flex flex-row items-center justify-between shrink-0">
-            <CardTitle className="text-sm sm:text-base font-black flex items-center gap-2 text-foreground">
-              <Cpu className="h-4 w-4 text-primary" /> Strategic Intelligence Console
-            </CardTitle>
-            {busy && (
-              <div className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/25">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                <span className="truncate max-w-[160px] sm:max-w-[260px]">{activeTask || "Reasoning with Gemini 3.7 Flash..."}</span>
-              </div>
-            )}
+          <CardHeader className="py-2.5 px-3.5 sm:px-5 border-b bg-muted/40 flex flex-row items-center justify-between shrink-0 gap-2 flex-wrap sm:flex-nowrap">
+            <div className="flex items-center gap-2 min-w-0">
+              <CardTitle className="text-sm sm:text-base font-black flex items-center gap-2 text-foreground truncate">
+                <Cpu className="h-4 w-4 text-primary shrink-0" /> Strategic Intelligence Console
+              </CardTitle>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setTemplateModalOpen(true)}
+                className="h-8 px-2.5 sm:px-3 font-black text-xs rounded-xl gap-1.5 border-primary/30 bg-background/80 hover:bg-background shadow-2xs"
+                title="Change Chat Background Template & Style"
+              >
+                <Palette className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden xs:inline">Theme:</span>
+                <span className="text-primary truncate max-w-[110px] sm:max-w-[150px] font-extrabold">{chatTemplate.name}</span>
+              </Button>
+
+              {busy && (
+                <div className="flex items-center gap-1.5 text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full border border-primary/25">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span className="truncate max-w-[140px] sm:max-w-[240px]">{activeTask || "Reasoning with Gemini 3.7 Flash..."}</span>
+                </div>
+              )}
+            </div>
           </CardHeader>
 
-        {/* Scrollable Conversation Feed */}
-        <CardContent className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 min-h-0">
+        {/* Scrollable Conversation Feed with Dynamic Template Background */}
+        <CardContent className={`flex-1 overflow-y-auto p-3 sm:p-5 space-y-4 min-h-0 transition-all duration-300 ${chatTemplate.containerBg}`}>
           {messages.length === 0 && (
             <div className="space-y-4 sm:space-y-5 py-4 sm:py-8 text-center max-w-2xl mx-auto">
               <div className="h-12 w-12 sm:h-14 sm:w-14 mx-auto rounded-2xl bg-gradient-to-br from-primary/20 via-indigo-600/20 to-purple-600/20 border-2 border-primary/30 flex items-center justify-center text-primary shadow-sm">
                 <Sparkles className="h-6 w-6 sm:h-7 sm:w-7" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg md:text-xl font-black tracking-tight text-foreground">
+                <h3 className="text-base sm:text-lg md:text-xl font-black tracking-tight text-inherit">
                   Ready to direct platform operations
                 </h3>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1 max-w-lg mx-auto leading-relaxed font-medium">
+                <p className="text-xs sm:text-sm text-inherit opacity-80 mt-1 max-w-lg mx-auto leading-relaxed font-semibold">
                   Collaborate directly with AI Blogger for multi-part video series, build custom landing pages, generate masterclasses, or auto-tune platform settings.
                 </p>
+                <div className="mt-2.5 flex items-center justify-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setTemplateModalOpen(true)}
+                    className="h-7 text-xs font-black rounded-xl border-primary/40 bg-background/80 hover:bg-background gap-1.5 shadow-xs"
+                  >
+                    <Palette className="h-3 w-3 text-primary" />
+                    Customize Chat Template ({chatTemplate.badge})
+                  </Button>
+                </div>
               </div>
 
               {/* Categorized Quick Action Suggestions Grid */}
@@ -1386,16 +1428,16 @@ Select a quick action chip above or type your exact directive!`;
                       key={idx}
                       onClick={() => handleAsk(item.prompt)}
                       disabled={busy}
-                      className="p-3 sm:p-3.5 rounded-2xl border border-border/80 bg-background hover:bg-secondary/70 hover:border-primary/40 text-left transition-all flex items-start gap-3 group active:scale-[0.99] shadow-2xs"
+                      className="p-3 sm:p-3.5 rounded-2xl border border-border/80 bg-background/90 hover:bg-background hover:border-primary/50 text-left transition-all flex items-start gap-3 group active:scale-[0.99] shadow-2xs"
                     >
-                      <div className="h-9 w-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
+                      <div className="h-9 w-9 rounded-xl bg-primary/15 text-primary flex items-center justify-center shrink-0 mt-0.5 group-hover:bg-primary group-hover:text-white transition-colors">
                         <Icon className="h-4 w-4" />
                       </div>
                       <div className="min-w-0">
                         <p className="text-[10px] font-black uppercase tracking-wider text-primary truncate">
                           {item.category}
                         </p>
-                        <p className="text-xs sm:text-sm font-bold text-foreground/90 group-hover:text-foreground line-clamp-2 leading-snug">
+                        <p className="text-xs sm:text-sm font-black text-foreground group-hover:text-foreground line-clamp-2 leading-snug">
                           {item.title}
                         </p>
                       </div>
@@ -1409,24 +1451,24 @@ Select a quick action chip above or type your exact directive!`;
           {/* Messages */}
           {messages.map((m) => (
             <div key={m.id} className={`flex flex-col ${m.role === "user" ? "items-end" : "items-start"} gap-1.5`}>
-              <div className="text-[11px] font-bold text-muted-foreground/90 uppercase px-1 flex items-center justify-between w-full max-w-[96%] sm:max-w-[90%] md:max-w-[85%]">
+              <div className="text-[11px] font-black uppercase px-1 flex items-center justify-between w-full max-w-[96%] sm:max-w-[90%] md:max-w-[85%] opacity-90">
                 <div className="flex items-center gap-1.5">
                   {m.role === "user" ? (
-                    <span className="font-extrabold text-foreground/80">You (Admin)</span>
+                    <span className="font-black">You (Admin)</span>
                   ) : (
                     <>
                       <Bot className="h-3.5 w-3.5 text-primary" />
-                      <span className="font-extrabold text-primary">AI Strategy Director</span>
+                      <span className="font-black text-primary">AI Strategy Director</span>
                     </>
                   )}
                 </div>
                 {m.role === "assistant" && (
                   <button
                     onClick={() => speakMessageWithKore(m.id, m.content)}
-                    className={`flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full transition-colors ${
+                    className={`flex items-center gap-1 text-[11px] font-black px-2.5 py-0.5 rounded-full transition-colors ${
                       speakingMsgId === m.id
                         ? "bg-purple-600 text-white animate-pulse"
-                        : "bg-muted text-muted-foreground hover:text-foreground hover:bg-muted/80"
+                        : "bg-muted/80 text-foreground hover:bg-muted"
                     }`}
                     title="Listen with Nigerian Google Kore Voice"
                   >
@@ -1445,12 +1487,12 @@ Select a quick action chip above or type your exact directive!`;
                 )}
               </div>
 
-              {/* Message Bubble with Increased Font Size & Readability */}
+              {/* Message Bubble with Thick, High-Contrast Readability */}
               <div
-                className={`max-w-[96%] sm:max-w-[90%] md:max-w-[85%] break-words overflow-hidden rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base leading-relaxed shadow-sm ${
+                className={`max-w-[96%] sm:max-w-[90%] md:max-w-[85%] break-words overflow-hidden rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base leading-relaxed shadow-md transition-all ${
                   m.role === "user"
-                    ? "bg-primary text-primary-foreground font-bold rounded-tr-none"
-                    : "bg-card text-foreground border border-border/90 rounded-tl-none whitespace-pre-wrap font-normal"
+                    ? `${chatTemplate.userBubbleBg} ${chatTemplate.userTextColor} rounded-tr-none`
+                    : `${chatTemplate.aiBubbleBg} ${chatTemplate.aiTextColor} rounded-tl-none whitespace-pre-wrap tracking-normal`
                 }`}
               >
                 {cleanRawAsterisks(m.content)}
@@ -1465,7 +1507,7 @@ Select a quick action chip above or type your exact directive!`;
                         ? "bg-emerald-500/10 border-emerald-500/40"
                         : m.proposal.status === "dismissed"
                         ? "bg-muted/30 border-muted opacity-60"
-                        : "bg-card border-indigo-500/40 ring-2 ring-indigo-500/20"
+                        : `${chatTemplate.proposalCardBg} ring-2 ring-primary/20`
                     }`}
                   >
                     <div className="p-3.5 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b bg-muted/40">
@@ -1673,7 +1715,7 @@ Select a quick action chip above or type your exact directive!`;
         )}
 
         {/* Bottom Input Form with Larger Inputs and Touch Targets */}
-        <div className="p-3 sm:p-3.5 border-t bg-card shrink-0">
+        <div className={`p-3 sm:p-3.5 border-t shrink-0 transition-colors ${chatTemplate.inputBarBg}`}>
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -1696,7 +1738,7 @@ Select a quick action chip above or type your exact directive!`;
               onChange={(e) => setInput(e.target.value)}
               placeholder="Direct AI Blogger, create course/page, auto-tune platform..."
               disabled={busy}
-              className="h-11 sm:h-12 font-medium text-sm sm:text-base rounded-2xl px-3.5 bg-background border-border shadow-xs focus-visible:ring-2 focus-visible:ring-primary flex-1 min-w-0"
+              className="h-11 sm:h-12 font-bold text-sm sm:text-base rounded-2xl px-3.5 bg-background border-border shadow-xs focus-visible:ring-2 focus-visible:ring-primary flex-1 min-w-0"
             />
             <Button
               type="submit"
@@ -1716,6 +1758,14 @@ Select a quick action chip above or type your exact directive!`;
         </div>
       </Card>
       )}
+
+      {/* Executive Chat Background Template Selector Modal */}
+      <ChatTemplateSelectorModal
+        open={templateModalOpen}
+        onOpenChange={setTemplateModalOpen}
+        currentTemplate={chatTemplate}
+        onSelectTemplate={handleSelectChatTemplate}
+      />
 
       {/* Executive Daily Briefing Modal */}
       <DailyBriefingModal
