@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Building2, User, ExternalLink, ShieldCheck, Store } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -26,6 +26,7 @@ interface ForumAuthorBadgeProps {
   showBusinessTag?: boolean;
   showSubtitle?: boolean;
   className?: string;
+  asLink?: boolean;
 }
 
 export function ForumAuthorBadge({
@@ -34,7 +35,9 @@ export function ForumAuthorBadge({
   showBusinessTag = true,
   showSubtitle = true,
   className = "",
+  asLink = true,
 }: ForumAuthorBadgeProps) {
+  const navigate = useNavigate();
   const business = author?.business;
   const isBusiness = !!business && !!business.slug;
   const displayName = author?.display_name || author?.username || (isBusiness ? business.name : "Community Member");
@@ -65,7 +68,11 @@ export function ForumAuthorBadge({
     : "border border-border/80";
 
   const handleLinkClick = (e: React.MouseEvent) => {
+    e.preventDefault();
     e.stopPropagation();
+    if (targetUrl) {
+      navigate(targetUrl);
+    }
   };
 
   const badgeContent = (
@@ -137,13 +144,38 @@ export function ForumAuthorBadge({
     return badgeContent;
   }
 
+  // If asLink is false (e.g. inside a post item that is already wrapped in a <Link>),
+  // use a clickable div/button to prevent invalid <a> inside <a> HTML nesting
+  if (!asLink) {
+    return (
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              role="button"
+              tabIndex={0}
+              onClick={handleLinkClick}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleLinkClick(e as any); }}
+              className="inline-flex items-center max-w-full hover:opacity-95 transition-opacity cursor-pointer text-left"
+            >
+              {badgeContent}
+            </div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-xs font-medium">
+            {isBusiness ? `Visit ${business.name}'s Public Storefront` : `View @${author?.username || "user"}'s Profile`}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={300}>
       <Tooltip>
         <TooltipTrigger asChild>
           <Link
             to={targetUrl}
-            onClick={handleLinkClick}
+            onClick={(e) => e.stopPropagation()}
             className="inline-flex items-center max-w-full hover:opacity-95 transition-opacity"
           >
             {badgeContent}

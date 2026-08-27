@@ -527,7 +527,7 @@ function PostRow({ post, compact }: { post: Post; compact?: boolean }) {
           {/* Footer Metadata */}
           <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs text-muted-foreground flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <ForumAuthorBadge author={post.author} size="sm" />
+              <ForumAuthorBadge author={post.author} size="sm" asLink={false} />
             </div>
 
             <div className="flex items-center gap-2.5">

@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import {
   Package, Plus, Loader2, Trash2, Copy, Pencil, Eye, EyeOff, ImagePlus,
   Download, Users, TrendingUp, Wallet, CreditCard, FileUp, Video,
-  ArrowLeft, ExternalLink,
+  ArrowLeft, ExternalLink, Sparkles, CheckCircle2,
 } from "lucide-react";
 import ProductVideo from "@/components/directory/ProductVideo";
 import { slugify } from "@/lib/seo";
@@ -39,13 +39,24 @@ const emptyForm = {
   cover_image: "", status: "published",
 };
 
+const BOOST_PACKAGES = [
+  { key: "7d", days: 7, label: "7 Days Spotlight", price: 1500, desc: "Featured at the top of Marketplace search & category feeds for 1 week." },
+  { key: "14d", days: 14, label: "14 Days High Visibility", price: 2800, desc: "Double exposure on Homepage & Marketplace showcase for 2 weeks." },
+  { key: "30d", days: 30, label: "30 Days Top Marketplace", price: 5000, desc: "Maximum visibility with Golden Featured badge for a full month." },
+];
+
 export default function SellerProducts() {
   const { user, loading } = useAuth();
   const [products, setProducts] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [account, setAccount] = useState<any>(null);
+  const [wallet, setWallet] = useState<{ balance: number } | null>(null);
   const [open, setOpen] = useState(false);
+  const [boostOpen, setBoostOpen] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [selectedPackage, setSelectedPackage] = useState(BOOST_PACKAGES[0]);
+  const [boosting, setBoosting] = useState(false);
   const [form, setForm] = useState({ ...emptyForm });
   const [gallery, setGallery] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -53,14 +64,16 @@ export default function SellerProducts() {
 
   const load = async () => {
     if (!user) return;
-    const [{ data: p }, { data: s }, { data: c }] = await Promise.all([
+    const [{ data: p }, { data: s }, { data: c }, { data: w }] = await Promise.all([
       supabase.from("directory_products").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
       supabase.from("product_purchases").select("*, directory_products(name)").eq("seller_id", user.id).order("created_at", { ascending: false }),
       supabase.from("categories").select("id,name").in("type", ["product", "business"]).order("name"),
+      supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
     ]);
     setProducts(p ?? []);
     setSales(s ?? []);
     setCategories(c ?? []);
+    setWallet(w ?? { balance: 0 });
     const { data: acc } = await supabase.functions.invoke("seller-paystack", { body: { action: "status" } });
     setAccount(acc?.account ?? null);
   };
@@ -105,6 +118,63 @@ export default function SellerProducts() {
     if (error) return toast.error(error.message);
     setForm((f) => ({ ...f, delivery_file_path: path, delivery_method: "file" }));
     toast.success("File uploaded securely");
+  };
+
+  const openBoost = (p: any) => {
+    setSelectedProduct(p);
+    setSelectedPackage(BOOST_PACKAGES[0]);
+    setBoostOpen(true);
+  };
+
+  const handleBoostProduct = async () => {
+    if (!user || !selectedProduct) return;
+    const currentBal = wallet?.balance ?? 0;
+    if (currentBal < selectedPackage.price) {
+      toast.error(`Insufficient wallet balance (₦${currentBal.toLocaleString()}). Please top up your wallet first.`);
+      return;
+    }
+
+    setBoosting(true);
+    try {
+      // 1. Try deduct_wallet RPC
+      const { data: deducted, error: rpcErr } = await (supabase as any).rpc("deduct_wallet", {
+        _user_id: user.id,
+        _amount: selectedPackage.price,
+        _description: `Featured Product Promo (${selectedPackage.label}) for "${selectedProduct.name}"`,
+        _reference_id: selectedProduct.id,
+      });
+
+      if (rpcErr || deducted === false) {
+        // Fallback: direct wallet update & transaction insert
+        const newBal = currentBal - selectedPackage.price;
+        const { error: wErr } = await supabase.from("wallets").update({ balance: newBal }).eq("user_id", user.id);
+        if (wErr) throw new Error(wErr.message);
+
+        await supabase.from("wallet_transactions").insert({
+          user_id: user.id,
+          amount: selectedPackage.price,
+          type: "debit",
+          description: `Featured Product Promo (${selectedPackage.label}) for "${selectedProduct.name}"`,
+          reference_id: selectedProduct.id,
+        });
+      }
+
+      // 2. Mark product as featured
+      const { error: prodErr } = await supabase
+        .from("directory_products")
+        .update({ featured: true })
+        .eq("id", selectedProduct.id);
+
+      if (prodErr) throw new Error(prodErr.message);
+
+      toast.success(`🎉 "${selectedProduct.name}" is now Featured on the Marketplace!`);
+      setBoostOpen(false);
+      load();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to activate product promotion");
+    } finally {
+      setBoosting(false);
+    }
   };
 
   const openNew = () => { setForm({ ...emptyForm }); setGallery([]); setOpen(true); };
@@ -241,6 +311,22 @@ export default function SellerProducts() {
                   ₦{Number(p.price || 0).toLocaleString()} · {p.sales_count || 0} sales · {p.views_count || 0} views
                 </p>
               </div>
+              {p.featured ? (
+                <Badge className="bg-amber-500 hover:bg-amber-500 text-white font-bold gap-1 text-xs">
+                  <Sparkles className="h-3 w-3" /> Featured
+                </Badge>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-8 px-2.5 text-xs font-bold gap-1 text-amber-600 dark:text-amber-400 bg-amber-500/10 hover:bg-amber-500 hover:text-white border border-amber-500/20"
+                  onClick={() => openBoost(p)}
+                  title="Feature this product on Marketplace"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Feature
+                </Button>
+              )}
               <Badge variant={p.status === "published" ? "default" : "secondary"}>{p.status === "published" ? "Live" : "Draft"}</Badge>
               {p.product_type === "digital" && <Badge variant="outline">Digital</Badge>}
               <div className="flex items-center gap-1">
@@ -383,6 +469,102 @@ export default function SellerProducts() {
               </Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Feature Product Dialog */}
+      <Dialog open={boostOpen} onOpenChange={setBoostOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600">
+                <Sparkles className="h-5 w-5" />
+              </span>
+              <div>
+                <DialogTitle>Feature My Product</DialogTitle>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Boost &ldquo;{selectedProduct?.name}&rdquo; across the marketplace.
+                </p>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Benefits Banner */}
+            <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-3.5 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-xs text-amber-700 dark:text-amber-300">
+                <Sparkles className="h-4 w-4 shrink-0" /> Why feature your product?
+              </div>
+              <ul className="text-[11px] text-muted-foreground space-y-1 pl-4 list-disc">
+                <li>Pinned directly to the top of the Marketplace and search results.</li>
+                <li>Exclusive golden &ldquo;Featured&rdquo; badge on all cards and product pages.</li>
+                <li>Up to 5x more clicks, views, and digital sales.</li>
+              </ul>
+            </div>
+
+            {/* Packages Selector */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-foreground">Select Feature Duration</Label>
+              <div className="space-y-2">
+                {BOOST_PACKAGES.map((pkg) => {
+                  const isSelected = selectedPackage.key === pkg.key;
+                  return (
+                    <div
+                      key={pkg.key}
+                      onClick={() => setSelectedPackage(pkg)}
+                      className={`flex items-start justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                          : "border-border hover:border-primary/40 bg-card"
+                      }`}
+                    >
+                      <div className="space-y-0.5 min-w-0 pr-2">
+                        <div className="flex items-center gap-1.5 font-bold text-sm text-foreground">
+                          {isSelected && <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />}
+                          {pkg.label}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground leading-relaxed">{pkg.desc}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-extrabold text-foreground">₦{pkg.price.toLocaleString()}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Wallet Balance & Action */}
+            <div className="rounded-2xl bg-muted/40 border border-border p-3.5 flex items-center justify-between text-xs">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <div>
+                  <span className="text-muted-foreground">Your Wallet Balance: </span>
+                  <span className="font-bold text-foreground">₦{(wallet?.balance ?? 0).toLocaleString()}</span>
+                </div>
+              </div>
+              {(wallet?.balance ?? 0) < selectedPackage.price && (
+                <Button asChild variant="outline" size="sm" className="h-7 text-[11px] font-bold">
+                  <Link to="/dashboard/wallet">Top Up Wallet</Link>
+                </Button>
+              )}
+            </div>
+
+            <Button
+              className="w-full rounded-xl font-bold gap-2"
+              disabled={boosting || (wallet?.balance ?? 0) < selectedPackage.price}
+              onClick={handleBoostProduct}
+            >
+              {boosting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4" />
+                  Feature for ₦{selectedPackage.price.toLocaleString()}
+                </>
+              )}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

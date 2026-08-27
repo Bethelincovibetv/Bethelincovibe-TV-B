@@ -163,7 +163,41 @@ export default function UserProfileEdit() {
         .from("profiles")
         .upsert(payload, { onConflict: "user_id" });
       if (error) throw error;
-      toast.success("Profile website saved successfully!");
+
+      // Automatically sync business directory presence
+      if (profile.display_name || username) {
+        const { data: existingBiz } = await supabase
+          .from("suppliers")
+          .select("id, slug")
+          .eq("submitted_by", user.id)
+          .maybeSingle();
+
+        const bizSlug = username || (profile.display_name ? profile.display_name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + user.id.slice(0, 5) : user.id.slice(0, 8));
+
+        const bizPayload: any = {
+          name: profile.display_name || username || "Verified Business",
+          slug: existingBiz?.slug || bizSlug,
+          description: profile.bio || null,
+          logo_url: profile.avatar_url || null,
+          cover_url: profile.background_url || null,
+          cover_template: profile.background_template || "tech",
+          phone: profile.whatsapp || null,
+          website: profile.social_links?.website || (profile.social_links?.facebook ? null : null),
+          social_links: profile.social_links || {},
+          services: services,
+          submitted_by: user.id,
+          active: profile.is_public !== false,
+          status: "approved",
+        };
+
+        if (existingBiz?.id) {
+          await supabase.from("suppliers").update(bizPayload).eq("id", existingBiz.id);
+        } else {
+          await supabase.from("suppliers").insert(bizPayload);
+        }
+      }
+
+      toast.success("Profile & Business Directory presence updated!");
     } catch (err: any) { toast.error(err.message); }
     finally { setSaving(false); }
   };

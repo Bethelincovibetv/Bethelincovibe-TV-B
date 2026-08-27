@@ -10,11 +10,13 @@ import {
   Phone, MapPin, Globe, Mail, MessageCircle, Share2, Sparkles,
   CheckCircle2, Building2, Navigation, ChevronLeft, ExternalLink,
   Instagram, Facebook, Twitter, Linkedin, Briefcase, Youtube, Users, Play,
+  ShoppingBag, Store, User, ArrowRight
 } from "lucide-react";
 import BusinessChatDialog from "@/components/BusinessChatDialog";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import BusinessCard from "@/components/directory/BusinessCard";
+import ProductCard from "@/components/directory/ProductCard";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
@@ -34,6 +36,8 @@ export default function BusinessProfile() {
   const { slug } = useParams();
   const [biz, setBiz] = useState<Biz | null>(null);
   const [images, setImages] = useState<any[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [ownerProfile, setOwnerProfile] = useState<any | null>(null);
   const [related, setRelated] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +45,8 @@ export default function BusinessProfile() {
     (async () => {
       setLoading(true);
       setRelated([]);
+      setProducts([]);
+      setOwnerProfile(null);
       const { data } = await supabase
         .from("suppliers")
         .select("*, categories(name, slug)")
@@ -57,6 +63,26 @@ export default function BusinessProfile() {
           .order("display_order");
         setImages(imgs ?? []);
         track(data.id, "view");
+
+        // Fetch products submitted by business owner
+        if (data.submitted_by) {
+          const { data: prods } = await supabase
+            .from("directory_products")
+            .select("*, categories(name, slug)")
+            .eq("user_id", data.submitted_by)
+            .eq("active", true)
+            .order("featured", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(6);
+          setProducts(prods ?? []);
+
+          const { data: prof } = await supabase
+            .from("profiles")
+            .select("username, display_name, avatar_url, bio")
+            .eq("user_id", data.submitted_by)
+            .maybeSingle();
+          setOwnerProfile(prof);
+        }
 
         if (data.category_id) {
           const { data: rel } = await supabase
@@ -212,11 +238,22 @@ export default function BusinessProfile() {
                     <h1 className="text-xl sm:text-2xl font-bold leading-tight truncate">{biz.name}</h1>
                     <CheckCircle2 className="h-5 w-5 text-primary flex-shrink-0" />
                   </div>
-                  {biz.categories && (
-                    <Link to={`/businesses?category=${biz.categories.slug}`} className="text-sm text-primary font-medium hover:underline">
-                      {biz.categories.name}
-                    </Link>
-                  )}
+                  <div className="flex items-center gap-3 flex-wrap mt-0.5">
+                    {biz.categories && (
+                      <Link to={`/businesses?category=${biz.categories.slug}`} className="text-sm text-primary font-medium hover:underline">
+                        {biz.categories.name}
+                      </Link>
+                    )}
+                    {ownerProfile?.username && (
+                      <Link
+                        to={`/u/${ownerProfile.username}`}
+                        className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition font-medium"
+                      >
+                        <User className="h-3 w-3" />
+                        <span>@{ownerProfile.username}</span>
+                      </Link>
+                    )}
+                  </div>
                   {biz.address && (
                     <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
                       <MapPin className="h-3 w-3" />{biz.address}
@@ -351,6 +388,29 @@ export default function BusinessProfile() {
                         }
                       />
                     )
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Products & Store Section */}
+          {products.length > 0 && (
+            <Card className="mt-4 border-primary/20 shadow-sm overflow-hidden">
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between gap-2 mb-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                    <ShoppingBag className="h-4 w-4 text-primary" /> Products &amp; Store
+                  </h2>
+                  <Button asChild variant="ghost" size="sm" className="text-xs text-primary font-semibold gap-1 h-7">
+                    <Link to="/products">
+                      Marketplace <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
+                  </Button>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {products.map((prod: any) => (
+                    <ProductCard key={prod.id} product={prod} />
                   ))}
                 </div>
               </CardContent>

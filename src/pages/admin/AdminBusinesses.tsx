@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, ImagePlus, X, Check, Clock, Zap } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Pencil, Trash2, ImagePlus, X, Check, Clock, Zap, Sparkles, Building2, Calendar, DollarSign, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -17,8 +18,16 @@ const generateSlug = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g,
 
 const emptyForm = { name: "", slug: "", category_id: "", description: "", phone: "", address: "", website: "", logo_url: "", social_links: "{}", featured: false, active: true };
 
+const DEFAULT_BOOST_PACKAGES = [
+  { key: "3d", days: 3, price: 1000, label: "3 Days Spotlight" },
+  { key: "7d", days: 7, price: 2000, label: "7 Days Spotlight" },
+  { key: "14d", days: 14, price: 3500, label: "14 Days High Visibility" },
+  { key: "30d", days: 30, price: 6500, label: "30 Days Maximum Impact" },
+];
+
 export default function AdminBusinesses() {
   const queryClient = useQueryClient();
+  const [activeTab, setActiveTab] = useState("directory");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [form, setForm] = useState(emptyForm);
@@ -36,6 +45,17 @@ export default function AdminBusinesses() {
     queryKey: ["business-categories"],
     queryFn: async () => {
       const { data } = await supabase.from("categories").select("*").eq("type", "business").order("name");
+      return data ?? [];
+    },
+  });
+
+  const { data: boosts } = useQuery({
+    queryKey: ["admin-business-boosts"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("business_boosts")
+        .select("*, suppliers(name, slug)")
+        .order("created_at", { ascending: false });
       return data ?? [];
     },
   });
@@ -172,76 +192,152 @@ export default function AdminBusinesses() {
   };
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Business Directory</h1>
-        <Button size="sm" onClick={() => { resetForm(); setOpen(true); }}><Plus className="h-4 w-4 mr-1" />Add Business</Button>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-bold flex items-center gap-2">
+            <Building2 className="h-6 w-6 text-primary" /> Business Directory & Promotions
+          </h1>
+          <p className="text-sm text-muted-foreground">Manage directory businesses, submissions, and Feature My Business promotions.</p>
+        </div>
+        <Button size="sm" onClick={() => { resetForm(); setOpen(true); }} className="rounded-xl font-bold">
+          <Plus className="h-4 w-4 mr-1" />Add Business
+        </Button>
       </div>
 
-      <AutoApproveCard />
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2 sm:w-auto">
+          <TabsTrigger value="directory">Directory Businesses</TabsTrigger>
+          <TabsTrigger value="promotions" className="gap-1.5">
+            <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+            Feature Promotions & Pricing
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Pending submissions */}
-      {(() => {
-        const pending = businesses?.filter((s: any) => s.status === "pending") ?? [];
-        if (pending.length === 0) return null;
-        return (
-          <div className="mb-6">
-            <h2 className="text-sm font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Pending Submissions ({pending.length})
-            </h2>
-            <div className="grid gap-3">
-              {pending.map((s: any) => (
-                <Card key={s.id} className="border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10">
-                  <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 py-4">
+        <TabsContent value="directory" className="space-y-4 mt-4">
+          <AutoApproveCard />
+
+          {/* Pending submissions */}
+          {(() => {
+            const pending = businesses?.filter((s: any) => s.status === "pending") ?? [];
+            if (pending.length === 0) return null;
+            return (
+              <div className="mb-6">
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase mb-2 flex items-center gap-2">
+                  <Clock className="h-4 w-4" /> Pending Submissions ({pending.length})
+                </h2>
+                <div className="grid gap-3">
+                  {pending.map((s: any) => (
+                    <Card key={s.id} className="border-amber-500/40 bg-amber-50/30 dark:bg-amber-950/10">
+                      <CardContent className="flex flex-col sm:flex-row sm:items-center gap-3 py-4">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {s.logo_url && <img src={s.logo_url} alt="" className="h-12 w-12 rounded object-cover flex-shrink-0" />}
+                          <div className="min-w-0">
+                            <p className="font-medium truncate">{s.name}</p>
+                            <p className="text-xs text-muted-foreground truncate">{s.categories?.name || "No category"} · {s.phone || "no phone"}</p>
+                            {s.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{s.description}</p>}
+                          </div>
+                        </div>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5 mr-1" />Review</Button>
+                          <Button size="sm" onClick={() => approveMutation.mutate(s.id)}><Check className="h-3.5 w-3.5 mr-1" />Approve</Button>
+                          <Button size="sm" variant="destructive" onClick={() => {
+                            const reason = prompt("Rejection reason (optional):") || "";
+                            rejectMutation.mutate({ id: s.id, reason });
+                          }}><X className="h-3.5 w-3.5" /></Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="grid gap-3">
+            {businesses?.filter((s: any) => s.status !== "pending").map((s: any) => {
+              const isBoosted = s.boosted_until && new Date(s.boosted_until) > new Date();
+              return (
+                <Card key={s.id}>
+                  <CardContent className="flex items-center justify-between py-4">
                     <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {s.logo_url && <img src={s.logo_url} alt="" className="h-12 w-12 rounded object-cover flex-shrink-0" />}
+                      {s.logo_url && <img src={s.logo_url} alt="" className="h-10 w-10 rounded-xl object-cover flex-shrink-0" />}
                       <div className="min-w-0">
-                        <p className="font-medium truncate">{s.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{s.categories?.name || "No category"} · {s.phone || "no phone"}</p>
-                        {s.description && <p className="text-xs text-muted-foreground line-clamp-2 mt-1">{s.description}</p>}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium truncate">{s.name}</p>
+                          {isBoosted ? (
+                            <Badge className="bg-amber-500 text-white text-xs gap-1">
+                              <Sparkles className="h-3 w-3" />Featured until {new Date(s.boosted_until).toLocaleDateString()}
+                            </Badge>
+                          ) : s.featured ? (
+                            <Badge variant="secondary" className="text-xs">Featured</Badge>
+                          ) : null}
+                          {s.status === "rejected" && <Badge variant="destructive" className="text-xs">Rejected</Badge>}
+                          {!s.active && s.status !== "rejected" && <Badge variant="outline" className="text-xs">Inactive</Badge>}
+                        </div>
+                        <p className="text-xs text-muted-foreground">{s.categories?.name || "No Category"}</p>
                       </div>
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(s)}><Pencil className="h-3.5 w-3.5 mr-1" />Review</Button>
-                      <Button size="sm" onClick={() => approveMutation.mutate(s.id)}><Check className="h-3.5 w-3.5 mr-1" />Approve</Button>
-                      <Button size="sm" variant="destructive" onClick={() => {
-                        const reason = prompt("Rejection reason (optional):") || "";
-                        rejectMutation.mutate({ id: s.id, reason });
-                      }}><X className="h-3.5 w-3.5" /></Button>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete?")) deleteMutation.mutate(s.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
+              );
+            })}
+            {businesses?.length === 0 && <p className="text-center text-muted-foreground py-8">No businesses yet</p>}
           </div>
-        );
-      })()}
+        </TabsContent>
 
-      <div className="grid gap-3">
-        {businesses?.filter((s: any) => s.status !== "pending").map((s: any) => (
-          <Card key={s.id}>
-            <CardContent className="flex items-center justify-between py-4">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                {s.logo_url && <img src={s.logo_url} alt="" className="h-10 w-10 rounded object-cover flex-shrink-0" />}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="font-medium truncate">{s.name}</p>
-                    {s.featured && <Badge variant="secondary" className="text-xs">Featured</Badge>}
-                    {s.status === "rejected" && <Badge variant="destructive" className="text-xs">Rejected</Badge>}
-                    {!s.active && s.status !== "rejected" && <Badge variant="outline" className="text-xs">Inactive</Badge>}
-                  </div>
-                  <p className="text-xs text-muted-foreground">{s.categories?.name}</p>
+        <TabsContent value="promotions" className="space-y-6 mt-4">
+          <PackagesConfigCard />
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-amber-500" />
+                Active & Past Business Promotions ({boosts?.length || 0})
+              </CardTitle>
+              <CardDescription>
+                Track which businesses have used &ldquo;Feature My Business&rdquo; promotions with starts, duration, and amounts paid.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {boosts && boosts.length > 0 ? (
+                <div className="space-y-3">
+                  {boosts.map((b: any) => {
+                    const active = b.ends_at && new Date(b.ends_at) > new Date();
+                    return (
+                      <div key={b.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-xl border bg-card gap-2 text-xs">
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-sm text-foreground">{b.suppliers?.name || "Business ID: " + b.business_id.slice(0, 8)}</span>
+                            <Badge variant={active ? "default" : "secondary"} className={active ? "bg-amber-500 text-white" : ""}>
+                              {active ? "Active" : "Expired"}
+                            </Badge>
+                          </div>
+                          <p className="text-muted-foreground">
+                            Package: <span className="font-semibold text-foreground">{b.package_key}</span> · {b.duration_days} days
+                          </p>
+                        </div>
+                        <div className="text-right sm:text-right space-y-0.5">
+                          <div className="font-bold text-primary text-sm">₦{Number(b.amount || 0).toLocaleString()}</div>
+                          <div className="text-muted-foreground text-[11px]">
+                            {new Date(b.starts_at || b.created_at).toLocaleDateString()} → {new Date(b.ends_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-              <div className="flex gap-1 flex-shrink-0">
-                <Button variant="ghost" size="icon" onClick={() => openEdit(s)}><Pencil className="h-4 w-4" /></Button>
-                <Button variant="ghost" size="icon" onClick={() => { if (confirm("Delete?")) deleteMutation.mutate(s.id); }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-              </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8 text-sm">No business promotions recorded yet.</p>
+              )}
             </CardContent>
           </Card>
-        ))}
-        {businesses?.length === 0 && <p className="text-center text-muted-foreground py-8">No businesses yet</p>}
-      </div>
+        </TabsContent>
+      </Tabs>
 
       <Dialog open={open} onOpenChange={(v) => { if (!v) resetForm(); setOpen(v); }}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
@@ -299,6 +395,90 @@ export default function AdminBusinesses() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+function PackagesConfigCard() {
+  const [pkgs, setPkgs] = useState<any[]>(DEFAULT_BOOST_PACKAGES);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase.from("site_settings").select("value").eq("key", "boost_packages").maybeSingle();
+      if (data?.value) {
+        try {
+          const parsed = JSON.parse(data.value);
+          if (Array.isArray(parsed) && parsed.length > 0) setPkgs(parsed);
+        } catch {}
+      }
+    })();
+  }, []);
+
+  const updatePkg = (index: number, field: string, value: any) => {
+    const next = [...pkgs];
+    next[index] = { ...next[index], [field]: value };
+    setPkgs(next);
+  };
+
+  const save = async () => {
+    setSaving(true);
+    const { error } = await supabase.from("site_settings").upsert({
+      key: "boost_packages",
+      value: JSON.stringify(pkgs),
+    }, { onConflict: "key" });
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else toast.success("Feature My Business packages saved!");
+  };
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base flex items-center gap-2">
+          <DollarSign className="h-4 w-4 text-primary" /> Feature My Business Pricing & Duration Packages
+        </CardTitle>
+        <CardDescription>
+          Configure the duration (days) and price (₦) for users when purchasing &ldquo;Feature My Business&rdquo; promotions.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {pkgs.map((p, i) => (
+            <div key={i} className="p-3 border rounded-xl bg-muted/20 space-y-2">
+              <Label className="text-xs font-bold">Package {i + 1} Label</Label>
+              <Input
+                value={p.label}
+                onChange={(e) => updatePkg(i, "label", e.target.value)}
+                className="h-8 text-xs"
+              />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label className="text-[11px]">Days</Label>
+                  <Input
+                    type="number"
+                    value={p.days}
+                    onChange={(e) => updatePkg(i, "days", Number(e.target.value))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div>
+                  <Label className="text-[11px]">Price (₦)</Label>
+                  <Input
+                    type="number"
+                    value={p.price}
+                    onChange={(e) => updatePkg(i, "price", Number(e.target.value))}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <Button onClick={save} disabled={saving} size="sm" className="rounded-xl font-bold">
+          {saving ? "Saving..." : "Save Pricing Packages"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
 

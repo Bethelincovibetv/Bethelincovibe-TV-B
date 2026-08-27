@@ -82,18 +82,27 @@ export default function UserBusinesses() {
             </Button>
             <div className="h-6 w-px bg-border hidden sm:block" />
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6 text-primary" />My Businesses</h1>
-              <p className="text-sm text-muted-foreground">Manage listings, track views and boost visibility.</p>
+              <h1 className="text-2xl font-bold flex items-center gap-2"><Building2 className="h-6 w-6 text-primary" />My Business Profile</h1>
+              <p className="text-sm text-muted-foreground">Manage your directory presence, track views, and feature your business.</p>
             </div>
           </div>
-          <Button asChild size="sm" className="rounded-xl font-bold"><Link to="/businesses/list"><Plus className="h-4 w-4 mr-1" />New</Link></Button>
+          <Button asChild size="sm" className="rounded-xl font-bold">
+            <Link to="/dashboard/profile-edit">
+              <Pencil className="h-4 w-4 mr-1" />Edit Profile & Services
+            </Link>
+          </Button>
         </div>
 
         {items.length === 0 ? (
-          <Card><CardContent className="py-12 text-center">
-            <Building2 className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-            <p className="font-medium">No business listings yet</p>
-            <Button asChild className="mt-4"><Link to="/businesses/list">List Your Business</Link></Button>
+          <Card><CardContent className="py-12 text-center space-y-3">
+            <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-1" />
+            <h3 className="text-lg font-semibold">No Business Profile in Directory Yet</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              Complete your Public Business Profile with your services, contact info, and website cover to automatically appear in the Business Directory.
+            </p>
+            <Button asChild className="mt-2 rounded-xl font-bold">
+              <Link to="/dashboard/profile-edit">Set Up My Business Profile</Link>
+            </Button>
           </CardContent></Card>
         ) : (
           <div className="space-y-4">
@@ -105,16 +114,21 @@ export default function UserBusinesses() {
                 <Card key={b.id} className="overflow-hidden">
                   <CardHeader className="flex flex-row items-start gap-3 pb-3">
                     {b.logo_url ? (
-                      <img src={b.logo_url} className="h-12 w-12 rounded-xl object-cover" alt="" />
+                      <img src={b.logo_url} className="h-12 w-12 rounded-xl object-cover ring-2 ring-primary/20" alt="" />
                     ) : <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center"><Building2 className="h-5 w-5 text-primary" /></div>}
                     <div className="flex-1 min-w-0">
                       <CardTitle className="text-base truncate flex items-center gap-2">
                         {b.name}
-                        {isBoosted && <Badge className="bg-amber-500 text-white"><Sparkles className="h-3 w-3 mr-0.5" />Sponsored</Badge>}
+                        {isBoosted && <Badge className="bg-amber-500 text-white gap-1"><Sparkles className="h-3 w-3" />Featured</Badge>}
                       </CardTitle>
                       <div className="flex items-center gap-2 flex-wrap mt-0.5">
-                        <Badge variant={approved ? "default" : b.status === "rejected" ? "destructive" : "secondary"} className="text-[10px]">{b.status}</Badge>
+                        <Badge variant={approved ? "default" : b.status === "rejected" ? "destructive" : "secondary"} className="text-[10px]">
+                          {approved ? "Active in Directory" : b.status}
+                        </Badge>
                         {b.categories && <span className="text-xs text-muted-foreground">{b.categories.name}</span>}
+                        {Array.isArray(b.services) && b.services.length > 0 && (
+                          <span className="text-xs text-primary font-medium">{b.services.length} services listed</span>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -148,17 +162,21 @@ export default function UserBusinesses() {
                     {/* Actions */}
                     <div className="flex flex-wrap gap-2 pt-1">
                       {approved && (
-                        <Button asChild size="sm" variant="outline"><Link to={`/businesses/${b.slug}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />View</Link></Button>
+                        <Button asChild size="sm" variant="outline" className="rounded-xl font-medium">
+                          <Link to={`/businesses/${b.slug}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />View Public Site</Link>
+                        </Button>
                       )}
-                      <Button asChild size="sm" variant="outline"><Link to={`/dashboard/businesses/${b.id}/edit`}><Pencil className="h-3.5 w-3.5 mr-1" />Edit</Link></Button>
+                      <Button asChild size="sm" variant="outline" className="rounded-xl font-medium">
+                        <Link to="/dashboard/profile-edit"><Pencil className="h-3.5 w-3.5 mr-1" />Edit Profile</Link>
+                      </Button>
                       {approved && (
-                        <Button asChild size="sm" className="bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white">
-                          <Link to={`/dashboard/businesses/${b.id}/boost`}><Sparkles className="h-3.5 w-3.5 mr-1" />{isBoosted ? "Extend Boost" : "Boost"}</Link>
+                        <Button asChild size="sm" className="rounded-xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white shadow-sm">
+                          <Link to={`/dashboard/businesses/${b.id}/boost`}><Sparkles className="h-3.5 w-3.5 mr-1" />{isBoosted ? "Extend Promotion" : "Feature My Business"}</Link>
                         </Button>
                       )}
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button size="sm" variant="outline" className="text-destructive hover:text-destructive">
+                          <Button size="sm" variant="outline" className="rounded-xl font-medium text-destructive hover:text-destructive">
                             <Trash2 className="h-3.5 w-3.5 mr-1" />Delete
                           </Button>
                         </AlertDialogTrigger>

@@ -16,7 +16,8 @@ import {
   MessageCircle, Phone, MapPin, Package, ShieldCheck, ArrowLeft,
   CheckCircle2, Share2, Copy, Sparkles, Truck, Lock, Eye, Maximize2,
   ChevronRight, ThumbsUp, Clock, Heart, Building2, ExternalLink, AlertCircle,
-  Download, Zap, FileText, Check, HelpCircle, Star, Award, Layers, Play
+  Download, Zap, FileText, Check, HelpCircle, Star, Award, Layers, Play,
+  Store, User
 } from "lucide-react";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProductCard, { formatPrice, DirectoryProduct } from "@/components/directory/ProductCard";
@@ -32,6 +33,7 @@ export default function ProductDetail() {
   const { slug } = useParams();
   const [product, setProduct] = useState<any>(null);
   const [seller, setSeller] = useState<any>(null);
+  const [sellerBusiness, setSellerBusiness] = useState<any>(null);
   const [relatedProducts, setRelatedProducts] = useState<DirectoryProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeImg, setActiveImg] = useState(0);
@@ -65,7 +67,7 @@ export default function ProductDetail() {
           entityId: data.id,
         });
 
-        // Load seller profile
+        // Load seller profile & business listing
         if (data.user_id) {
           const { data: p } = await supabase
             .from("profiles")
@@ -73,6 +75,17 @@ export default function ProductDetail() {
             .eq("user_id", data.user_id)
             .maybeSingle();
           setSeller(p);
+
+          const { data: biz } = await supabase
+            .from("suppliers")
+            .select("id, name, slug, logo_url, address")
+            .eq("submitted_by", data.user_id)
+            .eq("active", true)
+            .eq("status", "approved")
+            .order("boosted_until", { ascending: false, nullsFirst: false })
+            .limit(1)
+            .maybeSingle();
+          setSellerBusiness(biz);
         }
 
         // Fetch related products
@@ -608,6 +621,53 @@ export default function ProductDetail() {
 
               {/* Sidebar Trust & Specifications */}
               <div className="lg:col-span-4 space-y-4">
+                {/* Creator / Seller Card */}
+                {seller && (
+                  <Card className="border-border/80 shadow-md rounded-3xl p-5 bg-card space-y-3">
+                    <h4 className="font-extrabold text-sm text-foreground flex items-center gap-1.5">
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" /> Creator &amp; Seller
+                    </h4>
+                    <div className="flex items-center gap-3">
+                      <div className="h-12 w-12 rounded-2xl bg-primary/10 overflow-hidden flex items-center justify-center font-bold text-primary shrink-0 ring-2 ring-primary/20">
+                        {seller.avatar_url ? (
+                          <img src={seller.avatar_url} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          (seller.display_name || "C").charAt(0).toUpperCase()
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-bold text-foreground">{seller.display_name || "Verified Creator"}</p>
+                        <p className="flex items-center gap-1 text-[11px] text-muted-foreground mt-0.5 truncate">
+                          <ShieldCheck className="h-3 w-3 text-primary shrink-0" /> Verified Vendor
+                        </p>
+                      </div>
+                    </div>
+
+                    {seller.bio && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+                        {seller.bio}
+                      </p>
+                    )}
+
+                    <div className="space-y-1.5 pt-1">
+                      {sellerBusiness?.slug && (
+                        <Button asChild variant="default" size="sm" className="w-full rounded-xl text-xs font-semibold gap-1.5 h-9">
+                          <Link to={`/businesses/${sellerBusiness.slug}`}>
+                            <Building2 className="h-3.5 w-3.5" /> View Business Listing <ChevronRight className="h-3.5 w-3.5 ml-auto" />
+                          </Link>
+                        </Button>
+                      )}
+                      {seller.username && (
+                        <Button asChild variant="secondary" size="sm" className="w-full rounded-xl text-xs font-semibold gap-1.5 h-9">
+                          <Link to={`/u/${seller.username}`}>
+                            <Store className="h-3.5 w-3.5" /> View Public Profile <ChevronRight className="h-3.5 w-3.5 ml-auto" />
+                          </Link>
+                        </Button>
+                      )}
+                    </div>
+                  </Card>
+                )}
+
                 <Card className="border-border/80 shadow-md rounded-3xl p-5 bg-card space-y-3">
                   <h4 className="font-extrabold text-sm text-foreground flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4 text-emerald-600" /> Digital Product Details
@@ -937,13 +997,22 @@ export default function ProductDetail() {
                         </p>
                       )}
 
-                      {seller.username && (
-                        <Button asChild variant="secondary" size="sm" className="w-full rounded-xl text-xs font-semibold gap-1 h-9">
-                          <Link to={`/u/${seller.username}`}>
-                            <Building2 className="h-3.5 w-3.5" /> View Seller Profile <ChevronRight className="h-3.5 w-3.5 ml-auto" />
-                          </Link>
-                        </Button>
-                      )}
+                      <div className="space-y-1.5 pt-1">
+                        {sellerBusiness?.slug && (
+                          <Button asChild variant="default" size="sm" className="w-full rounded-xl text-xs font-semibold gap-1.5 h-9">
+                            <Link to={`/businesses/${sellerBusiness.slug}`}>
+                              <Building2 className="h-3.5 w-3.5" /> View Business Listing <ChevronRight className="h-3.5 w-3.5 ml-auto" />
+                            </Link>
+                          </Button>
+                        )}
+                        {seller.username && (
+                          <Button asChild variant="secondary" size="sm" className="w-full rounded-xl text-xs font-semibold gap-1.5 h-9">
+                            <Link to={`/u/${seller.username}`}>
+                              <Store className="h-3.5 w-3.5" /> View Public Profile <ChevronRight className="h-3.5 w-3.5 ml-auto" />
+                            </Link>
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   )}
 

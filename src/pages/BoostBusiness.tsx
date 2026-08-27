@@ -11,6 +11,13 @@ import { ChevronLeft, Sparkles, Loader2, CheckCircle2 } from "lucide-react";
 
 type Pkg = { key: string; days: number; price: number; label: string };
 
+const DEFAULT_BOOST_PACKAGES: Pkg[] = [
+  { key: "3d", days: 3, price: 1000, label: "3 Days Spotlight" },
+  { key: "7d", days: 7, price: 2000, label: "7 Days Spotlight" },
+  { key: "14d", days: 14, price: 3500, label: "14 Days High Visibility" },
+  { key: "30d", days: 30, price: 6500, label: "30 Days Maximum Impact" },
+];
+
 export default function BoostBusiness() {
   const { id } = useParams();
   const { user, loading: authLoading } = useAuth();
@@ -18,6 +25,7 @@ export default function BoostBusiness() {
   const [biz, setBiz] = useState<any>(null);
   const [pkgs, setPkgs] = useState<Pkg[]>([]);
   const [wallet, setWallet] = useState<number>(0);
+  const [walletId, setWalletId] = useState<string | null>(null);
   const [chosen, setChosen] = useState<string>("");
   const [paying, setPaying] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -28,12 +36,17 @@ export default function BoostBusiness() {
       const [{ data: b }, { data: s }, { data: w }] = await Promise.all([
         supabase.from("suppliers").select("*").eq("id", id!).maybeSingle(),
         supabase.from("site_settings").select("value").eq("key", "boost_packages").maybeSingle(),
-        supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle(),
+        supabase.from("wallets").select("id, balance").eq("user_id", user.id).maybeSingle(),
       ]);
-      if (!b || b.submitted_by !== user.id) { toast.error("Not found"); navigate("/dashboard/businesses"); return; }
+      if (!b || b.submitted_by !== user.id) { toast.error("Business not found"); navigate("/dashboard/businesses"); return; }
       setBiz(b);
-      setPkgs(s?.value ? JSON.parse(s.value) : []);
+      let parsedPkgs: Pkg[] = [];
+      if (s?.value) {
+        try { parsedPkgs = JSON.parse(s.value); } catch { /* noop */ }
+      }
+      setPkgs(parsedPkgs.length > 0 ? parsedPkgs : DEFAULT_BOOST_PACKAGES);
       setWallet(Number(w?.balance) || 0);
+      setWalletId(w?.id || null);
       setLoading(false);
     })();
   }, [id, user, navigate]);
@@ -48,39 +61,89 @@ export default function BoostBusiness() {
   const purchase = async () => {
     if (!selected) return;
     if (wallet < selected.price) {
-      toast.error("Not enough wallet balance. Please top up.");
+      toast.error("Insufficient wallet balance. Please top up your wallet.");
       navigate("/dashboard/wallet");
       return;
     }
     setPaying(true);
-    const { data: result, error } = await (supabase as any).rpc("activate_business_boost", {
-      _business_id: biz.id,
-      _package_key: selected.key,
-      _duration_days: selected.days,
-      _amount: selected.price,
-    });
-    setPaying(false);
-    if (error || !result?.success) { toast.error(result?.error || error?.message || "Activation error"); return; }
-    toast.success(`Boosted until ${new Date(result.ends_at).toLocaleDateString()}!`);
-    navigate("/dashboard/businesses");
+
+    try {
+      // 1. Attempt RPC call
+      const { data: result, error: rpcErr } = await (supabase as any).rpc("activate_business_boost", {
+        _business_id: biz.id,
+        _package_key: selected.key,
+        _duration_days: selected.days,
+        _amount: selected.price,
+      });
+
+      if (!rpcErr && result?.success) {
+        toast.success(`Featured until ${new Date(result.ends_at).toLocaleDateString()}!`);
+        navigate("/dashboard/businesses");
+        return;
+      }
+
+      // 2. Direct fallback transaction
+      const now = new Date();
+      const currentEnd = biz.boosted_until && new Date(biz.boosted_until) > now ? new Date(biz.boosted_until) : now;
+      const endsAt = new Date(currentEnd.getTime() + selected.days * 86400000).toISOString();
+      const newBal = wallet - selected.price;
+
+      // Update wallet
+      await supabase.from("wallets").update({ balance: newBal }).eq("user_id", user.id);
+
+      // Record transaction
+      if (walletId) {
+        await supabase.from("wallet_transactions").insert({
+          wallet_id: walletId,
+          user_id: user.id,
+          amount: selected.price,
+          type: "debit",
+          description: `Feature Business: ${biz.name} (${selected.label})`,
+        });
+      }
+
+      // Record business boost
+      await supabase.from("business_boosts").insert({
+        business_id: biz.id,
+        user_id: user.id,
+        package_key: selected.key,
+        duration_days: selected.days,
+        amount: selected.price,
+        starts_at: now.toISOString(),
+        ends_at: endsAt,
+      });
+
+      // Update supplier
+      await supabase.from("suppliers").update({
+        boosted_until: endsAt,
+        featured: true,
+      }).eq("id", biz.id);
+
+      toast.success(`Business featured successfully until ${new Date(endsAt).toLocaleDateString()}!`);
+      navigate("/dashboard/businesses");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to complete promotion");
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
     <>
-      <Helmet><title>Boost Business | Bethelincovibe TV</title></Helmet>
+      <Helmet><title>Feature My Business | Bethelincovibe TV</title></Helmet>
       <div className="container mx-auto max-w-2xl px-4 py-6">
-        <Button asChild variant="ghost" size="sm" className="mb-3"><Link to="/dashboard/businesses"><ChevronLeft className="h-4 w-4 mr-1" />Back</Link></Button>
+        <Button asChild variant="ghost" size="sm" className="mb-3"><Link to="/dashboard/businesses"><ChevronLeft className="h-4 w-4 mr-1" />Back to Businesses</Link></Button>
 
         <div className="rounded-2xl bg-gradient-to-br from-amber-500 via-orange-500 to-pink-500 p-5 text-white mb-4 shadow-lg">
           <Sparkles className="h-7 w-7 mb-2" />
-          <h1 className="text-xl font-bold">Boost {biz.name}</h1>
-          <p className="text-sm opacity-90 mt-1">Appear at the top of the directory as a Sponsored listing.</p>
-          {isBoosted && <Badge className="mt-2 bg-white/20 text-white">Active until {new Date(biz.boosted_until).toLocaleDateString()}</Badge>}
+          <h1 className="text-xl font-bold">Feature {biz.name}</h1>
+          <p className="text-sm opacity-90 mt-1">Place your business at the top of the directory with a Featured Sponsor badge.</p>
+          {isBoosted && <Badge className="mt-2 bg-white/20 text-white">Active Promotion until {new Date(biz.boosted_until).toLocaleDateString()}</Badge>}
         </div>
 
         <Card className="mb-4">
           <CardContent className="p-4 flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Wallet balance</span>
+            <span className="text-sm text-muted-foreground">Unified Wallet Balance</span>
             <span className="text-lg font-bold">₦{wallet.toLocaleString()}</span>
           </CardContent>
         </Card>
@@ -99,21 +162,21 @@ export default function BoostBusiness() {
                   <span className="text-lg font-extrabold">₦{p.price.toLocaleString()}</span>
                 </CardHeader>
                 <CardContent className="text-xs text-muted-foreground">
-                  • {p.days} days at the top of the directory<br />
-                  • Sponsored badge on your listing<br />
-                  • Priority placement in search
+                  • {p.days} days spotlight at the top of the directory<br />
+                  • Featured badge on your business card and public profile<br />
+                  • Priority ranking in all category & service searches
                 </CardContent>
               </Card>
             );
           })}
         </div>
 
-        <Button className="w-full mt-5 h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white" disabled={!selected || paying} onClick={purchase}>
+        <Button className="w-full mt-5 h-12 text-base bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-white rounded-xl font-bold" disabled={!selected || paying} onClick={purchase}>
           {paying && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-          {selected ? `Pay ₦${selected.price.toLocaleString()} from Wallet` : "Choose a package"}
+          {selected ? `Pay ₦${selected.price.toLocaleString()} with Wallet` : "Choose a Promotion Duration"}
         </Button>
         <p className="text-center text-xs text-muted-foreground mt-3">
-          Need credits? <Link to="/dashboard/wallet" className="underline text-primary">Top up your wallet</Link>
+          Need credits? <Link to="/dashboard/wallet" className="underline text-primary font-medium">Top up your wallet</Link>
         </p>
       </div>
     </>

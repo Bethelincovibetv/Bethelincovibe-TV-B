@@ -44,11 +44,33 @@ export default function BusinessDirectory() {
         const { data: cat } = await supabase.from("categories").select("id").eq("slug", categorySlug).maybeSingle();
         if (cat) { catId = cat.id; query = query.eq("category_id", cat.id); }
       }
-      if (search) query = query.or(`name.ilike.%${search}%,description.ilike.%${search}%,address.ilike.%${search}%`);
-      const { data: own } = await query
+
+      const { data: allApproved } = await query
         .order("boosted_until", { ascending: false, nullsFirst: false })
         .order("featured", { ascending: false })
         .order("created_at", { ascending: false });
+
+      let rows = allApproved ?? [];
+
+      // Service-aware search: check business name, description, address, category, and services array
+      if (search && search.trim()) {
+        const term = search.trim().toLowerCase();
+        rows = rows.filter((b: any) => {
+          if (b.name?.toLowerCase().includes(term)) return true;
+          if (b.description?.toLowerCase().includes(term)) return true;
+          if (b.address?.toLowerCase().includes(term)) return true;
+          if (b.categories?.name?.toLowerCase().includes(term)) return true;
+          if (Array.isArray(b.services)) {
+            return b.services.some((srv: any) => {
+              if (typeof srv === "string") return srv.toLowerCase().includes(term);
+              if (srv.title && srv.title.toLowerCase().includes(term)) return true;
+              if (srv.description && srv.description.toLowerCase().includes(term)) return true;
+              return false;
+            });
+          }
+          return false;
+        });
+      }
 
       if (catId && !search) {
         const { data: boosted } = await supabase
@@ -60,10 +82,10 @@ export default function BusinessDirectory() {
           .or(`boosted_until.gt.${nowIso},featured.eq.true`)
           .order("boosted_until", { ascending: false, nullsFirst: false })
           .limit(6);
-        const ownIds = new Set((own ?? []).map((b: any) => b.id));
-        return [...(boosted ?? []).filter((b: any) => !ownIds.has(b.id)), ...(own ?? [])];
+        const ownIds = new Set((rows ?? []).map((b: any) => b.id));
+        return [...(boosted ?? []).filter((b: any) => !ownIds.has(b.id)), ...(rows ?? [])];
       }
-      return own ?? [];
+      return rows;
     },
   });
 
@@ -192,11 +214,11 @@ export default function BusinessDirectory() {
               Verified listings, real photos and direct contact — or list your own business and reach thousands of customers.
             </p>
             <div className="flex flex-wrap gap-2">
-              <Button asChild size="lg" variant="secondary" className="shadow-lg">
-                <Link to="/businesses/list"><Plus className="mr-1.5 h-4 w-4" />List Your Service</Link>
+              <Button asChild size="lg" variant="secondary" className="shadow-lg rounded-xl font-bold">
+                <Link to="/dashboard/profile-edit"><Building2 className="mr-1.5 h-4 w-4" />Set Up Business Profile</Link>
               </Button>
-              <Button asChild size="lg" variant="outline" className="border-white/40 bg-white/10 text-primary-foreground hover:bg-white/20">
-                <Link to="/products">Shop products →</Link>
+              <Button asChild size="lg" variant="outline" className="border-white/40 bg-white/10 text-primary-foreground hover:bg-white/20 rounded-xl font-bold">
+                <Link to="/marketplace">Shop Marketplace →</Link>
               </Button>
             </div>
           </div>
@@ -315,17 +337,17 @@ export default function BusinessDirectory() {
         ) : sorted.length > 0 ? (
           <div className={view === "grid" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "flex flex-col gap-3"}>
             {sorted.map((s: any) => (
-              <BusinessCard key={s.id} business={s} images={allImages?.[s.id] ?? []} view={view} />
+              <BusinessCard key={s.id} business={s} images={allImages?.[s.id] ?? []} view={view} searchTerm={search} />
             ))}
           </div>
         ) : (
           <div className="rounded-2xl border border-dashed py-16 text-center text-muted-foreground">
             <Building2 className="mx-auto mb-3 h-12 w-12 opacity-40" />
             <p className="text-lg font-medium text-foreground">No businesses found</p>
-            <p className="mt-1 text-sm">Try a different search, or be the first to list here.</p>
+            <p className="mt-1 text-sm">Try a different service search or category filter.</p>
             <div className="mt-4 flex justify-center gap-2">
               {(search || categorySlug) && <Button variant="outline" onClick={clearFilters}>Clear filters</Button>}
-              <Button asChild><Link to="/businesses/list">List Your Business</Link></Button>
+              <Button asChild><Link to="/dashboard/profile-edit">Set Up Business Profile</Link></Button>
             </div>
           </div>
         )}
