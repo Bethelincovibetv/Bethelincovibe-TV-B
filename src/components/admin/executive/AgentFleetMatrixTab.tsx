@@ -17,9 +17,11 @@ import {
 import { toast } from "sonner";
 
 interface AgentFleetMatrixTabProps {
-  tasks: AgentTask[];
-  onDispatchToAgent: (agentId: AgentId, directive: string) => void;
-  onAuditFleet: () => void;
+  tasks?: AgentTask[];
+  onDispatchToAgent?: (agentId: AgentId, directive: string) => void;
+  onDispatchAgent?: (agentId: AgentId, directive?: string) => void;
+  onInvestigateAgent?: (agentId: AgentId) => void;
+  onAuditFleet?: () => void;
 }
 
 const AGENT_ICON_MAP: Record<string, any> = {
@@ -38,8 +40,10 @@ const AGENT_ICON_MAP: Record<string, any> = {
 };
 
 export default function AgentFleetMatrixTab({
-  tasks,
+  tasks = [],
   onDispatchToAgent,
+  onDispatchAgent,
+  onInvestigateAgent,
   onAuditFleet,
 }: AgentFleetMatrixTabProps) {
   const [selectedAgent, setSelectedAgent] = useState<SpecializedAgentDefinition | null>(null);
@@ -50,7 +54,11 @@ export default function AgentFleetMatrixTab({
       toast.error("Please enter a directive for the agent.");
       return;
     }
-    onDispatchToAgent(agentId, quickPrompt.trim());
+    if (onDispatchToAgent) {
+      onDispatchToAgent(agentId, quickPrompt.trim());
+    } else if (onDispatchAgent) {
+      onDispatchAgent(agentId, quickPrompt.trim());
+    }
     setQuickPrompt("");
     setSelectedAgent(null);
     toast.success(`Directive dispatched to ${agentId}`);
@@ -75,7 +83,7 @@ export default function AgentFleetMatrixTab({
         </div>
 
         <Button
-          onClick={onAuditFleet}
+          onClick={onAuditFleet || (() => {})}
           size="sm"
           variant="outline"
           className="h-8 rounded-xl text-xs font-bold gap-1.5 border-primary/20 hover:bg-primary/10"
@@ -88,8 +96,8 @@ export default function AgentFleetMatrixTab({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
         {SPECIALIZED_AI_AGENTS.map((agent) => {
           const Icon = AGENT_ICON_MAP[agent.iconName] || BotIconFallback;
-          const agentTasks = tasks.filter((t) => t.assignedAgent === agent.id);
-          const activeCount = agentTasks.filter((t) => t.status === "in_progress" || t.status === "pending").length;
+          const agentTasks = (tasks || []).filter((t) => t?.assignedAgent === agent.id);
+          const activeCount = agentTasks.filter((t) => t?.status === "in_progress" || t?.status === "pending").length;
 
           return (
             <Card

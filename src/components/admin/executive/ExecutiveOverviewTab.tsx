@@ -18,6 +18,9 @@ interface ExecutiveOverviewTabProps {
   onOpenDailyBriefing?: () => void;
   onOpenInvestigation?: () => void;
   onOpenSSOT?: () => void;
+  onOpenSystemHealth?: () => void;
+  onOpenPromotion?: () => void;
+  onOpenActivityIntelligence?: () => void;
   onApproveDecision?: (decisionId: string | any, actionType?: string) => void;
   onResolveAlert?: (alertId: string) => void;
   onSelectAgent?: (agentId: string) => void;
@@ -33,6 +36,9 @@ export default function ExecutiveOverviewTab({
   onOpenDailyBriefing,
   onOpenInvestigation,
   onOpenSSOT,
+  onOpenSystemHealth,
+  onOpenPromotion,
+  onOpenActivityIntelligence,
   onApproveDecision,
   onResolveAlert,
   onSelectAgent,
@@ -64,7 +70,7 @@ export default function ExecutiveOverviewTab({
           <div className="space-y-1.5 max-w-2xl">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 text-xs font-black">
               <Sparkles className="h-3.5 w-3.5 text-purple-400" />
-              Central Operating Intelligence
+              Central Operating Intelligence & Coordinator
             </div>
             <h2 className="text-xl sm:text-2xl lg:text-3xl font-black tracking-tight text-white flex items-center gap-2.5">
               Bethelincovibe TV Executive Command Center
@@ -83,7 +89,7 @@ export default function ExecutiveOverviewTab({
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap justify-end">
               <Button
                 onClick={handleOpenBriefing}
                 size="sm"
@@ -91,6 +97,26 @@ export default function ExecutiveOverviewTab({
               >
                 <Play className="h-3 w-3" /> Daily Briefing
               </Button>
+              {onOpenSystemHealth && (
+                <Button
+                  onClick={onOpenSystemHealth}
+                  size="sm"
+                  variant="outline"
+                  className="h-8 sm:h-9 px-3 rounded-xl font-bold text-xs border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 gap-1.5"
+                >
+                  <ShieldCheck className="h-3 w-3 text-emerald-400" /> System Probes
+                </Button>
+              )}
+              {onOpenPromotion && (
+                <Button
+                  onClick={onOpenPromotion}
+                  size="sm"
+                  variant="outline"
+                  className="h-8 sm:h-9 px-3 rounded-xl font-bold text-xs border-rose-500/40 text-rose-300 hover:bg-rose-500/20 gap-1.5"
+                >
+                  <Megaphone className="h-3 w-3 text-rose-400" /> Multi-Agent Promo
+                </Button>
+              )}
               {onOpenInvestigation && (
                 <Button
                   onClick={onOpenInvestigation}
@@ -99,6 +125,17 @@ export default function ExecutiveOverviewTab({
                   className="h-8 sm:h-9 px-3 rounded-xl font-bold text-xs border-purple-400/40 text-purple-200 hover:bg-purple-500/20 gap-1.5"
                 >
                   <Bot className="h-3 w-3" /> Investigate
+                </Button>
+              )}
+              {onOpenActivityIntelligence && (
+                <Button
+                  onClick={onOpenActivityIntelligence}
+                  size="sm"
+                  variant="ghost"
+                  className="h-8 sm:h-9 px-2.5 rounded-xl font-bold text-xs text-slate-300 hover:bg-white/10 hover:text-white"
+                  title="First-Party Activity Intelligence"
+                >
+                  Audience Hub
                 </Button>
               )}
               {onOpenSSOT && (

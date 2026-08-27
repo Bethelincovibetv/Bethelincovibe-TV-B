@@ -17,15 +17,17 @@ import {
 import { toast } from "sonner";
 
 interface TaskQueueTabProps {
-  tasks: AgentTask[];
-  onUpdateTask: (task: AgentTask) => void;
+  tasks?: AgentTask[];
+  onUpdateTask?: (task: AgentTask) => void;
+  onUpdateTasks?: (tasks: AgentTask[]) => void;
   onCreateTask: (task: Omit<AgentTask, "id" | "createdAt" | "updatedAt">) => void;
   onExecuteTask: (task: AgentTask) => void;
 }
 
 export default function TaskQueueTab({
-  tasks,
+  tasks = [],
   onUpdateTask,
+  onUpdateTasks,
   onCreateTask,
   onExecuteTask,
 }: TaskQueueTabProps) {
@@ -35,6 +37,15 @@ export default function TaskQueueTab({
   const [selectedTask, setSelectedTask] = useState<AgentTask | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
 
+  const handleTaskUpdate = (updatedTask: AgentTask) => {
+    if (onUpdateTask) {
+      onUpdateTask(updatedTask);
+    } else if (onUpdateTasks) {
+      const updatedList = (tasks || []).map((t) => (t.id === updatedTask.id ? updatedTask : t));
+      onUpdateTasks(updatedList);
+    }
+  };
+
   // New task form state
   const [newTitle, setNewTitle] = useState("");
   const [newAgent, setNewAgent] = useState<AgentId>("content_ai");
@@ -43,7 +54,7 @@ export default function TaskQueueTab({
   const [newContext, setNewContext] = useState("");
   const [newExpectedResult, setNewExpectedResult] = useState("");
 
-  const filteredTasks = tasks.filter((t) => {
+  const filteredTasks = (tasks || []).filter((t) => {
     if (filterStatus !== "all" && t.status !== filterStatus) return false;
     if (filterPriority !== "all" && t.priority !== filterPriority) return false;
     if (searchQuery.trim()) {
@@ -305,7 +316,7 @@ export default function TaskQueueTab({
                   size="sm"
                   variant="outline"
                   onClick={() => {
-                    onUpdateTask({ ...selectedTask, status: "escalated", updatedAt: new Date().toISOString() });
+                    handleTaskUpdate({ ...selectedTask, status: "escalated", updatedAt: new Date().toISOString() });
                     setSelectedTask(null);
                     toast.success("Task escalated to Founder & CEO queue");
                   }}
@@ -320,7 +331,7 @@ export default function TaskQueueTab({
                   <Button
                     size="sm"
                     onClick={() => {
-                      onUpdateTask({
+                      handleTaskUpdate({
                         ...selectedTask,
                         status: "completed",
                         result: "Task verified and closed by Executive Admin AI.",

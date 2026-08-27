@@ -47,7 +47,14 @@ import TaskQueueTab from "@/components/admin/executive/TaskQueueTab";
 import DailyBriefingModal from "@/components/admin/executive/DailyBriefingModal";
 import SingleSourceOfTruthModal from "@/components/admin/executive/SingleSourceOfTruthModal";
 import InvestigationModal from "@/components/admin/executive/InvestigationModal";
-
+import SystemHealthDiagnosticsModal from "@/components/admin/executive/SystemHealthDiagnosticsModal";
+import MultiAgentPromotionModal from "@/components/admin/executive/MultiAgentPromotionModal";
+import ActivityIntelligenceModal from "@/components/admin/executive/ActivityIntelligenceModal";
+import {
+  executeMultiAgentBusinessPromotion,
+  executeProfileAndGraphicEnhanceChain,
+  runComprehensiveSystemHealthDiagnostic,
+} from "@/lib/executiveOrchestrationEngine";
 
 type ToolLog = {
   tool: string;
@@ -58,7 +65,7 @@ type ToolLog = {
 
 export interface PendingActionProposal {
   id: string;
-  type: "multi_blog_campaign" | "create_custom_page" | "create_ai_course" | "system_autotune" | "approve_businesses" | "update_setting" | "toggle_feature";
+  type: "multi_blog_campaign" | "create_custom_page" | "create_ai_course" | "system_autotune" | "approve_businesses" | "update_setting" | "toggle_feature" | "orchestrate_business_promotion" | "profile_auto_enhance" | "system_health_diagnostic";
   title: string;
   rationale: string;
   previewData: any;
@@ -141,6 +148,9 @@ export default function AdminPlatformAI() {
   const [dailyBriefingOpen, setDailyBriefingOpen] = useState(false);
   const [investigationOpen, setInvestigationOpen] = useState(false);
   const [ssotOpen, setSsotOpen] = useState(false);
+  const [systemHealthOpen, setSystemHealthOpen] = useState(false);
+  const [multiAgentPromoOpen, setMultiAgentPromoOpen] = useState(false);
+  const [activityIntelligenceOpen, setActivityIntelligenceOpen] = useState(false);
 
   // Persistence helpers
   const handleUpdateTasks = (updated: AgentTask[]) => {
@@ -572,6 +582,49 @@ export default function AdminPlatformAI() {
           qc.invalidateQueries();
           refetchStats();
           return { logs, message: `Feature '${featureKey}' is now ${enabled ? "enabled" : "disabled"}.` };
+        }
+
+        case "orchestrate_business_promotion": {
+          const { businessId, channel, customOfferHook } = proposal.previewData;
+          const promoRes = await executeMultiAgentBusinessPromotion({
+            businessId,
+            channel: channel || "all",
+            customOfferHook,
+          });
+          logs.push({
+            tool: "orchestrate_business_promotion",
+            summary: promoRes.summaryReport,
+            timestamp: ts,
+            success: promoRes.verified,
+          });
+          qc.invalidateQueries();
+          refetchStats();
+          return { logs, message: promoRes.summaryReport };
+        }
+
+        case "profile_auto_enhance": {
+          const { businessId } = proposal.previewData;
+          const enhanceRes = await executeProfileAndGraphicEnhanceChain(businessId);
+          logs.push({
+            tool: "profile_auto_enhance",
+            summary: `Enhanced profile for ${enhanceRes.businessName}: Bio updated, ${enhanceRes.servicesCreated} services structured, ${enhanceRes.graphicsAttached} Pexels visuals attached.`,
+            timestamp: ts,
+            success: enhanceRes.verified,
+          });
+          qc.invalidateQueries();
+          refetchStats();
+          return { logs, message: `Profile enhanced for ${enhanceRes.businessName}.` };
+        }
+
+        case "system_health_diagnostic": {
+          const diagRes = await runComprehensiveSystemHealthDiagnostic();
+          logs.push({
+            tool: "system_health_diagnostic",
+            summary: diagRes.executiveSummary,
+            timestamp: ts,
+            success: diagRes.overallStatus !== "CRITICAL",
+          });
+          return { logs, message: diagRes.executiveSummary };
         }
 
         default:
@@ -1216,6 +1269,9 @@ Select a quick action chip above or type your exact directive!`;
             onOpenDailyBriefing={() => setDailyBriefingOpen(true)}
             onOpenInvestigation={() => setInvestigationOpen(true)}
             onOpenSSOT={() => setSsotOpen(true)}
+            onOpenSystemHealth={() => setSystemHealthOpen(true)}
+            onOpenPromotion={() => setMultiAgentPromoOpen(true)}
+            onOpenActivityIntelligence={() => setActivityIntelligenceOpen(true)}
             onNavigateToTab={(t) => setActiveTab(t)}
             onApproveDecision={(task) => handleExecuteTask(task)}
             onResolveAlert={(alertId) => {
@@ -1231,10 +1287,13 @@ Select a quick action chip above or type your exact directive!`;
       {activeTab === "fleet" && (
         <div className="flex-1 min-h-0 overflow-y-auto pr-1">
           <AgentFleetMatrixTab
-            onDispatchAgent={(agentId) => handleDispatchToAgent(agentId)}
-            onInvestigateAgent={(agentId) => {
+            tasks={tasks}
+            onDispatchToAgent={(agentId, directive) => handleDispatchToAgent(agentId, directive)}
+            onDispatchAgent={(agentId, directive) => handleDispatchToAgent(agentId, directive)}
+            onInvestigateAgent={(_agentId) => {
               setInvestigationOpen(true);
             }}
+            onAuditFleet={() => setSystemHealthOpen(true)}
           />
         </div>
       )}
@@ -1649,6 +1708,27 @@ Select a quick action chip above or type your exact directive!`;
       <SingleSourceOfTruthModal
         open={ssotOpen}
         onOpenChange={setSsotOpen}
+      />
+
+      {/* System Health Diagnostics Modal */}
+      <SystemHealthDiagnosticsModal
+        open={systemHealthOpen}
+        onOpenChange={setSystemHealthOpen}
+      />
+
+      {/* Multi-Agent Promotion Modal */}
+      <MultiAgentPromotionModal
+        open={multiAgentPromoOpen}
+        onOpenChange={setMultiAgentPromoOpen}
+        onSuccess={() => {
+          refetchStats();
+        }}
+      />
+
+      {/* User Activity & Interest Intelligence Modal */}
+      <ActivityIntelligenceModal
+        open={activityIntelligenceOpen}
+        onOpenChange={setActivityIntelligenceOpen}
       />
 
       {/* Google Live Voice Agent Modal Dialog */}

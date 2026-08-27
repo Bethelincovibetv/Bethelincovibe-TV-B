@@ -14,8 +14,10 @@ if (typeof window !== "undefined") {
       s.includes("load failed") ||
       s.includes("onesignal") ||
       s.includes("google") ||
+      s.includes("ggd") ||
       s.includes("aborted") ||
-      s.includes("loading chunk")
+      s.includes("loading chunk") ||
+      s.includes("dynamically imported module")
     );
   };
 
@@ -24,6 +26,15 @@ if (typeof window !== "undefined") {
     const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();
     if (isBenignError(msg)) {
       event.preventDefault?.();
+      event.stopPropagation?.();
+    }
+  });
+
+  window.addEventListener("error", (event) => {
+    const msg = (event.message || event.error?.message || "").toLowerCase();
+    if (isBenignError(msg)) {
+      event.preventDefault?.();
+      event.stopPropagation?.();
     }
   });
 }
