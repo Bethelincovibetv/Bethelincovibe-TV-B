@@ -11,8 +11,9 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Shield, ShieldOff, Users, Search, Wallet, Plus, Minus, Eye, Building2, UserCog, Mail, Briefcase } from "lucide-react";
+import { Shield, ShieldOff, Users, Search, Wallet, Plus, Minus, Eye, Building2, UserCog, Mail, Briefcase, Crown, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { autoCreateAndSetupBusinessForUser, runQueenServiceAIAutomation } from "@/lib/queenBusinessServiceAIEngine";
 
 export default function AdminUsers() {
   const qc = useQueryClient();
@@ -84,6 +85,37 @@ export default function AdminUsers() {
     },
     onError: (e: any) => toast.error(e.message),
   });
+
+  const [queenRunningForUser, setQueenRunningForUser] = useState<string | null>(null);
+
+  const handleQueenUserSetup = async (p: any) => {
+    setQueenRunningForUser(p.user_id);
+    const toastId = toast.loading(`👑 Queen AI Agent is setting up business & graphic creatives for ${p.display_name || p.email}...`);
+    try {
+      const userBizList = businessesFor(p.user_id);
+      if (userBizList.length > 0) {
+        // Run setup on existing primary business
+        await runQueenServiceAIAutomation(userBizList[0], {
+          createBannerAdvert: true,
+          generateServicesCatalog: true,
+          sendOwnerNotification: true,
+        });
+        toast.success(`👑 Queen Service completed for ${userBizList[0].name}!`, { id: toastId });
+      } else {
+        // Auto-create brand new business listing with full graphic creatives & advert
+        const res = await autoCreateAndSetupBusinessForUser(p);
+        toast.success(`👑 Created new business "${res.businessName}" with full AI catalog & banner creatives!`, { id: toastId });
+      }
+
+      qc.invalidateQueries({ queryKey: ["admin-user-businesses"] });
+      qc.invalidateQueries({ queryKey: ["admin-user-ads"] });
+      qc.invalidateQueries({ queryKey: ["admin-profiles"] });
+    } catch (err: any) {
+      toast.error(err.message || "Failed to execute Queen setup", { id: toastId });
+    } finally {
+      setQueenRunningForUser(null);
+    }
+  };
 
   const isAdmin = (uid: string) => roles?.some((r: any) => r.user_id === uid && r.role === "admin");
   const balanceFor = (uid: string) => Number(wallets?.find((w: any) => w.user_id === uid)?.balance ?? 0);

@@ -12,8 +12,12 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { Loader2, Building2, Plus, Trash2, ImagePlus } from "lucide-react";
+import { Loader2, Building2, Plus, Trash2, ImagePlus, Crown } from "lucide-react";
 import PhoneInput from "@/components/PhoneInput";
+import {
+  getQueenServiceSettings,
+  runQueenServiceAIAutomation,
+} from "@/lib/queenBusinessServiceAIEngine";
 
 type Service = { title: string; description?: string; image_url?: string; link_url?: string };
 
@@ -113,27 +117,64 @@ export default function ListBusiness() {
     setSubmitting(true);
     const cleanedServices = services.filter((s) => s.title.trim());
     const cleanedSocials = Object.fromEntries(Object.entries(socials).filter(([, v]) => v && v.trim()));
-    const { error } = await supabase.from("suppliers").insert({
-      name: form.name.trim(),
-      slug: generateSlug(form.name),
-      category_id: form.category_id || null,
-      description: form.description || null,
-      phone: form.phone || null,
-      address: form.address || null,
-      website: form.website || null,
-      logo_url: form.logo_url || null,
-      cover_url: form.cover_url || null,
-      cover_template: form.cover_url ? null : (form.cover_template || null),
-      submitted_by: user.id,
-      status: "pending",
-      active: false,
-      featured: false,
-      social_links: cleanedSocials,
-      services: cleanedServices,
-    });
+    const { data: insertedData, error } = await supabase
+      .from("suppliers")
+      .insert({
+        name: form.name.trim(),
+        slug: generateSlug(form.name),
+        category_id: form.category_id || null,
+        description: form.description || null,
+        phone: form.phone || null,
+        address: form.address || null,
+        website: form.website || null,
+        logo_url: form.logo_url || null,
+        cover_url: form.cover_url || null,
+        cover_template: form.cover_url ? null : (form.cover_template || null),
+        submitted_by: user.id,
+        status: "pending",
+        active: false,
+        featured: false,
+        social_links: {
+          ...cleanedSocials,
+          is_early_access: true,
+        },
+        services: cleanedServices,
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      setSubmitting(false);
+      toast.error(error.message);
+      return;
+    }
+
+    // Check if auto-run Queen setup is active
+    try {
+      const qSettings = await getQueenServiceSettings();
+      if (qSettings.autoRunOnNewBusinessRegistration && insertedData) {
+        toast.info("👑 Queen AI Agent is creating your graphic banners, AI catalog, and VIP verification...");
+        // Run full Queen setup
+        await runQueenServiceAIAutomation(insertedData, {
+          featuredDurationDays: qSettings.defaultFeaturedDays,
+          verificationDays: qSettings.defaultVerificationDays,
+          advertPlacement: qSettings.defaultAdPlacement,
+          advertDurationDays: qSettings.defaultAdDays,
+          createBannerAdvert: true,
+          generateServicesCatalog: true,
+          sendOwnerNotification: true,
+          isEarlyAccessOnly: false,
+        });
+        toast.success("👑 Queen Service VIP Setup Complete! Your listing, graphic banner, and live advert are now active.");
+      } else {
+        toast.success("Listing submitted! An admin will review it shortly.");
+      }
+    } catch (autoErr: any) {
+      console.warn("Auto Queen service notice:", autoErr);
+      toast.success("Listing submitted successfully!");
+    }
+
     setSubmitting(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Listing submitted! An admin will review it shortly.");
     setForm({ name: "", category_id: "", description: "", phone: "", address: "", website: "", logo_url: "", cover_url: "", cover_template: "purple" });
     setSocials({}); setServices([]);
     refetch();
