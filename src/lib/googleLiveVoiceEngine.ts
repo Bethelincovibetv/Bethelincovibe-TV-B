@@ -113,6 +113,30 @@ export function downsampleBuffer(buffer: Float32Array, inputSampleRate: number, 
 }
 
 /**
+ * Convert Base64 encoded 16-bit PCM little-endian data to Float32Array [-1.0, 1.0]
+ */
+export function base64ToPcmFloat32(base64: string): Float32Array {
+  try {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    const dataView = new DataView(bytes.buffer);
+    const numSamples = Math.floor(bytes.byteLength / 2);
+    const float32 = new Float32Array(numSamples);
+    for (let i = 0; i < numSamples; i++) {
+      const int16 = dataView.getInt16(i * 2, true); // little-endian
+      float32[i] = int16 < 0 ? int16 / 0x8000 : int16 / 0x7fff;
+    }
+    return float32;
+  } catch (e) {
+    console.warn("Failed to decode base64 PCM to Float32:", e);
+    return new Float32Array(0);
+  }
+}
+
+/**
  * Convert PCM Uint8Array to standard RIFF WAVE buffer
  */
 export function buildWavFromPcm(pcm: Uint8Array, sampleRate = 24000, channels = 1, bitsPerSample = 16): ArrayBuffer {
