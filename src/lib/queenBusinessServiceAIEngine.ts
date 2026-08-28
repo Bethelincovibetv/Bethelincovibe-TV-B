@@ -5,16 +5,28 @@ import { getCategoryImage } from "@/lib/categoryImages";
 import {
   renderQueenBannerGraphic,
   generateIndividualServiceFlyers,
+  renderQueenProductGraphic,
   uploadGraphicCreativeToStorage,
   getCategoryStockImage,
   QueenGraphicOptions,
 } from "@/lib/queenGraphicDesigner";
+import { classifyBusinessCategory, CategoryClassificationResult } from "@/lib/businessCategoryClassifier";
+import {
+  segregateServicesAndProductsAI,
+  syncPhysicalProductsToDirectory,
+  QueenSegregatedItem,
+} from "@/lib/queenProductServiceSegregator";
+import { generateWhatsAppLink, buildBusinessInquiryMessage } from "@/lib/whatsappLinkGenerator";
 
 export type QueenJobStep =
   | "QUEUED"
   | "ANALYZING_INFO"
+  | "VALIDATING_CATEGORY"
   | "GENERATING_PROFILE"
+  | "SEGREGATING_SERVICES_AND_PRODUCTS"
   | "CREATING_SERVICES"
+  | "CREATING_PHYSICAL_PRODUCTS"
+  | "GENERATING_WHATSAPP_LINK"
   | "DESIGNING_GRAPHICS"
   | "ACTIVATING_LISTING"
   | "APPLYING_VERIFICATION"
@@ -46,9 +58,13 @@ export interface QueenJobRecord {
   completedAt?: string;
   options?: QueenServiceOptions;
   generatedContent?: QueenServiceGeneratedContent;
+  categoryClassification?: CategoryClassificationResult;
   renderedBannerCreativeUrl?: string;
   advertId?: string;
   serviceGraphicUrls?: Record<string, string>;
+  productGraphicUrls?: Record<string, string>;
+  whatsAppClickToChatUrl?: string;
+  physicalProducts?: QueenSegregatedItem[];
 }
 
 export interface QueenServiceOptions {
@@ -82,6 +98,9 @@ export interface QueenServiceGeneratedContent {
   targetAudience?: string;
   suggestedCategorySlug?: string;
   renderedBannerCreativeUrl?: string;
+  categoryClassification?: CategoryClassificationResult;
+  whatsAppClickToChatUrl?: string;
+  physicalProducts?: QueenSegregatedItem[];
   services: {
     title: string;
     description: string;
@@ -122,6 +141,10 @@ export interface QueenServiceResult {
   advertHeadline?: string;
   renderedGraphicCreativeUrl?: string;
   serviceCreatives?: Array<{ title: string; url: string }>;
+  productCreatives?: Array<{ title: string; url: string; price?: number }>;
+  categoryClassification?: CategoryClassificationResult;
+  whatsAppClickToChatUrl?: string;
+  physicalProductsCreatedCount?: number;
   notificationSent: boolean;
   logs: QueenServiceExecutionLog[];
   generatedContent?: QueenServiceGeneratedContent;
@@ -341,14 +364,18 @@ export async function runQueenServiceAIAutomation(
     updatedAt: now.toISOString(),
     options,
     generatedContent: existingJob?.generatedContent,
+    categoryClassification: existingJob?.categoryClassification,
     renderedBannerCreativeUrl: existingJob?.renderedBannerCreativeUrl,
     advertId: existingJob?.advertId,
     serviceGraphicUrls: existingJob?.serviceGraphicUrls || {},
+    productGraphicUrls: existingJob?.productGraphicUrls || {},
+    whatsAppClickToChatUrl: existingJob?.whatsAppClickToChatUrl,
+    physicalProducts: existingJob?.physicalProducts || [],
   };
 
   await persistQueenJobState(currentJobRecord);
 
-  // STEP 1: Analyze submitted business information
+  // STEP 1: Analyze submitted business information & Ingestion
   addLog(
     "1. Merchant & Profile Ingestion",
     "running",
@@ -356,8 +383,92 @@ export async function runQueenServiceAIAutomation(
   );
   completedSteps.add("ANALYZING_INFO");
   currentJobRecord.completedSteps = Array.from(completedSteps);
-  currentJobRecord.progressPercent = 15;
-  addLog("1. Merchant & Profile Ingestion", "completed", `Data ingestion complete. Ready for copywriting and graphic studio.`);
+  currentJobRecord.progressPercent = 10;
+  addLog("1. Merchant & Profile Ingestion", "completed", `Data ingestion complete for "${bizName}".`);
+
+  // STEP 1B: Intelligent Business Category Classification & Verification
+  let categoryClassification: CategoryClassificationResult | undefined = currentJobRecord.categoryClassification;
+
+  if (!forceRegenerate && completedSteps.has("VALIDATING_CATEGORY") && categoryClassification) {
+    addLog(
+      "1b. AI Category Classification",
+      "completed",
+      `[RESUMED] Category verified as "${categoryClassification.recommendedCategoryName}" (${categoryClassification.confidenceScore}% confidence)`
+    );
+  } else {
+    addLog(
+      "1b. AI Category Classification",
+      "running",
+      `Validating business taxonomy against 15 master commercial sectors...`
+    );
+
+    try {
+      categoryClassification = await classifyBusinessCategory({
+        businessName: bizName,
+        currentCategoryName: currentCategory,
+        description: currentDescription,
+        services: existingServices,
+        location,
+      });
+
+      currentJobRecord.categoryClassification = categoryClassification;
+
+      // Auto-correct category if confidence >= 80% and category differs
+      if (
+        categoryClassification.status === "auto_corrected" &&
+        categoryClassification.recommendedCategoryId &&
+        categoryClassification.recommendedCategoryId !== business.category_id
+      ) {
+        currentCategory = categoryClassification.recommendedCategoryName;
+        await supabase
+          .from("suppliers")
+          .update({
+            category_id: categoryClassification.recommendedCategoryId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", bizId);
+
+        addLog(
+          "1b. AI Category Classification",
+          "completed",
+          `Auto-corrected category to "${categoryClassification.recommendedCategoryName}" (${categoryClassification.confidenceScore}% confidence). Reason: ${categoryClassification.reasoning}`
+        );
+      } else {
+        addLog(
+          "1b. AI Category Classification",
+          "completed",
+          `Verified category "${categoryClassification.recommendedCategoryName}" (${categoryClassification.confidenceScore}% confidence, Status: ${categoryClassification.status})`
+        );
+      }
+
+      completedSteps.add("VALIDATING_CATEGORY");
+      currentJobRecord.completedSteps = Array.from(completedSteps);
+      currentJobRecord.progressPercent = 20;
+      await persistQueenJobState(currentJobRecord);
+    } catch (catErr: any) {
+      console.warn("Category classification notice:", catErr);
+      addLog("1b. AI Category Classification", "completed", `Category maintained as "${currentCategory}"`);
+    }
+  }
+
+  // STEP 1C: WhatsApp Direct Link Generator
+  let whatsAppLinkUrl = currentJobRecord.whatsAppClickToChatUrl || "";
+  if (!whatsAppLinkUrl && (business.whatsapp || business.phone)) {
+    const rawNum = business.whatsapp || business.phone;
+    const defaultMsg = buildBusinessInquiryMessage(bizName, currentCategory);
+    const waResult = generateWhatsAppLink(rawNum, defaultMsg);
+    if (waResult.isValid) {
+      whatsAppLinkUrl = waResult.formattedUrl;
+      currentJobRecord.whatsAppClickToChatUrl = whatsAppLinkUrl;
+      completedSteps.add("GENERATING_WHATSAPP_LINK");
+      currentJobRecord.completedSteps = Array.from(completedSteps);
+      addLog(
+        "1c. WhatsApp Funnel Engine",
+        "completed",
+        `Standardized WhatsApp click-to-chat URL: ${waResult.formattedPhone}`
+      );
+    }
+  }
 
   // STEP 2 & 3: Strategic AI Copywriting, Value Proposition & Services Catalog
   let generated: QueenServiceGeneratedContent;
@@ -448,6 +559,8 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
                 ],
             salesOfferHook: parsed.salesOfferHook || "Special limited offer available for direct inquiries!",
             targetAudience: parsed.targetAudience || "Retail and commercial customers seeking dependable quality.",
+            categoryClassification,
+            whatsAppClickToChatUrl: whatsAppLinkUrl,
             services:
               Array.isArray(parsed.services) && parsed.services.length > 0
                 ? parsed.services
@@ -468,6 +581,8 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     } catch (err) {
       console.warn("Queen Service AI Gemini notice, using smart algorithmic fallback:", err);
       generated = generateFallbackQueenContent(bizName, currentCategory, location);
+      generated.categoryClassification = categoryClassification;
+      generated.whatsAppClickToChatUrl = whatsAppLinkUrl;
     }
 
     completedSteps.add("GENERATING_PROFILE");
@@ -482,6 +597,67 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
       "completed",
       `Brand tagline: "${generated.tagline}" | ${generated.services.length} ready-to-sell service catalog created`
     );
+  }
+
+  // STEP 2B: Segregate Offerings into Services vs Physical Products & Sync Products
+  let physicalProducts: QueenSegregatedItem[] = currentJobRecord.physicalProducts || [];
+
+  if (!forceRegenerate && completedSteps.has("SEGREGATING_SERVICES_AND_PRODUCTS") && physicalProducts.length > 0) {
+    addLog(
+      "2b. Product & Service Segregator",
+      "completed",
+      `[RESUMED] Identified ${physicalProducts.length} physical products and ${generated.services.length} services`
+    );
+  } else {
+    addLog(
+      "2b. Product & Service Segregator",
+      "running",
+      "Distinguishing pure services from tangible physical products for multi-channel marketplace discovery"
+    );
+
+    try {
+      const segResult = await segregateServicesAndProductsAI({
+        businessName: bizName,
+        category: currentCategory,
+        description: currentDescription || generated.aboutStory,
+        services: generated.services,
+      });
+
+      if (segResult.physicalProducts.length > 0) {
+        physicalProducts = segResult.physicalProducts;
+        currentJobRecord.physicalProducts = physicalProducts;
+        generated.physicalProducts = physicalProducts;
+
+        // Sync to directory_products table
+        const syncResult = await syncPhysicalProductsToDirectory(
+          bizId,
+          business.submitted_by || null,
+          business.category_id || null,
+          physicalProducts
+        );
+
+        completedSteps.add("CREATING_PHYSICAL_PRODUCTS");
+        addLog(
+          "2b. Product & Service Segregator",
+          "completed",
+          `Identified and synchronized ${syncResult.createdCount} physical products to Marketplace Catalog`
+        );
+      } else {
+        addLog(
+          "2b. Product & Service Segregator",
+          "completed",
+          `Confirmed offerings are primarily specialized commercial services (${generated.services.length} packages active)`
+        );
+      }
+
+      completedSteps.add("SEGREGATING_SERVICES_AND_PRODUCTS");
+      currentJobRecord.completedSteps = Array.from(completedSteps);
+      currentJobRecord.progressPercent = 50;
+      await persistQueenJobState(currentJobRecord);
+    } catch (segErr: any) {
+      console.warn("Product segregation notice:", segErr);
+      addLog("2b. Product & Service Segregator", "completed", `Segregator check complete`);
+    }
   }
 
   // STEP 4: AI Graphic Designer Creative Studio (Display Banner & Service Flyers)
@@ -566,16 +742,49 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
         }
       }
 
+      // 3. Render individual 1080x1080 product showcase graphics for physical products
+      const productCreativesMap: Record<string, string> = currentJobRecord.productGraphicUrls || {};
+      if (Array.isArray(physicalProducts) && physicalProducts.length > 0) {
+        for (const prod of physicalProducts.slice(0, 4)) {
+          try {
+            const prodDataUrl = await renderQueenProductGraphic({
+              businessName: bizName,
+              productTitle: prod.title,
+              category: currentCategory,
+              price: prod.price ? `₦${prod.price.toLocaleString()}` : "Contact for Price",
+              stockBadge: "IN STOCK (LAGOS)",
+              description: prod.description,
+              phone: business.phone || business.whatsapp,
+              whatsapp: business.whatsapp || business.phone,
+              themeStyle: options.themeStyle || "royal_gold",
+              productImageUrl: prod.imageUrl || getCategoryStockImage(currentCategory),
+            });
+
+            if (prodDataUrl) {
+              const uploadedProdUrl = await uploadGraphicCreativeToStorage(
+                prodDataUrl,
+                `queen_prod_${prod.title.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 15)}`,
+                bizId
+              );
+              productCreativesMap[prod.title] = uploadedProdUrl;
+            }
+          } catch (pErr) {
+            console.warn(`Product graphic notice for ${prod.title}:`, pErr);
+          }
+        }
+      }
+
       completedSteps.add("DESIGNING_GRAPHICS");
       currentJobRecord.completedSteps = Array.from(completedSteps);
       currentJobRecord.serviceGraphicUrls = serviceCreativesMap;
+      currentJobRecord.productGraphicUrls = productCreativesMap;
       currentJobRecord.progressPercent = 65;
       await persistQueenJobState(currentJobRecord);
 
       addLog(
         "3. AI Graphic Designer Creative Studio",
         "completed",
-        `Graphic Studio completed: 1 Master Banner (1200x630) + ${Object.keys(serviceCreativesMap).length} Service Social Flyers (1080x1080) rendered`
+        `Graphic Studio completed: 1 Master Banner (1200x630), ${Object.keys(serviceCreativesMap).length} Service Social Flyers (1080x1080), and ${Object.keys(productCreativesMap).length} Product Showcase Graphics rendered`
       );
     } catch (graphicErr: any) {
       console.warn("Queen Graphic Designer notice:", graphicErr);
@@ -871,6 +1080,11 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     url,
   }));
 
+  const productCreativesList = Object.entries(currentJobRecord.productGraphicUrls || {}).map(([title, url]) => ({
+    title,
+    url,
+  }));
+
   return {
     success: true,
     jobId,
@@ -892,6 +1106,10 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     advertHeadline: generated.advert.headline,
     renderedGraphicCreativeUrl: renderedGraphicUrl,
     serviceCreatives: serviceCreativesList,
+    productCreatives: productCreativesList,
+    categoryClassification,
+    whatsAppClickToChatUrl: whatsAppLinkUrl,
+    physicalProductsCreatedCount: physicalProducts.length,
     notificationSent,
     logs,
     generatedContent: generated,

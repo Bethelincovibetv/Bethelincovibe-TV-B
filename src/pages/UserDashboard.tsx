@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift, Palette
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
@@ -175,6 +175,8 @@ export default function UserDashboard() {
 
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
+    { to: "/dashboard/graphic-designer", label: "Graphic Design", icon: Palette, color: "from-amber-500 via-orange-500 to-pink-500", show: true },
+    { to: "/dashboard/logo-creator", label: "Logo Creator", icon: Sparkles, color: "from-yellow-400 via-amber-500 to-amber-600", show: true },
     { to: "/dashboard/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-green-600", show: flags.whatsapp_engine },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
     { to: "/referral", label: "Refer & Earn", icon: Gift, color: "from-amber-500 via-rose-500 to-purple-600", show: true },
@@ -277,6 +279,53 @@ export default function UserDashboard() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
+        {/* AI Graphic Designer & Logo Creator Suite Banner */}
+        <Card className="border-0 shadow-lg bg-gradient-to-r from-neutral-900 via-amber-950/40 to-neutral-900 text-white rounded-3xl overflow-hidden relative">
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.18),transparent_60%)] pointer-events-none" />
+          <CardContent className="p-5 sm:p-7 relative z-10 space-y-4">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="space-y-1.5 max-w-xl">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 font-black text-[10px] tracking-wider uppercase">
+                    ✨ AI Creative Suite
+                  </Badge>
+                  <span className="text-xs text-amber-200/80 font-semibold">
+                    Maya Sterling & Apollo Brand
+                  </span>
+                </div>
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
+                  Design Flyers, Banners & Vector Logos in Seconds
+                </h2>
+                <p className="text-xs sm:text-sm text-neutral-300">
+                  Generate 1080x1350 business flyers, WhatsApp story promos, and 8 bespoke logo concepts with instant brand sync.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                <Button
+                  asChild
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black shadow-md rounded-2xl h-11 px-5 gap-2"
+                >
+                  <Link to="/dashboard/graphic-designer">
+                    <Palette className="h-4 w-4" />
+                    Open Graphic Studio
+                  </Link>
+                </Button>
+                <Button
+                  asChild
+                  variant="outline"
+                  className="bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold rounded-2xl h-11 px-4 gap-2"
+                >
+                  <Link to="/dashboard/logo-creator">
+                    <Sparkles className="h-4 w-4 text-amber-400" />
+                    Create Logo (₦50)
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Today's Vixora AI Business Coach & Sprint */}
         <VixoraAICoachToday />
 

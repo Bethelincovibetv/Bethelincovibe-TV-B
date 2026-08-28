@@ -10,9 +10,18 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
   Crown, Sparkles, ShieldCheck, Megaphone, CheckCircle2,
   AlertCircle, Loader2, ExternalLink, Search, Filter,
-  RefreshCw, Building2, User, Eye, Zap, Sliders, Check, Wand2
+  RefreshCw, Building2, User, Eye, Zap, Sliders, Check, Wand2,
+  Tag, MessageSquare, ArrowRight, AlertTriangle
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link } from "react-router-dom";
@@ -24,13 +33,19 @@ import {
   runQueenServiceAIAutomation,
   QueenServiceResult,
 } from "@/lib/queenBusinessServiceAIEngine";
+import {
+  auditAllBusinessesCategories,
+  batchApplyCategoryCorrections,
+  BusinessCategoryAuditReport,
+  BusinessCategoryAuditItem,
+} from "@/lib/businessCategoryClassifier";
 
 export default function AdminQueenServiceTab() {
   const queryClient = useQueryClient();
 
   // Search and Filters
   const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState<"all" | "early_access" | "completed" | "pending">("all");
+  const [filterType, setFilterType] = useState<"all" | "early_access" | "completed" | "pending" | "category_mismatch">("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
 
   // Selected Business for Modal
@@ -47,6 +62,12 @@ export default function AdminQueenServiceTab() {
   // Batch Execution State
   const [isBatchRunning, setIsBatchRunning] = useState(false);
   const [batchProgress, setBatchProgress] = useState(0);
+
+  // Category Audit State
+  const [isAuditingCategories, setIsAuditingCategories] = useState(false);
+  const [auditReport, setAuditReport] = useState<BusinessCategoryAuditReport | null>(null);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [isApplyingCategoryFixes, setIsApplyingCategoryFixes] = useState(false);
 
   // Load Settings
   useEffect(() => {
@@ -101,10 +122,10 @@ export default function AdminQueenServiceTab() {
     queryFn: async () => {
       const { data } = await supabase
         .from("profiles")
-        .select("user_id, display_name, email, username, avatar_url, social_links");
+        .select("id, email, username, display_name, phone, role, verified, social_links");
       const map: Record<string, any> = {};
-      (data || []).forEach((p: any) => {
-        map[p.user_id] = p;
+      data?.forEach((p) => {
+        map[p.id] = p;
       });
       return map;
     },
@@ -112,203 +133,259 @@ export default function AdminQueenServiceTab() {
 
   // Fetch Categories
   const { data: categories = [] } = useQuery({
-    queryKey: ["business-categories"],
+    queryKey: ["admin-categories"],
     queryFn: async () => {
       const { data } = await supabase
         .from("categories")
-        .select("*")
-        .eq("type", "business")
-        .order("name");
+        .select("id, name, slug")
+        .eq("type", "business");
       return data ?? [];
     },
   });
 
-  // Fetch Active Queen Ads count
+  // Count Queen Banner Ads
   const { data: queenAdsCount = 0 } = useQuery({
     queryKey: ["admin-queen-ads-count"],
     queryFn: async () => {
       const { count, error } = await supabase
-        .from("user_ads")
+        .from("ad_campaigns")
         .select("*", { count: "exact", head: true })
-        .eq("source", "queen_auto_setup")
         .eq("status", "active");
-      if (error) return 0;
       return count ?? 0;
     },
   });
 
-  // Metrics computation
-  const totalCount = businesses.length;
-  const completedQueenCount = businesses.filter(
-    (b: any) => !!b.social_links?.queen_service?.completed
-  ).length;
-  const earlyAccessCount = businesses.filter((b: any) =>
-    isEarlyAccessBusiness(b, profilesMap[b.submitted_by])
-  ).length;
-  const pendingQueenCount = businesses.filter(
-    (b: any) => !b.social_links?.queen_service?.completed
-  ).length;
-
-  // Filtered List
+  // Filtered Businesses
   const filteredBusinesses = useMemo(() => {
     return businesses.filter((b: any) => {
+      // Search
+      const owner = profilesMap[b.submitted_by];
+      const matchSearch =
+        !search ||
+        b.name?.toLowerCase().includes(search.toLowerCase()) ||
+        b.categories?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        b.phone?.toLowerCase().includes(search.toLowerCase()) ||
+        owner?.email?.toLowerCase().includes(search.toLowerCase()) ||
+        owner?.username?.toLowerCase().includes(search.toLowerCase());
+
+      if (!matchSearch) return false;
+
+      // Category
+      if (categoryFilter !== "all" && b.category_id !== categoryFilter) {
+        return false;
+      }
+
+      // Filter Type
       const isCompleted = !!b.social_links?.queen_service?.completed;
-      const isEA = isEarlyAccessBusiness(b, profilesMap[b.submitted_by]);
+      const isEA = isEarlyAccessBusiness(b, owner);
 
-      if (filterType === "completed" && !isCompleted) return false;
-      if (filterType === "pending" && isCompleted) return false;
-      if (filterType === "early_access" && !isEA) return false;
-
-      if (categoryFilter !== "all" && b.category_id !== categoryFilter) return false;
-
-      if (search.trim()) {
-        const owner = profilesMap[b.submitted_by];
-        const searchCorpus = [
-          b.name,
-          b.slug,
-          b.phone,
-          b.address,
-          b.categories?.name,
-          owner?.display_name,
-          owner?.email,
-          owner?.username,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-
-        if (!searchCorpus.includes(search.toLowerCase().trim())) return false;
+      if (filterType === "early_access") {
+        return isEA;
+      }
+      if (filterType === "completed") {
+        return isCompleted;
+      }
+      if (filterType === "pending") {
+        return !isCompleted;
+      }
+      if (filterType === "category_mismatch") {
+        const auditStatus = b.social_links?.category_classification?.status;
+        return auditStatus === "auto_corrected" || auditStatus === "flagged_for_review";
       }
 
       return true;
     });
-  }, [businesses, profilesMap, search, filterType, categoryFilter]);
+  }, [businesses, profilesMap, search, categoryFilter, filterType]);
 
-  const handleOpenQueenModal = (biz: any) => {
-    setSelectedBiz(biz);
-    setModalOpen(true);
-  };
+  // Overall Statistics
+  const totalCount = businesses.length;
+  const earlyAccessCount = useMemo(() => {
+    return businesses.filter((b: any) => isEarlyAccessBusiness(b, profilesMap[b.submitted_by])).length;
+  }, [businesses, profilesMap]);
 
-  // Quick 1-Click Execute directly from row
-  const handleQuickExecute = async (biz: any) => {
-    const toastId = toast.loading(`👑 Launching Queen AI Setup for ${biz.name}...`);
+  const completedQueenCount = useMemo(() => {
+    return businesses.filter((b: any) => !!b.social_links?.queen_service?.completed).length;
+  }, [businesses]);
+
+  const pendingQueenCount = totalCount - completedQueenCount;
+
+  // Run Category Audit
+  const handleRunCategoryAudit = async () => {
+    setIsAuditingCategories(true);
+    toast.info("Scanning all business listings with AI Category Classifier...");
     try {
-      await runQueenServiceAIAutomation(biz, {
-        featuredDurationDays: defaultFeaturedDays,
-        verificationDays: defaultVerificationDays,
-        createBannerAdvert: true,
-        advertPlacement: defaultAdPlacement as any,
-        advertDurationDays: 30,
-        generateServicesCatalog: true,
-        sendOwnerNotification: true,
-      });
-
-      toast.success(`👑 Queen AI Setup completed for ${biz.name}!`, { id: toastId });
-      queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-queen-ads-count"] });
+      const report = await auditAllBusinessesCategories();
+      setAuditReport(report);
+      setAuditModalOpen(true);
+      if (report.incorrectCount > 0 || report.possiblyIncorrectCount > 0) {
+        toast.warning(
+          `Audit complete: ${report.incorrectCount + report.possiblyIncorrectCount} potential category mismatches found.`
+        );
+      } else {
+        toast.success("Audit complete: All business listings are correctly categorized!");
+      }
     } catch (err: any) {
-      toast.error(err.message || "Failed to execute Queen setup", { id: toastId });
+      toast.error(`Category audit failed: ${err?.message || "Unknown error"}`);
+    } finally {
+      setIsAuditingCategories(false);
     }
   };
 
-  // Batch setup all pending Early Access businesses
-  const handleBatchSetup = async () => {
-    const targets = businesses.filter(
-      (b: any) => !b.social_links?.queen_service?.completed
+  // Apply Category Corrections in Batch
+  const handleApplyAllCategoryFixes = async () => {
+    if (!auditReport) return;
+    const mismatches = auditReport.items.filter(
+      (item) => item.status === "incorrect" || item.status === "possibly_incorrect"
     );
 
-    if (targets.length === 0) {
-      toast.info("All eligible businesses have already completed Queen Service setup!");
+    if (mismatches.length === 0) {
+      toast.info("No category corrections needed.");
       return;
     }
 
-    const confirmRun = window.confirm(
-      `Are you sure you want to run the Queen Service Full AI Setup for ${targets.length} businesses? This will automatically enhance profiles, verify Blue Tick, feature listings, and launch banner adverts.`
-    );
-    if (!confirmRun) return;
+    setIsApplyingCategoryFixes(true);
+    try {
+      const corrections = mismatches.map((m) => ({
+        businessId: m.businessId,
+        newCategoryId: m.aiSuggestedCategoryId!,
+        newCategoryName: m.aiSuggestedCategoryName,
+      }));
+
+      const res = await batchApplyCategoryCorrections(corrections);
+      toast.success(`Successfully updated ${res.successCount} business categories!`);
+      queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
+      setAuditModalOpen(false);
+    } catch (err: any) {
+      toast.error(`Failed to apply fixes: ${err?.message}`);
+    } finally {
+      setIsApplyingCategoryFixes(false);
+    }
+  };
+
+  // Trigger Modal for single business
+  const handleOpenQueenModal = (business: any) => {
+    setSelectedBiz(business);
+    setModalOpen(true);
+  };
+
+  // Quick 1-Click Execution for Single Business
+  const handleQuickExecute = async (business: any) => {
+    const owner = profilesMap[business.submitted_by];
+    const toastId = toast.loading(`Running Queen AI Service for ${business.name}...`);
+    try {
+      const result = await runQueenServiceAIAutomation({
+        business,
+        ownerProfile: owner,
+        featuredDays: defaultFeaturedDays,
+        verificationDays: defaultVerificationDays,
+        createBannerAd: true,
+        adPlacement: defaultAdPlacement as any,
+        adDays: 30,
+        generateServices: true,
+        sendNotification: true,
+      });
+
+      if (result.success) {
+        toast.success(`Queen AI Setup completed for ${business.name}!`, { id: toastId });
+        queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
+        queryClient.invalidateQueries({ queryKey: ["admin-queen-ads-count"] });
+      } else {
+        toast.error(`Queen setup finished with errors for ${business.name}`, { id: toastId });
+      }
+    } catch (err: any) {
+      toast.error(`Queen setup failed: ${err?.message || "Unknown error"}`, { id: toastId });
+    }
+  };
+
+  // Batch Execution across all Early Access pending businesses
+  const handleBatchSetup = async () => {
+    const targets = businesses.filter((b: any) => {
+      const owner = profilesMap[b.submitted_by];
+      const isCompleted = !!b.social_links?.queen_service?.completed;
+      return !isCompleted && isEarlyAccessBusiness(b, owner);
+    });
+
+    if (targets.length === 0) {
+      toast.info("No pending Early Access businesses to process.");
+      return;
+    }
+
+    if (!confirm(`Run 1-Click Queen AI Setup on all ${targets.length} pending Early Access businesses?`)) {
+      return;
+    }
 
     setIsBatchRunning(true);
     setBatchProgress(0);
-    let done = 0;
 
+    let processed = 0;
     for (const biz of targets) {
       try {
-        await runQueenServiceAIAutomation(biz, {
-          featuredDurationDays: defaultFeaturedDays,
+        await runQueenServiceAIAutomation({
+          business: biz,
+          ownerProfile: profilesMap[biz.submitted_by],
+          featuredDays: defaultFeaturedDays,
           verificationDays: defaultVerificationDays,
-          createBannerAdvert: true,
-          advertPlacement: defaultAdPlacement as any,
-          advertDurationDays: 30,
-          generateServicesCatalog: true,
-          sendOwnerNotification: true,
+          createBannerAd: true,
+          adPlacement: defaultAdPlacement as any,
+          adDays: 30,
+          generateServices: true,
+          sendNotification: true,
         });
       } catch (err) {
-        console.warn(`Failed Queen setup for ${biz.name}`, err);
+        console.error("Batch error for biz:", biz.id, err);
       }
-      done++;
-      setBatchProgress(Math.round((done / targets.length) * 100));
+      processed++;
+      setBatchProgress(Math.round((processed / targets.length) * 100));
     }
 
     setIsBatchRunning(false);
-    toast.success(`Batch Queen Service completed for ${done} businesses!`);
+    toast.success(`Batch Queen Service completed for ${processed} businesses!`);
     queryClient.invalidateQueries({ queryKey: ["admin-businesses"] });
     queryClient.invalidateQueries({ queryKey: ["admin-queen-ads-count"] });
   };
 
   return (
     <div className="space-y-6">
-      {/* Royal Hero Banner */}
-      <Card className="border-amber-500/30 overflow-hidden bg-gradient-to-br from-amber-500/10 via-background to-purple-500/10 shadow-sm">
-        <CardContent className="p-6 relative">
-          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
-            <div className="space-y-2 max-w-2xl">
+      {/* Queen Service Header & AI Concierge Banner */}
+      <Card className="border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-purple-500/10 shadow-sm overflow-hidden">
+        <CardHeader className="p-5 sm:p-6 pb-4">
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <Badge className="bg-gradient-to-r from-amber-600 to-yellow-500 text-white border-none font-bold text-xs px-2.5 py-0.5 flex items-center gap-1 shadow-xs">
-                  <Crown className="w-3.5 h-3.5 fill-yellow-200" />
-                  QUEEN VIP CONCIERGE ENGINE
-                </Badge>
-                <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300 text-xs font-semibold">
-                  1-Click Business Takeover
+                <div className="w-8 h-8 rounded-lg bg-amber-500 flex items-center justify-center text-white shadow-xs">
+                  <Crown className="w-4 h-4 fill-white" />
+                </div>
+                <CardTitle className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+                  Bethelincovibe TV Queen AI Concierge
+                </CardTitle>
+                <Badge className="bg-gradient-to-r from-amber-600 to-yellow-500 text-white font-bold text-[10px] px-2 shadow-xs border-none">
+                  VIP AUTOMATION ENGINE
                 </Badge>
               </div>
-
-              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-                Queen Service AI Auto-Setup Suite
-              </h2>
-              <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
-                Take complete admin control of user business setups with one click. The Queen AI Agent synthesizes high-converting brand copy, generates a 3-5 service catalog, grants official Blue-Tick verification, unlocks top featured ranking, and publishes a live banner advert campaign.
-              </p>
+              <CardDescription className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
+                1-Click full-stack setup pipeline: intelligent category classification, Maya Sterling tailored branding, commercial services & physical products segregation, high-converting banner ads, Blue-Tick verification, and VIP spotlight placement.
+              </CardDescription>
             </div>
 
-            {/* Quick Automation Setting Card */}
-            <div className="w-full lg:w-auto p-4 rounded-xl border bg-card/90 backdrop-blur-xs space-y-3 min-w-[280px]">
-              <div className="flex items-center justify-between gap-3">
-                <div className="space-y-0.5">
-                  <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    Auto-Run on Verification
-                  </Label>
-                  <p className="text-[11px] text-muted-foreground">
-                    For Early Access merchants
-                  </p>
-                </div>
-                <Switch
-                  checked={autoRunOnVerification}
-                  onCheckedChange={handleSaveGlobalConfig}
-                  disabled={isSavingSettings}
-                />
+            {/* Global Automation Switch */}
+            <div className="flex items-center gap-3 bg-card p-3 rounded-xl border border-amber-500/20 shadow-xs shrink-0">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground cursor-pointer">
+                  <Zap className="w-3.5 h-3.5 text-amber-500" />
+                  Auto Queen Setup on Early Access
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Executes 100% full setup when an EA business is verified
+                </p>
               </div>
-
-              <div className="pt-2 border-t flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>Featured: <strong className="text-foreground">{defaultFeaturedDays}d</strong></span>
-                <span>•</span>
-                <span>Verified: <strong className="text-foreground">{defaultVerificationDays}d</strong></span>
-                <span>•</span>
-                <span>Ad: <strong className="text-foreground">{defaultAdPlacement}</strong></span>
-              </div>
+              <Switch
+                checked={autoRunOnVerification}
+                onCheckedChange={handleSaveGlobalConfig}
+                disabled={isSavingSettings}
+              />
             </div>
           </div>
-        </CardContent>
+        </CardHeader>
       </Card>
 
       {/* Metrics Row */}
@@ -316,15 +393,15 @@ export default function AdminQueenServiceTab() {
         <Card className="p-4 border bg-card">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-muted-foreground">Total Listings</span>
-            <Building2 className="w-4 h-4 text-primary" />
+            <Building2 className="w-4 h-4 text-muted-foreground" />
           </div>
           <div className="text-2xl font-black text-foreground mt-1">{totalCount}</div>
-          <span className="text-[11px] text-muted-foreground">in business directory</span>
+          <span className="text-[11px] text-muted-foreground">in database</span>
         </Card>
 
         <Card className="p-4 border bg-card">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Queen Setups</span>
+            <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Queen Configured</span>
             <Crown className="w-4 h-4 text-amber-500 fill-amber-500/20" />
           </div>
           <div className="text-2xl font-black text-amber-600 dark:text-amber-400 mt-1">
@@ -386,7 +463,7 @@ export default function AdminQueenServiceTab() {
           </div>
 
           <Select value={filterType} onValueChange={(val: any) => setFilterType(val)}>
-            <SelectTrigger className="w-[160px] h-9 text-xs">
+            <SelectTrigger className="w-[170px] h-9 text-xs">
               <Filter className="w-3.5 h-3.5 mr-1.5 text-muted-foreground" />
               <SelectValue />
             </SelectTrigger>
@@ -395,6 +472,7 @@ export default function AdminQueenServiceTab() {
               <SelectItem value="early_access">Early Access ({earlyAccessCount})</SelectItem>
               <SelectItem value="completed">Queen Done ({completedQueenCount})</SelectItem>
               <SelectItem value="pending">Pending Setup ({pendingQueenCount})</SelectItem>
+              <SelectItem value="category_mismatch">Category Mismatch</SelectItem>
             </SelectContent>
           </Select>
 
@@ -413,7 +491,27 @@ export default function AdminQueenServiceTab() {
           </Select>
         </div>
 
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRunCategoryAudit}
+            disabled={isAuditingCategories}
+            className="text-xs h-9 gap-1.5 font-bold border-indigo-500/30 hover:bg-indigo-500/10 text-indigo-700 dark:text-indigo-300"
+          >
+            {isAuditingCategories ? (
+              <>
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Auditing...
+              </>
+            ) : (
+              <>
+                <Tag className="w-3.5 h-3.5 text-indigo-500" />
+                AI Audit Categories
+              </>
+            )}
+          </Button>
+
           <Button
             variant="outline"
             size="sm"
@@ -461,6 +559,9 @@ export default function AdminQueenServiceTab() {
             const isVerified = !!biz.social_links?.verified;
             const isFeatured = !!biz.featured;
             const servicesCount = Array.isArray(biz.services) ? biz.services.length : 0;
+            const theme = biz.social_links?.queen_service?.theme || "royal_gold";
+            const categoryAudit = biz.social_links?.category_classification;
+            const whatsAppUrl = biz.social_links?.queen_service?.whatsAppUrl;
 
             return (
               <Card
@@ -473,7 +574,7 @@ export default function AdminQueenServiceTab() {
               >
                 <div className="p-4 space-y-3">
                   {/* Top Badges & Status */}
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       {isCompleted ? (
                         <Badge className="bg-amber-500 text-white font-bold text-[10px] px-2 py-0.2 flex items-center gap-1 border-none shadow-xs">
@@ -504,25 +605,49 @@ export default function AdminQueenServiceTab() {
                         </Badge>
                       )}
                     </div>
+
+                    {isCompleted && (
+                      <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold text-muted-foreground">
+                        {theme.replace("_", " ")}
+                      </Badge>
+                    )}
                   </div>
 
                   {/* Business Title & Details */}
                   <div className="space-y-1">
                     <h4 className="font-bold text-foreground text-sm leading-tight flex items-center justify-between gap-2">
                       <span className="truncate">{biz.name}</span>
-                      <Link
-                        to={`/businesses/${biz.slug}`}
-                        target="_blank"
-                        className="text-muted-foreground hover:text-primary shrink-0"
-                        title="View Public Profile"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </Link>
+                      <div className="flex items-center gap-1">
+                        {whatsAppUrl && (
+                          <a
+                            href={whatsAppUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-emerald-600 hover:text-emerald-700 p-1 rounded-md hover:bg-emerald-500/10"
+                            title="Direct WhatsApp Chat"
+                          >
+                            <MessageSquare className="w-3.5 h-3.5" />
+                          </a>
+                        )}
+                        <Link
+                          to={`/businesses/${biz.slug}`}
+                          target="_blank"
+                          className="text-muted-foreground hover:text-primary p-1 rounded-md hover:bg-muted"
+                          title="View Public Profile"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </Link>
+                      </div>
                     </h4>
 
-                    <p className="text-xs text-muted-foreground">
-                      Category: <span className="font-semibold text-foreground">{biz.categories?.name || "General"}</span>
-                      {biz.phone && ` • ${biz.phone}`}
+                    <p className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                      <span>Category: <strong className="text-foreground">{biz.categories?.name || "General"}</strong></span>
+                      {categoryAudit && (
+                        <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                          <Check className="w-3 h-3" /> AI Verified
+                        </span>
+                      )}
+                      {biz.phone && <span>• {biz.phone}</span>}
                     </p>
 
                     {owner && (
@@ -588,6 +713,108 @@ export default function AdminQueenServiceTab() {
           })}
         </div>
       )}
+
+      {/* AI Category Audit Report Dialog */}
+      <Dialog open={auditModalOpen} onOpenChange={setAuditModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-base font-bold">
+              <Tag className="w-5 h-5 text-indigo-500" />
+              AI Intelligent Business Category Audit
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Scanned all registered businesses using rule-based classification heuristics and AI semantics to ensure every vendor is placed in their optimal category.
+            </DialogDescription>
+          </DialogHeader>
+
+          {auditReport && (
+            <div className="space-y-4 py-2">
+              {/* Stats Banner */}
+              <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-muted/40 border text-center">
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Correct</span>
+                  <strong className="text-emerald-600 text-base">{auditReport.correctCount}</strong>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Possible Mismatch</span>
+                  <strong className="text-amber-600 text-base">{auditReport.possiblyIncorrectCount}</strong>
+                </div>
+                <div>
+                  <span className="text-[11px] text-muted-foreground block">Definite Mismatch</span>
+                  <strong className="text-rose-600 text-base">{auditReport.incorrectCount}</strong>
+                </div>
+              </div>
+
+              {/* Items List */}
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {auditReport.items
+                  .filter((i) => i.status !== "correct")
+                  .map((item) => (
+                    <div
+                      key={item.businessId}
+                      className="p-3 rounded-xl border bg-card text-xs space-y-1.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-foreground">{item.businessName}</span>
+                        <Badge
+                          variant={item.status === "incorrect" ? "destructive" : "secondary"}
+                          className="text-[10px]"
+                        >
+                          {item.status === "incorrect" ? "Mismatch" : "Review"} ({item.confidence}%)
+                        </Badge>
+                      </div>
+
+                      <div className="flex items-center gap-2 text-xs">
+                        <span className="line-through text-muted-foreground">{item.currentCategoryName}</span>
+                        <ArrowRight className="w-3 h-3 text-indigo-500" />
+                        <strong className="text-indigo-600 dark:text-indigo-400 font-bold">
+                          {item.aiSuggestedCategoryName}
+                        </strong>
+                      </div>
+
+                      <p className="text-[11px] text-muted-foreground">{item.reason}</p>
+                    </div>
+                  ))}
+
+                {auditReport.incorrectCount === 0 && auditReport.possiblyIncorrectCount === 0 && (
+                  <div className="p-8 text-center text-muted-foreground text-xs space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                    <p className="font-bold text-foreground">All business categories are 100% verified!</p>
+                    <p className="text-[11px]">No classification mismatches were detected across your directory listings.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex items-center justify-between gap-2">
+            <Button variant="outline" size="sm" onClick={() => setAuditModalOpen(false)}>
+              Close
+            </Button>
+
+            {auditReport && (auditReport.incorrectCount > 0 || auditReport.possiblyIncorrectCount > 0) && (
+              <Button
+                size="sm"
+                onClick={handleApplyAllCategoryFixes}
+                disabled={isApplyingCategoryFixes}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs gap-1.5"
+              >
+                {isApplyingCategoryFixes ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Applying Fixes...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-3.5 h-3.5" />
+                    Apply All AI Category Fixes
+                  </>
+                )}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Interactive Queen Service Modal */}
       {selectedBiz && (

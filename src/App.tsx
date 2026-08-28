@@ -110,6 +110,7 @@ import VixoraStudioApp from "./vixora/App";
 import WhatsAppStatusEngine from "./pages/WhatsAppStatusEngine";
 import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
 import Referral from "./pages/Referral";
+import GraphicDesignerPage from "./pages/GraphicDesignerPage";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -184,6 +185,11 @@ const App = () => (
               <Route path="/studio" element={<VixoraStudioApp />} />
               <Route path="/advertise" element={<FeatureGate feature="advertise"><AdvertiseWithUs /></FeatureGate>} />
               <Route path="/dashboard" element={<UserDashboard />} />
+              <Route path="/dashboard/graphic-designer" element={<GraphicDesignerPage />} />
+              <Route path="/dashboard/logo-creator" element={<GraphicDesignerPage />} />
+              <Route path="/dashboard/my-designs" element={<GraphicDesignerPage />} />
+              <Route path="/graphic-designer" element={<GraphicDesignerPage />} />
+              <Route path="/logo-creator" element={<GraphicDesignerPage />} />
               <Route path="/dashboard/create-video" element={<VideoCreator />} />
               <Route path="/dashboard/notifications" element={<UserNotificationsPage />} />
               <Route path="/dashboard/settings/notifications" element={<UserNotificationSettingsPage />} />

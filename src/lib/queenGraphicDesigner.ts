@@ -592,6 +592,248 @@ export async function generateIndividualServiceFlyers(
 }
 
 /**
+ * AI Graphic Designer: Generates a high-converting 1080x1080 Physical Product Showcase Creative.
+ * Displays Product Title, Naira Price tag (₦XX,XXX), In-Stock badge, product photo, and WhatsApp CTA.
+ */
+export async function renderQueenProductGraphic(options: {
+  businessName: string;
+  category: string;
+  productName: string;
+  priceNaira?: number;
+  formattedPrice?: string;
+  condition?: string;
+  stock?: number;
+  description?: string;
+  productImageUrl?: string;
+  phone?: string;
+  whatsapp?: string;
+  address?: string;
+  themeStyle?: QueenGraphicOptions["themeStyle"];
+}): Promise<string> {
+  const size = 1080;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return "";
+
+  const theme = options.themeStyle || "royal_gold";
+  const stockUrl = options.productImageUrl || getCategoryStockImage(options.category);
+
+  // 1. Background Image
+  const bgImage = await loadImageSafe(stockUrl);
+  if (bgImage) {
+    ctx.drawImage(bgImage, 0, 0, size, size);
+  } else {
+    ctx.fillStyle = "#0F172A";
+    ctx.fillRect(0, 0, size, size);
+  }
+
+  // 2. Overlay Gradient
+  const overlay = ctx.createLinearGradient(0, 0, 0, size);
+  overlay.addColorStop(0, "rgba(10, 15, 28, 0.94)");
+  overlay.addColorStop(0.5, "rgba(15, 23, 42, 0.86)");
+  overlay.addColorStop(1, "rgba(6, 10, 20, 0.98)");
+  ctx.fillStyle = overlay;
+  ctx.fillRect(0, 0, size, size);
+
+  // 3. Frame Borders
+  ctx.strokeStyle = theme === "emerald_luxury" ? "#10B981" : "#F59E0B";
+  ctx.lineWidth = 10;
+  ctx.strokeRect(20, 20, size - 40, size - 40);
+
+  // 4. Top Badges (Stock & Authentic Guaranteed)
+  ctx.save();
+  ctx.fillStyle = "#F59E0B";
+  roundRect(ctx, 60, 50, 260, 40, 20);
+  ctx.fill();
+  ctx.fillStyle = "#000000";
+  ctx.font = "900 13px 'Plus Jakarta Sans', sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("👑 VERIFIED PRODUCT", 190, 75);
+
+  const conditionText = `CONDITION: ${(options.condition || "BRAND NEW").toUpperCase()}`;
+  ctx.fillStyle = "rgba(255, 255, 255, 0.15)";
+  roundRect(ctx, size - 300, 50, 240, 40, 20);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "bold 12px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillText(conditionText, size - 180, 75);
+  ctx.restore();
+
+  // 5. Merchant Business Name
+  ctx.save();
+  ctx.font = "bold 22px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillStyle = "#94A3B8";
+  ctx.textAlign = "center";
+  ctx.fillText(`OFFERED BY: ${options.businessName.toUpperCase()}`, size / 2, 140);
+
+  // 6. Product Name
+  ctx.font = "900 46px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.shadowColor = "rgba(0,0,0,0.9)";
+  ctx.shadowBlur = 12;
+  let prodName = options.productName || "Commercial Physical Product";
+  if (prodName.length > 36) prodName = prodName.slice(0, 33) + "...";
+  ctx.fillText(prodName, size / 2, 200);
+  ctx.restore();
+
+  // 7. Large Naira Price Tag
+  const priceDisplay =
+    options.formattedPrice ||
+    (options.priceNaira ? `₦${Number(options.priceNaira).toLocaleString()}` : "₦ Market Price");
+
+  ctx.save();
+  ctx.fillStyle = "rgba(34, 197, 94, 0.25)";
+  roundRect(ctx, size / 2 - 180, 235, 360, 68, 34);
+  ctx.fill();
+  ctx.strokeStyle = "#22C55E";
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  ctx.font = "900 38px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillStyle = "#4ADE80";
+  ctx.textAlign = "center";
+  ctx.fillText(priceDisplay, size / 2, 283);
+  ctx.restore();
+
+  // 8. Center Description & Highlights
+  ctx.save();
+  ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
+  roundRect(ctx, 80, 330, size - 160, 360, 20);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(245, 158, 11, 0.3)";
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Description snippet
+  if (options.description) {
+    ctx.font = "normal 18px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#E2E8F0";
+    ctx.textAlign = "center";
+    const words = options.description.split(" ");
+    let line1 = "", line2 = "";
+    for (const w of words) {
+      if ((line1 + w).length < 55) line1 += w + " ";
+      else if ((line2 + w).length < 55) line2 += w + " ";
+    }
+    ctx.fillText(line1.trim(), size / 2, 380);
+    if (line2.trim()) ctx.fillText(line2.trim(), size / 2, 412);
+  }
+
+  // Feature Badges
+  const features = [
+    "✓ 100% Original Authentic Product",
+    "✓ Nationwide Doorstep Delivery Available",
+    "✓ Pay & Confirm Directly on WhatsApp",
+    options.stock ? `✓ In-Stock Available: ${options.stock} Units` : "✓ Fast Order Processing",
+  ];
+
+  let fY = 465;
+  for (const f of features) {
+    ctx.font = "bold 17px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#FDE68A";
+    ctx.textAlign = "center";
+    ctx.fillText(f, size / 2, fY);
+    fY += 42;
+  }
+  ctx.restore();
+
+  // 9. Bottom Contact & WhatsApp Order Box
+  const botY = 730;
+  ctx.save();
+  ctx.fillStyle = "rgba(15, 23, 42, 0.95)";
+  roundRect(ctx, 80, botY, size - 160, 260, 20);
+  ctx.fill();
+  ctx.strokeStyle = "#22C55E";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  const phone = options.phone || options.whatsapp || "+234 Lagos Direct";
+  const whatsapp = options.whatsapp || options.phone || "";
+
+  ctx.font = "bold 22px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillStyle = "#FFFFFF";
+  ctx.textAlign = "center";
+  ctx.fillText(`📞 CALL SELLER: ${phone}`, size / 2, botY + 50);
+
+  if (whatsapp) {
+    ctx.fillStyle = "#22C55E";
+    ctx.fillText(`💬 WHATSAPP ORDER: ${whatsapp}`, size / 2, botY + 95);
+  }
+
+  if (options.address) {
+    ctx.font = "normal 16px 'Plus Jakarta Sans', sans-serif";
+    ctx.fillStyle = "#94A3B8";
+    ctx.fillText(`📍 Location: ${options.address}`, size / 2, botY + 140);
+  }
+
+  // CTA Button
+  ctx.fillStyle = "#22C55E";
+  roundRect(ctx, size / 2 - 190, botY + 175, 380, 56, 28);
+  ctx.fill();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.font = "900 17px 'Plus Jakarta Sans', sans-serif";
+  ctx.fillText("🛒 ORDER VIA WHATSAPP NOW", size / 2, botY + 210);
+  ctx.restore();
+
+  return canvas.toDataURL("image/png");
+}
+
+/**
+ * Downloads a canvas Data URL directly as a local PNG file
+ */
+export function downloadGraphicDataUrl(dataUrl: string, filename: string): void {
+  if (!dataUrl) return;
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename.endsWith(".png") ? filename : `${filename}.png`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+/**
+ * Generates visual variations of a graphic across multiple aesthetic styles
+ */
+export async function generateGraphicVariations(
+  options: QueenGraphicOptions
+): Promise<Array<{ theme: string; label: string; bannerDataUrl: string }>> {
+  const themes: Array<{ theme: QueenGraphicOptions["themeStyle"]; label: string }> = [
+    { theme: "royal_gold", label: "Royal Gold & Velvet" },
+    { theme: "emerald_luxury", label: "Emerald Luxury" },
+    { theme: "cyber_tech", label: "Cyber & Tech Blue" },
+    { theme: "sunset_vibrant", label: "Sunset Vibrant" },
+    { theme: "ocean_corporate", label: "Ocean Corporate" },
+  ];
+
+  const variations: Array<{ theme: string; label: string; bannerDataUrl: string }> = [];
+
+  for (const item of themes) {
+    try {
+      const dataUrl = await renderQueenBannerGraphic({
+        ...options,
+        themeStyle: item.theme,
+      });
+      if (dataUrl) {
+        variations.push({
+          theme: item.theme || "royal_gold",
+          label: item.label,
+          bannerDataUrl: dataUrl,
+        });
+      }
+    } catch (err) {
+      console.warn(`Failed variation for ${item.label}:`, err);
+    }
+  }
+
+  return variations;
+}
+
+/**
  * Uploads a base64 Data URL to Supabase storage bucket, or falls back to returning the Data URL.
  */
 export async function uploadGraphicCreativeToStorage(

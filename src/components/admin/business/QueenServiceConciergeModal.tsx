@@ -8,10 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Crown, Sparkles, ShieldCheck, Megaphone, CheckCircle2,
   AlertCircle, Loader2, ExternalLink, ArrowRight, Building2,
-  Package, Zap, Eye, RefreshCw, Send, Check
+  Package, Zap, Eye, RefreshCw, Send, Check, Download, Palette,
+  MessageCircle, Copy, CheckCheck, ShoppingBag
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -20,6 +22,7 @@ import {
   QueenServiceExecutionLog,
   QueenServiceResult,
 } from "@/lib/queenBusinessServiceAIEngine";
+import { downloadGraphicDataUrl } from "@/lib/queenGraphicDesigner";
 import { Link } from "react-router-dom";
 
 interface QueenServiceConciergeModalProps {
@@ -45,7 +48,9 @@ export default function QueenServiceConciergeModal({
   const [adDays, setAdDays] = useState<number>(30);
   const [generateServices, setGenerateServices] = useState<boolean>(true);
   const [sendNotification, setSendNotification] = useState<boolean>(true);
+  const [themeStyle, setThemeStyle] = useState<"royal_gold" | "cyber_tech" | "emerald_luxury" | "sunset_vibrant" | "ocean_corporate">("royal_gold");
   const [customInstructions, setCustomInstructions] = useState<string>("");
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
 
   // Execution State
   const [isRunning, setIsRunning] = useState<boolean>(false);
@@ -55,11 +60,11 @@ export default function QueenServiceConciergeModal({
 
   useEffect(() => {
     if (open) {
-      // Reset state on modal open
       setLogs([]);
       setResult(null);
       setProgressPercent(0);
       setIsRunning(false);
+      setCopiedLink(false);
     }
   }, [open, business?.id]);
 
@@ -71,7 +76,7 @@ export default function QueenServiceConciergeModal({
     business.social_links?.is_early_access ||
     business.social_links?.early_access ||
     ownerProfile?.social_links?.is_early_access ||
-    true // default eligible for queen VIP
+    true
   );
 
   const handleExecute = async () => {
@@ -88,6 +93,7 @@ export default function QueenServiceConciergeModal({
       advertDurationDays: adDays,
       generateServicesCatalog: generateServices,
       sendOwnerNotification: sendNotification,
+      themeStyle: themeStyle,
       customInstructions,
     };
 
@@ -98,12 +104,15 @@ export default function QueenServiceConciergeModal({
           return [...filtered, log];
         });
 
-        if (log.step.startsWith("1.")) setProgressPercent(20);
-        if (log.step.startsWith("2.")) setProgressPercent(40);
-        if (log.step.startsWith("3.")) setProgressPercent(65);
-        if (log.step.startsWith("4.")) setProgressPercent(85);
+        if (log.step.startsWith("1.")) setProgressPercent(15);
+        if (log.step.startsWith("1b.")) setProgressPercent(25);
+        if (log.step.startsWith("1c.")) setProgressPercent(35);
+        if (log.step.startsWith("2.")) setProgressPercent(50);
+        if (log.step.startsWith("2b.")) setProgressPercent(65);
+        if (log.step.startsWith("3.")) setProgressPercent(80);
+        if (log.step.startsWith("4.")) setProgressPercent(90);
         if (log.step.startsWith("5.")) setProgressPercent(95);
-        if (log.step.startsWith("6.")) setProgressPercent(100);
+        if (log.step.startsWith("6.")) setProgressPercent(98);
       });
 
       setResult(res);
@@ -128,6 +137,14 @@ export default function QueenServiceConciergeModal({
     }
   };
 
+  const handleCopyWhatsApp = (url?: string) => {
+    if (!url) return;
+    navigator.clipboard.writeText(url);
+    setCopiedLink(true);
+    toast.success("WhatsApp Click-to-Chat URL copied to clipboard!");
+    setTimeout(() => setCopiedLink(false), 2500);
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto p-0 border-amber-500/30">
@@ -141,7 +158,7 @@ export default function QueenServiceConciergeModal({
             <div className="flex items-center gap-2 flex-wrap">
               <Badge className="bg-black/30 hover:bg-black/40 text-amber-100 border-amber-300/40 text-xs px-2.5 py-0.5 font-bold tracking-wide flex items-center gap-1">
                 <Crown className="w-3.5 h-3.5 text-yellow-300 fill-yellow-300" />
-                QUEEN VIP CONCIERGE
+                QUEEN VIP CONCIERGE &amp; MAYA DESIGNER
               </Badge>
               {isEarlyAccess && (
                 <Badge className="bg-emerald-950/40 text-emerald-200 border-emerald-400/40 text-xs px-2 py-0.5 font-semibold">
@@ -154,58 +171,21 @@ export default function QueenServiceConciergeModal({
               1-Click Queen AI Full Setup &amp; Takeover
             </DialogTitle>
             <DialogDescription className="text-amber-100/90 text-xs sm:text-sm font-medium">
-              Empower <strong className="text-white">{bizName}</strong> with automated brand copywriting, Blue-Tick verification, top featured directory ranking, ready-to-sell service catalog, and a live banner advert campaign.
+              Empower <strong className="text-white">{bizName}</strong> ({bizCategory}) with AI Category Classification, Blue-Tick verification, top featured directory ranking, service/product segregation, and Maya Sterling brand creative suite.
             </DialogDescription>
           </div>
         </div>
 
         <div className="p-6 space-y-6">
-          {/* Target Business Snapshot */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border bg-muted/40 gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-                <Building2 className="w-6 h-6 text-amber-600" />
-              </div>
-              <div>
-                <h4 className="font-bold text-foreground text-base leading-tight flex items-center gap-1.5">
-                  {bizName}
-                  {business.social_links?.verified && (
-                    <ShieldCheck className="w-4 h-4 text-sky-500 fill-sky-500/20" />
-                  )}
-                </h4>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Category: <span className="font-semibold text-foreground">{bizCategory}</span>
-                  {business.address && ` • ${business.address}`}
-                </p>
-                {ownerProfile?.email && (
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Owner: {ownerProfile.display_name || ownerProfile.username || ownerProfile.email} ({ownerProfile.email})
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div className="shrink-0 flex items-center gap-2">
-              <Badge variant="outline" className="text-xs font-semibold">
-                Status: {business.status || "active"}
-              </Badge>
-            </div>
-          </div>
-
-          {/* Configuration Form (when not running or completed) */}
+          {/* Main Configuration form (only visible when not finished) */}
           {!result && (
             <div className="space-y-4">
-              <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                <Zap className="w-3.5 h-3.5 text-amber-500" />
-                Queen Service Automation Pipeline Parameters
-              </h4>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Featured Duration */}
+              {/* Category & Verification Boost settings */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5 p-3 rounded-xl border bg-card">
                   <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                    Featured Directory Placement
+                    Top Featured Duration
                   </Label>
                   <Select
                     value={String(featuredDays)}
@@ -213,25 +193,22 @@ export default function QueenServiceConciergeModal({
                     disabled={isRunning}
                   >
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Featured Duration" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="14">14 Days Spotlight</SelectItem>
-                      <SelectItem value="30">30 Days VIP Priority (Recommended)</SelectItem>
-                      <SelectItem value="60">60 Days Premier Showcase</SelectItem>
-                      <SelectItem value="90">90 Days Maximum Placement</SelectItem>
+                      <SelectItem value="7">7 Days Priority Placement</SelectItem>
+                      <SelectItem value="14">14 Days Priority Placement</SelectItem>
+                      <SelectItem value="30">30 Days (Standard VIP)</SelectItem>
+                      <SelectItem value="60">60 Days (Gold VIP)</SelectItem>
+                      <SelectItem value="90">90 Days (Platinum VIP)</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Pins business at the very top of directory search and homepage slider.
-                  </p>
                 </div>
 
-                {/* Verification Duration */}
                 <div className="space-y-1.5 p-3 rounded-xl border bg-card">
                   <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
                     <ShieldCheck className="w-3.5 h-3.5 text-sky-500" />
-                    Blue-Tick Verification Duration
+                    Blue-Tick Verification Validity
                   </Label>
                   <Select
                     value={String(verificationDays)}
@@ -239,31 +216,52 @@ export default function QueenServiceConciergeModal({
                     disabled={isRunning}
                   >
                     <SelectTrigger className="h-9 text-xs">
-                      <SelectValue placeholder="Verification Duration" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="90">90 Days Verified</SelectItem>
-                      <SelectItem value="180">180 Days Verified</SelectItem>
-                      <SelectItem value="365">365 Days Full Year (Standard)</SelectItem>
-                      <SelectItem value="730">2 Years Executive</SelectItem>
+                      <SelectItem value="180">6 Months Verified</SelectItem>
+                      <SelectItem value="365">1 Full Year Verified</SelectItem>
+                      <SelectItem value="730">2 Years Verified</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-[11px] text-muted-foreground">
-                    Grants official Blue Tick badge across directory, public profiles, and chat.
-                  </p>
                 </div>
               </div>
 
-              {/* Banner Advert Suite */}
-              <div className="p-4 rounded-xl border bg-card space-y-3">
+              {/* Theme & Graphic Designer Style */}
+              <div className="p-3.5 rounded-xl border bg-card space-y-2">
+                <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                  <Palette className="w-3.5 h-3.5 text-pink-500" />
+                  Maya Sterling Creative Theme Palette
+                </Label>
+                <Select
+                  value={themeStyle}
+                  onValueChange={(val: any) => setThemeStyle(val)}
+                  disabled={isRunning}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="royal_gold">👑 Royal Gold (Dark Luxury &amp; Gold Accents)</SelectItem>
+                    <SelectItem value="emerald_luxury">🌿 Emerald Luxury (Deep Green &amp; Premium Foil)</SelectItem>
+                    <SelectItem value="cyber_tech">⚡ Cyber Tech (High-Tech Blue &amp; Dark Slate)</SelectItem>
+                    <SelectItem value="sunset_vibrant">🔥 Sunset Vibrant (Warm Orange &amp; Commercial Energy)</SelectItem>
+                    <SelectItem value="ocean_corporate">🌊 Ocean Corporate (Deep Navy &amp; Crisp White)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Banner Advert Config */}
+              <div className="p-3.5 rounded-xl border bg-card space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="space-y-0.5">
                     <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
-                      <Megaphone className="w-3.5 h-3.5 text-indigo-500" />
-                      Auto-Create Live Banner Advertisement
+                      <Megaphone className="w-3.5 h-3.5 text-amber-500" />
+                      Auto-Publish Live Banner Advert
                     </Label>
                     <p className="text-[11px] text-muted-foreground">
-                      AI crafts a high-converting display ad banner and publishes it to the platform ad server.
+                      Launch an active display banner campaign with designed creative in ad network.
                     </p>
                   </div>
                   <Switch
@@ -274,9 +272,9 @@ export default function QueenServiceConciergeModal({
                 </div>
 
                 {createBannerAd && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t">
                     <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-muted-foreground">Ad Slot Placement</Label>
+                      <Label className="text-[11px] font-semibold text-muted-foreground">Placement Slot</Label>
                       <Select
                         value={adPlacement}
                         onValueChange={(val: any) => setAdPlacement(val)}
@@ -286,15 +284,15 @@ export default function QueenServiceConciergeModal({
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="directory_top">Directory Top Banner (High CTR)</SelectItem>
-                          <SelectItem value="homepage_hero">Homepage Hero Ad Carousel</SelectItem>
-                          <SelectItem value="blog_sidebar">Blog &amp; Article Sidebar</SelectItem>
+                          <SelectItem value="directory_top">Directory Top Leaderboard</SelectItem>
+                          <SelectItem value="homepage_hero">Homepage Hero Banner</SelectItem>
+                          <SelectItem value="blog_sidebar">Articles &amp; Blog Sidebar</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
 
                     <div className="space-y-1">
-                      <Label className="text-xs font-semibold text-muted-foreground">Ad Campaign Duration</Label>
+                      <Label className="text-[11px] font-semibold text-muted-foreground">Ad Runtime</Label>
                       <Select
                         value={String(adDays)}
                         onValueChange={(val) => setAdDays(Number(val))}
@@ -320,10 +318,10 @@ export default function QueenServiceConciergeModal({
                   <div className="space-y-0.5 pr-2">
                     <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
                       <Package className="w-3.5 h-3.5 text-emerald-500" />
-                      Services Catalog
+                      Services &amp; Product Split
                     </Label>
                     <p className="text-[11px] text-muted-foreground">
-                      Auto-generate 3-4 commercial services with Naira ₦ pricing.
+                      Segregate pure services from physical products &amp; create flyers.
                     </p>
                   </div>
                   <Switch
@@ -375,7 +373,7 @@ export default function QueenServiceConciergeModal({
                   {isRunning ? (
                     <>
                       <Loader2 className="w-4 h-4 animate-spin text-amber-400" />
-                      Queen AI Agent Running Full Setup...
+                      Queen AI Concierge &amp; Maya Designer Active...
                     </>
                   ) : result ? (
                     <>
@@ -415,31 +413,108 @@ export default function QueenServiceConciergeModal({
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                   <h4 className="font-bold text-sm text-emerald-800 dark:text-emerald-300">
-                    Queen Service Full Setup Live!
+                    Queen VIP Concierge Setup Live!
                   </h4>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  <strong>{result.businessName}</strong> is now fully configured with AI-optimized copy, {result.updatedFields.services.length} services, verified Blue Tick status, top featured placement, and a live banner advert!
+                  <strong>{result.businessName}</strong> is now fully configured with category verification, {result.updatedFields.services.length} services, {result.physicalProductsCreatedCount || 0} physical products, verified Blue Tick status, top featured placement, and a live banner advert!
                 </p>
               </div>
+
+              {/* Category Classification Audit Result */}
+              {result.categoryClassification && (
+                <div className="p-3.5 rounded-xl border bg-card text-xs space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold flex items-center gap-1.5 text-foreground">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      AI Category Verification Audit
+                    </span>
+                    <Badge
+                      className={
+                        result.categoryClassification.status === "auto_corrected"
+                          ? "bg-amber-500 text-white text-[10px]"
+                          : "bg-emerald-600 text-white text-[10px]"
+                      }
+                    >
+                      {result.categoryClassification.status === "auto_corrected"
+                        ? "Auto-Corrected"
+                        : "Verified Accurate"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs">
+                    <span className="text-muted-foreground">Sector:</span>
+                    <strong className="text-foreground">{result.categoryClassification.recommendedCategoryName}</strong>
+                    <span className="text-muted-foreground">• Confidence:</span>
+                    <strong className="text-emerald-600 dark:text-emerald-400">{result.categoryClassification.confidenceScore}%</strong>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground italic">
+                    "{result.categoryClassification.reasoning}"
+                  </p>
+                </div>
+              )}
+
+              {/* WhatsApp Direct Link CTA */}
+              {result.whatsAppClickToChatUrl && (
+                <div className="p-3.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <div className="font-bold flex items-center gap-1.5 text-emerald-800 dark:text-emerald-200">
+                      <MessageCircle className="w-4 h-4 text-emerald-600" />
+                      WhatsApp Direct Inquiry Link
+                    </div>
+                    <div className="text-[11px] text-muted-foreground truncate max-w-md">
+                      {result.whatsAppClickToChatUrl}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCopyWhatsApp(result.whatsAppClickToChatUrl)}
+                      className="h-8 text-xs font-semibold gap-1"
+                    >
+                      {copiedLink ? <CheckCheck className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedLink ? "Copied!" : "Copy Link"}
+                    </Button>
+                    <a
+                      href={result.whatsAppClickToChatUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700 transition"
+                    >
+                      Test Chat <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </div>
+                </div>
+              )}
 
               {/* Master Graphic Creative Banner Preview */}
               {result.renderedGraphicCreativeUrl && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      AI Graphic Designer Master Banner (1200x630)
+                      <Palette className="w-3.5 h-3.5 text-amber-500" />
+                      Maya Sterling Master Display Banner (1200x630)
                     </h5>
-                    <a
-                      href={result.renderedGraphicCreativeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1"
-                    >
-                      <ExternalLink className="w-3 h-3" />
-                      Open Full Size
-                    </a>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => downloadGraphicDataUrl(result.renderedGraphicCreativeUrl!, `${bizName.toLowerCase().replace(/[^a-z0-9]/g, "_")}_banner.png`)}
+                        className="h-7 text-xs font-semibold gap-1"
+                      >
+                        <Download className="w-3 h-3" /> Download PNG
+                      </Button>
+                      <a
+                        href={result.renderedGraphicCreativeUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Full Size
+                      </a>
+                    </div>
                   </div>
                   <div className="rounded-xl overflow-hidden border border-amber-500/30 shadow-xs bg-black">
                     <img
@@ -451,41 +526,23 @@ export default function QueenServiceConciergeModal({
                 </div>
               )}
 
-              {/* Advert Preview Card */}
-              {result.advertHeadline && (
-                <div className="p-4 rounded-xl border bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-pink-500/10 space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Badge className="bg-amber-500 text-white text-[10px] px-2 font-bold">
-                      LIVE DISPLAY BANNER AD CAMPAIGN
-                    </Badge>
-                    <span className="text-[11px] text-muted-foreground">Slot: {adPlacement}</span>
-                  </div>
-                  <h5 className="font-black text-sm text-foreground">{result.advertHeadline}</h5>
-                  <p className="text-xs text-muted-foreground">
-                    {result.generatedContent?.advert?.subheadline || "Exclusive verified merchant offerings on Bethelincovibe TV."}
-                  </p>
-                  <div className="flex items-center gap-2 pt-1">
-                    <Button size="sm" variant="outline" className="h-7 text-xs font-bold pointer-events-none">
-                      {result.generatedContent?.advert?.ctaText || "Connect on WhatsApp"}
-                    </Button>
-                    <Badge variant="secondary" className="text-[10px]">
-                      {result.generatedContent?.advert?.badgeText || "👑 Verified VIP Merchant"}
-                    </Badge>
-                  </div>
-                </div>
-              )}
+              {/* Physical Products & Service Tabs */}
+              <Tabs defaultValue="services" className="w-full space-y-3">
+                <TabsList className="grid grid-cols-2 w-full max-w-sm">
+                  <TabsTrigger value="services" className="text-xs font-bold">
+                    Services ({result.updatedFields.services.length})
+                  </TabsTrigger>
+                  <TabsTrigger value="products" className="text-xs font-bold">
+                    Physical Products ({result.productCreatives?.length || 0})
+                  </TabsTrigger>
+                </TabsList>
 
-              {/* Generated Services & Flyers Preview */}
-              {result.updatedFields.services && result.updatedFields.services.length > 0 && (
-                <div className="space-y-2">
-                  <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Generated Services Catalog &amp; Social Flyers ({result.updatedFields.services.length} Packages)
-                  </h5>
+                <TabsContent value="services" className="space-y-2">
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     {result.updatedFields.services.map((svc: any, idx: number) => (
                       <div key={idx} className="p-3 rounded-xl border bg-card text-xs space-y-2">
                         {svc.image_url && (
-                          <div className="aspect-video sm:aspect-square rounded-lg overflow-hidden border bg-muted">
+                          <div className="aspect-square rounded-lg overflow-hidden border bg-muted">
                             <img src={svc.image_url} alt={svc.title} className="w-full h-full object-cover" />
                           </div>
                         )}
@@ -500,8 +557,37 @@ export default function QueenServiceConciergeModal({
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                </TabsContent>
+
+                <TabsContent value="products" className="space-y-2">
+                  {result.productCreatives && result.productCreatives.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {result.productCreatives.map((prod, idx) => (
+                        <div key={idx} className="p-3 rounded-xl border bg-card space-y-2 text-xs">
+                          <div className="aspect-square rounded-lg overflow-hidden border bg-black">
+                            <img src={prod.url} alt={prod.title} className="w-full h-full object-cover" />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-foreground truncate">{prod.title}</span>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => downloadGraphicDataUrl(prod.url, `${prod.title.toLowerCase().replace(/[^a-z0-9]/g, "_")}.png`)}
+                              className="h-7 text-xs"
+                            >
+                              <Download className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="p-6 text-center text-muted-foreground text-xs border rounded-xl bg-card">
+                      This business focuses primarily on specialized commercial services. No physical products detected.
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </div>

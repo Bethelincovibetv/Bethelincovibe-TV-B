@@ -50,6 +50,8 @@ export const WORKFORCE_HEADSHOTS: Record<string, string> = {
   security_ai: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=500&h=500&fit=crop&crop=faces&auto=format&q=80", // Sentinel Briggs - Trust, Safety & Cyber Lead
   seo_ai: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=500&h=500&fit=crop&crop=faces&auto=format&q=80", // Vortex Sterling - Principal Search & SEO Architect
   growth_ai: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=500&h=500&fit=crop&crop=faces&auto=format&q=80", // Catalyst Romero - Viral Loops & Acquisition Engineer
+  graphic_ai: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=500&h=500&fit=crop&crop=faces&auto=format&q=80", // Maya Sterling - Lead Brand & Graphic Designer Specialist
+  logo_ai: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=500&h=500&fit=crop&crop=faces&auto=format&q=80", // Apollo Brand - Senior Brand Identity & Logo Specialist
 };
 
 // Preset Nigerian professional headshots for recruiting new AI workers
@@ -640,6 +642,104 @@ export const INITIAL_DIGITAL_WORKFORCE: DigitalEmployeeProfile[] = [
     iconName: "Zap",
     gradient: "from-lime-600 to-emerald-600",
     totalTasksCompleted: 87,
+  },
+  {
+    id: "graphic_ai",
+    name: "Maya Sterling",
+    codename: "Maya Designer",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.graphic_ai,
+    jobTitle: "Lead Brand, Graphic & Visual Communication Specialist",
+    department: "Design & Visual Media",
+    workplace: "Graphic Design Studio & Creative Suite",
+    workplaceRoute: "/dashboard/graphic-designer",
+    isPublic: true,
+    workplaceGreeting: "Hello! I am Maya Sterling, Lead Brand & Graphic Designer. I engineer high-converting commercial banners, bespoke service flyers, product promo cards, and brand assets crafted for Nigerian and international trade.",
+    quickPrompts: [
+      "Generate 1200x630 Display Banner",
+      "Design 1080x1080 Service Social Flyer",
+      "Create Physical Product Promo Graphic",
+      "Generate 5 Color Theme Variations"
+    ],
+    role: "Permanent graphic designer creating display banners, social flyers, product promo creatives, and visual assets.",
+    responsibilities: [
+      "Generates master commercial display banners (1200x630) for directory listings and adverts.",
+      "Designs individual service flyers (1080x1080) for WhatsApp and social media distribution.",
+      "Creates physical product showcase graphics with Naira pricing and in-stock badges.",
+      "Produces variations and custom edits with brand typography, curated stock photos, and gold accents.",
+      "Collaborates with Queen Service, Course Creator, and Editorial desk for visual asset generation.",
+    ],
+    capabilities: [
+      "Commercial Banner & Flyer Architecture",
+      "Curated Category Stock Photography Selection",
+      "Mathematical Visual Hierarchy & Typography Scaling",
+      "1-Click PNG Export & Multi-Theme Variation Engine",
+      "Live Graphic Customization & WhatsApp CTA Styling",
+    ],
+    tools: [
+      "Queen Graphic Designer Engine",
+      "Category Stock Photo Repository",
+      "Canvas Rendering Pipeline",
+      "WhatsApp Link & Badge Generator",
+    ],
+    permissions: ["generate_graphics", "export_creatives", "update_banner_templates"],
+    status: "active",
+    availability: "24/7 Real-Time Creative Studio",
+    executiveRelationship: "Reports to Victoria Vance (Executive Admin AI). Collaborates with Apollo Brand (Logo AI) and Queen AI Concierge.",
+    biography:
+      "Maya Sterling is an accomplished brand designer and visual communication specialist. Maya combines strict typographic hierarchy, high-contrast aesthetics, and conversion-centered layout design to make Nigerian SMEs stand out on global stages.",
+    currentFocus: "Generating high-converting social flyers, display banners, and promotional creatives for businesses.",
+    iconName: "Palette",
+    gradient: "from-amber-500 via-orange-500 to-pink-500",
+    totalTasksCompleted: 145,
+  },
+  {
+    id: "logo_ai",
+    name: "Apollo Brand",
+    codename: "Apollo Brand Identity",
+    profilePhotoUrl: WORKFORCE_HEADSHOTS.logo_ai,
+    jobTitle: "Senior Brand Identity & Logo Specialist",
+    department: "Brand Architecture & Identity",
+    workplace: "Logo Creator & Brand Suite",
+    workplaceRoute: "/dashboard/logo-creator",
+    isPublic: true,
+    workplaceGreeting: "Greetings! I am Apollo Brand, Senior Brand Identity & Logo Specialist. I engineer distinguished corporate marks, luxury emblems, modern monograms, and iconic vector identities for African & global enterprises.",
+    quickPrompts: [
+      "Create Luxury Gold Wordmark & Emblem",
+      "Design Minimalist Modern Tech Icon",
+      "Generate Monogram Crest with Business Initials",
+      "Generate 8 Distinct Industry Logo Concepts"
+    ],
+    role: "Architects distinctive corporate logos, monograms, brand marks, and visual identity systems.",
+    responsibilities: [
+      "Generates 8 diverse vector logo concepts tailored to industry and business archetype.",
+      "Structures monogram initials, luxury crests, geometric badges, and modern wordmarks.",
+      "Applies color psychology and high-contrast palettes (Royal Gold, Emerald, Sapphire, Ruby, Obsidian).",
+      "Seamlessly synchronizes active logos into user business profiles and Graphic Designer canvases.",
+      "Renders real-world 3D mockups (Storefront signs, business cards, mobile app icons).",
+    ],
+    capabilities: [
+      "Vector SVG & High-Resolution PNG Logo Architecture",
+      "Monogram & Custom Initial Synthesis",
+      "3D Real-World Brand Mockup Rendering",
+      "1-Click Business Profile Active Logo Synchronization",
+      "Dynamic Archetype Refinement (Luxury, Tech, Commerce, Crest, Minimal)",
+    ],
+    tools: [
+      "AI Logo Generator Engine",
+      "Vector Shape & Emblem Synthesizer",
+      "3D Mockup Generator",
+      "Business Profile Logo Synchronizer",
+    ],
+    permissions: ["generate_logos", "update_business_logos", "export_vector_brand_assets"],
+    status: "active",
+    availability: "24/7 Autonomous Brand Studio",
+    executiveRelationship: "Reports to Victoria Vance (Executive Admin AI). Partners closely with Maya Sterling (Graphic AI).",
+    biography:
+      "Apollo Brand is an elite identity designer specializing in timeless corporate symbology and prestige marks. Apollo crafts brand marks that command instant credibility across physical signage, digital media, and international commerce.",
+    currentFocus: "Engineering bespoke logo concept packs and vector identities for registered businesses.",
+    iconName: "Sparkles",
+    gradient: "from-amber-400 via-yellow-500 to-amber-600",
+    totalTasksCompleted: 188,
   },
 ];
 
