@@ -115,6 +115,13 @@ export interface RealtimeChatMessage {
   text: string;
   createdAt: any;
   isLocalPending?: boolean;
+  replyTo?: {
+    id: string;
+    senderName: string;
+    text: string;
+  };
+  reactions?: Record<string, string[]>; // emoji -> array of userIds
+  imageUrl?: string;
 }
 
 const LOCAL_STORAGE_CHATS_KEY = "bethel_realtime_chats_v1";
@@ -312,6 +319,9 @@ export function subscribeToChatMessages(
             senderAvatar: data.senderAvatar,
             text: data.text,
             createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            replyTo: data.replyTo || undefined,
+            reactions: data.reactions || undefined,
+            imageUrl: data.imageUrl || undefined,
           });
         });
 
@@ -334,17 +344,19 @@ export function subscribeToChatMessages(
 }
 
 /**
- * Sends a real-time message to a chat room
+ * Sends a real-time message to a chat room with optional replyTo and attachments
  */
 export async function sendMessageToChat(
   chatId: string,
   senderId: string,
   senderName: string,
   text: string,
-  senderAvatar?: string
+  senderAvatar?: string,
+  replyTo?: { id: string; senderName: string; text: string },
+  imageUrl?: string
 ): Promise<RealtimeChatMessage> {
   const cleanText = text.trim().slice(0, 3000);
-  if (!cleanText) throw new Error("Message text cannot be empty");
+  if (!cleanText && !imageUrl) throw new Error("Message text or image cannot be empty");
 
   const newMsgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const localMsg: RealtimeChatMessage = {
@@ -355,6 +367,9 @@ export async function sendMessageToChat(
     senderAvatar: senderAvatar || "",
     text: cleanText,
     createdAt: new Date().toISOString(),
+    replyTo: replyTo || undefined,
+    reactions: {},
+    imageUrl: imageUrl || undefined,
   };
 
   // 1. Instantly save in local storage
@@ -364,21 +379,26 @@ export async function sendMessageToChat(
   // 2. Write to Firestore
   try {
     const msgRef = doc(firestoreDb, "chats", chatId, "messages", newMsgId);
-    await setDoc(msgRef, {
+    const payload: any = {
       chatId,
       senderId,
       senderName,
       senderAvatar: senderAvatar || "",
       text: cleanText,
       createdAt: serverTimestamp(),
-    });
+      reactions: {},
+    };
+    if (replyTo) payload.replyTo = replyTo;
+    if (imageUrl) payload.imageUrl = imageUrl;
+
+    await setDoc(msgRef, payload);
 
     // Update parent room last message
     const roomRef = doc(firestoreDb, "chats", chatId);
     await setDoc(
       roomRef,
       {
-        lastMessageText: cleanText,
+        lastMessageText: cleanText || "📷 Photo attachment",
         lastMessageTime: serverTimestamp(),
       },
       { merge: true }
@@ -388,4 +408,50 @@ export async function sendMessageToChat(
   }
 
   return localMsg;
+}
+
+/**
+ * Toggles an emoji reaction on a specific message
+ */
+export async function toggleMessageReaction(
+  chatId: string,
+  messageId: string,
+  emoji: string,
+  userId: string
+): Promise<void> {
+  // Update local storage first
+  const currentLocal = getLocalMessages(chatId);
+  const updatedLocal = currentLocal.map((m) => {
+    if (m.id !== messageId) return m;
+    const reactions = { ...(m.reactions || {}) };
+    const currentUsers = reactions[emoji] || [];
+    if (currentUsers.includes(userId)) {
+      reactions[emoji] = currentUsers.filter((u) => u !== userId);
+      if (reactions[emoji].length === 0) delete reactions[emoji];
+    } else {
+      reactions[emoji] = [...currentUsers, userId];
+    }
+    return { ...m, reactions };
+  });
+  saveLocalMessages(chatId, updatedLocal);
+
+  // Update Firestore
+  try {
+    const msgRef = doc(firestoreDb, "chats", chatId, "messages", messageId);
+    const snap = await getDoc(msgRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const reactions = { ...(data.reactions || {}) };
+      const currentUsers: string[] = reactions[emoji] || [];
+      if (currentUsers.includes(userId)) {
+        reactions[emoji] = currentUsers.filter((u) => u !== userId);
+        if (reactions[emoji].length === 0) delete reactions[emoji];
+      } else {
+        reactions[emoji] = [...currentUsers, userId];
+      }
+      await setDoc(msgRef, { reactions }, { merge: true });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}/messages/${messageId}`);
+  }
 }

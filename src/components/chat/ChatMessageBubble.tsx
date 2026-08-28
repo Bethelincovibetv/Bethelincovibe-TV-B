@@ -1,0 +1,246 @@
+import React, { useState } from "react";
+import { motion, PanInfo } from "framer-motion";
+import { formatDistanceToNow } from "date-fns";
+import { Reply, Smile, CheckCheck, Check, MoreVertical, Copy, ShieldCheck } from "lucide-react";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { RealtimeChatMessage } from "@/lib/firebaseChat";
+import { toast } from "sonner";
+
+const QUICK_REACTION_EMOJIS = ["❤️", "👍", "🔥", "😂", "👏", "🎉", "😍", "🙏"];
+
+interface ChatMessageBubbleProps {
+  message: RealtimeChatMessage;
+  isMe: boolean;
+  currentUserId: string;
+  onReply: (message: RealtimeChatMessage) => void;
+  onToggleReaction: (messageId: string, emoji: string) => void;
+  onScrollToMessage?: (messageId: string) => void;
+}
+
+export function ChatMessageBubble({
+  message,
+  isMe,
+  currentUserId,
+  onReply,
+  onToggleReaction,
+  onScrollToMessage,
+}: ChatMessageBubbleProps) {
+  const [isSwiping, setIsSwiping] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    setIsSwiping(false);
+    // WhatsApp style swipe right to reply
+    if (info.offset.x > 50) {
+      onReply(message);
+    }
+  };
+
+  const copyText = () => {
+    if (message.text) {
+      navigator.clipboard.writeText(message.text);
+      toast.success("Message copied to clipboard");
+    }
+  };
+
+  const reactionsList = Object.entries(message.reactions || {}).filter(
+    ([_, users]) => users && users.length > 0
+  );
+
+  return (
+    <div className="relative group/bubble select-none my-1.5 transition-all">
+      {/* Swipe to Reply Backing Indicator */}
+      <div className="absolute inset-y-0 left-2 flex items-center pointer-events-none opacity-60 text-primary z-0">
+        <div className="flex items-center gap-1.5 text-xs font-bold bg-primary/10 px-2 py-1 rounded-full text-primary">
+          <Reply className="h-4 w-4 rotate-180" />
+          <span className="text-[10px] hidden sm:inline">Swipe to reply</span>
+        </div>
+      </div>
+
+      {/* Draggable Message Body Container */}
+      <motion.div
+        drag="x"
+        dragConstraints={{ left: 0, right: 80 }}
+        dragElastic={0.15}
+        onDragStart={() => setIsSwiping(true)}
+        onDragEnd={handleDragEnd}
+        className={`relative z-10 flex gap-2.5 max-w-[92%] sm:max-w-[80%] ${
+          isMe ? "ml-auto flex-row-reverse" : "mr-auto"
+        }`}
+      >
+        {/* Avatar (for incoming messages) */}
+        {!isMe && (
+          <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 ring-2 ring-primary/10 self-end mb-1">
+            <AvatarImage src={message.senderAvatar} />
+            <AvatarFallback className="text-[11px] font-black bg-primary/10 text-primary">
+              {(message.senderName || "U").slice(0, 2).toUpperCase()}
+            </AvatarFallback>
+          </Avatar>
+        )}
+
+        <div className="space-y-1 max-w-full">
+          {/* Sender Name if not me */}
+          {!isMe && message.senderName && (
+            <p className="text-[11px] font-bold text-foreground/80 pl-1 flex items-center gap-1">
+              {message.senderName}
+              <ShieldCheck className="h-3 w-3 text-emerald-500 inline" />
+            </p>
+          )}
+
+          {/* Main Bubble Card */}
+          <div
+            className={`relative rounded-3xl p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed transition-all shadow-sm ${
+              isMe
+                ? "bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-xs shadow-primary/20"
+                : "bg-card text-foreground rounded-bl-xs border border-border/80 shadow-xs"
+            }`}
+          >
+            {/* Replied Quote Banner if this message is a reply */}
+            {message.replyTo && (
+              <div
+                onClick={() => onScrollToMessage?.(message.replyTo!.id)}
+                className={`mb-2.5 p-2 sm:p-2.5 rounded-2xl border-l-4 text-xs cursor-pointer transition-opacity hover:opacity-90 ${
+                  isMe
+                    ? "bg-black/15 border-white text-white/90"
+                    : "bg-muted/80 border-primary text-foreground/90"
+                }`}
+              >
+                <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
+                  <Reply className="h-3 w-3" />
+                  Replying to {message.replyTo.senderName}
+                </p>
+                <p className="text-[11px] truncate mt-0.5 line-clamp-1 italic font-medium">
+                  "{message.replyTo.text}"
+                </p>
+              </div>
+            )}
+
+            {/* Attached Image if any */}
+            {message.imageUrl && (
+              <div className="mb-2 overflow-hidden rounded-2xl border border-black/10">
+                <img
+                  src={message.imageUrl}
+                  alt="Attachment"
+                  className="max-h-64 sm:max-h-80 w-full object-cover cursor-pointer hover:scale-[1.02] transition-transform"
+                  onClick={() => window.open(message.imageUrl, "_blank")}
+                />
+              </div>
+            )}
+
+            {/* Message Text */}
+            {message.text && (
+              <p className="whitespace-pre-wrap break-words font-normal tracking-wide">
+                {message.text}
+              </p>
+            )}
+
+            {/* Timestamp and Delivery Marks */}
+            <div
+              className={`flex items-center gap-1 text-[10px] mt-1 pt-1 ${
+                isMe ? "justify-end text-primary-foreground/75" : "justify-start text-muted-foreground"
+              }`}
+            >
+              <span>
+                {message.createdAt
+                  ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })
+                  : "just now"}
+              </span>
+              {isMe && <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/90 ml-0.5" />}
+            </div>
+          </div>
+
+          {/* Emoji Reactions Badges */}
+          {reactionsList.length > 0 && (
+            <div
+              className={`flex flex-wrap gap-1 mt-1 ${
+                isMe ? "justify-end" : "justify-start"
+              }`}
+            >
+              {reactionsList.map(([emoji, userIds]) => {
+                const hasReacted = userIds.includes(currentUserId);
+                return (
+                  <button
+                    key={emoji}
+                    type="button"
+                    onClick={() => onToggleReaction(message.id, emoji)}
+                    className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold transition-all transform active:scale-95 border ${
+                      hasReacted
+                        ? "bg-primary/15 border-primary/40 text-primary shadow-xs"
+                        : "bg-muted/80 border-border/70 text-foreground hover:bg-muted"
+                    }`}
+                  >
+                    <span>{emoji}</span>
+                    <span className="text-[10px] font-black">{userIds.length}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Hover / Long-press Action Bar */}
+        <div
+          className={`flex items-center gap-1 self-center opacity-0 group-hover/bubble:opacity-100 transition-opacity ${
+            isMe ? "flex-row-reverse" : "flex-row"
+          }`}
+        >
+          {/* Reaction Picker Popover */}
+          <Popover open={showEmojiPicker} onOpenChange={setShowEmojiPicker}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 rounded-full bg-background/80 hover:bg-background border shadow-xs text-muted-foreground hover:text-foreground"
+              >
+                <Smile className="h-3.5 w-3.5" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent
+              side="top"
+              align={isMe ? "end" : "start"}
+              className="p-1.5 rounded-2xl w-auto flex items-center gap-1 bg-card/95 backdrop-blur-md shadow-xl border border-border"
+            >
+              {QUICK_REACTION_EMOJIS.map((emoji) => (
+                <button
+                  key={emoji}
+                  type="button"
+                  onClick={() => {
+                    onToggleReaction(message.id, emoji);
+                    setShowEmojiPicker(false);
+                  }}
+                  className="h-8 w-8 flex items-center justify-center rounded-xl hover:bg-muted hover:scale-125 transition-all text-base active:scale-95"
+                >
+                  {emoji}
+                </button>
+              ))}
+            </PopoverContent>
+          </Popover>
+
+          {/* Quick Reply Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onReply(message)}
+            title="Reply to message"
+            className="h-7 w-7 rounded-full bg-background/80 hover:bg-background border shadow-xs text-muted-foreground hover:text-primary"
+          >
+            <Reply className="h-3.5 w-3.5" />
+          </Button>
+
+          {/* Copy Button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={copyText}
+            title="Copy text"
+            className="h-7 w-7 rounded-full bg-background/80 hover:bg-background border shadow-xs text-muted-foreground hover:text-foreground hidden sm:flex"
+          >
+            <Copy className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}

@@ -62,7 +62,7 @@ export default function NotificationBell() {
   };
 
   const markRead = async (id: string) => {
-    await supabase.from("user_notifications").update({ is_read: true }).eq("id", id);
+    await supabase.from("user_notifications").update({ is_read: true }).eq("id", id).eq("user_id", user.id);
     load();
   };
 

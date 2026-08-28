@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet-async";
-import { Calculator, Sparkles, TrendingUp, Wallet, Target, Loader2 } from "lucide-react";
+import { Calculator, Sparkles, TrendingUp, Wallet, Target, Loader2, Coins, ArrowRight, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 import { GoogleGenAI } from "@google/genai";
 import { toast } from "sonner";
+import { getPlatformPricing, FeaturePricing } from "@/lib/platformPricing";
 
 interface Metrics {
   runwayMonths: string;
@@ -19,6 +23,11 @@ interface Metrics {
 }
 
 export default function StartupCalculator() {
+  const { user } = useAuth();
+  const [pricing, setPricing] = useState<FeaturePricing>(() => getPlatformPricing().startup_calculator);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [usageCount, setUsageCount] = useState<number>(0);
+
   const [form, setForm] = useState({
     businessIdea: "",
     industry: "",
@@ -31,6 +40,26 @@ export default function StartupCalculator() {
   const [loading, setLoading] = useState(false);
   const [analysis, setAnalysis] = useState<string>("");
   const [metrics, setMetrics] = useState<Metrics | null>(null);
+
+  useEffect(() => {
+    const updatePricing = () => {
+      setPricing(getPlatformPricing().startup_calculator);
+    };
+    updatePricing();
+    window.addEventListener("platform_pricing_updated", updatePricing);
+    return () => window.removeEventListener("platform_pricing_updated", updatePricing);
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data: w } = await supabase.from("wallets").select("balance").eq("user_id", user.id).maybeSingle();
+      setWalletBalance(Number(w?.balance || 0));
+    })();
+  }, [user]);
+
+  const fee = pricing?.priceNaira ?? 200;
+  const isFree = pricing?.isFreeByDefault || (pricing?.firstUseFree && usageCount === 0);
 
   const update = (k: string, v: string) => setForm({ ...form, [k]: v });
 
@@ -58,12 +87,32 @@ export default function StartupCalculator() {
       toast.error("Please describe your idea and enter startup capital");
       return;
     }
+
+    if (!isFree && user && walletBalance < fee) {
+      toast.error(`Analysis fee is ₦${fee}. Please top up your wallet balance.`);
+    }
+
     setLoading(true);
     setAnalysis("");
     const localCalculated = calculateLocalMetrics();
     setMetrics(localCalculated);
 
     try {
+      // Deduct wallet balance if paid and user logged in
+      if (!isFree && user && walletBalance >= fee) {
+        const newBalance = walletBalance - fee;
+        await supabase.from("wallets").update({ balance: newBalance }).eq("user_id", user.id);
+        setWalletBalance(newBalance);
+        await supabase.from("transactions").insert({
+          user_id: user.id,
+          amount: fee,
+          type: "debit",
+          description: `Startup Financial Feasibility Calculator analysis fee (₦${fee})`,
+          status: "completed",
+        });
+      }
+      setUsageCount((c) => c + 1);
+
       // 1. Try Supabase Edge Function
       const { data, error } = await supabase.functions.invoke("startup-calculator", { body: form });
       if (!error && data?.analysis) {
@@ -159,9 +208,14 @@ Keep tone encouraging, practical, and highly tactical for the Nigerian & emergin
         <div className="grid lg:grid-cols-2 gap-6">
           <Card className="border-border/90 shadow-sm rounded-3xl">
             <CardHeader className="pb-4">
-              <CardTitle className="text-xl font-black flex items-center gap-2 text-foreground">
-                <Calculator className="h-5 w-5 text-primary" /> Enter Your Business Financials
-              </CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-xl font-black flex items-center gap-2 text-foreground">
+                  <Calculator className="h-5 w-5 text-primary" /> Enter Your Business Financials
+                </CardTitle>
+                <Badge className={isFree ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs font-black" : "bg-amber-500/10 text-amber-600 border-amber-500/30 text-xs font-black"}>
+                  {isFree ? "✨ Free Run" : `₦${fee.toLocaleString()}`}
+                </Badge>
+              </div>
               <CardDescription className="text-xs font-medium text-muted-foreground">
                 Provide estimated figures. The calculator projects profitability based on localized Nigerian market dynamics.
               </CardDescription>

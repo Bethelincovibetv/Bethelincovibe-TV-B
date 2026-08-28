@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import BusinessChatDialog from "@/components/BusinessChatDialog";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
+import DirectServiceBookingDialog from "@/components/directory/DirectServiceBookingDialog";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import BusinessCard from "@/components/directory/BusinessCard";
 import ProductCard from "@/components/directory/ProductCard";
@@ -82,7 +83,7 @@ export default function BusinessProfile() {
 
           const { data: prof } = await supabase
             .from("profiles")
-            .select("username, display_name, avatar_url, bio")
+            .select("username, display_name, avatar_url, bio, phone, whatsapp, email")
             .eq("user_id", data.submitted_by)
             .maybeSingle();
           setOwnerProfile(prof);
@@ -361,7 +362,7 @@ export default function BusinessProfile() {
             </Card>
           )}
 
-          {/* Services - clickable to chat */}
+          {/* Services - clickable to chat & direct booking */}
           {services.length > 0 && (
             <Card className="mt-4 border-primary/20 shadow-sm overflow-hidden">
               <CardContent className="p-5 sm:p-6">
@@ -372,86 +373,98 @@ export default function BusinessProfile() {
                       Featured Services &amp; Solutions ({services.length})
                     </h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Professional verified services. Tap any service to chat directly with this business.
+                      Professional verified services. Inquire directly or book seamlessly with instant notification.
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {services.map((svc: any, i: number) => (
-                    svc?.link_url ? (
-                      <ServicePreviewDialog key={i} service={svc} />
-                    ) : (
-                      <BusinessChatDialog
-                        key={i}
-                        businessId={biz.id}
-                        businessName={biz.name}
-                        serviceTitle={svc.title}
-                        trigger={
-                          <button className="group text-left rounded-2xl border bg-card hover:border-primary hover:shadow-lg transition-all overflow-hidden active:scale-98 flex flex-col h-full">
-                            {svc.image_url ? (
-                              <div className="aspect-[16/10] w-full bg-muted overflow-hidden relative">
-                                <img
-                                  src={svc.image_url}
-                                  alt={svc.title}
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                                  loading="lazy"
-                                />
-                                {svc.price && (
-                                  <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-md text-white text-[11px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
-                                    {svc.price}
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div className="aspect-[16/10] w-full bg-gradient-to-br from-primary/15 via-indigo-500/10 to-accent/15 flex flex-col items-center justify-center p-4 relative">
-                                <Briefcase className="h-8 w-8 text-primary/70 mb-1" />
-                                {svc.price && (
-                                  <div className="absolute bottom-2 left-2 bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-md">
-                                    {svc.price}
-                                  </div>
-                                )}
+                  {services.map((svc: any, i: number) => {
+                    const serviceImg = svc?.image_url || svc?.flyer_creative_url || svc?.photo_url || svc?.image;
+                    
+                    return (
+                      <div key={i} className="group rounded-2xl border bg-card hover:border-primary hover:shadow-lg transition-all overflow-hidden flex flex-col h-full">
+                        {serviceImg ? (
+                          <div className="aspect-[16/10] w-full bg-muted overflow-hidden relative">
+                            <img
+                              src={serviceImg}
+                              alt={svc.title}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                              loading="lazy"
+                            />
+                            {svc.price && (
+                              <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-md text-white text-[11px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
+                                {svc.price}
                               </div>
                             )}
-                            <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
-                              <div>
-                                <p className="font-bold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                                  {svc.title}
-                                </p>
-                                {svc.description && (
-                                  <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
-                                    {svc.description}
-                                  </p>
-                                )}
+                          </div>
+                        ) : (
+                          <div className="aspect-[16/10] w-full bg-gradient-to-br from-primary/15 via-indigo-500/10 to-accent/15 flex flex-col items-center justify-center p-4 relative">
+                            <Briefcase className="h-8 w-8 text-primary/70 mb-1" />
+                            {svc.price && (
+                              <div className="absolute bottom-2 left-2 bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-md">
+                                {svc.price}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
+                          <div>
+                            <p className="font-bold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
+                              {svc.title}
+                            </p>
+                            {svc.description && (
+                              <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                                {svc.description}
+                              </p>
+                            )}
 
-                                {/* Deliverable bullets if present */}
-                                {Array.isArray(svc.benefits) && svc.benefits.length > 0 && (
-                                  <div className="mt-2.5 space-y-1 pt-2 border-t border-border/60">
-                                    {svc.benefits.slice(0, 2).map((b: string, bi: number) => (
-                                      <div key={bi} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
-                                        <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
-                                        <span className="truncate">{b}</span>
-                                      </div>
-                                    ))}
+                            {/* Deliverable bullets if present */}
+                            {Array.isArray(svc.benefits) && svc.benefits.length > 0 && (
+                              <div className="mt-2.5 space-y-1 pt-2 border-t border-border/60">
+                                {svc.benefits.slice(0, 2).map((b: string, bi: number) => (
+                                  <div key={bi} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
+                                    <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
+                                    <span className="truncate">{b}</span>
                                   </div>
-                                )}
+                                ))}
                               </div>
+                            )}
+                          </div>
 
-                              <div className="pt-2 flex items-center justify-between border-t border-border/40 text-[11px]">
-                                <span className="text-primary font-bold flex items-center gap-1">
+                          <div className="pt-3 border-t border-border/40 grid grid-cols-2 gap-2">
+                            <DirectServiceBookingDialog
+                              businessId={biz.id}
+                              businessName={biz.name}
+                              ownerUserId={biz.submitted_by}
+                              serviceTitle={svc.title}
+                              servicePrice={svc.price}
+                              businessPhone={biz.phone || ownerProfile?.phone}
+                              businessWhatsApp={biz.whatsapp || sl?.whatsapp || ownerProfile?.whatsapp}
+                              businessEmail={sl?.email || ownerProfile?.email}
+                              trigger={
+                                <Button size="sm" className="w-full text-xs font-bold h-8 rounded-xl bg-primary text-primary-foreground shadow-xs">
+                                  Book Direct
+                                </Button>
+                              }
+                            />
+
+                            <BusinessChatDialog
+                              businessId={biz.id}
+                              businessName={biz.name}
+                              serviceTitle={svc.title}
+                              trigger={
+                                <Button size="sm" variant="outline" className="w-full text-xs font-bold h-8 rounded-xl gap-1">
                                   <MessageCircle className="h-3.5 w-3.5" />
-                                  {svc.cta_text || "Inquire & Chat"}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground font-medium group-hover:translate-x-0.5 transition-transform">
-                                  Instant Response →
-                                </span>
-                              </div>
-                            </div>
-                          </button>
-                        }
-                      />
-                    )
-                  ))}
+                                  Chat
+                                </Button>
+                              }
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -480,21 +493,46 @@ export default function BusinessProfile() {
             </Card>
           )}
 
-          {/* Gallery */}
-          {images.length > 0 && (
-            <Card className="mt-4">
-              <CardContent className="p-5">
-                <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-3">Gallery</h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {images.map((img: any) => (
-                    <a key={img.id} href={img.image_url} target="_blank" rel="noopener" className="block aspect-square rounded-xl overflow-hidden bg-muted">
-                      <img src={img.image_url} alt={img.caption || biz.name} className="w-full h-full object-cover hover:scale-105 transition" loading="lazy" />
-                    </a>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+          {/* Gallery - Includes all business and service photos */}
+          {(() => {
+            const servicePhotos = services
+              .filter((s: any) => s && (s.image_url || s.flyer_creative_url || s.photo_url || s.image))
+              .map((s: any, idx: number) => ({
+                id: `srv-${idx}`,
+                image_url: s.image_url || s.flyer_creative_url || s.photo_url || s.image,
+                caption: s.title || "Service Photo",
+              }));
+            const allGalleryPhotos = [...images, ...servicePhotos].filter(
+              (img, idx, self) => img.image_url && self.findIndex((t) => t.image_url === img.image_url) === idx
+            );
+
+            if (allGalleryPhotos.length === 0) return null;
+
+            return (
+              <Card className="mt-4">
+                <CardContent className="p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                      Business Gallery &amp; Photos ({allGalleryPhotos.length})
+                    </h2>
+                    <Badge variant="outline" className="text-[10px]">Verified Media</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {allGalleryPhotos.map((img: any) => (
+                      <a key={img.id} href={img.image_url} target="_blank" rel="noopener" className="block aspect-square rounded-xl overflow-hidden bg-muted group relative">
+                        <img src={img.image_url} alt={img.caption || biz.name} className="w-full h-full object-cover group-hover:scale-105 transition" loading="lazy" />
+                        {img.caption && (
+                          <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent p-1.5 text-[10px] text-white truncate">
+                            {img.caption}
+                          </div>
+                        )}
+                      </a>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })()}
 
           {/* Contact & Google Maps Section */}
           <Card className="mt-4">

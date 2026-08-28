@@ -114,6 +114,7 @@ import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
 import Referral from "./pages/Referral";
 import GraphicDesignerPage from "./pages/GraphicDesignerPage";
 import RealtimeChatPage from "./pages/RealtimeChatPage";
+import AdminPricingManagement from "./pages/admin/AdminPricingManagement";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -293,6 +294,8 @@ const App = () => (
               <Route path="sales-pages" element={<AdminSalesPages />} />
               <Route path="sales-templates" element={<AdminSalesTemplates />} />
               <Route path="leads" element={<AdminLeads />} />
+              <Route path="pricing" element={<AdminPricingManagement />} />
+              <Route path="feature-pricing" element={<AdminPricingManagement />} />
               <Route path="amazon" element={<AdminAmazon />} />
               <Route path="broadcast" element={<AdminBroadcast />} />
               <Route path="email-settings" element={<AdminEmailSettingsPage />} />

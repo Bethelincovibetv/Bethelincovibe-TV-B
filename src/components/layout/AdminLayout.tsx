@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Building2, FolderTree, ArrowLeft, Tv, Image as ImageIcon,
-  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server, MessageSquare, ShieldCheck, Package,
+  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server, MessageSquare, ShieldCheck, Package, Coins,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,6 +43,7 @@ const allLinks = [
   { to: "/admin/contacts", label: "Messages", icon: Mail, group: "People", feature: null },
   { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "People", feature: null },
 
+  { to: "/admin/pricing", label: "Feature Pricing (₦)", icon: Coins, group: "System", feature: null },
   { to: "/admin/ads", label: "Ad Network", icon: Megaphone, group: "System", feature: "advertise" },
   { to: "/admin/amazon", label: "Amazon Affiliate", icon: ShoppingCart, group: "System", feature: "amazon_affiliate" },
   { to: "/admin/custom-code", label: "Custom Code", icon: Code2, group: "System", feature: null },

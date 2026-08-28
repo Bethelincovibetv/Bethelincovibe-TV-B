@@ -37,10 +37,24 @@ export default function BusinessCard({
 }) {
   const boosted = !!s.boosted_until && new Date(s.boosted_until) > new Date();
   const Icon = getCategoryIcon(s.categories?.name || "");
-  const hero = s.cover_url || images[0]?.image_url || s.logo_url || null;
 
   const rawServices: any[] = Array.isArray(s.services) ? s.services : [];
   const serviceList = rawServices.map((srv) => typeof srv === "string" ? { title: srv } : srv).filter((srv) => !!srv.title);
+
+  // Collect all photos from both gallery and services
+  const servicePhotos = rawServices
+    .filter((srv: any) => srv && (srv.image_url || srv.flyer_creative_url || srv.photo_url || srv.image))
+    .map((srv: any, idx: number) => ({
+      id: `srv-${s.id}-${idx}`,
+      image_url: (srv.image_url || srv.flyer_creative_url || srv.photo_url || srv.image) as string,
+      caption: srv.title || "Service Photo",
+    }));
+
+  const allDisplayImages = [...images, ...servicePhotos].filter(
+    (img, idx, self) => img.image_url && self.findIndex(t => t.image_url === img.image_url) === idx
+  );
+
+  const hero = s.cover_url || allDisplayImages[0]?.image_url || s.logo_url || null;
 
   if (view === "list") {
     return (
@@ -111,7 +125,7 @@ export default function BusinessCard({
             <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
               {s.address && <span className="inline-flex min-w-0 items-center gap-1"><MapPin className="h-3 w-3 shrink-0" /><span className="truncate">{s.address}</span></span>}
               {s.phone && <span className="inline-flex items-center gap-1"><Phone className="h-3 w-3" />Contact</span>}
-              {images.length > 0 && <span className="inline-flex items-center gap-1"><Images className="h-3 w-3" />{images.length}</span>}
+              {allDisplayImages.length > 0 && <span className="inline-flex items-center gap-1"><Images className="h-3 w-3" />{allDisplayImages.length} photos</span>}
             </div>
           </div>
         </article>
@@ -209,9 +223,9 @@ export default function BusinessCard({
             </div>
           )}
 
-          {images.length > 0 && (
+          {allDisplayImages.length > 0 && (
             <div className="flex gap-1.5 overflow-hidden">
-              {images.slice(0, 4).map((img) => (
+              {allDisplayImages.slice(0, 4).map((img) => (
                 <img
                   key={img.id}
                   src={img.image_url}

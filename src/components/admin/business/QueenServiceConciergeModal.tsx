@@ -51,6 +51,9 @@ export default function QueenServiceConciergeModal({
   const [themeStyle, setThemeStyle] = useState<"royal_gold" | "cyber_tech" | "emerald_luxury" | "sunset_vibrant" | "ocean_corporate">("royal_gold");
   const [customInstructions, setCustomInstructions] = useState<string>("");
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [logoMode, setLogoMode] = useState<"keep_current" | "upload_custom" | "generate_studio">("keep_current");
+  const [customLogoUrl, setCustomLogoUrl] = useState<string>(business?.logo_url || "");
+  const [uploadingLogo, setUploadingLogo] = useState<boolean>(false);
 
   // Execution State
   const [isRunning, setIsRunning] = useState<boolean>(false);
@@ -65,6 +68,8 @@ export default function QueenServiceConciergeModal({
       setProgressPercent(0);
       setIsRunning(false);
       setCopiedLink(false);
+      setCustomLogoUrl(business?.logo_url || "");
+      setLogoMode(business?.logo_url ? "keep_current" : "upload_custom");
     }
   }, [open, business?.id]);
 
@@ -95,6 +100,8 @@ export default function QueenServiceConciergeModal({
       sendOwnerNotification: sendNotification,
       themeStyle: themeStyle,
       customInstructions,
+      customLogoUrl: logoMode === "upload_custom" ? customLogoUrl : logoMode === "keep_current" ? (business.logo_url || customLogoUrl) : undefined,
+      preserveExistingLogo: logoMode === "keep_current",
     };
 
     try {
@@ -250,6 +257,104 @@ export default function QueenServiceConciergeModal({
                     <SelectItem value="ocean_corporate">🌊 Ocean Corporate (Deep Navy &amp; Crisp White)</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* Brand Logo Configuration (Non-Generated / Custom Upload / Studio) */}
+              <div className="p-3.5 rounded-xl border bg-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold flex items-center gap-1.5 text-foreground">
+                    <Building2 className="w-3.5 h-3.5 text-primary" />
+                    Business Brand Logo Selection
+                  </Label>
+                  <Badge variant="outline" className="text-[10px] font-semibold">
+                    {logoMode === "keep_current" ? "Preserve Existing" : logoMode === "upload_custom" ? "Custom Non-Generated" : "Studio Auto"}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={logoMode === "keep_current" ? "default" : "outline"}
+                    onClick={() => setLogoMode("keep_current")}
+                    disabled={isRunning}
+                    className="text-xs h-8 rounded-xl font-bold"
+                  >
+                    Keep Existing Logo
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={logoMode === "upload_custom" ? "default" : "outline"}
+                    onClick={() => setLogoMode("upload_custom")}
+                    disabled={isRunning}
+                    className="text-xs h-8 rounded-xl font-bold"
+                  >
+                    Upload Custom Logo
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={logoMode === "generate_studio" ? "default" : "outline"}
+                    onClick={() => setLogoMode("generate_studio")}
+                    disabled={isRunning}
+                    className="text-xs h-8 rounded-xl font-bold"
+                  >
+                    Studio Monogram
+                  </Button>
+                </div>
+
+                {logoMode === "upload_custom" && (
+                  <div className="space-y-2 pt-2 border-t">
+                    <Label className="text-[11px] font-semibold text-muted-foreground">
+                      Select / Upload Custom Brand Logo File (.png, .jpg, .svg, .webp)
+                    </Label>
+                    <div className="flex items-center gap-3">
+                      {customLogoUrl ? (
+                        <div className="h-12 w-12 rounded-xl border overflow-hidden bg-muted relative shrink-0">
+                          <img src={customLogoUrl} alt="Logo preview" className="h-full w-full object-cover" />
+                        </div>
+                      ) : (
+                        <div className="h-12 w-12 rounded-xl border border-dashed flex items-center justify-center text-muted-foreground shrink-0">
+                          <Building2 className="h-5 w-5" />
+                        </div>
+                      )}
+                      <div className="flex-1 space-y-1">
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          disabled={isRunning || uploadingLogo}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            setUploadingLogo(true);
+                            try {
+                              const reader = new FileReader();
+                              reader.onload = (evt) => {
+                                const dataUrl = evt.target?.result as string;
+                                setCustomLogoUrl(dataUrl);
+                                toast.success("Custom non-generated logo selected!");
+                                setUploadingLogo(false);
+                              };
+                              reader.readAsDataURL(file);
+                            } catch (err: any) {
+                              toast.error("Failed to load file: " + err.message);
+                              setUploadingLogo(false);
+                            }
+                          }}
+                          className="h-8 text-xs rounded-xl"
+                        />
+                        <Input
+                          type="url"
+                          placeholder="Or paste external image URL..."
+                          value={customLogoUrl}
+                          onChange={(e) => setCustomLogoUrl(e.target.value)}
+                          className="h-7 text-[11px] rounded-lg"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Banner Advert Config */}

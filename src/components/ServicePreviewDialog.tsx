@@ -5,7 +5,7 @@ import { ExternalLink, Briefcase } from "lucide-react";
 /** Service card with click-to-zoom full-image preview + optional CTA link. */
 export default function ServicePreviewDialog({ service }: { service: any }) {
   const title = typeof service === "string" ? service : (service?.title || "Service");
-  const image = typeof service === "object" ? service?.image_url : null;
+  const image = typeof service === "object" ? (service?.image_url || service?.flyer_creative_url || service?.photo_url || service?.image) : null;
   const desc = typeof service === "object" ? service?.description : null;
   const link = typeof service === "object" ? (service?.link_url || service?.url) : null;
 

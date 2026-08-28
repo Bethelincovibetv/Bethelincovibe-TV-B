@@ -77,6 +77,8 @@ export interface QueenServiceOptions {
   sendOwnerNotification?: boolean;
   isEarlyAccessOnly?: boolean;
   customInstructions?: string;
+  customLogoUrl?: string;
+  preserveExistingLogo?: boolean;
   themeStyle?: "royal_gold" | "cyber_tech" | "emerald_luxury" | "sunset_vibrant" | "ocean_corporate";
   resumeFromJobId?: string;
   forceRegenerate?: boolean;
@@ -868,8 +870,13 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
   if (!business.cover_url && !business.cover_template) {
     supplierUpdatePayload.cover_url = defaultCategoryBanner;
   }
-  if (!business.logo_url) {
-    supplierUpdatePayload.logo_url = defaultCategoryBanner;
+  
+  // Custom non-generated logo or existing business logo preservation
+  if (options.customLogoUrl) {
+    supplierUpdatePayload.logo_url = options.customLogoUrl;
+  } else if (business.logo_url) {
+    // Preserve existing user-uploaded / custom logo without overriding
+    supplierUpdatePayload.logo_url = business.logo_url;
   }
 
   const { error: updateSupplierErr } = await supabase

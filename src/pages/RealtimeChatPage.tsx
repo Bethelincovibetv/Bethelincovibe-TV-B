@@ -12,6 +12,7 @@ import {
   getOrCreateChatRoom,
   ensureFirebaseAuth,
   testFirestoreConnection,
+  toggleMessageReaction,
 } from "@/lib/firebaseChat";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,17 @@ import {
   CheckCheck,
   Circle,
   Plus,
+  Image as ImageIcon,
+  X,
+  Reply,
+  Smile,
+  Volume2,
+  VolumeX,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { ChatMessageBubble } from "@/components/chat/ChatMessageBubble";
+import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
+import { toast } from "sonner";
 
 const DEFAULT_SUPPORT_CONTACTS = [
   {
@@ -75,12 +85,35 @@ export default function RealtimeChatPage() {
   const [discoveredContacts, setDiscoveredContacts] = useState<any[]>([]);
   const [isSearchingContacts, setIsSearchingContacts] = useState(false);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean | null>(null);
+  const [soundEnabled, setSoundState] = useState(() => isNotificationSoundEnabled());
+
+  // WhatsApp style reply target
+  const [replyingTo, setReplyingTo] = useState<RealtimeChatMessage | null>(null);
+  
+  // Image attachment state
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const currentUserId = user?.id || "guest_" + (typeof window !== "undefined" ? window.location.host.slice(0, 5) : "user");
   const currentUserName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Creative Member";
 
-  // Check connection
+  const toggleSound = () => {
+    const next = !soundEnabled;
+    setSoundState(next);
+    setNotificationSoundEnabled(next);
+    if (next) {
+      playNotificationSound();
+      toast.success("Chat sounds enabled");
+    } else {
+      toast.info("Chat sounds muted");
+    }
+  };
+
+  // Check Firebase connection
   useEffect(() => {
     ensureFirebaseAuth().catch(console.warn);
     testFirestoreConnection().then(setIsFirebaseConnected);
@@ -116,13 +149,22 @@ export default function RealtimeChatPage() {
   useEffect(() => {
     if (!activeChatId) return;
     const unsub = subscribeToChatMessages(activeChatId, (msgs) => {
-      setMessages(msgs);
+      setMessages((prev) => {
+        // If new incoming message from someone else, play sound
+        if (prev.length > 0 && msgs.length > prev.length) {
+          const lastMsg = msgs[msgs.length - 1];
+          if (lastMsg.senderId !== currentUserId) {
+            playNotificationSound();
+          }
+        }
+        return msgs;
+      });
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
       }, 100);
     });
     return () => unsub();
-  }, [activeChatId]);
+  }, [activeChatId, currentUserId]);
 
   // Search user contacts and verified businesses
   useEffect(() => {
@@ -199,12 +241,53 @@ export default function RealtimeChatPage() {
     setDiscoveredContacts([]);
   };
 
+  const handleReplyToMessage = (message: RealtimeChatMessage) => {
+    setReplyingTo(message);
+    inputRef.current?.focus();
+  };
+
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    if (!activeChatId) return;
+    try {
+      await toggleMessageReaction(activeChatId, messageId, emoji, currentUserId);
+    } catch (err) {
+      console.error("Failed to toggle reaction:", err);
+    }
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5MB");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setSelectedImage(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim() || !activeChatId || isSending) return;
+    if ((!inputText.trim() && !selectedImage) || !activeChatId || isSending) return;
 
     const textToSend = inputText;
+    const imgToSend = selectedImage;
+    const replyContext = replyingTo
+      ? {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text ? replyingTo.text.slice(0, 100) : "Photo attachment",
+        }
+      : undefined;
+
     setInputText("");
+    setSelectedImage(null);
+    setReplyingTo(null);
     setIsSending(true);
 
     try {
@@ -212,10 +295,14 @@ export default function RealtimeChatPage() {
         activeChatId,
         currentUserId,
         currentUserName,
-        textToSend
+        textToSend,
+        user?.user_metadata?.avatar_url || undefined,
+        replyContext,
+        imgToSend || undefined
       );
     } catch (err) {
       console.error("Failed to send message:", err);
+      toast.error("Failed to send message");
     } finally {
       setIsSending(false);
     }
@@ -236,36 +323,47 @@ export default function RealtimeChatPage() {
         <title>Real-time Chat & Support · Bethelincovibe</title>
       </Helmet>
 
-      <div className="container mx-auto max-w-6xl px-3 sm:px-4 py-4 sm:py-6 h-[calc(100vh-5rem)] flex flex-col">
-        {/* Top Header */}
-        <div className="flex items-center justify-between pb-3 shrink-0">
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm" className="rounded-xl">
-              <Link to="/dashboard">
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Dashboard
-              </Link>
-            </Button>
-            <div className="h-4 w-[1px] bg-border" />
-            <div className="flex items-center gap-2">
-              <div className="h-8 w-8 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
-                <MessageSquare className="h-4 w-4" />
-              </div>
-              <div>
-                <h1 className="text-base sm:text-lg font-black text-foreground">
-                  Real-time Chat
-                </h1>
-                <p className="text-[11px] text-muted-foreground hidden sm:block">
-                  Direct encrypted messaging with buyers, sellers, and verified staff
-                </p>
-              </div>
+      {/* Spacious Full-View Container */}
+      <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 py-2 sm:py-4 h-[calc(100vh-4.5rem)] flex flex-col">
+        {/* Top Chat Bar */}
+        <div className="flex items-center justify-between pb-3 pt-1 border-b border-border/60 mb-2 px-1">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-gradient-to-tr from-primary to-primary/80 text-primary-foreground flex items-center justify-center shadow-md">
+              <MessageSquare className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
+                Real-Time Messaging
+              </h1>
+              <p className="text-xs text-muted-foreground hidden sm:block">
+                Direct instant chat with clients, verified vendors, and support team
+              </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={toggleSound}
+              className="h-9 px-3 rounded-xl gap-1.5 text-xs font-bold border-border"
+            >
+              {soundEnabled ? (
+                <>
+                  <Volume2 className="h-4 w-4 text-emerald-500" />
+                  <span className="hidden sm:inline">Sound On</span>
+                </>
+              ) : (
+                <>
+                  <VolumeX className="h-4 w-4 text-muted-foreground" />
+                  <span className="hidden sm:inline">Muted</span>
+                </>
+              )}
+            </Button>
+
             <Badge
               variant="outline"
-              className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30 flex items-center gap-1.5"
+              className="text-xs font-bold text-emerald-600 bg-emerald-500/10 border-emerald-500/30 flex items-center gap-1.5 py-1 px-2.5 rounded-xl"
             >
               <Circle className="h-2 w-2 fill-emerald-500 text-emerald-500 animate-pulse" />
               Live Sync
@@ -273,48 +371,49 @@ export default function RealtimeChatPage() {
           </div>
         </div>
 
-        {/* Main 2-Column Chat Grid */}
+        {/* Main 2-Column Responsive Layout */}
         <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 gap-3 bg-card border rounded-3xl shadow-xl overflow-hidden">
-          {/* Left Column: Conversations & Directory (4 Cols) */}
+          {/* Left Column: Conversations Directory (4/12 cols on desktop, full screen on mobile when no active chat) */}
           <div
-            className={`md:col-span-4 border-r flex flex-col h-full bg-muted/20 ${
+            className={`md:col-span-4 lg:col-span-4 border-r flex flex-col h-full bg-muted/20 ${
               activeChatId ? "hidden md:flex" : "flex"
             }`}
           >
-            {/* Search / Contact Starter */}
-            <div className="p-3 border-b space-y-2">
+            {/* Contact & Directory Search */}
+            <div className="p-3 border-b space-y-2 bg-background/50">
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search contacts, sellers, or support..."
+                  placeholder="Search contacts, verified vendors..."
                   value={contactSearch}
                   onChange={(e) => setContactSearch(e.target.value)}
-                  className="pl-9 h-9 text-xs rounded-xl bg-background"
+                  className="pl-9 h-10 text-xs rounded-2xl bg-background"
                 />
               </div>
 
-              {/* Instant Search Results Dropdown */}
+              {/* Instant Search Dropdown */}
               {contactSearch.trim() && (
-                <div className="p-2 bg-background border rounded-2xl shadow-lg space-y-1 max-h-48 overflow-y-auto">
+                <div className="p-2 bg-background border rounded-2xl shadow-xl space-y-1 max-h-56 overflow-y-auto">
                   {isSearchingContacts ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1" />
-                      Searching directory...
+                      <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1 text-primary" />
+                      Searching platform members...
                     </div>
                   ) : discoveredContacts.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center p-3">
-                      No matching users or businesses found.
+                      No matching vendors or users found.
                     </p>
                   ) : (
                     discoveredContacts.map((c) => (
                       <button
                         key={c.id}
+                        type="button"
                         onClick={() => handleStartChatWith(c)}
-                        className="w-full text-left p-2 rounded-xl hover:bg-muted flex items-center gap-2.5 transition-colors"
+                        className="w-full text-left p-2.5 rounded-xl hover:bg-muted flex items-center gap-3 transition-colors"
                       >
-                        <Avatar className="h-7 w-7">
+                        <Avatar className="h-9 w-9 ring-2 ring-primary/20">
                           <AvatarImage src={c.avatar} />
-                          <AvatarFallback className="text-[10px] font-bold">
+                          <AvatarFallback className="text-xs font-black">
                             {c.name.slice(0, 2).toUpperCase()}
                           </AvatarFallback>
                         </Avatar>
@@ -322,11 +421,11 @@ export default function RealtimeChatPage() {
                           <p className="text-xs font-bold text-foreground truncate">
                             {c.name}
                           </p>
-                          <p className="text-[10px] text-muted-foreground truncate">
+                          <p className="text-[11px] text-muted-foreground truncate">
                             {c.role}
                           </p>
                         </div>
-                        <Badge variant="outline" className="text-[9px]">
+                        <Badge variant="outline" className="text-[10px] shrink-0 font-semibold">
                           {c.badge}
                         </Badge>
                       </button>
@@ -336,19 +435,20 @@ export default function RealtimeChatPage() {
               )}
             </div>
 
-            {/* Support Quick Contacts Section */}
-            <div className="p-2 border-b bg-muted/40">
-              <p className="text-[10px] font-black uppercase text-muted-foreground px-2 py-1 tracking-wider">
+            {/* Quick Contacts / Official Advisors */}
+            <div className="p-3 border-b bg-muted/40 space-y-1.5">
+              <p className="text-[11px] font-black uppercase text-muted-foreground px-1 tracking-wider">
                 Support & Advisors
               </p>
-              <div className="space-y-1">
+              <div className="grid grid-cols-1 gap-1.5">
                 {DEFAULT_SUPPORT_CONTACTS.map((sc) => (
                   <button
                     key={sc.id}
+                    type="button"
                     onClick={() => handleStartChatWith(sc)}
-                    className="w-full text-left p-2 rounded-xl hover:bg-background/80 flex items-center gap-2.5 transition-colors group"
+                    className="w-full text-left p-2 rounded-2xl hover:bg-background flex items-center gap-3 transition-all group border border-transparent hover:border-border/60 hover:shadow-xs"
                   >
-                    <Avatar className="h-8 w-8 ring-2 ring-primary/20 shrink-0">
+                    <Avatar className="h-9 w-9 ring-2 ring-primary/30 shrink-0">
                       <AvatarImage src={sc.avatar} />
                       <AvatarFallback className="text-xs font-black bg-primary/10 text-primary">
                         {sc.name[0]}
@@ -360,7 +460,7 @@ export default function RealtimeChatPage() {
                           {sc.name}
                         </span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground truncate">
+                      <p className="text-[11px] text-muted-foreground truncate">
                         {sc.role}
                       </p>
                     </div>
@@ -369,18 +469,18 @@ export default function RealtimeChatPage() {
               </div>
             </div>
 
-            {/* Conversations List */}
+            {/* Active Conversations List */}
             <div className="flex-1 overflow-y-auto p-2 space-y-1">
-              <p className="text-[10px] font-black uppercase text-muted-foreground px-2 py-1 tracking-wider">
-                Active Conversations ({chats.length})
+              <p className="text-[11px] font-black uppercase text-muted-foreground px-2 py-1 tracking-wider">
+                Recent Chats ({chats.length})
               </p>
 
               {chats.length === 0 ? (
                 <div className="p-6 text-center text-xs text-muted-foreground space-y-2">
-                  <MessageSquare className="h-8 w-8 mx-auto opacity-30" />
-                  <p>No active chats yet.</p>
-                  <p className="text-[11px]">
-                    Select a support advisor above or search a seller to start real-time messaging.
+                  <MessageSquare className="h-10 w-10 mx-auto opacity-30 text-primary" />
+                  <p className="font-bold text-foreground">No active chats yet</p>
+                  <p className="text-[11px] leading-relaxed">
+                    Select an advisor above or search a business directory contact to start real-time messaging.
                   </p>
                 </div>
               ) : (
@@ -393,14 +493,15 @@ export default function RealtimeChatPage() {
                   return (
                     <button
                       key={c.id}
+                      type="button"
                       onClick={() => setActiveChatId(c.id)}
-                      className={`w-full text-left p-2.5 rounded-2xl flex items-center gap-3 transition-all ${
+                      className={`w-full text-left p-3 rounded-2xl flex items-center gap-3 transition-all ${
                         isSelected
                           ? "bg-primary text-primary-foreground shadow-md font-bold"
                           : "hover:bg-muted/80 text-foreground"
                       }`}
                     >
-                      <Avatar className="h-9 w-9 shrink-0">
+                      <Avatar className="h-10 w-10 shrink-0 ring-2 ring-primary/20">
                         <AvatarImage src={avatar} />
                         <AvatarFallback
                           className={`text-xs font-black ${
@@ -412,10 +513,10 @@ export default function RealtimeChatPage() {
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="text-xs font-bold truncate">{name}</p>
+                          <p className="text-xs sm:text-sm font-bold truncate">{name}</p>
                           {c.lastMessageTime && (
                             <span
-                              className={`text-[9px] shrink-0 ${
+                              className={`text-[10px] shrink-0 ${
                                 isSelected ? "text-primary-foreground/80" : "text-muted-foreground"
                               }`}
                             >
@@ -426,11 +527,11 @@ export default function RealtimeChatPage() {
                           )}
                         </div>
                         <p
-                          className={`text-[11px] truncate ${
+                          className={`text-xs truncate mt-0.5 ${
                             isSelected ? "text-primary-foreground/90" : "text-muted-foreground"
                           }`}
                         >
-                          {c.lastMessageText || "Tap to continue conversation"}
+                          {c.lastMessageText || "Tap to chat"}
                         </p>
                       </div>
                     </button>
@@ -440,98 +541,87 @@ export default function RealtimeChatPage() {
             </div>
           </div>
 
-          {/* Right Column: Chat Window (8 Cols) */}
+          {/* Right Column: Chat Stream & Interactive Messaging Window */}
           <div
-            className={`md:col-span-8 flex flex-col h-full bg-background ${
+            className={`md:col-span-8 lg:col-span-8 flex flex-col h-full bg-background ${
               !activeChatId ? "hidden md:flex" : "flex"
             }`}
           >
             {activeChatId ? (
               <>
                 {/* Active Chat Header */}
-                <div className="p-3 sm:p-4 border-b flex items-center justify-between bg-card/60 backdrop-blur-md">
+                <div className="p-3 sm:p-4 border-b flex items-center justify-between bg-card/70 backdrop-blur-md">
                   <div className="flex items-center gap-3">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setActiveChatId(null)}
-                      className="md:hidden p-1 h-8 w-8 rounded-xl"
+                      className="md:hidden p-1 h-9 w-9 rounded-xl"
                     >
-                      <ChevronLeft className="h-5 w-5" />
+                      <ChevronLeft className="h-6 w-6" />
                     </Button>
-                    <Avatar className="h-9 w-9">
+                    <Avatar className="h-10 w-10 sm:h-11 sm:w-11 ring-2 ring-primary/20">
                       <AvatarImage src={otherParticipantAvatar} />
-                      <AvatarFallback className="text-xs font-black bg-primary/10 text-primary">
+                      <AvatarFallback className="text-xs sm:text-sm font-black bg-primary/10 text-primary">
                         {otherParticipantName.slice(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h2 className="text-sm font-bold text-foreground">
+                        <h2 className="text-sm sm:text-base font-extrabold text-foreground tracking-tight">
                           {otherParticipantName}
                         </h2>
                         <Badge
                           variant="outline"
-                          className="text-[9px] py-0 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-bold"
+                          className="text-[10px] py-0 px-2 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold"
                         >
                           Online
                         </Badge>
                       </div>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3 text-primary" />
-                        Direct Real-time Thread
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                        <ShieldCheck className="h-3.5 w-3.5 text-primary" />
+                        Verified Real-time Encrypted Channel
                       </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Messages Scroll Area */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/10">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-2 bg-muted/10">
                   {messages.length === 0 ? (
-                    <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground space-y-2">
-                      <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
-                        <MessageSquare className="h-6 w-6" />
+                    <div className="h-full flex flex-col items-center justify-center text-center p-8 text-muted-foreground space-y-3">
+                      <div className="h-14 w-14 rounded-3xl bg-primary/10 text-primary flex items-center justify-center shadow-inner">
+                        <MessageSquare className="h-7 w-7" />
                       </div>
-                      <p className="text-sm font-bold text-foreground">
+                      <p className="text-base font-bold text-foreground">
                         Say Hello to {otherParticipantName}!
                       </p>
-                      <p className="text-xs max-w-sm">
-                        Start your conversation regarding design orders, verified business inquiries, or general support.
+                      <p className="text-xs max-w-sm leading-relaxed">
+                        Start your direct conversation regarding service bookings, custom creative orders, or platform support.
                       </p>
                     </div>
                   ) : (
                     messages.map((m) => {
                       const isMe = m.senderId === currentUserId;
                       return (
-                        <div
-                          key={m.id}
-                          className={`flex gap-2.5 max-w-[85%] ${
-                            isMe ? "ml-auto flex-row-reverse" : "mr-auto"
-                          }`}
-                        >
-                          <div className="space-y-1">
-                            <div
-                              className={`p-3 rounded-2xl text-xs sm:text-sm leading-relaxed ${
-                                isMe
-                                  ? "bg-primary text-primary-foreground rounded-tr-none shadow-sm"
-                                  : "bg-muted/90 text-foreground rounded-tl-none border shadow-2xs"
-                              }`}
-                            >
-                              <p className="whitespace-pre-wrap">{m.text}</p>
-                            </div>
-                            <div
-                              className={`flex items-center gap-1 text-[9px] text-muted-foreground ${
-                                isMe ? "justify-end" : "justify-start"
-                              }`}
-                            >
-                              <span>
-                                {m.createdAt
-                                  ? formatDistanceToNow(new Date(m.createdAt), { addSuffix: true })
-                                  : "just now"}
-                              </span>
-                              {isMe && <CheckCheck className="h-3 w-3 text-primary" />}
-                            </div>
-                          </div>
+                        <div key={m.id} id={`msg-${m.id}`}>
+                          <ChatMessageBubble
+                            message={m}
+                            isMe={isMe}
+                            currentUserId={currentUserId}
+                            onReply={handleReplyToMessage}
+                            onToggleReaction={handleToggleReaction}
+                            onScrollToMessage={(msgId) => {
+                              const elem = document.getElementById(`msg-${msgId}`);
+                              if (elem) {
+                                elem.scrollIntoView({ behavior: "smooth", block: "center" });
+                                elem.classList.add("ring-2", "ring-primary", "rounded-3xl");
+                                setTimeout(() => {
+                                  elem.classList.remove("ring-2", "ring-primary");
+                                }, 1500);
+                              }
+                            }}
+                          />
                         </div>
                       );
                     })
@@ -539,22 +629,90 @@ export default function RealtimeChatPage() {
                   <div ref={messagesEndRef} />
                 </div>
 
+                {/* WhatsApp-Style Reply Preview Banner */}
+                {replyingTo && (
+                  <div className="px-4 py-2.5 bg-muted/80 border-t flex items-center justify-between backdrop-blur-md">
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      <div className="h-8 w-1 bg-primary rounded-full shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-primary flex items-center gap-1">
+                          <Reply className="h-3 w-3" />
+                          Replying to {replyingTo.senderName}
+                        </p>
+                        <p className="text-xs text-muted-foreground truncate line-clamp-1 italic">
+                          "{replyingTo.text || "Attached photo"}"
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setReplyingTo(null)}
+                      className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
+                {/* Image Attachment Preview */}
+                {selectedImage && (
+                  <div className="px-4 py-2 bg-muted/50 border-t flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={selectedImage}
+                        alt="Selected attachment"
+                        className="h-12 w-12 object-cover rounded-xl border"
+                      />
+                      <span className="text-xs text-muted-foreground">Ready to attach</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedImage(null)}
+                      className="h-7 w-7 rounded-full text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+
                 {/* Message Input Box */}
                 <form
                   onSubmit={handleSendMessage}
                   className="p-3 sm:p-4 border-t bg-card flex items-center gap-2"
                 >
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    accept="image/*"
+                    onChange={handleImageSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Attach image"
+                    className="h-11 w-11 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                  >
+                    <ImageIcon className="h-5 w-5" />
+                  </Button>
+
                   <Input
+                    ref={inputRef}
                     placeholder={`Message ${otherParticipantName}...`}
                     value={inputText}
                     onChange={(e) => setInputText(e.target.value)}
-                    className="h-11 rounded-2xl text-xs sm:text-sm"
+                    className="h-12 rounded-2xl text-xs sm:text-sm bg-background border-border/80 shadow-xs focus-visible:ring-primary"
                     disabled={isSending}
                   />
+
                   <Button
                     type="submit"
-                    disabled={!inputText.trim() || isSending}
-                    className="h-11 px-5 rounded-2xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-1.5 shrink-0 shadow-md"
+                    disabled={(!inputText.trim() && !selectedImage) || isSending}
+                    className="h-12 px-5 sm:px-6 rounded-2xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shrink-0 shadow-md transition-all active:scale-95"
                   >
                     {isSending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -568,15 +726,15 @@ export default function RealtimeChatPage() {
                 </form>
               </>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-muted-foreground space-y-3">
-                <div className="h-16 w-16 rounded-3xl bg-primary/10 text-primary flex items-center justify-center shadow-inner">
-                  <Headphones className="h-8 w-8" />
+              <div className="h-full flex flex-col items-center justify-center p-8 text-center text-muted-foreground space-y-4">
+                <div className="h-20 w-20 rounded-3xl bg-primary/10 text-primary flex items-center justify-center shadow-inner">
+                  <Headphones className="h-10 w-10" />
                 </div>
-                <h3 className="text-lg font-bold text-foreground">
+                <h3 className="text-xl font-extrabold text-foreground">
                   Select a Conversation
                 </h3>
-                <p className="text-xs max-w-sm leading-relaxed">
-                  Connect instantly with verified platform merchants, creative leads, and customer support with real-time sync.
+                <p className="text-xs sm:text-sm max-w-md leading-relaxed">
+                  Connect instantly with verified platform merchants, creative leads, and support team with real-time sync, WhatsApp-style replies, reactions, and attachments.
                 </p>
               </div>
             )}
