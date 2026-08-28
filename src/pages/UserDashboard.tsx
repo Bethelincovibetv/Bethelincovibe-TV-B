@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift, Palette
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift, Palette, BookOpen
 } from "lucide-react";
 
 import ReferralCard from "@/components/ReferralCard";
@@ -175,6 +175,7 @@ export default function UserDashboard() {
 
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
+    { to: "/how-to", label: "How-To Guide", icon: BookOpen, color: "from-blue-600 via-indigo-600 to-purple-600", show: true },
     { to: "/dashboard/graphic-designer", label: "Graphic Design", icon: Palette, color: "from-amber-500 via-orange-500 to-pink-500", show: true },
     { to: "/dashboard/logo-creator", label: "Logo Creator", icon: Sparkles, color: "from-yellow-400 via-amber-500 to-amber-600", show: true },
     { to: "/dashboard/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-green-600", show: flags.whatsapp_engine },
@@ -322,6 +323,43 @@ export default function UserDashboard() {
                   </Link>
                 </Button>
               </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Master How-To Guide & Feature Handbook Card */}
+        <Card className="border border-blue-500/30 shadow-md bg-gradient-to-r from-blue-950/30 via-indigo-950/20 to-purple-950/30 rounded-3xl overflow-hidden">
+          <CardContent className="p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="flex items-start gap-4">
+              <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md ring-2 ring-blue-400/30">
+                📖
+              </div>
+              <div className="space-y-1 max-w-xl">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/40 text-[10px] font-black uppercase">
+                    Interactive Knowledge Base
+                  </Badge>
+                  <span className="text-xs font-semibold text-muted-foreground">Problem → Action → Result</span>
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-foreground">
+                  New to Bethelincovibe TV? Learn Every Feature Step-by-Step
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Interactive guides with Maya Sterling covering Graphic Design, Logo Creation, WhatsApp closing scripts, Sales Pages, Directory inquiries, and CAC calculators.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0 self-stretch md:self-auto justify-end">
+              <Button
+                asChild
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black shadow-md rounded-2xl h-10 px-4 gap-1.5 text-xs"
+              >
+                <Link to="/how-to">
+                  <BookOpen className="h-4 w-4" />
+                  Open How-To Guide
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
