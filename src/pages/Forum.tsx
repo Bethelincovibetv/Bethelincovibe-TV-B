@@ -170,7 +170,7 @@ export default function Forum() {
   const popular = useMemo(() => [...posts].sort((a, b) => b.likes_count - a.likes_count).slice(0, 3), [posts]);
 
   return (
-    <div className="container max-w-5xl py-6 pb-28 space-y-6">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 pb-32 space-y-6 sm:space-y-8">
       <Helmet>
         <title>Community Forum | Bethelincovibe TV</title>
         <meta name="description" content="Ask questions, share ideas and connect with Lagos entrepreneurs." />
@@ -179,38 +179,38 @@ export default function Forum() {
       <AdsterraAd slot="forum" />
 
       {/* Hero Header Card */}
-      <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-card via-card/90 to-primary/5 p-6 sm:p-8 shadow-xl">
-        <div className="absolute top-0 right-0 -mt-8 -mr-8 h-48 w-48 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 -mb-10 h-36 w-36 rounded-full bg-amber-500/10 blur-2xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-br from-card via-card/95 to-primary/10 p-6 sm:p-10 shadow-2xl">
+        <div className="absolute top-0 right-0 -mt-12 -mr-12 h-64 w-64 rounded-full bg-primary/15 blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 left-1/4 -mb-12 h-48 w-48 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-3 max-w-xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-xs font-bold text-primary">
-              <Sparkles className="h-3.5 w-3.5" />
-              Lagos Entrepreneur Community
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6 sm:gap-8">
+          <div className="space-y-3.5 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-extrabold text-primary shadow-xs">
+              <Sparkles className="h-4 w-4" />
+              Lagos & Global Entrepreneur Network
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-foreground tracking-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-foreground tracking-tight leading-tight">
               Ask Questions, Share Insights & <span className="bg-gradient-to-r from-primary via-amber-500 to-amber-600 bg-clip-text text-transparent">Grow Together</span>
             </h1>
-            <p className="text-sm text-muted-foreground leading-relaxed">
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
               Connect with local business owners, financial advisors, and fellow founders. Ask questions, showcase your startup, and swap real growth strategies.
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row md:flex-col items-stretch sm:items-center gap-3 shrink-0">
+          <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center gap-3.5 shrink-0">
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button
                   onClick={() => { if (!user) { navigate("/login"); return; } setOpen(true); }}
                   size="lg"
-                  className="rounded-2xl bg-gradient-to-r from-primary to-amber-600 text-white font-extrabold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all gap-2"
+                  className="rounded-2xl h-12 px-6 bg-gradient-to-r from-primary to-amber-600 text-white font-extrabold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all gap-2 text-sm sm:text-base"
                 >
-                  <Plus className="h-5 w-5" /> Start new Discussion
+                  <Plus className="h-5 w-5" /> Start New Discussion
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-lg rounded-2xl border-border/80">
+              <DialogContent className="sm:max-w-lg rounded-3xl border-border/80 p-6">
                 <DialogHeader>
-                  <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                  <DialogTitle className="text-xl font-black flex items-center gap-2">
                     <Sparkles className="h-5 w-5 text-primary" /> Create Community Post
                   </DialogTitle>
                 </DialogHeader>
@@ -250,7 +250,7 @@ export default function Forum() {
                       value={form.title}
                       onChange={(e) => setForm({ ...form, title: e.target.value })}
                       placeholder="E.g., How do you register a CAC business in Lagos?"
-                      className="rounded-xl text-sm"
+                      className="rounded-xl text-sm h-10"
                     />
                   </div>
 
@@ -274,48 +274,48 @@ export default function Forum() {
               </DialogContent>
             </Dialog>
 
-            <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground font-medium bg-muted/40 px-3 py-2 rounded-xl border border-border/50">
-              <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5 text-primary" /> Active Community</span>
+            <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground font-semibold bg-muted/50 px-4 py-2.5 rounded-2xl border border-border/60">
+              <span className="flex items-center gap-1.5"><Users className="h-4 w-4 text-primary" /> Active Community</span>
               <span>•</span>
-              <span className="flex items-center gap-1"><CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" /> Verified Insights</span>
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="h-4 w-4 text-emerald-500" /> Verified Insights</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* 3D Category Selection Grid */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-sm font-extrabold text-foreground tracking-tight uppercase flex items-center gap-2">
+          <h2 className="text-sm sm:text-base font-black text-foreground tracking-tight uppercase flex items-center gap-2">
             <Filter className="h-4 w-4 text-primary" /> Explore Categories
           </h2>
           {cat !== "all" && (
             <button
               onClick={() => updateParam("cat", "all")}
-              className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+              className="text-xs font-bold text-primary hover:underline flex items-center gap-1 bg-primary/10 px-2.5 py-1 rounded-lg"
             >
-              <X className="h-3 w-3" /> Clear Category
+              <X className="h-3.5 w-3.5" /> Clear Category Filter
             </button>
           )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
           {/* All Topics Card */}
           <button
             onClick={() => updateParam("cat", "all")}
-            className={`group relative p-3 rounded-2xl text-left border transition-all duration-300 flex flex-col justify-between overflow-hidden ${
+            className={`group relative p-4 sm:p-5 rounded-3xl text-left border transition-all duration-300 flex flex-col justify-between overflow-hidden ${
               cat === "all"
-                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-[1.02]"
-                : "bg-card hover:bg-muted/40 border-border/80 hover:border-primary/40 shadow-xs"
+                ? "bg-primary text-primary-foreground border-primary shadow-xl shadow-primary/20 scale-[1.02] ring-2 ring-primary/30"
+                : "bg-card hover:bg-muted/40 border-border/80 hover:border-primary/40 shadow-xs hover:shadow-md"
             }`}
           >
             <div className="flex items-center justify-between w-full mb-3">
-              <div className={`h-11 w-11 rounded-2xl flex items-center justify-center font-extrabold text-lg shadow-inner ${
+              <div className={`h-12 w-12 rounded-2xl flex items-center justify-center font-extrabold text-xl shadow-inner ${
                 cat === "all" ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
               }`}>
                 🌟
               </div>
-              <Badge className={`text-[10px] font-black px-1.5 py-0 rounded-full ${
+              <Badge className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                 cat === "all" ? "bg-white text-primary" : "bg-muted text-muted-foreground"
               }`}>
                 ALL
@@ -323,10 +323,10 @@ export default function Forum() {
             </div>
 
             <div>
-              <p className={`text-xs font-extrabold line-clamp-1 ${cat === "all" ? "text-white" : "text-foreground"}`}>
+              <p className={`text-sm font-black line-clamp-1 ${cat === "all" ? "text-white" : "text-foreground"}`}>
                 All Topics
               </p>
-              <p className={`text-[10px] line-clamp-1 ${cat === "all" ? "text-white/80" : "text-muted-foreground"}`}>
+              <p className={`text-xs mt-0.5 line-clamp-1 ${cat === "all" ? "text-white/80" : "text-muted-foreground"}`}>
                 Browse entire feed
               </p>
             </div>
@@ -339,14 +339,14 @@ export default function Forum() {
               <button
                 key={c.key}
                 onClick={() => updateParam("cat", c.key)}
-                className={`group relative p-3 rounded-2xl text-left border transition-all duration-300 flex flex-col justify-between overflow-hidden ${
+                className={`group relative p-4 sm:p-5 rounded-3xl text-left border transition-all duration-300 flex flex-col justify-between overflow-hidden ${
                   isActive
-                    ? `bg-gradient-to-br ${c.color} border-2 ${c.border} shadow-lg scale-[1.02] ring-2 ring-primary/20`
-                    : "bg-card hover:bg-muted/30 border-border/80 hover:border-primary/40 shadow-xs"
+                    ? `bg-gradient-to-br ${c.color} border-2 ${c.border} shadow-xl scale-[1.02] ring-2 ring-primary/30`
+                    : "bg-card hover:bg-muted/30 border-border/80 hover:border-primary/40 shadow-xs hover:shadow-md"
                 }`}
               >
                 {/* 3D Icon Image */}
-                <div className="relative mb-2.5 flex items-center justify-between">
+                <div className="relative mb-3 flex items-center justify-between">
                   <div className="relative h-12 w-12 rounded-2xl overflow-hidden border border-white/20 shadow-md group-hover:scale-110 transition-transform duration-300">
                     <img
                       src={c.icon3d}
@@ -355,14 +355,14 @@ export default function Forum() {
                       referrerPolicy="no-referrer"
                     />
                   </div>
-                  <span className="text-xs">{c.emoji}</span>
+                  <span className="text-sm">{c.emoji}</span>
                 </div>
 
                 <div>
-                  <p className={`text-xs font-extrabold line-clamp-1 ${isActive ? "text-foreground" : "text-foreground/90"}`}>
+                  <p className={`text-sm font-black line-clamp-1 ${isActive ? "text-foreground" : "text-foreground/90"}`}>
                     {c.label}
                   </p>
-                  <p className="text-[10px] text-muted-foreground line-clamp-1">
+                  <p className="text-xs mt-0.5 text-muted-foreground line-clamp-1">
                     {c.desc}
                   </p>
                 </div>
@@ -501,13 +501,13 @@ function PostRow({ post, compact }: { post: Post; compact?: boolean }) {
 
   return (
     <Link to={`/forum/${post.id}`} className="block group">
-      <Card className="border-border/80 hover:border-primary/50 transition-all duration-300 shadow-xs hover:shadow-md rounded-2xl overflow-hidden bg-card">
-        <CardContent className="p-4 sm:p-5 space-y-2.5">
+      <Card className="border-border/80 hover:border-primary/50 transition-all duration-300 shadow-xs hover:shadow-lg rounded-3xl overflow-hidden bg-card hover:bg-card/95">
+        <CardContent className="p-5 sm:p-7 space-y-3.5">
           {/* Top Badges & Category with 3D Icon */}
           <div className="flex items-center justify-between gap-2 flex-wrap">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <Badge
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border-0 ${
+                className={`text-xs font-black px-2.5 py-1 rounded-xl border-0 shadow-xs ${
                   post.kind === "question"
                     ? "bg-amber-500/15 text-amber-700 dark:text-amber-400"
                     : "bg-blue-500/15 text-blue-700 dark:text-blue-400"
@@ -517,11 +517,11 @@ function PostRow({ post, compact }: { post: Post; compact?: boolean }) {
               </Badge>
 
               {cat && (
-                <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-muted/60 border border-border/50 text-[10px] font-bold text-muted-foreground">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-muted/60 border border-border/60 text-xs font-bold text-muted-foreground">
                   <img
                     src={cat.icon3d}
                     alt={cat.label}
-                    className="h-3.5 w-3.5 rounded-xs object-cover"
+                    className="h-4 w-4 rounded-md object-cover"
                     referrerPolicy="no-referrer"
                   />
                   <span>{cat.label}</span>
@@ -529,46 +529,46 @@ function PostRow({ post, compact }: { post: Post; compact?: boolean }) {
               )}
             </div>
 
-            <span className="text-[10px] font-medium text-muted-foreground">
+            <span className="text-xs font-medium text-muted-foreground bg-muted/40 px-2.5 py-0.5 rounded-lg">
               {formatDistanceToNow(new Date(post.created_at), { addSuffix: true })}
             </span>
           </div>
 
           {/* Title */}
-          <h3 className="text-base sm:text-lg font-bold text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">
+          <h3 className="text-lg sm:text-xl font-black text-foreground group-hover:text-primary transition-colors leading-snug line-clamp-2">
             {post.title}
           </h3>
 
           {/* Snippet Content */}
           {!compact && (
-            <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
+            <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
               {post.content}
             </p>
           )}
 
           {/* Footer Metadata */}
-          <div className="flex items-center justify-between pt-2 border-t border-border/40 text-xs text-muted-foreground flex-wrap gap-2">
+          <div className="flex items-center justify-between pt-3 border-t border-border/50 text-xs text-muted-foreground flex-wrap gap-3">
             <div className="flex items-center gap-2">
               <ForumAuthorBadge author={post.author} size="sm" asLink={false} />
             </div>
 
-            <div className="flex items-center gap-2.5">
+            <div className="flex items-center gap-3">
               {/youtube|youtu\.be|vimeo/i.test(post.content) && (
-                <span className="inline-flex items-center gap-1 text-[10px] bg-red-500/10 text-red-600 dark:text-red-400 font-bold px-1.5 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1 text-xs bg-red-500/10 text-red-600 dark:text-red-400 font-bold px-2 py-0.5 rounded-lg">
                   ▶ Video
                 </span>
               )}
               {/wa\.me|whatsapp/i.test(post.content) && (
-                <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold px-1.5 py-0.5 rounded-md">
+                <span className="inline-flex items-center gap-1 text-xs bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold px-2 py-0.5 rounded-lg">
                   💬 WhatsApp
                 </span>
               )}
-              <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-foreground transition">
-                <MessageSquare className="h-3.5 w-3.5 text-blue-500" />
-                {post.replies_count}
+              <span className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-xl group-hover:text-foreground transition">
+                <MessageSquare className="h-4 w-4 text-blue-500" />
+                {post.replies_count} {post.replies_count === 1 ? "reply" : "replies"}
               </span>
-              <span className="flex items-center gap-1 text-xs font-semibold text-muted-foreground hover:text-rose-500 transition">
-                <Heart className="h-3.5 w-3.5 text-rose-500" />
+              <span className="flex items-center gap-1.5 text-xs font-bold text-muted-foreground bg-muted/50 px-2.5 py-1 rounded-xl group-hover:text-rose-500 transition">
+                <Heart className="h-4 w-4 text-rose-500" />
                 {post.likes_count}
               </span>
             </div>

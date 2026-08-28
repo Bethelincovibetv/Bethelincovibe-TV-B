@@ -236,14 +236,14 @@ export default function UserDashboard() {
 
                 <div className="min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-xs opacity-80 truncate">
+                    <p className="text-xs text-white/90 font-semibold truncate">
                       {userBiz?.name ? `${userBiz.name}` : "Welcome back"}
                     </p>
                     {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold">Admin</Badge>}
                   </div>
-                  <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight">{displayName}</h1>
+                  <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight text-white">{displayName}</h1>
                   {userBiz?.city && (
-                    <p className="text-[11px] opacity-75 truncate">{userBiz.city}{userBiz.state ? `, ${userBiz.state}` : ""}</p>
+                    <p className="text-[11px] text-white/80 font-medium truncate">{userBiz.city}{userBiz.state ? `, ${userBiz.state}` : ""}</p>
                   )}
                 </div>
               </div>

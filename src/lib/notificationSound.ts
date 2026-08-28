@@ -239,6 +239,15 @@ export async function playNotificationSound(): Promise<void> {
   }
 }
 
+/** Alias for playNotificationSound with optional preset parameter */
+export async function playNotificationAudio(preset?: NotificationSoundPreset | string): Promise<void> {
+  if (preset && typeof preset === "string") {
+    previewNotificationSound(preset);
+    return;
+  }
+  return playNotificationSound();
+}
+
 /**
  * Dedicated celebratory cash/credit chime for wallet credits (top-ups, daily rewards, transfers received, sales earnings)
  */

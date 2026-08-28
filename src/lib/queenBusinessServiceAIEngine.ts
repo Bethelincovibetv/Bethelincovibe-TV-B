@@ -335,7 +335,7 @@ export async function runQueenServiceAIAutomation(
 
   const bizId = business.id;
   const bizName = business.name || "Commercial Enterprise";
-  const currentCategory = business.categories?.name || business.category_name || "General Business";
+  let currentCategory = business.categories?.name || business.category_name || "General Business";
   const currentDescription = business.description || "";
   const location = business.address
     ? `${business.address}${business.city ? `, ${business.city}` : ""}`

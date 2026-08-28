@@ -12,6 +12,7 @@ import {
   DigitalEmployeeProfile,
   getAgentProfile,
   querySpecialistAgent,
+  cleanAndFormatAgentResponse,
   INITIAL_DIGITAL_WORKFORCE
 } from "@/lib/aiWorkforceRegistry";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -61,7 +62,7 @@ export default function FrontendSpecialistWidget({
     {
       id: "welcome_msg",
       role: "agent",
-      text: agent.workplaceGreeting,
+      text: cleanAndFormatAgentResponse(agent.workplaceGreeting),
       time: "Just now",
     },
   ]);

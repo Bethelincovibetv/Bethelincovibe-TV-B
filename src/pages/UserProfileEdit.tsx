@@ -36,6 +36,8 @@ import {
   MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
+import { playNotificationAudio } from "@/lib/notificationSound";
 import PhoneInput from "@/components/PhoneInput";
 import AIProfileEnhancerDialog from "@/components/AIProfileEnhancerDialog";
 import AIServiceDesignerDialog from "@/components/AIServiceDesignerDialog";
@@ -416,6 +418,26 @@ export default function UserProfileEdit() {
           if (newBiz?.id) setUserSupplierId(newBiz.id);
         }
       }
+
+      // Record congratulations notification
+      await supabase.from("user_notifications").insert({
+        user_id: user.id,
+        title: "🎉 Congratulations on Updating Your Business Profile!",
+        message: `Your verified business listing "${profile.display_name || username}" is active on Bethelincovibe TV Directory.`,
+        type: "system",
+        link: username ? `/u/${username}` : "/dashboard",
+      }).catch(() => {});
+
+      // Trigger celebration sound & confetti
+      try {
+        confetti({
+          particleCount: 130,
+          spread: 75,
+          origin: { y: 0.6 },
+          colors: ["#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"],
+        });
+        playNotificationAudio("bethel_vibe");
+      } catch {}
 
       toast.success("Public Profile & Business Directory presence saved!");
     } catch (err: any) {

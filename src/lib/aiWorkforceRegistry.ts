@@ -1239,8 +1239,35 @@ As the specialist in charge of **${agent.workplace}**, here is our concrete stra
 }
 
 /**
+ * Sanitizes and cleans agent response text to ensure it never carries raw asterisks (* or **),
+ * converting them into clean bullet dots (•), crisp headings, and neatly spaced structured text.
+ */
+export function cleanAndFormatAgentResponse(text: string): string {
+  if (!text) return "";
+  
+  let cleaned = text
+    // Replace markdown headers with clean bold titles
+    .replace(/^#{1,6}\s*(.*)$/gm, "$1\n")
+    // Convert bold **text** or __text__ to simple clean text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    // Convert bullet asterisks "* item" or "- item" to clean bullet dots "• item"
+    .replace(/^[\*\-]\s+/gm, "• ")
+    // Convert inline italic *item* or _item_ to clean text
+    .replace(/\*([^\*]+)\*/g, "$1")
+    // Remove any remaining dangling asterisks
+    .replace(/\*/g, "")
+    // Normalize multiple consecutive blank lines
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  return cleaned;
+}
+
+/**
  * Executes a specialist AI task in real-time using Gemini model and relevant platform context
- * Gracefully handles offline states, API keys with permission restrictions, and network variances
+ * Gracefully handles offline states, API keys with permission restrictions, and network variances.
+ * Strips all raw asterisks for clean, structured display.
  */
 export async function querySpecialistAgent(
   agent: DigitalEmployeeProfile,
@@ -1258,7 +1285,7 @@ Context:
 - User Context / Workplace Data: ${JSON.stringify(contextData || {})}
 
 Guidelines:
-1. Provide concrete, high-value, actionable answers formatted cleanly in Markdown.
+1. Provide concrete, high-value, actionable answers. Format clearly without raw asterisks (* or **). Use bullet dots (•) or numbered lists (1., 2., 3.) and clean spacing.
 2. If asked to generate content (like flashcards, quiz questions, headlines, ad copy, or WhatsApp scripts), produce complete, ready-to-use output immediately without placeholder cutoffs.
 3. Keep responses structured, elegant, and directly tailored to the entrepreneur's commercial goals.`;
 
@@ -1275,7 +1302,7 @@ Guidelines:
         });
 
         if (res.text && res.text.trim()) {
-          return res.text.trim();
+          return cleanAndFormatAgentResponse(res.text.trim());
         }
       } catch (firstErr: any) {
         // Try fallback model alias
@@ -1287,7 +1314,7 @@ Guidelines:
             ],
           });
           if (fallbackRes.text && fallbackRes.text.trim()) {
-            return fallbackRes.text.trim();
+            return cleanAndFormatAgentResponse(fallbackRes.text.trim());
           }
         } catch {
           // Proceed to rich domain fallback
@@ -1298,6 +1325,7 @@ Guidelines:
     // Graceful silent transition to rich domain synthesis
   }
 
-  // High-fidelity domain specialist fallback
-  return generateDomainSpecialistFallback(agent, userMessage, contextData);
+  // High-fidelity domain specialist fallback cleaned of asterisks
+  const fallback = generateDomainSpecialistFallback(agent, userMessage, contextData);
+  return cleanAndFormatAgentResponse(fallback);
 }

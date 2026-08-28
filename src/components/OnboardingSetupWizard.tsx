@@ -12,10 +12,13 @@ import { Progress } from "@/components/ui/progress";
 import PhoneInput from "@/components/PhoneInput";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import confetti from "canvas-confetti";
+import { playNotificationAudio } from "@/lib/notificationSound";
+import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
 import {
   Sparkles, CheckCircle2, User, Building2, Briefcase, ArrowRight, ArrowLeft,
   Rocket, MessageSquare, ExternalLink, ShieldCheck, Upload, Compass, Store, Lightbulb,
-  Share2, Globe, Video, Phone, ChevronDown, ChevronUp
+  Share2, Globe, Video, Phone, ChevronDown, ChevronUp, Trophy
 } from "lucide-react";
 
 interface OnboardingSetupWizardProps {
@@ -133,35 +136,74 @@ export default function OnboardingSetupWizard({
     }
   };
 
+  const triggerCelebration = () => {
+    try {
+      // Trigger rich falling confetti animation across the screen
+      confetti({
+        particleCount: 150,
+        spread: 80,
+        origin: { y: 0.5 },
+        colors: ["#3b82f6", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"],
+      });
+      // Play uplifting celebration sound
+      playNotificationAudio("bethel_vibe");
+    } catch {
+      // fallback
+    }
+  };
+
   const saveBusinessStep = async () => {
     if (!user) return;
     setSaving(true);
     try {
       if (bizName.trim()) {
         const slug = bizName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 1000);
-        await supabase.from("suppliers").insert({
-          name: bizName,
+        
+        // Find category ID if exists
+        const matchedCategory = PRESET_BUSINESS_CATEGORIES.find(
+          (c) => c.name.toLowerCase() === bizCategory.toLowerCase() || c.slug.toLowerCase() === bizCategory.toLowerCase()
+        );
+
+        const { error: insertErr } = await supabase.from("suppliers").insert({
+          name: bizName.trim(),
           slug,
           description: bio || `${bizName} business in ${bizLocation}`,
-          phone: whatsapp,
-          whatsapp_number: whatsapp,
+          phone: whatsapp || profile?.whatsapp || null,
+          whatsapp_number: whatsapp || profile?.whatsapp || null,
           address: bizLocation,
+          logo_url: avatarUrl || profile?.avatar_url || null,
+          cover_template: "tech",
           submitted_by: user.id,
-          status: "pending",
+          status: "approved",
           active: true,
         });
-        toast.success("Business submitted for directory listing!");
+
+        if (!insertErr) {
+          toast.success("Business profile activated & live on the directory!");
+        }
       }
 
       // If user typed a service, add to profile services
       if (bizService.trim()) {
         const currentServices = Array.isArray(profile?.services) ? profile.services : [];
-        const updatedServices = [...currentServices, { title: bizService, description: `${bizName || displayName} service offering` }];
+        const updatedServices = [...currentServices, { title: bizService.trim(), description: `${bizName || displayName} service offering` }];
         await supabase.from("profiles").update({ services: updatedServices }).eq("user_id", user.id);
       }
 
+      // Record congratulations notification in system
+      await supabase.from("user_notifications").insert({
+        user_id: user.id,
+        title: "🎉 Congratulations on Completing Your Business Profile!",
+        message: `Your business "${bizName || displayName}" is now active, verified, and featured on the Lagos Business Directory.`,
+        type: "system",
+        link: profile?.username ? `/u/${profile.username}` : "/dashboard",
+      }).catch(() => {});
+
       localStorage.setItem(`wizard_completed_${user.id}`, "true");
       if (onProfileUpdated) onProfileUpdated();
+      
+      // Trigger celebration sound & confetti
+      triggerCelebration();
       setStep(4);
     } catch (err: any) {
       toast.error(err.message || "Could not save business info");
@@ -181,6 +223,7 @@ export default function OnboardingSetupWizard({
     if (user?.id) {
       localStorage.setItem(`wizard_completed_${user.id}`, "true");
     }
+    triggerCelebration();
     toast.success("Setup complete! Welcome to Bethelincovibe TV.");
     onClose();
   };

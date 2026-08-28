@@ -45,66 +45,98 @@ export default function ProductDetail() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      const isUuid = /^[0-9a-f-]{36}$/i.test(slug || "");
-      const { data } = await supabase
-        .from("directory_products")
-        .select("*, categories(name, slug)")
-        .eq(isUuid ? "id" : "slug", slug!)
-        .maybeSingle();
+      try {
+        const decodedSlug = slug ? decodeURIComponent(slug).trim() : "";
+        const isUuid = /^[0-9a-f-]{36}$/i.test(decodedSlug || "");
+        
+        let foundProduct: any = null;
 
-      setProduct(data);
-
-      if (data) {
-        // Increment view count & log analytics
-        supabase
-          .from("directory_products")
-          .update({ views_count: (data.views_count || 0) + 1 })
-          .eq("id", data.id)
-          .then(() => {}, () => {});
-
-        recordPageView({
-          path: window.location.pathname,
-          title: data.name,
-          featureType: "product",
-          entityId: data.id,
-        });
-
-        // Load seller profile & business listing
-        if (data.user_id) {
-          const { data: p } = await supabase
-            .from("profiles")
-            .select("display_name, username, avatar_url, whatsapp, bio, social_links")
-            .eq("user_id", data.user_id)
-            .maybeSingle();
-          setSeller(p);
-
-          const { data: biz } = await supabase
-            .from("suppliers")
-            .select("id, name, slug, logo_url, address")
-            .eq("submitted_by", data.user_id)
-            .eq("active", true)
-            .eq("status", "approved")
-            .order("boosted_until", { ascending: false, nullsFirst: false })
-            .limit(1)
-            .maybeSingle();
-          setSellerBusiness(biz);
-        }
-
-        // Fetch related products
-        const { data: related } = await supabase
+        // 1. Try querying by id or slug
+        const { data: directData } = await supabase
           .from("directory_products")
           .select("*, categories(name, slug)")
-          .eq("active", true)
-          .neq("id", data.id)
-          .order("views_count", { ascending: false })
-          .limit(4);
+          .eq(isUuid ? "id" : "slug", decodedSlug)
+          .maybeSingle();
 
-        if (related) {
-          setRelatedProducts(related as DirectoryProduct[]);
+        if (directData) {
+          foundProduct = directData;
+        } else if (!isUuid) {
+          // 2. Try matching by slug case-insensitively or by ID
+          const { data: ilikeData } = await supabase
+            .from("directory_products")
+            .select("*, categories(name, slug)")
+            .ilike("slug", decodedSlug)
+            .maybeSingle();
+          if (ilikeData) {
+            foundProduct = ilikeData;
+          } else {
+            // 3. Try matching by ID fallback
+            const { data: idFallback } = await supabase
+              .from("directory_products")
+              .select("*, categories(name, slug)")
+              .eq("id", decodedSlug)
+              .maybeSingle();
+            if (idFallback) {
+              foundProduct = idFallback;
+            }
+          }
         }
-      }
 
-      setLoading(false);
+        setProduct(foundProduct);
+
+        if (foundProduct) {
+          // Increment view count & log analytics
+          supabase
+            .from("directory_products")
+            .update({ views_count: (foundProduct.views_count || 0) + 1 })
+            .eq("id", foundProduct.id)
+            .then(() => {}, () => {});
+
+          recordPageView({
+            path: window.location.pathname,
+            title: foundProduct.name,
+            featureType: "product",
+            entityId: foundProduct.id,
+          });
+
+          // Load seller profile & business listing
+          if (foundProduct.user_id) {
+            const { data: p } = await supabase
+              .from("profiles")
+              .select("display_name, username, avatar_url, whatsapp, bio, social_links")
+              .eq("user_id", foundProduct.user_id)
+              .maybeSingle();
+            setSeller(p);
+
+            const { data: biz } = await supabase
+              .from("suppliers")
+              .select("id, name, slug, logo_url, address")
+              .eq("submitted_by", foundProduct.user_id)
+              .eq("active", true)
+              .order("boosted_until", { ascending: false, nullsFirst: false })
+              .limit(1)
+              .maybeSingle();
+            setSellerBusiness(biz);
+          }
+
+          // Fetch related products
+          const { data: related } = await supabase
+            .from("directory_products")
+            .select("*, categories(name, slug)")
+            .eq("active", true)
+            .neq("id", foundProduct.id)
+            .order("views_count", { ascending: false })
+            .limit(4);
+
+          if (related) {
+            setRelatedProducts(related as DirectoryProduct[]);
+          }
+        }
+      } catch (e) {
+        console.error("Error loading product detail:", e);
+      } finally {
+        setLoading(false);
+      }
     })();
   }, [slug]);
 
@@ -141,6 +173,8 @@ export default function ProductDetail() {
       </div>
     );
   }
+
+  const isOwner = Boolean(user && (user.id === product?.user_id || isAdmin));
 
   const isDigital =
     product.product_type === "digital" ||
