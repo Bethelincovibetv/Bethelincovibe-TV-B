@@ -337,7 +337,9 @@ export async function runQueenServiceAIAutomation(
   const bizName = business.name || "Commercial Enterprise";
   const currentCategory = business.categories?.name || business.category_name || "General Business";
   const currentDescription = business.description || "";
-  const location = business.address || "Lagos, Nigeria";
+  const location = business.address
+    ? `${business.address}${business.city ? `, ${business.city}` : ""}`
+    : (business.city ? `${business.city}${business.state ? `, ${business.state}` : ""}` : "Nigeria");
   const phone = business.phone || business.whatsapp || "";
   const existingServices = Array.isArray(business.services) ? business.services : [];
 

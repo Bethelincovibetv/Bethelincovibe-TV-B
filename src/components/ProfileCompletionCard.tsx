@@ -90,7 +90,11 @@ export default function ProfileCompletionCard({
     };
   }, [profile, businessCount]);
 
-  if (analysis.percentage >= 100) {
+  if (!profile || (!profile.user_id && !profile.id && !profile.display_name)) {
+    return null;
+  }
+
+  if (analysis.percentage >= 85) {
     return (
       <Card className="bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-card border-emerald-500/30">
         <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -100,19 +104,21 @@ export default function ProfileCompletionCard({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <p className="font-bold text-sm">Profile & Business Setup 100% Complete!</p>
-                <Badge className="bg-emerald-600 text-white text-[10px]">Level 5 Verified</Badge>
+                <p className="font-bold text-sm">Profile & Business Setup Complete ({analysis.percentage}%)</p>
+                <Badge className="bg-emerald-600 text-white text-[10px]">Verified Profile</Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Your public profile <code>/u/{profile?.username}</code> is fully optimized for Google & Lagos buyers.
+                Your profile {profile?.username ? <code>/u/{profile.username}</code> : ""} is active and discoverable on Lagos Directory & Google.
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
-              <Link to={`/u/${profile?.username || "me"}`} target="_blank">View Public Profile →</Link>
-            </Button>
+            {profile?.username && (
+              <Button asChild size="sm" variant="outline" className="w-full sm:w-auto">
+                <Link to={`/u/${profile.username}`} target="_blank">View Public Profile →</Link>
+              </Button>
+            )}
             <Button size="sm" variant="ghost" onClick={onLaunchWizard} className="text-xs">
               Review Setup
             </Button>

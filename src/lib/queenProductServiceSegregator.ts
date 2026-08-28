@@ -246,7 +246,9 @@ export async function syncPhysicalProductsToDirectory(
         condition: item.condition || "New",
         stock: item.stock || 5,
         cover_image: item.imageUrl || null,
-        location: businessData.address || "Lagos, Nigeria",
+        location: businessData.address
+          ? `${businessData.address}${businessData.city ? `, ${businessData.city}` : ""}`
+          : (businessData.city ? `${businessData.city}${businessData.state ? `, ${businessData.state}` : ""}` : "Nationwide Delivery"),
         phone: businessData.phone || null,
         whatsapp: businessData.whatsapp || businessData.phone || null,
         status: "active",

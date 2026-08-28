@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { MessageCircle, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { recordInteractionEvent } from "@/lib/analyticsTracker";
 
 /** Floating "Join our WhatsApp community" pill. Reads URL from site_settings.whatsapp_community_url. */
 export default function WhatsAppCommunityBanner() {
@@ -15,12 +16,22 @@ export default function WhatsAppCommunityBanner() {
 
   if (!url || dismissed) return null;
 
+  const handleClick = () => {
+    recordInteractionEvent({
+      eventName: "whatsapp_community_popup_click",
+      category: "popup_click",
+      source: "floating_popup",
+      metadata: { target_url: url },
+    });
+  };
+
   return (
     <div className="fixed bottom-32 md:bottom-6 right-3 z-40 max-w-[260px]">
       <a
         href={url}
         target="_blank"
         rel="noopener"
+        onClick={handleClick}
         className="group flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-full shadow-xl pl-3 pr-4 py-2.5 transition"
       >
         <MessageCircle className="h-4 w-4 flex-shrink-0" />

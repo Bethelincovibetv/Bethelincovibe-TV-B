@@ -22,11 +22,13 @@ export default function SubmitBlog() {
   const [feeFromSettings, setFeeFromSettings] = useState<number>(DEFAULT_COST);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [existingBannerUrl, setExistingBannerUrl] = useState<string | null>(null);
   const [photos, setPhotos] = useState<{ file: File; preview: string }[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [categoryId, setCategoryId] = useState<string>("");
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+  const [prefilledFromBiz, setPrefilledFromBiz] = useState(false);
+  const [userSupplier, setUserSupplier] = useState<any>(null);
   const [form, setForm] = useState({
     business_name: "",
     description: "",
@@ -43,7 +45,42 @@ export default function SubmitBlog() {
       const n = Number(data?.value);
       if (!Number.isNaN(n) && n >= 0) setFeeFromSettings(n);
     });
-    supabase.from("categories").select("id,name").eq("type", "blog").order("name").then(({ data }) => setCategories(data || []));
+    supabase.from("categories").select("id,name,slug").eq("type", "blog").order("name").then(({ data }) => setCategories(data || []));
+
+    // Load user's business profile to auto-populate
+    Promise.all([
+      supabase.from("suppliers").select("*, categories(id, name, slug)").eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+    ]).then(([{ data: supplier }, { data: profile }]) => {
+      if (supplier || profile) {
+        setUserSupplier(supplier);
+        const bizName = supplier?.name || profile?.display_name || "";
+        const bizDesc = supplier?.description || profile?.bio || "";
+        const bizWebsite = supplier?.website || profile?.social_links?.website || "";
+        const bizPhone = supplier?.phone || profile?.phone || "";
+        const bizWhatsapp = supplier?.whatsapp_number || supplier?.whatsapp || profile?.whatsapp || bizPhone;
+        const bizEmail = profile?.email || user.email || "";
+        const banner = supplier?.cover_url || supplier?.logo_url || profile?.avatar_url || null;
+
+        setForm({
+          business_name: bizName,
+          description: bizDesc,
+          website: bizWebsite,
+          contact_email: bizEmail,
+          contact_phone: bizPhone,
+          contact_whatsapp: bizWhatsapp,
+        });
+
+        if (banner) {
+          setExistingBannerUrl(banner);
+        }
+
+        if (supplier?.category_id) {
+          setCategoryId(supplier.category_id);
+        }
+        setPrefilledFromBiz(true);
+      }
+    });
   }, [user]);
 
   // Clean up object URLs on unmount
@@ -107,7 +144,11 @@ export default function SubmitBlog() {
     try {
       // Upload banner
       let bannerUrl: string | null = null;
-      if (bannerFile) bannerUrl = await uploadFile(bannerFile, "banner");
+      if (bannerFile) {
+        bannerUrl = await uploadFile(bannerFile, "banner");
+      } else if (existingBannerUrl) {
+        bannerUrl = existingBannerUrl;
+      }
 
       // Create submission
       const { data: sub, error: insErr } = await supabase.from("guest_blog_submissions").insert({
@@ -305,15 +346,40 @@ export default function SubmitBlog() {
                 <span>Featured Banner / Storefront Photo</span>
                 <span className="text-xs font-normal text-muted-foreground">Recommended: 16:9 ratio</span>
               </Label>
-              {bannerPreview ? (
+              {bannerPreview || existingBannerUrl ? (
                 <div className="relative rounded-2xl overflow-hidden border border-border/80 group">
-                  <img src={bannerPreview} alt="Banner Preview" className="w-full h-48 sm:h-56 object-cover" />
+                  <img src={bannerPreview || existingBannerUrl!} alt="Banner Preview" className="w-full h-48 sm:h-56 object-cover" />
+                  {existingBannerUrl && !bannerPreview && (
+                    <span className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/70 backdrop-blur-xs text-white text-[11px] font-bold">
+                      Synced from Business Profile
+                    </span>
+                  )}
                   <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleBannerChange(e.target.files?.[0] || null)}
+                      />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        asChild
+                        className="rounded-xl font-bold text-xs pointer-events-none"
+                      >
+                        <span>Change Photo</span>
+                      </Button>
+                    </label>
                     <Button
                       type="button"
                       size="sm"
                       variant="destructive"
-                      onClick={() => handleBannerChange(null)}
+                      onClick={() => {
+                        handleBannerChange(null);
+                        setExistingBannerUrl(null);
+                      }}
                       className="rounded-xl font-bold text-xs"
                     >
                       <X className="h-4 w-4 mr-1" /> Remove

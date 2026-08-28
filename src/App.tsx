@@ -105,6 +105,8 @@ import FcmForegroundListener from "./components/FcmForegroundListener";
 import AdBlocker from "./components/AdBlocker";
 import UserNotificationSettingsPage from "./pages/UserNotificationSettingsPage";
 import UserNotificationsPage from "./pages/UserNotificationsPage";
+import UserActivityPage from "./pages/UserActivityPage";
+import UserVerification from "./pages/UserVerification";
 import VideoCreator from "./pages/VideoCreator";
 import VixoraStudioApp from "./vixora/App";
 import WhatsAppStatusEngine from "./pages/WhatsAppStatusEngine";
@@ -194,6 +196,10 @@ const App = () => (
               <Route path="/dashboard/create-video" element={<VideoCreator />} />
               <Route path="/dashboard/notifications" element={<UserNotificationsPage />} />
               <Route path="/dashboard/settings/notifications" element={<UserNotificationSettingsPage />} />
+              <Route path="/dashboard/activity" element={<UserActivityPage />} />
+              <Route path="/dashboard/verification" element={<UserVerification />} />
+              <Route path="/verification" element={<UserVerification />} />
+              <Route path="/activity" element={<UserActivityPage />} />
               <Route path="/dashboard/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
               <Route path="/dashboard/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/dashboard/wallet/receipt/:id" element={<TransactionReceipt />} />

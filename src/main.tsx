@@ -24,6 +24,35 @@ if (typeof window !== "undefined") {
     );
   };
 
+  const origUnhandledRejection = window.onunhandledrejection;
+  window.onunhandledrejection = function (event: PromiseRejectionEvent) {
+    const reason = event?.reason;
+    const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();
+    if (isBenignError(msg)) {
+      event?.preventDefault?.();
+      return true;
+    }
+    if (typeof origUnhandledRejection === "function") {
+      return (origUnhandledRejection as any).call(window, event);
+    }
+  };
+
+  const origOnError = window.onerror;
+  window.onerror = function (eventOrMessage, source, lineno, colno, error, ...args: any[]) {
+    const msg = (
+      typeof eventOrMessage === "string"
+        ? eventOrMessage
+        : (eventOrMessage as any)?.message || error?.message || ""
+    ).toLowerCase();
+    if (isBenignError(msg)) {
+      return true;
+    }
+    if (typeof origOnError === "function") {
+      return (origOnError as any).call(window, eventOrMessage, source, lineno, colno, error, ...args);
+    }
+    return false;
+  };
+
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
     const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();

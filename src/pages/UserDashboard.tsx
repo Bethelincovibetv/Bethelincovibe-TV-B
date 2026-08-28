@@ -12,11 +12,9 @@ import {
   Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift, Palette, BookOpen
 } from "lucide-react";
 
-import ReferralCard from "@/components/ReferralCard";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
-import VixoraAICoachToday from "@/components/coach/VixoraAICoachToday";
 import DashboardSearchDiscovery from "@/components/dashboard/DashboardSearchDiscovery";
 
 export default function UserDashboard() {
@@ -28,6 +26,7 @@ export default function UserDashboard() {
   const [favCount, setFavCount] = useState(0);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [businessCount, setBusinessCount] = useState(0);
+  const [userBiz, setUserBiz] = useState<any>(null);
   const [activities, setActivities] = useState<any[]>([]);
   const [wizardOpen, setWizardOpen] = useState(false);
 
@@ -39,6 +38,7 @@ export default function UserDashboard() {
       { count: fCount },
       { data: rawSubs },
       { count: bCount },
+      { data: bizRecord },
       { data: leads },
       { data: notifications },
       { data: forumPosts }
@@ -48,6 +48,7 @@ export default function UserDashboard() {
       supabase.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", user.id),
       supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
       supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("submitted_by", user.id),
+      supabase.from("suppliers").select("id,name,logo_url,image_url,city,state,verified").eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("sales_page_leads").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
       supabase.from("user_notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
       supabase.from("forum_posts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
@@ -85,6 +86,7 @@ export default function UserDashboard() {
     setFavCount(totalFavs);
     setSubmissions(subs || []);
     setBusinessCount(bCount || 0);
+    setUserBiz(bizRecord);
 
     // Build unified activity timeline
     const feed: any[] = [];
@@ -158,13 +160,10 @@ export default function UserDashboard() {
   useEffect(() => {
     if (!user) return;
     const forceWizard = params.get("wizard") === "1";
-    const alreadyDone = localStorage.getItem(`wizard_completed_${user.id}`);
-    if (forceWizard || !alreadyDone) {
+    if (forceWizard) {
       setWizardOpen(true);
-      if (forceWizard) {
-        params.delete("wizard");
-        setParams(params, { replace: true });
-      }
+      params.delete("wizard");
+      setParams(params, { replace: true });
     }
   }, [user, params]);
 
@@ -195,7 +194,7 @@ export default function UserDashboard() {
     { to: "/dashboard/leads", label: "My Leads", icon: Mail, color: "from-pink-600 to-rose-500", show: flags.sales_pages },
     { to: "/dashboard/ads", label: "Run Ad", icon: Megaphone, color: "from-fuchsia-500 to-purple-600", show: flags.advertise },
     { to: "/dashboard/favorites", label: "Saved Articles", icon: Heart, color: "from-rose-500 to-orange-500", show: true },
-    { to: "/dashboard/submit-blog", label: "Submit Business", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
+    { to: "/dashboard/submit-blog", label: "Submit a Business Blog", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
     { to: "/dashboard/businesses", label: "My Business", icon: Building2, color: "from-amber-500 to-yellow-500", show: flags.businesses },
     { to: "/dashboard/messages", label: "Messages", icon: Mail, color: "from-pink-500 to-rose-500", show: flags.businesses },
     { to: "/dashboard/notifications", label: "Notifications", icon: Bell, color: "from-amber-500 to-rose-600", show: true },
@@ -214,12 +213,39 @@ export default function UserDashboard() {
         <div className="container mx-auto max-w-5xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="min-w-0 flex-1 flex items-center justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-xs opacity-80">Welcome back</p>
-                  {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold">Admin</Badge>}
+              <div className="flex items-center gap-3.5 min-w-0">
+                {/* Business Logo or User Avatar */}
+                <div className="relative shrink-0">
+                  {userBiz?.logo_url || userBiz?.image_url || profile?.avatar_url ? (
+                    <img
+                      src={userBiz?.logo_url || userBiz?.image_url || profile?.avatar_url}
+                      alt={userBiz?.name || displayName}
+                      className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl object-cover ring-2 ring-white/40 shadow-md bg-white/10"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white/20 text-white font-black text-xl flex items-center justify-center shadow-md ring-2 ring-white/30">
+                      {(userBiz?.name || displayName).charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  {userBiz?.verified && (
+                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-primary text-[10px] font-bold" title="Verified Business">
+                      ✓
+                    </span>
+                  )}
                 </div>
-                <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight">{displayName}</h1>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs opacity-80 truncate">
+                      {userBiz?.name ? `${userBiz.name}` : "Welcome back"}
+                    </p>
+                    {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold">Admin</Badge>}
+                  </div>
+                  <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight">{displayName}</h1>
+                  {userBiz?.city && (
+                    <p className="text-[11px] opacity-75 truncate">{userBiz.city}{userBiz.state ? `, ${userBiz.state}` : ""}</p>
+                  )}
+                </div>
               </div>
 
               {profile?.username && (
@@ -375,9 +401,6 @@ export default function UserDashboard() {
           </CardContent>
         </Card>
 
-        {/* Today's Vixora AI Business Coach & Sprint */}
-        <VixoraAICoachToday />
-
         {/* Profile & Business Completion Card with Smart System Recommendations */}
         <ProfileCompletionCard
           profile={profile}
@@ -411,10 +434,6 @@ export default function UserDashboard() {
               </span>
             </Link>
           ))}
-        </div>
-
-        <div id="referral-section" className="scroll-mt-6">
-          <ReferralCard />
         </div>
 
         {/* Recent Activity Feed */}
@@ -500,18 +519,28 @@ export default function UserDashboard() {
                 {submissions.map((s: any) => {
                   const isLive = s.status === "published" || s.status === "approved";
                   const postSlug = s.blog_posts?.slug || s.generated_post_id;
+                  const thumb = s.banner_url || s.blog_posts?.cover_image_url;
                   return (
-                    <div key={s.id} className="flex items-center justify-between gap-3 p-3.5 border border-border/70 hover:border-primary/40 bg-card hover:bg-muted/20 transition-all rounded-xl">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm truncate text-foreground">{s.business_name}</p>
-                          {isLive && postSlug && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-600 bg-emerald-500/10 font-bold">
-                              Live Blog
-                            </Badge>
-                          )}
+                    <div key={s.id} className="flex items-center justify-between gap-3 p-3.5 border border-border/70 hover:border-primary/40 bg-card hover:bg-muted/20 transition-all rounded-2xl">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {thumb ? (
+                          <img src={thumb} alt={s.business_name} className="h-12 w-12 rounded-xl object-cover shrink-0 border border-border/60" />
+                        ) : (
+                          <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-bold text-sm">
+                            <FileText className="h-5 w-5" />
+                          </div>
+                        )}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-sm truncate text-foreground">{s.business_name}</p>
+                            {isLive && postSlug && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-600 bg-emerald-500/10 font-bold">
+                                Live Blog
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
                         </div>
-                        <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <StatusBadge status={s.status} />

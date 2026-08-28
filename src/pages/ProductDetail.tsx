@@ -17,7 +17,7 @@ import {
   CheckCircle2, Share2, Copy, Sparkles, Truck, Lock, Eye, Maximize2,
   ChevronRight, ThumbsUp, Clock, Heart, Building2, ExternalLink, AlertCircle,
   Download, Zap, FileText, Check, HelpCircle, Star, Award, Layers, Play,
-  Store, User
+  Store, User, Pencil
 } from "lucide-react";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProductCard, { formatPrice, DirectoryProduct } from "@/components/directory/ProductCard";
@@ -25,6 +25,7 @@ import ProductVideo from "@/components/directory/ProductVideo";
 import BuyDigitalProduct from "@/components/directory/BuyDigitalProduct";
 import FavoriteButton from "@/components/FavoriteButton";
 import VerifiedBadge from "@/components/VerifiedBadge";
+import { useAuth } from "@/contexts/AuthContext";
 import { recordPageView } from "@/lib/analyticsTracker";
 import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 
 export default function ProductDetail() {
   const { slug } = useParams();
+  const { user, isAdmin } = useAuth();
   const [product, setProduct] = useState<any>(null);
   const [seller, setSeller] = useState<any>(null);
   const [sellerBusiness, setSellerBusiness] = useState<any>(null);
@@ -48,7 +50,6 @@ export default function ProductDetail() {
         .from("directory_products")
         .select("*, categories(name, slug)")
         .eq(isUuid ? "id" : "slug", slug!)
-        .eq("active", true)
         .maybeSingle();
 
       setProduct(data);
@@ -234,6 +235,38 @@ export default function ProductDetail() {
         <div className="overflow-x-auto pb-1">
           <Breadcrumbs items={[{ label: "Marketplace", href: "/products" }, { label: product.name }]} />
         </div>
+
+        {/* OWNER ADMIN ACTION BANNER */}
+        {isOwner && (
+          <div className="rounded-2xl border-2 border-primary/40 bg-gradient-to-r from-primary/15 via-accent/10 to-card p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-md">
+            <div className="flex items-center gap-3.5">
+              <div className="h-11 w-11 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-bold shrink-0 shadow-xs">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm sm:text-base font-extrabold text-foreground">You Own This Product Listing</p>
+                  <Badge className="bg-primary text-primary-foreground text-[10px] font-bold">Owner Access</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Update product details, AI copy, pricing, condition, inventory, or upload new photos anytime.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Button asChild size="default" className="w-full sm:w-auto font-bold gap-2 shadow-md">
+                <Link to={`/products/list?edit=${product.id}`}>
+                  <Pencil className="h-4 w-4" /> Edit Product Listing
+                </Link>
+              </Button>
+              <Button asChild size="default" variant="outline" className="w-full sm:w-auto text-xs font-semibold">
+                <Link to="/dashboard/products">
+                  Seller Dashboard
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* ========================================================================= */}
         {/* CASE A: HIGH-CONVERTING DIGITAL PRODUCT SALES PAGE LAYOUT               */}
@@ -456,6 +489,14 @@ export default function ProductDetail() {
                         <Share2 className="h-3.5 w-3.5" /> Share Offer
                       </Button>
                     </div>
+
+                    {isOwner && (
+                      <Button asChild variant="outline" size="sm" className="w-full rounded-xl text-xs font-bold border-primary/50 text-primary hover:bg-primary/10 gap-1.5 h-9">
+                        <Link to={`/products/list?edit=${product.id}`}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit This Digital Listing
+                        </Link>
+                      </Button>
+                    )}
 
                     {/* Creator Box */}
                     {seller && (
@@ -976,6 +1017,14 @@ export default function ProductDetail() {
                     </Button>
                   </div>
 
+                  {isOwner && (
+                    <Button asChild variant="outline" size="sm" className="w-full rounded-xl text-xs font-bold border-primary/50 text-primary hover:bg-primary/10 gap-1.5 h-9">
+                      <Link to={`/products/list?edit=${product.id}`}>
+                        <Pencil className="h-3.5 w-3.5" /> Edit Product Details
+                      </Link>
+                    </Button>
+                  )}
+
                   {/* Seller Profile Card */}
                   {seller && (
                     <div className="p-3.5 rounded-2xl bg-muted/30 border border-border/70 space-y-2.5 mt-3 min-w-0">
@@ -1073,6 +1122,13 @@ export default function ProductDetail() {
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {isOwner ? (
+              <Button asChild size="sm" className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md gap-1 px-3 py-4 rounded-xl text-xs">
+                <Link to={`/products/list?edit=${product.id}`}>
+                  <Pencil className="h-3.5 w-3.5 shrink-0" /> Edit
+                </Link>
+              </Button>
+            ) : null}
             {waNumber ? (
               <Button asChild size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold shadow-md gap-1 px-3 py-4 rounded-xl text-xs">
                 <a href={`https://wa.me/${waNumber}?text=${waMessage}`} target="_blank" rel="noopener">

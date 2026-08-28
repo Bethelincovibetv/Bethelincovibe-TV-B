@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
+import { recordInteractionEvent } from "@/lib/analyticsTracker";
 import {
   MessageCircle, Sparkles, Compass, FolderTree, ShieldCheck, Mail, MapPin,
   FileText, ShoppingBag, Building2, PlusCircle, GraduationCap, Info, PhoneCall,
@@ -67,6 +68,14 @@ export default function Footer() {
             href={waUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onClick={() => {
+              recordInteractionEvent({
+                eventName: "whatsapp_community_footer_click",
+                category: "footer_click",
+                source: "footer_banner",
+                metadata: { target_url: waUrl },
+              });
+            }}
             className="group mb-12 mx-auto max-w-2xl flex items-center justify-between gap-4 rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-500 text-white p-4 sm:p-5 shadow-[0_12px_32px_-8px_rgba(5,150,105,0.45),inset_0_2px_0_rgba(255,255,255,0.35)] ring-1 ring-white/30 transition-all duration-300 hover:scale-[1.02] active:scale-[0.99]"
           >
             <div className="flex items-center gap-3.5 sm:gap-4 min-w-0">
@@ -75,7 +84,7 @@ export default function Footer() {
               </div>
               <div className="min-w-0">
                 <p className="text-xs sm:text-sm font-semibold uppercase tracking-wider text-emerald-100">VIP Entrepreneur Group</p>
-                <p className="font-extrabold text-sm sm:text-lg leading-snug drop-shadow-xs truncate sm:whitespace-normal">Join our WhatsApp community for Lagos business owners</p>
+                <p className="font-extrabold text-sm sm:text-lg leading-snug drop-shadow-xs truncate sm:whitespace-normal">Join our WhatsApp community for business owners &amp; creators</p>
               </div>
             </div>
             <div className="hidden sm:flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/25 text-white group-hover:translate-x-1 transition-transform">
@@ -216,7 +225,7 @@ export default function Footer() {
               Weekly Intelligence
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Get hand-curated Lagos business tips, supplier contacts, and grant alerts delivered to your inbox.
+              Get hand-curated business insights, verified supplier contacts, and funding alerts delivered to your inbox.
             </p>
             <EmailSubscribeForm />
 

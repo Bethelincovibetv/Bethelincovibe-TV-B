@@ -305,8 +305,8 @@ export async function renderQueenBannerGraphic(
   ctx.stroke();
 
   // Contact Items inside Bottom Card
-  const phone = options.phone || options.whatsapp || "+234 Lagos Direct";
-  const address = options.address || "Lagos, Nigeria";
+  const phone = options.phone || options.whatsapp || "Direct Inquiry";
+  const address = options.address || "Nationwide Delivery & Service";
   const whatsapp = options.whatsapp || options.phone || "";
 
   // Contact Icon & Text 1: Phone
@@ -844,8 +844,16 @@ export async function uploadGraphicCreativeToStorage(
   if (!dataUrl || !dataUrl.startsWith("data:image")) return dataUrl;
 
   try {
-    const res = await fetch(dataUrl);
-    const blob = await res.blob();
+    // Pure synchronous conversion from data URL to Blob to prevent CSP/network fetch failures
+    const arr = dataUrl.split(",");
+    const mime = arr[0].match(/:(.*?);/)?.[1] || "image/png";
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    const blob = new Blob([u8arr], { type: mime });
     const fileName = `${fileNamePrefix}_${businessId}_${Date.now()}.png`;
     const path = `queen_creatives/${fileName}`;
 

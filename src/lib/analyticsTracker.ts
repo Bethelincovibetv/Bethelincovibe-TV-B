@@ -98,6 +98,59 @@ export function recordPageView(params: {
   }
 }
 
+export interface InteractionEvent {
+  id: string;
+  timestamp: string;
+  eventName: string;
+  category: 'popup_click' | 'footer_click' | 'button_click' | 'social_click' | 'conversion';
+  source: string;
+  metadata?: Record<string, any>;
+}
+
+const INTERACTION_STORAGE_KEY = 'platform_analytics_interactions_v1';
+
+/**
+ * Record a specific interaction (e.g., Popup Community click vs Footer Community click)
+ */
+export function recordInteractionEvent(params: {
+  eventName: string;
+  category: InteractionEvent['category'];
+  source: string;
+  metadata?: Record<string, any>;
+}) {
+  if (typeof window === 'undefined') return;
+  try {
+    const newInteraction: InteractionEvent = {
+      id: Math.random().toString(36).substring(2, 9),
+      timestamp: new Date().toISOString(),
+      eventName: params.eventName,
+      category: params.category,
+      source: params.source,
+      metadata: params.metadata,
+    };
+
+    const existingJson = localStorage.getItem(INTERACTION_STORAGE_KEY);
+    const list: InteractionEvent[] = existingJson ? JSON.parse(existingJson) : [];
+    list.unshift(newInteraction);
+    if (list.length > MAX_LOCAL_EVENTS) {
+      list.length = MAX_LOCAL_EVENTS;
+    }
+    localStorage.setItem(INTERACTION_STORAGE_KEY, JSON.stringify(list));
+  } catch (err) {
+    console.warn('Interaction tracking error:', err);
+  }
+}
+
+export function getStoredInteractionEvents(): InteractionEvent[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const json = localStorage.getItem(INTERACTION_STORAGE_KEY);
+    return json ? JSON.parse(json) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Get stored analytics events
  */
