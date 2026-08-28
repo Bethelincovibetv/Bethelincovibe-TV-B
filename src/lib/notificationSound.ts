@@ -240,6 +240,56 @@ export async function playNotificationSound(): Promise<void> {
 }
 
 /**
+ * Dedicated celebratory cash/credit chime for wallet credits (top-ups, daily rewards, transfers received, sales earnings)
+ */
+export function playCreditSound(): void {
+  if (typeof window === "undefined") return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    if (!audioCtx || audioCtx.state === "closed") {
+      audioCtx = new AudioContextClass();
+    }
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+
+    const ctx = audioCtx;
+    const now = ctx.currentTime;
+
+    const master = ctx.createGain();
+    master.gain.setValueAtTime(0.22, now);
+    master.connect(ctx.destination);
+
+    // Coin & Cash register chime notes: High crisp harmonic arpeggio (B5 -> E6 -> G#6 -> B6)
+    const coinNotes = [
+      { freq: 987.77, time: 0.0, dur: 0.12, type: "sine" as OscillatorType },
+      { freq: 1318.51, time: 0.07, dur: 0.18, type: "triangle" as OscillatorType },
+      { freq: 1661.22, time: 0.14, dur: 0.22, type: "sine" as OscillatorType },
+      { freq: 2093.0, time: 0.22, dur: 0.48, type: "sine" as OscillatorType },
+      { freq: 2489.0, time: 0.25, dur: 0.55, type: "sine" as OscillatorType },
+    ];
+
+    coinNotes.forEach((n) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = n.type;
+      osc.frequency.setValueAtTime(n.freq, now + n.time);
+      g.gain.setValueAtTime(0.001, now + n.time);
+      g.gain.exponentialRampToValueAtTime(0.85, now + n.time + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + n.time + n.dur);
+      osc.connect(g);
+      g.connect(master);
+      osc.start(now + n.time);
+      osc.stop(now + n.time + n.dur + 0.06);
+    });
+  } catch (err) {
+    console.debug("Credit sound skipped:", err);
+  }
+}
+
+/**
  * Upload an audio file to the Supabase storage bucket for notification jingles
  */
 export async function uploadNotificationAudio(file: File): Promise<{ url: string | null; error: string | null }> {

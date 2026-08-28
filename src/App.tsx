@@ -111,6 +111,7 @@ import WhatsAppStatusEngine from "./pages/WhatsAppStatusEngine";
 import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
 import Referral from "./pages/Referral";
 import GraphicDesignerPage from "./pages/GraphicDesignerPage";
+import RealtimeChatPage from "./pages/RealtimeChatPage";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -185,11 +186,11 @@ const App = () => (
               <Route path="/studio" element={<VixoraStudioApp />} />
               <Route path="/advertise" element={<FeatureGate feature="advertise"><AdvertiseWithUs /></FeatureGate>} />
               <Route path="/dashboard" element={<UserDashboard />} />
-              <Route path="/dashboard/graphic-designer" element={<GraphicDesignerPage />} />
-              <Route path="/dashboard/logo-creator" element={<GraphicDesignerPage />} />
-              <Route path="/dashboard/my-designs" element={<GraphicDesignerPage />} />
-              <Route path="/graphic-designer" element={<GraphicDesignerPage />} />
-              <Route path="/logo-creator" element={<GraphicDesignerPage />} />
+              <Route path="/dashboard/graphic-designer" element={<FeatureGate feature="graphic_designer"><GraphicDesignerPage /></FeatureGate>} />
+              <Route path="/dashboard/logo-creator" element={<FeatureGate feature="logo_creator"><GraphicDesignerPage /></FeatureGate>} />
+              <Route path="/dashboard/my-designs" element={<FeatureGate feature="graphic_designer"><GraphicDesignerPage /></FeatureGate>} />
+              <Route path="/graphic-designer" element={<FeatureGate feature="graphic_designer"><GraphicDesignerPage /></FeatureGate>} />
+              <Route path="/logo-creator" element={<FeatureGate feature="logo_creator"><GraphicDesignerPage /></FeatureGate>} />
               <Route path="/dashboard/create-video" element={<VideoCreator />} />
               <Route path="/dashboard/notifications" element={<UserNotificationsPage />} />
               <Route path="/dashboard/settings/notifications" element={<UserNotificationSettingsPage />} />
@@ -222,6 +223,9 @@ const App = () => (
               <Route path="/dashboard/referrals" element={<Referral />} />
               <Route path="/dashboard/businesses" element={<FeatureGate feature="businesses"><UserBusinesses /></FeatureGate>} />
               <Route path="/dashboard/messages" element={<FeatureGate feature="businesses"><UserMessages /></FeatureGate>} />
+              <Route path="/dashboard/chat" element={<FeatureGate feature="realtime_chat"><RealtimeChatPage /></FeatureGate>} />
+              <Route path="/dashboard/realtime-chat" element={<FeatureGate feature="realtime_chat"><RealtimeChatPage /></FeatureGate>} />
+              <Route path="/chat" element={<FeatureGate feature="realtime_chat"><RealtimeChatPage /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/edit" element={<FeatureGate feature="businesses"><EditBusiness /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/boost" element={<FeatureGate feature="business_boost"><BoostBusiness /></FeatureGate>} />
               <Route path="/dashboard/profile-edit" element={<UserProfileEdit />} />

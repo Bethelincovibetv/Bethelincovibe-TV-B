@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "ChatRoom": {
+      "title": "ChatRoom",
+      "description": "A direct or support real-time chat room between users or customer support.",
+      "type": "object",
+      "properties": {
+        "participants": {
+          "type": "array",
+          "description": "List of user IDs participating in the conversation"
+        },
+        "participantNames": {
+          "type": "object",
+          "description": "Mapping of user ID to display name"
+        },
+        "lastMessageText": {
+          "type": "string",
+          "description": "Snippet of the most recent message",
+          "maxLength": 1000
+        },
+        "lastMessageTime": {
+          "type": "string",
+          "description": "Server timestamp of last message"
+        },
+        "supportTopic": {
+          "type": "string",
+          "description": "Optional support category or inquiry context"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the room was created"
+        }
+      },
+      "required": ["participants", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "An individual real-time message inside a chat room.",
+      "type": "object",
+      "properties": {
+        "chatId": {
+          "type": "string",
+          "description": "ID of the parent chat room",
+          "maxLength": 128
+        },
+        "senderId": {
+          "type": "string",
+          "description": "UID of the message sender",
+          "maxLength": 128
+        },
+        "senderName": {
+          "type": "string",
+          "description": "Display name of the sender",
+          "maxLength": 100
+        },
+        "senderAvatar": {
+          "type": "string",
+          "description": "Avatar URL of the sender"
+        },
+        "text": {
+          "type": "string",
+          "description": "The message body text",
+          "maxLength": 3000
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Server timestamp when message was sent"
+        }
+      },
+      "required": ["chatId", "senderId", "text", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/chats/{chatId}": {
+      "schema": "ChatRoom",
+      "description": "Collection of direct and support chat conversations."
+    },
+    "/chats/{chatId}/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Sub-collection of ordered messages inside each chat room."
+    }
+  }
+}

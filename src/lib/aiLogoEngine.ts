@@ -1,6 +1,7 @@
 import { getGeminiClient } from "./aiCollaborationEngine";
 
-export type LogoArchetype = "all" | "luxury" | "modern_tech" | "monogram" | "minimal" | "commerce" | "crest";
+export type LogoType = "all" | "wordmark" | "lettermark" | "combination" | "dimensional_3d";
+export type LogoArchetype = "all" | "wordmark" | "lettermark" | "combination" | "dimensional_3d" | "luxury" | "modern_tech" | "monogram" | "minimal" | "commerce" | "crest";
 export type LogoShape = "circle" | "rounded_square" | "shield" | "hexagon" | "diamond" | "octagon";
 
 export interface LogoColorPalette {
@@ -24,7 +25,7 @@ export const LOGO_PALETTES: LogoColorPalette[] = [
     gradientTo: "#AA771C",
     accent: "#FFE082",
     textColor: "#FFFFFF",
-    badgeBg: "#111827",
+    badgeBg: "#0F172A",
     isDark: true,
   },
   {
@@ -96,11 +97,11 @@ export const LOGO_PALETTES: LogoColorPalette[] = [
   {
     id: "clean_light",
     name: "Minimalist Light",
-    gradientFrom: "#3B82F6",
-    gradientVia: "#6366F1",
-    gradientTo: "#8B5CF6",
-    accent: "#2563EB",
-    textColor: "#1E293B",
+    gradientFrom: "#2563EB",
+    gradientVia: "#4F46E5",
+    gradientTo: "#7C3AED",
+    accent: "#1D4ED8",
+    textColor: "#0F172A",
     badgeBg: "#F8FAFC",
     isDark: false,
   },
@@ -114,6 +115,7 @@ export interface GeneratedLogoItem {
   symbol: string;
   palette: LogoColorPalette;
   shape: LogoShape;
+  logoType: LogoType;
   archetype: LogoArchetype;
   svgMarkup: string;
   dataUrl?: string;
@@ -124,6 +126,7 @@ export interface AILogoGeneratorOptions {
   category?: string;
   tagline?: string;
   preferredPaletteId?: string;
+  logoType?: LogoType;
   archetype?: LogoArchetype;
   shape?: LogoShape;
   initials?: string;
@@ -182,7 +185,7 @@ export const LOGO_SYMBOLS: Record<string, { name: string; path: string; category
 };
 
 /**
- * Extracts clean 1-2 letter initials from a business name
+ * Extracts clean 1-3 letter initials from a business name
  */
 export function extractInitials(name: string): string {
   if (!name) return "BV";
@@ -192,11 +195,18 @@ export function extractInitials(name: string): string {
   if (parts.length === 1) {
     return parts[0].slice(0, 2).toUpperCase();
   }
-  return (parts[0][0] + parts[1][0]).toUpperCase();
+  if (parts.length === 2) {
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+  return (parts[0][0] + parts[1][0] + parts[2][0]).slice(0, 3).toUpperCase();
 }
 
 /**
- * Generates an ultra-crisp, professional SVG markup string for a logo configuration
+ * Generates an ultra-crisp, professional SVG markup string supporting:
+ * - Wordmark logos (text-based)
+ * - Lettermark logos (initials/monogram)
+ * - Icon + text combination logos
+ * - 3D-styled / dimensional logo renders
  */
 export function buildLogoSvgMarkup({
   businessName,
@@ -204,8 +214,9 @@ export function buildLogoSvgMarkup({
   initials,
   symbolKey,
   palette,
-  shape,
-  archetype,
+  shape = "rounded_square",
+  logoType = "combination",
+  archetype = "luxury",
   size = 512,
 }: {
   businessName: string;
@@ -213,133 +224,210 @@ export function buildLogoSvgMarkup({
   initials: string;
   symbolKey: string;
   palette: LogoColorPalette;
-  shape: LogoShape;
-  archetype: LogoArchetype;
+  shape?: LogoShape;
+  logoType?: LogoType;
+  archetype?: LogoArchetype;
   size?: number;
 }): string {
   const sym = LOGO_SYMBOLS[symbolKey] || LOGO_SYMBOLS.crown;
-  const gradientId = `grad-${palette.id}-${Math.random().toString(36).substr(2, 6)}`;
-  const filterId = `glow-${Math.random().toString(36).substr(2, 6)}`;
-  const cleanInitials = initials || extractInitials(businessName);
-  const displayTagline = (tagline || "OFFICIAL").toUpperCase();
+  const rnd = Math.random().toString(36).substring(2, 7);
+  const gradientId = `grad-${palette.id}-${rnd}`;
+  const bevelGradId = `bevel-${palette.id}-${rnd}`;
+  const filterId = `glow-${rnd}`;
+  const shadowFilterId = `shadow-3d-${rnd}`;
+  const cleanInitials = (initials || extractInitials(businessName)).toUpperCase();
+  const displayTagline = (tagline || "OFFICIAL BRAND").toUpperCase();
+  const cleanName = (businessName || "BETHELIN").trim();
 
   // Outer container path based on shape
   let shapePath = "";
   if (shape === "circle") {
-    shapePath = `<circle cx="256" cy="256" r="236" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="8" />
-      <circle cx="256" cy="256" r="216" fill="none" stroke="url(#${gradientId})" stroke-width="2" stroke-dasharray="8 6" opacity="0.6" />`;
+    shapePath = `<circle cx="256" cy="256" r="236" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="7" />
+      <circle cx="256" cy="256" r="216" fill="none" stroke="url(#${gradientId})" stroke-width="2" stroke-dasharray="8 6" opacity="0.5" />`;
   } else if (shape === "shield") {
-    shapePath = `<path d="M256 24 L460 74 V260 C460 380 256 488 256 488 C256 488 52 380 52 260 V74 Z" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="8" stroke-linejoin="round" />
-      <path d="M256 44 L440 88 V255 C440 365 256 465 256 465 C256 465 72 365 72 255 V88 Z" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.5" stroke-dasharray="6 6" />`;
+    shapePath = `<path d="M256 24 L460 74 V260 C460 380 256 488 256 488 C256 488 52 380 52 260 V74 Z" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="7" stroke-linejoin="round" />
+      <path d="M256 44 L440 88 V255 C440 365 256 465 256 465 C256 465 72 365 72 255 V88 Z" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.4" stroke-dasharray="6 6" />`;
   } else if (shape === "hexagon") {
-    shapePath = `<polygon points="256,24 466,140 466,372 256,488 46,372 46,140" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="8" stroke-linejoin="round" />
-      <polygon points="256,44 446,150 446,362 256,468 66,362 66,150" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.5" />`;
+    shapePath = `<polygon points="256,24 466,140 466,372 256,488 46,372 46,140" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="7" stroke-linejoin="round" />
+      <polygon points="256,44 446,150 446,362 256,468 66,362 66,150" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.4" />`;
   } else if (shape === "diamond") {
-    shapePath = `<polygon points="256,24 488,256 256,488 24,256" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="8" stroke-linejoin="round" />
-      <polygon points="256,48 464,256 256,464 48,256" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.5" />`;
+    shapePath = `<polygon points="256,24 488,256 256,488 24,256" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="7" stroke-linejoin="round" />
+      <polygon points="256,48 464,256 256,464 48,256" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.4" />`;
   } else if (shape === "octagon") {
-    shapePath = `<polygon points="120,24 392,24 488,120 488,392 392,488 120,488 24,392 24,120" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="8" stroke-linejoin="round" />
-      <polygon points="128,44 384,44 468,128 468,384 384,468 128,468 44,384 44,128" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.5" />`;
+    shapePath = `<polygon points="120,24 392,24 488,120 488,392 392,488 120,488 24,392 24,120" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="7" stroke-linejoin="round" />
+      <polygon points="128,44 384,44 468,128 468,384 384,468 128,468 44,384 44,128" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.4" />`;
   } else {
     // rounded square default
-    shapePath = `<rect x="24" y="24" width="464" height="464" rx="84" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="8" />
-      <rect x="44" y="44" width="424" height="424" rx="68" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.5" stroke-dasharray="8 6" />`;
+    shapePath = `<rect x="24" y="24" width="464" height="464" rx="84" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="7" />
+      <rect x="44" y="44" width="424" height="424" rx="68" fill="none" stroke="url(#${gradientId})" stroke-width="2" opacity="0.4" stroke-dasharray="8 6" />`;
   }
 
-  // Archetype interior layout
+  // Choose layout based on logoType or archetype
   let interiorMarkup = "";
-  if (archetype === "monogram" || archetype === "minimal") {
+  const resolvedType = (logoType && logoType !== "all") ? logoType : (archetype === "monogram" ? "lettermark" : archetype === "minimal" ? "wordmark" : "combination");
+
+  // 1. WORDMARK LOGO (Text-based, elegant typography, optical kerning, no icon)
+  if (resolvedType === "wordmark") {
+    const fontSize = cleanName.length > 12 ? 38 : cleanName.length > 8 ? 48 : 58;
     interiorMarkup = `
-      <!-- Monogram Focus -->
-      <circle cx="256" cy="220" r="110" fill="url(#${gradientId})" opacity="0.15" />
-      <g transform="translate(256, 110) scale(2.2)" fill="url(#${gradientId})">
-        <path d="${sym.path}" transform="translate(-12, -12)" />
+      <!-- Wordmark Layout (Text-Based) -->
+      <g id="wordmark-container">
+        <!-- Subtle Top & Bottom Minimal Lines -->
+        <line x1="120" y1="170" x2="392" y2="170" stroke="url(#${gradientId})" stroke-width="2.5" opacity="0.6" />
+        <circle cx="256" cy="170" r="5" fill="url(#${gradientId})" />
+        
+        <!-- Main Brand Wordmark Text -->
+        <text x="256" y="250" font-family="'Plus Jakarta Sans', system-ui, -apple-system, sans-serif" font-weight="900" font-size="${fontSize}" fill="url(#${gradientId})" text-anchor="middle" letter-spacing="3" textLength="340" lengthAdjust="spacingAndGlyphs">
+          ${cleanName.toUpperCase()}
+        </text>
+
+        <!-- Divider Line with Diamond Center -->
+        <line x1="100" y1="285" x2="236" y2="285" stroke="url(#${gradientId})" stroke-width="2" opacity="0.8" />
+        <polygon points="256,279 262,285 256,291 250,285" fill="${palette.accent}" />
+        <line x1="276" y1="285" x2="412" y2="285" stroke="url(#${gradientId})" stroke-width="2" opacity="0.8" />
+
+        <!-- Tagline / Slogan -->
+        <text x="256" y="325" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="16" fill="${palette.accent}" text-anchor="middle" letter-spacing="6">
+          ${displayTagline.slice(0, 22)}
+        </text>
+
+        <!-- Quality Seal Pill -->
+        <rect x="156" y="360" width="200" height="32" rx="16" fill="url(#${gradientId})" opacity="0.2" stroke="url(#${gradientId})" stroke-width="1.5" />
+        <text x="256" y="381" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="12" fill="url(#${gradientId})" text-anchor="middle" letter-spacing="4">
+          ★ VERIFIED BRAND ★
+        </text>
       </g>
-      <text x="256" y="275" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="108" fill="url(#${gradientId})" text-anchor="middle" letter-spacing="4">
-        ${cleanInitials}
-      </text>
-      <line x1="160" y1="315" x2="352" y2="315" stroke="url(#${gradientId})" stroke-width="3" opacity="0.8" />
-      <text x="256" y="355" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="20" fill="${palette.accent}" text-anchor="middle" letter-spacing="8">
-        ${displayTagline.slice(0, 16)}
-      </text>
     `;
-  } else if (archetype === "luxury" || archetype === "crest") {
+  }
+  // 2. LETTERMARK LOGO (Initials / Monogram focused, 1-3 letters)
+  else if (resolvedType === "lettermark" || archetype === "monogram") {
+    const monogramSize = cleanInitials.length === 1 ? 140 : cleanInitials.length === 2 ? 116 : 94;
     interiorMarkup = `
-      <!-- Luxury Crest Layout -->
-      <g filter="url(#${filterId})">
-        <circle cx="256" cy="210" r="95" fill="none" stroke="url(#${gradientId})" stroke-width="3" />
-        <circle cx="256" cy="210" r="85" fill="url(#${gradientId})" opacity="0.12" />
+      <!-- Lettermark / Monogram Layout -->
+      <g id="lettermark-container">
+        <!-- Center Geometric Accent Halo -->
+        <circle cx="256" cy="220" r="105" fill="none" stroke="url(#${gradientId})" stroke-width="3" opacity="0.4" />
+        <circle cx="256" cy="220" r="95" fill="url(#${gradientId})" opacity="0.12" />
+        
+        <!-- Prominent Monogram Letters -->
+        <text x="256" y="${cleanInitials.length === 1 ? 270 : 262}" font-family="Georgia, serif" font-weight="900" font-size="${monogramSize}" fill="url(#${gradientId})" text-anchor="middle" letter-spacing="${cleanInitials.length > 1 ? '4' : '0'}" filter="url(#${shadowFilterId})">
+          ${cleanInitials}
+        </text>
+
+        <!-- Dynamic Monogram Underline Bracket -->
+        <path d="M 160 295 L 256 315 L 352 295" fill="none" stroke="url(#${gradientId})" stroke-width="3" stroke-linecap="round" />
+
+        <!-- Subtitle Brand Name -->
+        <text x="256" y="355" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="900" font-size="18" fill="${palette.textColor}" text-anchor="middle" letter-spacing="4">
+          ${(cleanName.length > 16 ? cleanName.slice(0, 16) : cleanName).toUpperCase()}
+        </text>
+
+        <text x="256" y="390" font-family="system-ui, sans-serif" font-weight="800" font-size="13" fill="${palette.accent}" text-anchor="middle" letter-spacing="6">
+          ${displayTagline.slice(0, 18)}
+        </text>
       </g>
-      <!-- Center Emblem Icon -->
-      <g transform="translate(256, 160) scale(3.2)" fill="url(#${gradientId})">
-        <path d="${sym.path}" transform="translate(-12, -12)" />
-      </g>
-      <text x="256" y="270" font-family="Georgia, serif" font-weight="900" font-size="52" fill="url(#${gradientId})" text-anchor="middle" letter-spacing="6">
-        ${cleanInitials}
-      </text>
-      <!-- Ribbon Banner -->
-      <path d="M 120 340 L 392 340 L 372 375 L 140 375 Z" fill="url(#${gradientId})" opacity="0.95" />
-      <text x="256" y="364" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="18" fill="${palette.badgeBg}" text-anchor="middle" letter-spacing="4">
-        ${(businessName.length > 14 ? businessName.slice(0, 14) + ".." : businessName).toUpperCase()}
-      </text>
-      <text x="256" y="415" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="14" fill="${palette.accent}" text-anchor="middle" letter-spacing="6">
-        ★ VERIFIED LUXURY ★
-      </text>
     `;
-  } else if (archetype === "modern_tech") {
+  }
+  // 3. 3D-STYLED / DIMENSIONAL LOGO RENDERS (Depth, lighting, metallic specular, bevels)
+  else if (resolvedType === "dimensional_3d") {
     interiorMarkup = `
-      <!-- Modern Tech Geometric -->
-      <g transform="translate(256, 180)">
-        <polygon points="0,-80 70,-40 70,40 0,80 -70,40 -70,-40" fill="url(#${gradientId})" opacity="0.2" stroke="url(#${gradientId})" stroke-width="3" />
-        <polygon points="0,-60 52,-30 52,30 0,60 -52,30 -52,-30" fill="none" stroke="${palette.accent}" stroke-width="1.5" opacity="0.6" />
-        <g transform="scale(2.8)" fill="url(#${gradientId})">
+      <!-- 3D Dimensional Render Layout -->
+      <g id="dimensional-3d-container">
+        <!-- 3D Depth Isometric Backing Plate -->
+        <g transform="translate(0, 6)" opacity="0.4" filter="url(#${shadowFilterId})">
+          <circle cx="256" cy="185" r="92" fill="#000000" />
+        </g>
+
+        <!-- 3D Glowing Metallic Base Circle -->
+        <circle cx="256" cy="180" r="88" fill="url(#${bevelGradId})" stroke="url(#${gradientId})" stroke-width="5" filter="url(#${filterId})" />
+        <circle cx="256" cy="180" r="76" fill="${palette.badgeBg}" stroke="url(#${gradientId})" stroke-width="2" opacity="0.9" />
+
+        <!-- 3D Specular Highlight Arch -->
+        <path d="M 195 140 C 230 115 282 115 317 140" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.75" />
+
+        <!-- 3D Icon Element (Dimensional Extrusion) -->
+        <g transform="translate(256, 178) scale(3.5)" fill="url(#${gradientId})" filter="url(#${shadowFilterId})">
           <path d="${sym.path}" transform="translate(-12, -12)" />
         </g>
+
+        <!-- 3D Metallic Plaque Banner for Brand Name -->
+        <g transform="translate(0, 10)">
+          <!-- Banner Drop Shadow -->
+          <rect x="76" y="296" width="360" height="52" rx="14" fill="#000000" opacity="0.5" />
+          <!-- Metallic Banner Base -->
+          <rect x="76" y="290" width="360" height="52" rx="14" fill="url(#${bevelGradId})" stroke="url(#${gradientId})" stroke-width="3" />
+          <rect x="80" y="294" width="352" height="44" rx="10" fill="${palette.badgeBg}" opacity="0.85" />
+          
+          <text x="256" y="324" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="900" font-size="20" fill="url(#${gradientId})" text-anchor="middle" letter-spacing="3">
+            ${(cleanName.length > 15 ? cleanName.slice(0, 15) : cleanName).toUpperCase()}
+          </text>
+        </g>
+
+        <!-- 3D Dimensional Subtitle -->
+        <text x="256" y="398" font-family="system-ui, sans-serif" font-weight="900" font-size="14" fill="${palette.accent}" text-anchor="middle" letter-spacing="6">
+          ★ ${displayTagline.slice(0, 18)} ★
+        </text>
       </g>
-      <text x="256" y="325" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="44" fill="${palette.textColor}" text-anchor="middle" letter-spacing="3">
-        ${cleanInitials}
-      </text>
-      <rect x="156" y="350" width="200" height="28" rx="14" fill="url(#${gradientId})" />
-      <text x="256" y="369" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="13" fill="${palette.badgeBg}" text-anchor="middle" letter-spacing="3">
-        ${displayTagline.slice(0, 18)}
-      </text>
     `;
-  } else {
-    // Default dynamic commercial emblem
+  }
+  // 4. ICON + TEXT COMBINATION LOGO (Harmonious icon + prominent text layout)
+  else {
     interiorMarkup = `
-      <!-- Commercial Badge -->
-      <circle cx="256" cy="200" r="100" fill="url(#${gradientId})" opacity="0.18" />
-      <g transform="translate(256, 160) scale(3.4)" fill="url(#${gradientId})">
-        <path d="${sym.path}" transform="translate(-12, -12)" />
+      <!-- Combination Mark (Icon + Text) Layout -->
+      <g id="combination-container">
+        <!-- Top Icon Shield / Emblem -->
+        <circle cx="256" cy="170" r="76" fill="url(#${gradientId})" opacity="0.16" />
+        <circle cx="256" cy="170" r="68" fill="none" stroke="url(#${gradientId})" stroke-width="2.5" />
+        
+        <g transform="translate(256, 170) scale(3.2)" fill="url(#${gradientId})">
+          <path d="${sym.path}" transform="translate(-12, -12)" />
+        </g>
+
+        <!-- Brand Name Typography -->
+        <text x="256" y="285" font-family="'Plus Jakarta Sans', system-ui, sans-serif" font-weight="900" font-size="34" fill="${palette.textColor}" text-anchor="middle" letter-spacing="3" textLength="320" lengthAdjust="spacingAndGlyphs">
+          ${cleanName.toUpperCase()}
+        </text>
+
+        <!-- Ribbon Tagline Plaque -->
+        <rect x="110" y="315" width="292" height="36" rx="10" fill="url(#${gradientId})" />
+        <text x="256" y="339" font-family="system-ui, sans-serif" font-weight="900" font-size="15" fill="${palette.badgeBg}" text-anchor="middle" letter-spacing="4">
+          ${displayTagline.slice(0, 18)}
+        </text>
+
+        <text x="256" y="390" font-family="system-ui, sans-serif" font-weight="800" font-size="13" fill="${palette.accent}" text-anchor="middle" letter-spacing="5">
+          ENTERPRISE IDENTITY
+        </text>
       </g>
-      <text x="256" y="275" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="64" fill="url(#${gradientId})" text-anchor="middle" letter-spacing="4">
-        ${cleanInitials}
-      </text>
-      <rect x="120" y="320" width="272" height="40" rx="12" fill="url(#${gradientId})" />
-      <text x="256" y="347" font-family="system-ui, -apple-system, sans-serif" font-weight="900" font-size="16" fill="${palette.badgeBg}" text-anchor="middle" letter-spacing="3">
-        ${(businessName.length > 16 ? businessName.slice(0, 16) : businessName).toUpperCase()}
-      </text>
-      <text x="256" y="395" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="13" fill="${palette.accent}" text-anchor="middle" letter-spacing="4">
-        ${displayTagline.slice(0, 20)}
-      </text>
     `;
   }
 
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="${size}" height="${size}" shape-rendering="geometricPrecision" text-rendering="geometricPrecision">
   <defs>
     <linearGradient id="${gradientId}" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="${palette.gradientFrom}" />
       ${palette.gradientVia ? `<stop offset="50%" stop-color="${palette.gradientVia}" />` : ""}
       <stop offset="100%" stop-color="${palette.gradientTo}" />
     </linearGradient>
+    
+    <linearGradient id="${bevelGradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="35%" stop-color="${palette.gradientFrom}" />
+      <stop offset="70%" stop-color="${palette.gradientTo}" />
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.8" />
+    </linearGradient>
+
     <filter id="${filterId}" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="10" result="blur" />
+      <feGaussianBlur stdDeviation="8" result="blur" />
       <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+
+    <filter id="${shadowFilterId}" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="6" flood-color="#000000" flood-opacity="0.5" />
     </filter>
   </defs>
   
-  <!-- Outer Shape Base -->
+  <!-- Outer Shape Base Frame -->
   ${shapePath}
   
   <!-- Inner Graphics & Typography -->
@@ -351,7 +439,7 @@ export function buildLogoSvgMarkup({
  * Converts SVG markup string to a downloadable PNG data URL
  */
 export async function convertSvgToPngDataUrl(svgMarkup: string, size = 1024): Promise<string> {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     try {
       const blob = new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" });
       const URL = window.URL || window.webkitURL || window;
@@ -381,7 +469,7 @@ export async function convertSvgToPngDataUrl(svgMarkup: string, size = 1024): Pr
       };
 
       img.src = blobURL;
-    } catch (err) {
+    } catch {
       resolve(`data:image/svg+xml;utf8,${encodeURIComponent(svgMarkup)}`);
     }
   });
@@ -393,11 +481,11 @@ export async function convertSvgToPngDataUrl(svgMarkup: string, size = 1024): Pr
 export async function generateAILogos(
   options: AILogoGeneratorOptions
 ): Promise<GeneratedLogoItem[]> {
-  const businessName = options.businessName || "My Business";
+  const businessName = options.businessName || "Bethelin Enterprise";
   const initials = options.initials || extractInitials(businessName);
   const category = (options.category || "Commerce").toLowerCase();
 
-  // Smart symbol selection based on category or random
+  // Smart symbol selection based on category
   const categorySymbolMap: Record<string, string[]> = {
     tech: ["bolt", "cube", "sparkles", "globe", "rocket"],
     fashion: ["diamond", "sparkles", "crown", "infinity"],
@@ -418,8 +506,12 @@ export async function generateAILogos(
     }
   }
 
-  // Generate 8 diverse variations
-  const archetypes: LogoArchetype[] = ["luxury", "modern_tech", "monogram", "commerce", "crest", "minimal"];
+  // Defined logo types as requested by user:
+  // - Wordmark logos (text-based)
+  // - Lettermark logos (initials/monogram)
+  // - Icon + text combination logos
+  // - 3D-styled / dimensional logo renders
+  const allLogoTypes: LogoType[] = ["wordmark", "lettermark", "combination", "dimensional_3d"];
   const shapes: LogoShape[] = ["rounded_square", "circle", "shield", "hexagon", "octagon", "diamond"];
 
   const items: GeneratedLogoItem[] = [];
@@ -427,7 +519,7 @@ export async function generateAILogos(
   for (let i = 0; i < 8; i++) {
     const palette = LOGO_PALETTES[i % LOGO_PALETTES.length];
     const shape = options.shape || shapes[i % shapes.length];
-    const arch = options.archetype && options.archetype !== "all" ? options.archetype : archetypes[i % archetypes.length];
+    const chosenType = (options.logoType && options.logoType !== "all") ? options.logoType : allLogoTypes[i % allLogoTypes.length];
     const symKey = candidateSymbols[i % candidateSymbols.length];
 
     const svgMarkup = buildLogoSvgMarkup({
@@ -437,7 +529,8 @@ export async function generateAILogos(
       symbolKey: symKey,
       palette,
       shape,
-      archetype: arch,
+      logoType: chosenType,
+      archetype: (chosenType as any),
     });
 
     items.push({
@@ -448,16 +541,16 @@ export async function generateAILogos(
       symbol: symKey,
       palette,
       shape,
-      archetype: arch,
+      logoType: chosenType,
+      archetype: (chosenType as any),
       svgMarkup,
     });
   }
 
-  // Attempt Gemini enhancement if available
+  // Optional Gemini enhancement for tagline
   try {
     const gemini = await getGeminiClient();
     if (gemini) {
-      // Background prompt for brand slogan ideas
       gemini.models.generateContent({
         model: "gemini-3.7-flash",
         contents: `Suggest a 2-word punchy luxury tagline for a brand called "${businessName}" in "${category}". Return just the 2 words uppercase.`,
@@ -471,7 +564,7 @@ export async function generateAILogos(
       }).catch(() => {});
     }
   } catch {
-    // Ignore, static generation is ready
+    // Static generation complete
   }
 
   return items;

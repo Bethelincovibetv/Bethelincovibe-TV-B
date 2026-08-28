@@ -1,0 +1,66 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Chat Rooms: Users can access chat rooms they participate in
+    match /chats/{chatId} {
+      allow get: if isSignedIn() && isValidId(chatId) && (request.auth.uid in resource.data.participants);
+      allow list: if isSignedIn() && (request.auth.uid in resource.data.participants);
+      
+      allow create: if isSignedIn() 
+        && isValidId(chatId)
+        && incoming().participants is list
+        && incoming().participants.size() >= 1
+        && incoming().participants.size() <= 10
+        && incoming().participants.hasAny([request.auth.uid]);
+        
+      allow update: if isSignedIn()
+        && isValidId(chatId)
+        && (request.auth.uid in existing().participants)
+        && incoming().participants == existing().participants;
+        
+      allow delete: if false;
+
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() 
+          && isValidId(chatId)
+          && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+
+        allow create: if isSignedIn()
+          && isValidId(chatId)
+          && isValidId(messageId)
+          && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants)
+          && incoming().senderId == request.auth.uid
+          && incoming().chatId == chatId
+          && incoming().text is string
+          && incoming().text.size() > 0
+          && incoming().text.size() <= 3000;
+
+        allow update, delete: if false;
+      }
+    }
+  }
+}

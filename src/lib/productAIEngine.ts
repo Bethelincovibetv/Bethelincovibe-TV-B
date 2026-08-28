@@ -1,5 +1,17 @@
 import { getGeminiClient } from "./aiCollaborationEngine";
 
+import catFoodImg from "@/assets/images/cat_food_1787472795354.jpg";
+import catFashionImg from "@/assets/images/cat_fashion_1787472783551.jpg";
+import catTechImg from "@/assets/images/cat_tech_1787472827051.jpg";
+import catBeautyImg from "@/assets/images/cat_beauty_1787472844524.jpg";
+import catHomeImg from "@/assets/images/cat_realestate_1787472809208.jpg";
+import catLogisticsImg from "@/assets/images/cat_logistics_1787472858667.jpg";
+import digitalGoods3D from "@/assets/images/digital_goods_3d_1787915095364.jpg";
+import physicalGoods3D from "@/assets/images/physical_goods_3d_1787915108745.jpg";
+import startupGuide3D from "@/assets/images/icon_startup_guide_3d_1787553506436.jpg";
+import marketingSales3D from "@/assets/images/icon_marketing_sales_3d_1787553549641.jpg";
+import academyCardImg from "@/assets/images/learning_academy_card_1787779443703.jpg";
+
 export type ProductType = "physical" | "digital";
 
 export interface ProductCategoryOption {
@@ -8,29 +20,32 @@ export interface ProductCategoryOption {
   slug: string;
   type: ProductType;
   icon?: string;
+  image3D?: string;
+  color?: string;
+  badge?: string;
   description?: string;
 }
 
 export const PHYSICAL_PRODUCT_CATEGORIES: ProductCategoryOption[] = [
-  { id: "food-groceries", name: "Food & Groceries", slug: "food-groceries", type: "physical", description: "Packaged foods, fresh farm produce, raw spices, beverages, snacks & pantry staples" },
-  { id: "fashion-apparel", name: "Fashion & Apparel", slug: "fashion-apparel", type: "physical", description: "Clothing, shoes, bags, wristwatches, jewelry & tailored native wear" },
-  { id: "phones-tablets", name: "Phones & Tablets", slug: "phones-tablets", type: "physical", description: "Smartphones, iPads, tablets, smartwatches, chargers & phone accessories" },
-  { id: "electronics-appliances", name: "Electronics & Appliances", slug: "electronics-appliances", type: "physical", description: "Laptops, TVs, home audio, power banks, blenders, refrigerators & inverters" },
-  { id: "health-beauty", name: "Health & Beauty", slug: "health-beauty", type: "physical", description: "Skincare, haircare, perfumes, organic oils, makeup & wellness products" },
-  { id: "home-living", name: "Home, Furniture & Kitchen", slug: "home-living", type: "physical", description: "Home decor, living room furniture, cookware, beddings & lighting" },
-  { id: "automotive-parts", name: "Automotive & Spare Parts", slug: "automotive-parts", type: "physical", description: "Car accessories, engine parts, car care, tyres & tracking devices" },
-  { id: "baby-kids", name: "Baby, Kids & Toys", slug: "baby-kids", type: "physical", description: "Children clothing, educational toys, strollers & baby feeding essentials" },
-  { id: "agro-industrial", name: "Agro, Tools & Industrial", slug: "agro-industrial", type: "physical", description: "Agricultural machinery, seeds, industrial supplies, generators & hardware tools" },
+  { id: "food-groceries", name: "Food & Groceries", slug: "food-groceries", type: "physical", image3D: catFoodImg, color: "from-amber-500 to-orange-600", badge: "Fresh & Packaged", description: "Packaged foods, fresh farm produce, raw spices, beverages, snacks & pantry staples" },
+  { id: "fashion-apparel", name: "Fashion & Apparel", slug: "fashion-apparel", type: "physical", image3D: catFashionImg, color: "from-pink-500 to-rose-600", badge: "Clothing & Wear", description: "Clothing, shoes, bags, wristwatches, jewelry & tailored native wear" },
+  { id: "phones-tablets", name: "Phones & Tablets", slug: "phones-tablets", type: "physical", image3D: catTechImg, color: "from-sky-500 to-blue-600", badge: "Gadgets & Gear", description: "Smartphones, iPads, tablets, smartwatches, chargers & phone accessories" },
+  { id: "electronics-appliances", name: "Electronics & Appliances", slug: "electronics-appliances", type: "physical", image3D: catTechImg, color: "from-indigo-500 to-violet-600", badge: "Appliances & TVs", description: "Laptops, TVs, home audio, power banks, blenders, refrigerators & inverters" },
+  { id: "health-beauty", name: "Health & Beauty", slug: "health-beauty", type: "physical", image3D: catBeautyImg, color: "from-rose-400 to-pink-500", badge: "Cosmetics & Care", description: "Skincare, haircare, perfumes, organic oils, makeup & wellness products" },
+  { id: "home-living", name: "Home, Furniture & Kitchen", slug: "home-living", type: "physical", image3D: catHomeImg, color: "from-emerald-500 to-teal-600", badge: "Interior & Kitchen", description: "Home decor, living room furniture, cookware, beddings & lighting" },
+  { id: "automotive-parts", name: "Automotive & Spare Parts", slug: "automotive-parts", type: "physical", image3D: catLogisticsImg, color: "from-blue-600 to-slate-700", badge: "Auto & Parts", description: "Car accessories, engine parts, car care, tyres & tracking devices" },
+  { id: "baby-kids", name: "Baby, Kids & Toys", slug: "baby-kids", type: "physical", image3D: physicalGoods3D, color: "from-amber-400 to-orange-500", badge: "Toys & Strollers", description: "Children clothing, educational toys, strollers & baby feeding essentials" },
+  { id: "agro-industrial", name: "Agro, Tools & Industrial", slug: "agro-industrial", type: "physical", image3D: physicalGoods3D, color: "from-green-600 to-lime-700", badge: "Equipment & Agro", description: "Agricultural machinery, seeds, industrial supplies, generators & hardware tools" },
 ];
 
 export const DIGITAL_PRODUCT_CATEGORIES: ProductCategoryOption[] = [
-  { id: "ebooks-guides", name: "eBooks & Sourcing Guides", slug: "ebooks-guides", type: "digital", description: "PDF blueprints, business playbooks, China/Turkey sourcing manuals & guides" },
-  { id: "courses-masterclasses", name: "Courses & Video Masterclasses", slug: "courses-masterclasses", type: "digital", description: "Online video masterclasses, recorded bootcamps, workshops & training modules" },
-  { id: "software-apps-scripts", name: "Software, Apps & Automation Bots", slug: "software-apps-scripts", type: "digital", description: "Web tools, desktop apps, WhatsApp automation bots, WordPress plugins & scripts" },
-  { id: "templates-spreadsheets", name: "Templates & Spreadsheets", slug: "templates-spreadsheets", type: "digital", description: "Financial models, Notion dashboards, Canva design kits, Excel trackers & resume kits" },
-  { id: "graphics-ui-3d", name: "Graphics, UI Kits & 3D Assets", slug: "graphics-ui-3d", type: "digital", description: "Vector logos, 3D icons, UI design kits, stock photography & branding mockups" },
-  { id: "music-audio-jingles", name: "Music, Beats & Jingles", slug: "music-audio-jingles", type: "digital", description: "Commercial jingles, afrobeat beats, royalty-free audio, podcast intros & voiceovers" },
-  { id: "business-contracts-legal", name: "Business Contracts & Legal Kits", slug: "business-contracts-legal", type: "digital", description: "Verified Nigerian business contract agreements, NDAs, employee agreements & invoices" },
+  { id: "ebooks-guides", name: "eBooks & Sourcing Guides", slug: "ebooks-guides", type: "digital", image3D: startupGuide3D, color: "from-purple-600 to-indigo-600", badge: "PDF Manuals", description: "PDF blueprints, business playbooks, China/Turkey sourcing manuals & guides" },
+  { id: "courses-masterclasses", name: "Courses & Video Masterclasses", slug: "courses-masterclasses", type: "digital", image3D: academyCardImg, color: "from-fuchsia-600 to-pink-600", badge: "Video Training", description: "Online video masterclasses, recorded bootcamps, workshops & training modules" },
+  { id: "software-apps-scripts", name: "Software, Apps & Automation Bots", slug: "software-apps-scripts", type: "digital", image3D: digitalGoods3D, color: "from-cyan-500 to-blue-600", badge: "Bots & Scripts", description: "Web tools, desktop apps, WhatsApp automation bots, WordPress plugins & scripts" },
+  { id: "templates-spreadsheets", name: "Templates & Spreadsheets", slug: "templates-spreadsheets", type: "digital", image3D: marketingSales3D, color: "from-emerald-500 to-teal-600", badge: "Notion & Excel", description: "Financial models, Notion dashboards, Canva design kits, Excel trackers & resume kits" },
+  { id: "graphics-ui-3d", name: "Graphics, UI Kits & 3D Assets", slug: "graphics-ui-3d", type: "digital", image3D: digitalGoods3D, color: "from-violet-500 to-purple-600", badge: "Vectors & 3D", description: "Vector logos, 3D icons, UI design kits, stock photography & branding mockups" },
+  { id: "music-audio-jingles", name: "Music, Beats & Jingles", slug: "music-audio-jingles", type: "digital", image3D: academyCardImg, color: "from-orange-500 to-amber-600", badge: "Audio & Jingles", description: "Commercial jingles, afrobeat beats, royalty-free audio, podcast intros & voiceovers" },
+  { id: "business-contracts-legal", name: "Business Contracts & Legal Kits", slug: "business-contracts-legal", type: "digital", image3D: startupGuide3D, color: "from-blue-600 to-indigo-700", badge: "Legal Templates", description: "Verified Nigerian business contract agreements, NDAs, employee agreements & invoices" },
 ];
 
 export const ALL_PRODUCT_CATEGORIES = [

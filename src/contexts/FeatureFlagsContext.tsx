@@ -9,9 +9,15 @@ export type FeatureKey =
   | "tv_videos" | "hero_slider" | "pwa_install" | "email_subscribe"
   | "ad_earnings" | "video_creator" | "sales_pages" | "ai_admin" | "ai_blogger"
   | "products" | "search" | "register" | "ai_auto_blog_slider" | "learn" | "forum" | "whatsapp_engine"
-  | "footer_for_non_members";
+  | "footer_for_non_members"
+  | "graphic_designer" | "logo_creator" | "realtime_chat" | "dashboard_search" | "birthday_filter";
 
 export const FEATURE_META: { key: FeatureKey; label: string; description: string }[] = [
+  { key: "graphic_designer", label: "AI Graphic Designer & Flyer Maker", description: "Autonomous commercial flyer generator, stock pipeline, and Maya Sterling creative director studio" },
+  { key: "logo_creator", label: "Vector & 3D Logo Creator Suite", description: "Multi-type logo creator with wordmark, lettermark, emblem, combination, and dimensional 3D renders" },
+  { key: "realtime_chat", label: "Real-time Live Chat & Support", description: "Live messaging and support conversations with buyers, merchants, and staff" },
+  { key: "dashboard_search", label: "Dashboard Search & Universal Discovery", description: "Universal live search bar across products, designs, templates, businesses, and users on user dashboard" },
+  { key: "birthday_filter", label: "Birthday Templates & Celebration Filter", description: "Dedicated quick filter and presets for birthday flyers, WhatsApp stories, bakery cakes, and party promos" },
   { key: "footer_for_non_members", label: "Footer Menu for Non-Members", description: "Display footer menu and navigation links to non-members (unauthenticated visitors)" },
   { key: "whatsapp_engine", label: "WhatsApp Status Engine", description: "Mutual Google Contacts exchange, audience growth, and status ad monetization" },
   { key: "blog", label: "Blog", description: "Blog posts, reading, and listing pages" },

@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 interface GuideStep {
   step: number;
@@ -466,6 +467,7 @@ const GUIDES_DATA: FeatureGuide[] = [
 ];
 
 export default function HowToGuide() {
+  const { flags } = useFeatureFlags();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [activeGuideId, setActiveGuideId] = useState<string | null>("graphic-designer");
@@ -475,6 +477,12 @@ export default function HowToGuide() {
 
   const filteredGuides = useMemo(() => {
     return GUIDES_DATA.filter((g) => {
+      // Check feature flags
+      if (g.id === "graphic-designer" && flags.graphic_designer === false) return false;
+      if (g.id === "logo-creator" && flags.logo_creator === false) return false;
+      if (g.id === "whatsapp-bot" && flags.whatsapp_engine === false) return false;
+      if (g.id === "video-creator" && flags.video_creator === false) return false;
+
       const matchesCategory = selectedCategory === "all" || g.category === selectedCategory;
       const q = searchQuery.toLowerCase().trim();
       if (!q) return matchesCategory;
@@ -489,7 +497,7 @@ export default function HowToGuide() {
 
       return matchesCategory && (inTitle || inSummary || inCategory || inWhatIs || inProblem || inSteps || inTips);
     });
-  }, [searchQuery, selectedCategory]);
+  }, [searchQuery, selectedCategory, flags]);
 
   const handleVote = (id: string, isHelpful: boolean) => {
     setHelpfulVotes((prev) => ({ ...prev, [id]: isHelpful }));

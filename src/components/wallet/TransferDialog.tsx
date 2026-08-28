@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Send, Search, CheckCircle2, ArrowRight, Loader2, ShieldCheck } from "lucide-react";
 import confetti from "canvas-confetti";
@@ -17,6 +18,7 @@ const SUCCESS_SOUND =
   "data:audio/wav;base64,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";
 
 export default function TransferDialog({ open, onOpenChange, currentBalance, onSuccess }: { open: boolean; onOpenChange: (v: boolean) => void; currentBalance: number; onSuccess: () => void }) {
+  const { user } = useAuth();
   const [step, setStep] = useState<"find" | "confirm" | "success">("find");
   const [email, setEmail] = useState("");
   const [recipient, setRecipient] = useState<Recipient | null>(null);
@@ -69,12 +71,46 @@ export default function TransferDialog({ open, onOpenChange, currentBalance, onS
     const result = data as any;
     if (!result?.success) { toast.error(result?.error || "Transfer failed"); return; }
 
+    // Targeted notification for Recipient
+    if (recipient.user_id) {
+      try {
+        await supabase.from("user_notifications").insert({
+          user_id: recipient.user_id,
+          title: `₦${amt.toLocaleString()} Received from ${user?.user_metadata?.display_name || user?.email || "User"}`,
+          body: `You received ₦${amt.toLocaleString()} in your Bethelincovibe wallet.${note ? ` Note: "${note}"` : ""}`,
+          url: "/dashboard/wallet",
+          type: "wallet",
+          is_read: false,
+        });
+      } catch (e) {
+        console.warn("Recipient notification note:", e);
+      }
+    }
+
+    // Targeted notification for Sender
+    if (user?.id) {
+      try {
+        await supabase.from("user_notifications").insert({
+          user_id: user.id,
+          title: `₦${amt.toLocaleString()} Transfer Completed`,
+          body: `Transferred ₦${amt.toLocaleString()} to ${recipientName} (${recipient.email}).`,
+          url: "/dashboard/wallet",
+          type: "wallet",
+          is_read: false,
+        });
+      } catch (e) {
+        console.warn("Sender notification note:", e);
+      }
+    }
+
     setLastAmount(amt);
     setStep("success");
     try { new Audio(SUCCESS_SOUND).play().catch(() => {}); } catch {}
     confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 }, colors: ["#a855f7", "#ec4899", "#22c55e", "#facc15"] });
+    window.dispatchEvent(new CustomEvent("wallet_updated"));
     onSuccess();
   };
+
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>

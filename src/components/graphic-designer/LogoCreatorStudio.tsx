@@ -31,6 +31,10 @@ import {
   Wallet,
   Eye,
   Sliders,
+  Type,
+  Maximize2,
+  Image as ImageIcon,
+  Box,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,7 +47,7 @@ import {
   generateAILogos,
   GeneratedLogoItem,
   LOGO_PALETTES,
-  LogoArchetype,
+  LogoType,
   LogoShape,
 } from "@/lib/aiLogoEngine";
 import {
@@ -76,7 +80,7 @@ export default function LogoCreatorStudio({
   const [tagline, setTagline] = useState("PREMIUM QUALITY");
   const [category, setCategory] = useState(initialCategory || "Commerce & Retail");
   const [initials, setInitials] = useState(extractInitials(initialBusinessName || "Bethelin Enterprise"));
-  const [archetype, setArchetype] = useState<LogoArchetype>("all");
+  const [selectedLogoType, setSelectedLogoType] = useState<LogoType>("all");
   const [shape, setShape] = useState<LogoShape>("rounded_square");
   const [selectedPaletteId, setSelectedPaletteId] = useState("royal_gold");
 
@@ -84,7 +88,7 @@ export default function LogoCreatorStudio({
   const [generatedLogos, setGeneratedLogos] = useState<GeneratedLogoItem[]>([]);
   const [selectedLogo, setSelectedLogo] = useState<GeneratedLogoItem | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mockupTab, setMockupTab] = useState<"card" | "sign" | "app" | "avatar">("card");
+  const [mockupTab, setMockupTab] = useState<"card" | "sign" | "app" | "avatar" | "scale_test">("card");
 
   // Wallet & Credits
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
@@ -116,16 +120,33 @@ export default function LogoCreatorStudio({
         setLoadingBalance(false);
       });
 
-    supabase
-      .from("businesses")
-      .select("id, name, category, logo_url")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setUserBusinesses(data);
-          setTargetBusinessId(data[0].id);
-        }
-      });
+    // Load businesses from businesses and suppliers tables
+    Promise.all([
+      supabase.from("businesses").select("id, name, category, logo_url").eq("user_id", user.id),
+      supabase.from("suppliers").select("id, name, logo_url, categories(name)").eq("submitted_by", user.id),
+    ]).then(([bizRes, suppRes]) => {
+      const combined: any[] = [];
+      if (bizRes.data) {
+        combined.push(...bizRes.data.map((b) => ({ ...b, table: "businesses" })));
+      }
+      if (suppRes.data) {
+        suppRes.data.forEach((s: any) => {
+          if (!combined.some((b) => b.id === s.id)) {
+            combined.push({
+              id: s.id,
+              name: s.name,
+              category: s.categories?.name || "Business",
+              logo_url: s.logo_url,
+              table: "suppliers",
+            });
+          }
+        });
+      }
+      if (combined.length > 0) {
+        setUserBusinesses(combined);
+        setTargetBusinessId(combined[0].id);
+      }
+    });
   }, [user]);
 
   // Generate Initial Logo Pack on load
@@ -159,7 +180,7 @@ export default function LogoCreatorStudio({
         category,
         tagline,
         initials: initials || extractInitials(businessName),
-        archetype,
+        logoType: selectedLogoType,
         shape,
         preferredPaletteId: selectedPaletteId,
       };
@@ -185,7 +206,7 @@ export default function LogoCreatorStudio({
           setWalletBalance(deductRes.newBalance);
         }
 
-        toast.success(`✨ 8 Logo Concepts Created for "${businessName}"!`, {
+        toast.success(`✨ 8 Bespoke Logo Concepts Created for "${businessName}"!`, {
           description: `₦${cost} credits debited. Wallet balance: ₦${deductRes.newBalance?.toLocaleString() || walletBalance}`,
         });
       }
@@ -234,14 +255,15 @@ export default function LogoCreatorStudio({
     const saved = saveDesign(
       {
         userId: user.id,
-        title: `${businessName} - Logo (${selectedLogo.archetype})`,
+        title: `${businessName} - Logo (${selectedLogo.logoType || selectedLogo.archetype})`,
         type: "logo",
-        templateKey: `logo_${selectedLogo.archetype}`,
+        templateKey: `logo_${selectedLogo.logoType || selectedLogo.archetype}`,
         dimensions: { width: 1024, height: 1024, label: "Vector Logo Mark", aspect: "1:1" },
         previewDataUrl: selectedLogo.dataUrl || "",
         svgMarkup: selectedLogo.svgMarkup,
         businessName,
         options: {
+          logoType: selectedLogo.logoType,
           archetype: selectedLogo.archetype,
           shape: selectedLogo.shape,
           palette: selectedLogo.palette,
@@ -265,21 +287,30 @@ export default function LogoCreatorStudio({
       const targetBiz = userBusinesses.find((b) => b.id === targetBusinessId);
       const logoPng = selectedLogo.dataUrl || (await convertSvgToPngDataUrl(selectedLogo.svgMarkup, 512));
 
-      const { error } = await supabase
-        .from("businesses")
-        .update({
-          logo_url: logoPng,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", targetBusinessId);
-
-      if (error) throw error;
+      if (targetBiz?.table === "suppliers") {
+        const { error } = await supabase
+          .from("suppliers")
+          .update({
+            logo_url: logoPng,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", targetBusinessId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from("businesses")
+          .update({
+            logo_url: logoPng,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", targetBusinessId);
+        if (error) throw error;
+      }
 
       toast.success(`🎉 Logo applied to "${targetBiz?.name || 'your business'}"!`, {
         description: "Your public business listing and directory card are now updated.",
       });
 
-      // Update local state
       setUserBusinesses(
         userBusinesses.map((b) => (b.id === targetBusinessId ? { ...b, logo_url: logoPng } : b))
       );
@@ -302,7 +333,7 @@ export default function LogoCreatorStudio({
 
   return (
     <div className="space-y-6">
-      {/* 1. Header with Apollo Brand Agent */}
+      {/* 1. Header with Apollo Brand Agent & Logo Types */}
       <Card className="border shadow-xs bg-card/60 backdrop-blur-xs">
         <CardContent className="p-4 sm:p-6 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -319,7 +350,7 @@ export default function LogoCreatorStudio({
                 AI Logo Creator & Brand Identity Suite
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Generate 8 bespoke vector logo concepts, luxury crests, monograms & 3D real-world mockups.
+                Generate Wordmarks, Lettermarks, Icon Combinations & 3D Dimensional Marks with full vector scalability.
               </p>
             </div>
 
@@ -369,36 +400,55 @@ export default function LogoCreatorStudio({
             </div>
           </div>
 
-          {/* Archetype & Shape Selectors */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-foreground">Brand Archetype</Label>
-              <div className="flex flex-wrap gap-1.5">
-                {[
-                  { key: "all", label: "All Styles" },
-                  { key: "luxury", label: "Luxury Crest" },
-                  { key: "monogram", label: "Monogram" },
-                  { key: "modern_tech", label: "Modern Tech" },
-                  { key: "commerce", label: "Commerce" },
-                  { key: "minimal", label: "Minimalist" },
-                ].map((a) => (
+          {/* Logo Type Selector — Required 4 Key Archetypes */}
+          <div className="space-y-2 pt-1">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                <Sliders className="h-3.5 w-3.5 text-primary" />
+                Logo Type & Archetype
+              </Label>
+              <span className="text-[11px] text-muted-foreground">Select style or generate all</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+              {[
+                { key: "all", label: "All Logo Types", desc: "Mixed 8 Variations", icon: Sparkles },
+                { key: "wordmark", label: "Wordmark", desc: "Text-based typography", icon: Type },
+                { key: "lettermark", label: "Lettermark", desc: "Initials / Monogram", icon: Type },
+                { key: "combination", label: "Icon + Text", desc: "Emblem & Brand Name", icon: ImageIcon },
+                { key: "dimensional_3d", label: "3D Dimensional", desc: "Depth & Metallic Luster", icon: Box },
+              ].map((t) => {
+                const Icon = t.icon;
+                const isSelected = selectedLogoType === t.key;
+                return (
                   <button
-                    key={a.key}
-                    onClick={() => setArchetype(a.key as LogoArchetype)}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-lg border transition-all ${
-                      archetype === a.key
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-muted/50 hover:bg-muted text-muted-foreground border-border"
+                    key={t.key}
+                    onClick={() => setSelectedLogoType(t.key as LogoType)}
+                    className={`p-2.5 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                      isSelected
+                        ? "bg-primary text-primary-foreground border-primary shadow-sm ring-1 ring-primary"
+                        : "bg-muted/40 hover:bg-muted text-muted-foreground border-border"
                     }`}
                   >
-                    {a.label}
+                    <div className="flex items-center justify-between w-full">
+                      <Icon className="h-4 w-4 shrink-0" />
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </div>
+                    <div className="mt-2">
+                      <div className="text-xs font-bold leading-tight">{t.label}</div>
+                      <div className={`text-[9px] mt-0.5 ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                        {t.desc}
+                      </div>
+                    </div>
                   </button>
-                ))}
-              </div>
+                );
+              })}
             </div>
+          </div>
 
+          {/* Emblem Shape & Palette Selector */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-foreground">Emblem Shape</Label>
+              <Label className="text-xs font-bold text-foreground">Emblem Frame Shape</Label>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   { key: "rounded_square", label: "Squircle" },
@@ -421,6 +471,29 @@ export default function LogoCreatorStudio({
                 ))}
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-foreground">Color & Metallic Palette</Label>
+              <div className="flex flex-wrap gap-1.5">
+                {LOGO_PALETTES.slice(0, 5).map((p) => (
+                  <button
+                    key={p.id}
+                    onClick={() => setSelectedPaletteId(p.id)}
+                    className={`text-xs font-semibold px-2.5 py-1.5 rounded-lg border flex items-center gap-1.5 transition-all ${
+                      selectedPaletteId === p.id
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "bg-muted/50 hover:bg-muted text-muted-foreground border-border"
+                    }`}
+                  >
+                    <span
+                      className="h-2.5 w-2.5 rounded-full shrink-0 border"
+                      style={{ backgroundColor: p.gradientFrom }}
+                    />
+                    {p.name.replace("3D ", "")}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Action Trigger */}
@@ -431,7 +504,7 @@ export default function LogoCreatorStudio({
               className="w-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 hover:from-amber-600 hover:to-orange-600 text-white font-bold h-11 gap-2 shadow-md"
             >
               {isGenerating ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              Generate 8 Distinct Logo Concepts (50 Credits / ₦50)
+              Generate 8 Bespoke Logo Concepts (50 Credits / ₦50)
             </Button>
           </div>
         </CardContent>
@@ -456,6 +529,7 @@ export default function LogoCreatorStudio({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {generatedLogos.map((logo, idx) => {
               const isSelected = selectedLogo?.id === logo.id;
+              const typeLabel = (logo.logoType || logo.archetype).replace(/_/g, " ");
               return (
                 <button
                   key={logo.id}
@@ -474,8 +548,8 @@ export default function LogoCreatorStudio({
                     <span className="text-[11px] font-bold text-foreground truncate block">
                       Concept #{idx + 1}
                     </span>
-                    <Badge variant="outline" className="text-[9px] px-1 py-0 capitalize">
-                      {logo.archetype.replace(/_/g, " ")}
+                    <Badge variant="outline" className="text-[9px] px-1 py-0 capitalize truncate max-w-full">
+                      {typeLabel}
                     </Badge>
                   </div>
 
@@ -498,18 +572,24 @@ export default function LogoCreatorStudio({
                 <Eye className="h-4 w-4 text-primary" />
                 <span className="text-xs font-bold text-foreground">Active Logo Inspector</span>
               </div>
-              <Badge variant="secondary" className="text-[10px] font-bold">
-                {selectedLogo?.palette.name}
-              </Badge>
+              <div className="flex items-center gap-1.5">
+                <Badge variant="outline" className="text-[9px] font-bold capitalize">
+                  {selectedLogo?.logoType || selectedLogo?.archetype}
+                </Badge>
+                <Badge variant="secondary" className="text-[10px] font-bold">
+                  {selectedLogo?.palette.name}
+                </Badge>
+              </div>
             </div>
 
-            {/* Mockup Tabs Selector */}
-            <div className="flex border-b bg-muted/20">
+            {/* Mockup Tabs Selector with Scale Test */}
+            <div className="flex border-b bg-muted/20 overflow-x-auto">
               {[
                 { key: "card", label: "Business Card", icon: CreditCard },
-                { key: "sign", label: "Storefront Sign", icon: Store },
+                { key: "sign", label: "Store Sign", icon: Store },
                 { key: "app", label: "App Icon", icon: Smartphone },
-                { key: "avatar", label: "Social Avatar", icon: Sparkles },
+                { key: "avatar", label: "Avatar", icon: Sparkles },
+                { key: "scale_test", label: "Scale Test", icon: Maximize2 },
               ].map((tab) => {
                 const Icon = tab.icon;
                 const isActive = mockupTab === tab.key;
@@ -517,14 +597,14 @@ export default function LogoCreatorStudio({
                   <button
                     key={tab.key}
                     onClick={() => setMockupTab(tab.key as any)}
-                    className={`flex-1 py-2 text-center text-[11px] font-bold flex items-center justify-center gap-1 border-b-2 transition-all ${
+                    className={`flex-1 py-2 px-2 text-center text-[11px] font-bold flex items-center justify-center gap-1 border-b-2 transition-all whitespace-nowrap ${
                       isActive
                         ? "border-primary text-primary bg-background"
                         : "border-transparent text-muted-foreground hover:text-foreground"
                     }`}
                   >
                     <Icon className="h-3 w-3" />
-                    <span className="hidden sm:inline">{tab.label}</span>
+                    <span>{tab.label}</span>
                   </button>
                 );
               })}
@@ -594,6 +674,44 @@ export default function LogoCreatorStudio({
                       <span className="text-[11px] font-bold text-white">
                         @{businessName.toLowerCase().replace(/\s+/g, "_")}
                       </span>
+                    </div>
+                  )}
+
+                  {mockupTab === "scale_test" && (
+                    <div className="w-full space-y-3 animate-in zoom-in-95">
+                      <div className="text-[11px] font-bold text-amber-400 text-center uppercase tracking-wider">
+                        Scalability & Legibility Verification
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 items-end justify-items-center bg-neutral-900/90 p-3 rounded-xl border border-white/10">
+                        {/* 16px Favicon */}
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-6 h-6 rounded-md bg-neutral-800 flex items-center justify-center p-0.5 border border-white/10 shadow-xs">
+                            <div className="w-4 h-4" dangerouslySetInnerHTML={{ __html: selectedLogo.svgMarkup }} />
+                          </div>
+                          <span className="text-[9px] text-neutral-400 font-bold">16px Favicon</span>
+                        </div>
+                        {/* 32px App icon */}
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-10 h-10 rounded-lg bg-neutral-800 flex items-center justify-center p-1 border border-white/10 shadow-xs">
+                            <div className="w-8 h-8" dangerouslySetInnerHTML={{ __html: selectedLogo.svgMarkup }} />
+                          </div>
+                          <span className="text-[9px] text-neutral-400 font-bold">32px Icon</span>
+                        </div>
+                        {/* 64px Social Avatar */}
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-16 h-16 rounded-xl bg-neutral-800 flex items-center justify-center p-1.5 border border-white/10 shadow-xs">
+                            <div className="w-12 h-12" dangerouslySetInnerHTML={{ __html: selectedLogo.svgMarkup }} />
+                          </div>
+                          <span className="text-[9px] text-neutral-400 font-bold">64px Avatar</span>
+                        </div>
+                        {/* 128px Print / Banner */}
+                        <div className="flex flex-col items-center gap-1">
+                          <div className="w-20 h-20 rounded-2xl bg-neutral-800 flex items-center justify-center p-2 border border-white/10 shadow-xs">
+                            <div className="w-16 h-16" dangerouslySetInnerHTML={{ __html: selectedLogo.svgMarkup }} />
+                          </div>
+                          <span className="text-[9px] text-neutral-400 font-bold">128px Print</span>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>

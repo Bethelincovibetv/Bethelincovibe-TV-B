@@ -1,33 +1,41 @@
 import { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Palette, Sparkles, FolderOpen } from "lucide-react";
 import GraphicDesignStudio from "@/components/graphic-designer/GraphicDesignStudio";
 import LogoCreatorStudio from "@/components/graphic-designer/LogoCreatorStudio";
 import MyDesignsGallery from "@/components/graphic-designer/MyDesignsGallery";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 export default function GraphicDesignerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { flags } = useFeatureFlags();
   const tabParam = searchParams.get("tab") || "graphic";
   const businessIdParam = searchParams.get("businessId") || undefined;
   const nameParam = searchParams.get("name") || "";
   const categoryParam = searchParams.get("category") || "";
 
-  const [activeTab, setActiveTab] = useState<string>(
-    tabParam === "logo" || tabParam === "logos"
+  const initialTab =
+    (tabParam === "logo" || tabParam === "logos" || flags.graphic_designer === false) && flags.logo_creator !== false
       ? "logo"
       : tabParam === "designs" || tabParam === "my-designs"
       ? "designs"
-      : "graphic"
-  );
+      : "graphic";
 
+  const [activeTab, setActiveTab] = useState<string>(initialTab);
   const [passedLogoUrl, setPassedLogoUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (tabParam === "logo") setActiveTab("logo");
-    else if (tabParam === "designs" || tabParam === "my-designs") setActiveTab("designs");
-  }, [tabParam]);
+    if ((tabParam === "logo" || flags.graphic_designer === false) && flags.logo_creator !== false) {
+      setActiveTab("logo");
+    } else if (tabParam === "designs" || tabParam === "my-designs") {
+      setActiveTab("designs");
+    } else if (flags.graphic_designer !== false) {
+      setActiveTab("graphic");
+    }
+  }, [tabParam, flags.graphic_designer, flags.logo_creator]);
 
   const handleTabChange = (val: string) => {
     setActiveTab(val);
@@ -70,18 +78,24 @@ export default function GraphicDesignerPage() {
           {/* Studio Navigation Tabs */}
           <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="h-10 p-1 rounded-xl bg-muted/80 border">
-              <TabsTrigger value="graphic" className="text-xs font-bold gap-1.5 rounded-lg px-3">
-                <Palette className="h-3.5 w-3.5" />
-                Graphic Designer
-              </TabsTrigger>
-              <TabsTrigger value="logo" className="text-xs font-bold gap-1.5 rounded-lg px-3">
-                <Sparkles className="h-3.5 w-3.5" />
-                Logo Creator
-              </TabsTrigger>
-              <TabsTrigger value="designs" className="text-xs font-bold gap-1.5 rounded-lg px-3">
-                <FolderOpen className="h-3.5 w-3.5" />
-                My Designs
-              </TabsTrigger>
+              {flags.graphic_designer !== false && (
+                <TabsTrigger value="graphic" className="text-xs font-bold gap-1.5 rounded-lg px-3">
+                  <Palette className="h-3.5 w-3.5" />
+                  Graphic Designer
+                </TabsTrigger>
+              )}
+              {flags.logo_creator !== false && (
+                <TabsTrigger value="logo" className="text-xs font-bold gap-1.5 rounded-lg px-3">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Logo Creator
+                </TabsTrigger>
+              )}
+              {flags.graphic_designer !== false && (
+                <TabsTrigger value="designs" className="text-xs font-bold gap-1.5 rounded-lg px-3">
+                  <FolderOpen className="h-3.5 w-3.5" />
+                  My Designs
+                </TabsTrigger>
+              )}
             </TabsList>
           </Tabs>
         </div>
@@ -125,14 +139,14 @@ export default function GraphicDesignerPage() {
         />
 
         {/* Studio Content */}
-        {activeTab === "graphic" && (
+        {activeTab === "graphic" && flags.graphic_designer !== false && (
           <GraphicDesignStudio
             initialBusinessId={businessIdParam}
             onNavigateToLogoCreator={handleSwitchToLogoCreator}
           />
         )}
 
-        {activeTab === "logo" && (
+        {activeTab === "logo" && flags.logo_creator !== false && (
           <LogoCreatorStudio
             initialBusinessName={nameParam}
             initialCategory={categoryParam}
@@ -140,7 +154,7 @@ export default function GraphicDesignerPage() {
           />
         )}
 
-        {activeTab === "designs" && (
+        {activeTab === "designs" && flags.graphic_designer !== false && (
           <MyDesignsGallery
             onNavigateToCreate={() => handleTabChange("graphic")}
           />

@@ -35,10 +35,14 @@ import {
   Camera,
   Compass,
   Sliders,
+  Bot,
+  MessageSquare,
+  SlidersHorizontal,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import DesignAgentChat from "./DesignAgentChat";
 import {
   GRAPHIC_FORMATS,
   GRAPHIC_THEMES,
@@ -157,6 +161,11 @@ export default function GraphicDesignStudio({
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // Studio Mode: 'agent' (Conversational Chat AI) vs 'manual' (Slider/Form Controls)
+  const [designMode, setDesignMode] = useState<"agent" | "manual">("agent");
+  // Mobile responsive tab switcher: 'editor' vs 'preview'
+  const [mobileTab, setMobileTab] = useState<"editor" | "preview">("editor");
+
   // User Businesses
   const [userBusinesses, setUserBusinesses] = useState<any[]>([]);
   const [selectedBusinessId, setSelectedBusinessId] = useState<string>(initialBusinessId || "custom");
@@ -227,20 +236,43 @@ export default function GraphicDesignStudio({
         setLoadingBalance(false);
       });
 
-    // Load businesses
-    supabase
-      .from("businesses")
-      .select("id, name, category, phone, whatsapp, address, website, logo_url, description")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          setUserBusinesses(data);
-          if (initialBusinessId) {
-            const match = data.find((b) => b.id === initialBusinessId);
-            if (match) applyBusinessData(match);
+    // Load businesses from businesses and suppliers
+    Promise.all([
+      supabase
+        .from("businesses")
+        .select("id, name, category, phone, whatsapp, address, website, logo_url, description")
+        .eq("user_id", user.id),
+      supabase
+        .from("suppliers")
+        .select("id, name, phone, address, logo_url, description, social_links, categories(name)")
+        .eq("submitted_by", user.id),
+    ]).then(([bizRes, suppRes]) => {
+      const combined: any[] = [];
+      if (bizRes.data) combined.push(...bizRes.data);
+      if (suppRes.data) {
+        suppRes.data.forEach((s: any) => {
+          if (!combined.some((b) => b.id === s.id)) {
+            combined.push({
+              id: s.id,
+              name: s.name,
+              category: s.categories?.name || "Business",
+              phone: s.phone,
+              whatsapp: s.social_links?.whatsapp || s.phone,
+              address: s.address,
+              logo_url: s.logo_url,
+              description: s.description,
+            });
           }
+        });
+      }
+      if (combined.length > 0) {
+        setUserBusinesses(combined);
+        if (initialBusinessId) {
+          const match = combined.find((b) => b.id === initialBusinessId);
+          if (match) applyBusinessData(match);
         }
-      });
+      }
+    });
   }, [user, initialBusinessId]);
 
   const applyBusinessData = (biz: any) => {
@@ -315,6 +347,34 @@ export default function GraphicDesignStudio({
     highlights,
     exportScale,
   ]);
+
+  // Synchronize options updated from AI Agent Chat
+  const handleAgentOptionsUpdate = (newOpts: LocalGraphicOptions) => {
+    if (newOpts.formatKey) setFormatKey(newOpts.formatKey);
+    if (newOpts.layoutArchetype) setLayoutArchetype(newOpts.layoutArchetype);
+    if (newOpts.fontPairing) setFontPairing(newOpts.fontPairing);
+    if (newOpts.themeStyle) setThemeStyle(newOpts.themeStyle);
+    if (newOpts.businessName) setBusinessName(newOpts.businessName);
+    if (newOpts.category) setCategory(newOpts.category);
+    if (newOpts.headline) setHeadline(newOpts.headline);
+    if (newOpts.subheadline !== undefined) setSubheadline(newOpts.subheadline);
+    if (newOpts.priceTag !== undefined) setPriceTag(newOpts.priceTag);
+    if (newOpts.badgeText !== undefined) setBadgeText(newOpts.badgeText);
+    if (newOpts.ctaText !== undefined) setCtaText(newOpts.ctaText);
+    if (newOpts.phone) setPhone(newOpts.phone);
+    if (newOpts.whatsapp) setWhatsapp(newOpts.whatsapp);
+    if (newOpts.address) setAddress(newOpts.address);
+    if (newOpts.highlights) setHighlights(newOpts.highlights);
+    if (newOpts.stockAsset) {
+      setSelectedStockAsset(newOpts.stockAsset);
+      setCustomStockUrl("");
+    }
+    if (newOpts.stockImageUrl) {
+      setCustomStockUrl(newOpts.stockImageUrl);
+      setSelectedStockAsset(null);
+    }
+    handleRenderCanvas(newOpts);
+  };
 
   // Render canvas
   const handleRenderCanvas = async (opts: LocalGraphicOptions = currentOptions) => {
@@ -604,32 +664,32 @@ export default function GraphicDesignStudio({
   const showNoLogoAlert = selectedBusinessId !== "custom" && (!logoUrl || logoUrl.trim() === "");
 
   return (
-    <div className="space-y-6">
-      {/* 1. Header & Senior Designer AI Brief Bar */}
-      <Card className="border shadow-xs bg-card/60 backdrop-blur-xs">
-        <CardContent className="p-4 sm:p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+    <div className="space-y-5">
+      {/* Top Banner & Mode Switcher Bar */}
+      <Card className="border shadow-xs bg-card/70 backdrop-blur-xs">
+        <CardContent className="p-4 sm:p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <div className="flex items-center gap-2">
-                <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 font-black tracking-wide">
-                  👑 Senior Commercial Design Engine
+                <Badge className="bg-primary/10 text-primary border-primary/20 font-black tracking-wide">
+                  <Sparkles className="h-3 w-3 mr-1" /> Maya AI Graphic Agent
                 </Badge>
                 <span className="text-xs font-semibold text-muted-foreground">
-                  Structured 6-Stage Pipeline • No AI Slop
+                  Conversational Graphic Design • Zero Tech Skills Needed
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight mt-1">
-                Commercial Flyer & Visual Media Studio
+                AI Graphic Designer & Commercial Flyer Studio
               </h2>
               <p className="text-xs sm:text-sm text-muted-foreground">
-                Engineered for Nigerian SMEs: dynamic layout grids, curated African commercial photography, optical typography and high-contrast darkroom treatments.
+                Simply chat with Maya to create high-converting Nigerian business flyers, Instagram posts, WhatsApp status stories, and product promo creatives in seconds.
               </p>
             </div>
 
             {/* Wallet Status Pill */}
-            <div className="flex items-center gap-2 bg-muted/60 px-3.5 py-2 rounded-xl border self-start sm:self-center">
+            <div className="flex items-center gap-2.5 bg-muted/60 px-3.5 py-2 rounded-2xl border self-start sm:self-center shrink-0">
               <Wallet className="h-4 w-4 text-emerald-500" />
-              <div className="text-right">
+              <div>
                 <div className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider">
                   Wallet Balance
                 </div>
@@ -640,52 +700,67 @@ export default function GraphicDesignStudio({
             </div>
           </div>
 
-          {/* Natural Language Prompt Input */}
-          <div className="flex flex-col sm:flex-row gap-2 pt-2">
-            <div className="relative flex-1">
-              <Input
-                placeholder="E.g. Create a 30% Off weekend flash sale flyer for my fashion boutique in Ikeja, phone 08012345678"
-                value={promptText}
-                onChange={(e) => setPromptText(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleApplyPrompt()}
-                className="pr-10 h-11 bg-background text-sm"
-              />
-              <Sparkles className="absolute right-3 top-3.5 h-4 w-4 text-amber-500 opacity-60" />
-            </div>
-            <Button
-              onClick={handleApplyPrompt}
-              disabled={isProcessingPrompt || !promptText.trim()}
-              className="bg-amber-500 hover:bg-amber-600 text-white font-bold h-11 px-5 gap-1.5 shadow-sm"
-            >
-              {isProcessingPrompt ? <RefreshCw className="h-4 w-4 animate-spin" /> : <Zap className="h-4 w-4" />}
-              AI Parse Brief
-            </Button>
-          </div>
-
-          {/* Quick Prompt Chips */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-1">
-            <span className="text-[11px] font-bold text-muted-foreground mr-1">Design Archetype Presets:</span>
-            {[
-              "Lekki Duplex Real Estate Flyer",
-              "Party Jollof & Grill Catering Promo",
-              "Luxe Ankara Fashion Editorial",
-              "A4 Print Handbill for Tech Repair",
-              "Church Seminar VIP Event Flyer",
-              "WhatsApp Status 30% Flash Sale",
-            ].map((preset, idx) => (
+          {/* Mode Switcher: AI Chat Agent vs Advanced Sliders */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t">
+            <div className="flex items-center gap-1.5 bg-muted/70 p-1 rounded-2xl border w-full sm:w-auto">
               <button
-                key={idx}
-                onClick={() => handleQuickPrompt(preset)}
-                className="text-[11px] bg-muted hover:bg-muted/80 text-muted-foreground hover:text-foreground font-medium px-2.5 py-1 rounded-lg border transition-colors"
+                onClick={() => setDesignMode("agent")}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black transition-all ${
+                  designMode === "agent"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                {preset}
+                <Bot className="h-3.5 w-3.5" />
+                <span>AI Agent Chat (Simple & Fast)</span>
+                <Badge variant="outline" className="hidden sm:inline-flex text-[9px] py-0 px-1 font-bold ml-1 bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30">
+                  Recommended
+                </Badge>
               </button>
-            ))}
+
+              <button
+                onClick={() => setDesignMode("manual")}
+                className={`flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  designMode === "manual"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <SlidersHorizontal className="h-3.5 w-3.5" />
+                <span>Manual Studio Sliders</span>
+              </button>
+            </div>
+
+            {/* Mobile View Switcher (Visible on small screens only) */}
+            <div className="flex lg:hidden items-center gap-1 bg-muted/50 p-1 rounded-xl border self-stretch justify-center">
+              <button
+                onClick={() => setMobileTab("editor")}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  mobileTab === "editor"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <MessageSquare className="h-3.5 w-3.5" />
+                {designMode === "agent" ? "AI Agent Chat" : "Studio Controls"}
+              </button>
+              <button
+                onClick={() => setMobileTab("preview")}
+                className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  mobileTab === "preview"
+                    ? "bg-background text-foreground shadow-xs"
+                    : "text-muted-foreground"
+                }`}
+              >
+                <Eye className="h-3.5 w-3.5 text-primary" />
+                Live Preview
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* 2. No Logo Detected Banner */}
+      {/* No Logo Detected Alert */}
       {showNoLogoAlert && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-in fade-in-50">
           <div className="flex items-center gap-3">
@@ -694,7 +769,7 @@ export default function GraphicDesignStudio({
             </div>
             <div>
               <h4 className="text-sm font-bold text-foreground">
-                "{selectedBiz?.name}" has no brand logo attached
+                &quot;{selectedBiz?.name}&quot; has no brand logo attached
               </h4>
               <p className="text-xs text-muted-foreground">
                 Graphics convert 3x higher when featuring a crisp brand logo watermark. Would you like to create one now?
@@ -704,7 +779,7 @@ export default function GraphicDesignStudio({
           <Button
             size="sm"
             onClick={() => onNavigateToLogoCreator && onNavigateToLogoCreator(selectedBiz?.name, selectedBiz?.category)}
-            className="bg-amber-500 hover:bg-amber-600 text-white font-bold gap-1.5 shrink-0"
+            className="bg-amber-500 hover:bg-amber-600 text-white font-bold gap-1.5 shrink-0 rounded-xl"
           >
             <Sparkles className="h-3.5 w-3.5" />
             ✨ Create Logo First
@@ -712,79 +787,103 @@ export default function GraphicDesignStudio({
         </div>
       )}
 
-      {/* 3. Pipeline Stage Navigation Tabs */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b">
-        {[
-          { id: "content", label: "1. Content & Brief", icon: Tag },
-          { id: "layout", label: "2. Layout Archetype", icon: Grid },
-          { id: "stock", label: "3. Stock Photography", icon: Camera },
-          { id: "typography", label: "4. Typography Pairing", icon: Type },
-          { id: "style", label: "5. Color & Contrast", icon: Palette },
-        ].map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeStage === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveStage(tab.id as any)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all ${
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {tab.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* 4. Main Workspace Grid: Controls on Left, Live Canvas on Right */}
+      {/* Main Workspace Grid: Controls on Left, Live Canvas on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Left Column: Customization Controls (7 cols) */}
-        <div className="lg:col-span-7 space-y-5">
-          {/* Format & Dimension Selector */}
-          <Card className="border shadow-xs">
-            <CardContent className="p-4 sm:p-5 space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Layers className="h-3.5 w-3.5 text-primary" />
-                  Target Canvas Format & Aspect Ratio
-                </Label>
-                <span className="text-[11px] font-semibold text-primary">
-                  {GRAPHIC_FORMATS.find((f) => f.key === formatKey)?.width} × {GRAPHIC_FORMATS.find((f) => f.key === formatKey)?.height}px
-                </span>
-              </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {GRAPHIC_FORMATS.map((fmt) => {
-                  const isSelected = formatKey === fmt.key;
+        {/* Left Column: AI Agent Chat OR Manual Studio Controls (7 cols) */}
+        <div className={`lg:col-span-7 space-y-5 ${mobileTab === "preview" ? "hidden lg:block" : "block"}`}>
+          {designMode === "agent" ? (
+            /* CONVERSATIONAL AI AGENT INTERFACE (Primary & Simple) */
+            <div className="animate-in fade-in-50 duration-200">
+              <DesignAgentChat
+                currentOptions={currentOptions}
+                onOptionsChange={handleAgentOptionsUpdate}
+                onApplyImprovementPreset={handleApplyImprovement}
+                onCustomImageUploaded={(dataUrl) => {
+                  setCustomStockUrl(dataUrl);
+                  setSelectedStockAsset(null);
+                  handleRenderCanvas({
+                    ...currentOptions,
+                    stockImageUrl: dataUrl,
+                    stockAsset: undefined,
+                  });
+                }}
+                businessName={businessName}
+                walletBalance={walletBalance}
+                isRendering={isRendering}
+              />
+            </div>
+          ) : (
+            /* ADVANCED MANUAL STUDIO CONTROLS */
+            <div className="space-y-5 animate-in fade-in-50 duration-200">
+              {/* Pipeline Stage Navigation Tabs */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b">
+                {[
+                  { id: "content", label: "1. Content & Brief", icon: Tag },
+                  { id: "layout", label: "2. Layout Archetype", icon: Grid },
+                  { id: "stock", label: "3. Stock Photography", icon: Camera },
+                  { id: "typography", label: "4. Typography Pairing", icon: Type },
+                  { id: "style", label: "5. Color & Contrast", icon: Palette },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeStage === tab.id;
                   return (
                     <button
-                      key={fmt.key}
-                      onClick={() => setFormatKey(fmt.key)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        isSelected
-                          ? "border-primary bg-primary/10 ring-1 ring-primary text-foreground"
-                          : "border-border bg-card/50 hover:bg-muted/50 text-muted-foreground"
+                      key={tab.id}
+                      onClick={() => setActiveStage(tab.id as any)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all ${
+                        isActive
+                          ? "bg-primary text-primary-foreground shadow-xs"
+                          : "bg-muted/40 hover:bg-muted text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold truncate">{fmt.label}</span>
-                        <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
-                          {fmt.aspect}
-                        </Badge>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
-                        {fmt.description}
-                      </p>
+                      <Icon className="h-3.5 w-3.5" />
+                      {tab.label}
                     </button>
                   );
                 })}
               </div>
-            </CardContent>
-          </Card>
+
+              {/* Format & Dimension Selector */}
+              <Card className="border shadow-xs">
+                <CardContent className="p-4 sm:p-5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Layers className="h-3.5 w-3.5 text-primary" />
+                      Target Canvas Format & Aspect Ratio
+                    </Label>
+                    <span className="text-[11px] font-semibold text-primary">
+                      {GRAPHIC_FORMATS.find((f) => f.key === formatKey)?.width} × {GRAPHIC_FORMATS.find((f) => f.key === formatKey)?.height}px
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {GRAPHIC_FORMATS.map((fmt) => {
+                      const isSelected = formatKey === fmt.key;
+                      return (
+                        <button
+                          key={fmt.key}
+                          onClick={() => setFormatKey(fmt.key)}
+                          className={`p-3 rounded-xl border text-left transition-all ${
+                            isSelected
+                              ? "border-primary bg-primary/10 ring-1 ring-primary text-foreground"
+                              : "border-border bg-card/50 hover:bg-muted/50 text-muted-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold truncate">{fmt.label}</span>
+                            <Badge variant="outline" className="text-[10px] px-1 py-0 h-4">
+                              {fmt.aspect}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1 line-clamp-1">
+                            {fmt.description}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
 
           {/* TAB 1: CONTENT & BRIEF */}
           {activeStage === "content" && (
@@ -1276,10 +1375,12 @@ export default function GraphicDesignStudio({
               </CardContent>
             </Card>
           )}
+            </div>
+          )}
         </div>
 
         {/* Right Column: Live Canvas Preview, AI Improve Toolbar & Actions (5 cols) */}
-        <div className="lg:col-span-5 space-y-4 sticky top-6">
+        <div className={`lg:col-span-5 space-y-4 lg:sticky lg:top-6 ${mobileTab === "editor" ? "hidden lg:block" : "block"}`}>
           {/* AI Senior Designer "Improve Design" Toolbar */}
           <Card className="border shadow-xs bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-primary/10">
             <CardContent className="p-3.5 space-y-2.5">

@@ -12,18 +12,29 @@ function isListingDetail(pathname: string) {
   return /^\/businesses\/(?!list$|category\/)[^/]+$/.test(pathname);
 }
 
+/** Graphic Design and Logo Creator studio pages get full immersive canvas layout with no footer menu. */
+function isGraphicDesignPage(pathname: string) {
+  return (
+    pathname.startsWith("/graphic-designer") ||
+    pathname.startsWith("/dashboard/graphic-designer") ||
+    pathname.startsWith("/logo-creator") ||
+    pathname.startsWith("/dashboard/logo-creator")
+  );
+}
+
 export default function PublicLayout() {
   const { flags } = useFeatureFlags();
   const { user } = useAuth();
   const { pathname } = useLocation();
-  const clean = isListingDetail(pathname);
+  const isGraphicPage = isGraphicDesignPage(pathname);
+  const clean = isListingDetail(pathname) || isGraphicPage;
   const isHome = pathname === "/";
   const showFooter = !clean && (Boolean(user) || flags.footer_for_non_members !== false);
 
   return (
     <div className="flex flex-col min-h-screen">
       <ErrorBoundary label="Header" fallback={null}><Header /></ErrorBoundary>
-      <main className="flex-1 pb-28 md:pb-0">
+      <main className={`flex-1 ${isGraphicPage ? "pb-4 md:pb-0" : "pb-28 md:pb-0"}`}>
         <ErrorBoundary label="Route"><Outlet /></ErrorBoundary>
       </main>
       {flags.advertise && !clean && <AdPlaceholder placement="footer" className="container mx-auto px-4 mb-2" />}
@@ -32,7 +43,9 @@ export default function PublicLayout() {
           {isHome ? <Footer /> : <MinimalFooter />}
         </ErrorBoundary>
       )}
-      <ErrorBoundary label="TabBar" fallback={null}><MobileTabBar /></ErrorBoundary>
+      {!isGraphicPage && (
+        <ErrorBoundary label="TabBar" fallback={null}><MobileTabBar /></ErrorBoundary>
+      )}
     </div>
   );
 }
