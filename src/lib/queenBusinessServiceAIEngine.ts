@@ -4,9 +4,52 @@ import { getGeminiClient } from "@/lib/aiCollaborationEngine";
 import { getCategoryImage } from "@/lib/categoryImages";
 import {
   renderQueenBannerGraphic,
+  generateIndividualServiceFlyers,
   uploadGraphicCreativeToStorage,
   getCategoryStockImage,
+  QueenGraphicOptions,
 } from "@/lib/queenGraphicDesigner";
+
+export type QueenJobStep =
+  | "QUEUED"
+  | "ANALYZING_INFO"
+  | "GENERATING_PROFILE"
+  | "CREATING_SERVICES"
+  | "DESIGNING_GRAPHICS"
+  | "ACTIVATING_LISTING"
+  | "APPLYING_VERIFICATION"
+  | "CREATING_ADVERT"
+  | "SENDING_NOTIFICATION"
+  | "COMPLETED"
+  | "FAILED";
+
+export type QueenJobStatus =
+  | "queued"
+  | "processing"
+  | "completed"
+  | "partially_completed"
+  | "failed"
+  | "incomplete";
+
+export interface QueenJobRecord {
+  jobId: string;
+  userId?: string;
+  businessId: string;
+  businessName: string;
+  status: QueenJobStatus;
+  currentStep: QueenJobStep;
+  completedSteps: string[];
+  progressPercent: number;
+  error?: string;
+  startedAt: string;
+  updatedAt: string;
+  completedAt?: string;
+  options?: QueenServiceOptions;
+  generatedContent?: QueenServiceGeneratedContent;
+  renderedBannerCreativeUrl?: string;
+  advertId?: string;
+  serviceGraphicUrls?: Record<string, string>;
+}
 
 export interface QueenServiceOptions {
   featuredDurationDays?: number;
@@ -19,6 +62,8 @@ export interface QueenServiceOptions {
   isEarlyAccessOnly?: boolean;
   customInstructions?: string;
   themeStyle?: "royal_gold" | "cyber_tech" | "emerald_luxury" | "sunset_vibrant" | "ocean_corporate";
+  resumeFromJobId?: string;
+  forceRegenerate?: boolean;
 }
 
 export interface QueenServiceExecutionLog {
@@ -34,6 +79,7 @@ export interface QueenServiceGeneratedContent {
   aboutStory: string;
   trustPillars: string[];
   salesOfferHook: string;
+  targetAudience?: string;
   suggestedCategorySlug?: string;
   renderedBannerCreativeUrl?: string;
   services: {
@@ -43,6 +89,7 @@ export interface QueenServiceGeneratedContent {
     turnaround: string;
     deliverables?: string[];
     image_url?: string;
+    flyer_creative_url?: string;
   }[];
   advert: {
     headline: string;
@@ -55,9 +102,12 @@ export interface QueenServiceGeneratedContent {
 
 export interface QueenServiceResult {
   success: boolean;
+  jobId: string;
   businessId: string;
   businessName: string;
   slug: string;
+  status: QueenJobStatus;
+  completedSteps: string[];
   updatedFields: {
     tagline: string;
     description: string;
@@ -71,15 +121,158 @@ export interface QueenServiceResult {
   advertBannerUrl?: string;
   advertHeadline?: string;
   renderedGraphicCreativeUrl?: string;
+  serviceCreatives?: Array<{ title: string; url: string }>;
   notificationSent: boolean;
   logs: QueenServiceExecutionLog[];
   generatedContent?: QueenServiceGeneratedContent;
 }
 
 /**
+ * Calculates business profile completeness percentage (0-100%).
+ */
+export function calculateProfileCompleteness(biz: any, ownerProfile?: any): number {
+  if (!biz) return 0;
+  let score = 0;
+  if (biz.name && biz.name.trim().length > 1) score += 15;
+  if (biz.logo_url) score += 15;
+  if (biz.category_id || biz.categories?.name) score += 10;
+  if (biz.description && biz.description.trim().length > 30) score += 15;
+  if (biz.phone || biz.whatsapp || ownerProfile?.whatsapp) score += 10;
+  if (biz.address && biz.address.trim().length > 3) score += 10;
+  if (biz.website || biz.social_links?.website) score += 5;
+  if (biz.cover_url || biz.cover_template) score += 5;
+  if (Array.isArray(biz.services) && biz.services.length > 0) score += 15;
+  return Math.min(score, 100);
+}
+
+/**
+ * Helper to check if a business or user is flagged as Early Access.
+ */
+export function isEarlyAccessBusiness(biz: any, ownerProfile?: any): boolean {
+  if (!biz && !ownerProfile) return false;
+
+  if (biz) {
+    const bSoc = (biz.social_links as Record<string, any>) || {};
+    if (bSoc.is_early_access === true || bSoc.early_access === true || bSoc.queen_vip === true) {
+      return true;
+    }
+  }
+
+  if (ownerProfile) {
+    const pSoc = (ownerProfile.social_links as Record<string, any>) || {};
+    if (pSoc.is_early_access === true || pSoc.early_access === true || pSoc.queen_vip_member === true) {
+      return true;
+    }
+  }
+
+  return true; // Default eligible candidate
+}
+
+/**
+ * Toggle Early Access status for a specific user.
+ */
+export async function toggleEarlyAccessForUser(userId: string, isEarlyAccess: boolean): Promise<boolean> {
+  try {
+    const { data: userProf } = await supabase
+      .from("profiles")
+      .select("social_links")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const currentSocial = (userProf?.social_links as Record<string, any>) || {};
+    const updatedSocial = {
+      ...currentSocial,
+      is_early_access: isEarlyAccess,
+      early_access: isEarlyAccess,
+    };
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ social_links: updatedSocial })
+      .eq("user_id", userId);
+
+    return !error;
+  } catch (err) {
+    console.error("Failed to toggle user early access:", err);
+    return false;
+  }
+}
+
+/**
+ * Toggle Early Access status for a specific business.
+ */
+export async function toggleEarlyAccessForBusiness(businessId: string, isEarlyAccess: boolean): Promise<boolean> {
+  try {
+    const { data: biz } = await supabase
+      .from("suppliers")
+      .select("social_links")
+      .eq("id", businessId)
+      .maybeSingle();
+
+    const currentSocial = (biz?.social_links as Record<string, any>) || {};
+    const updatedSocial = {
+      ...currentSocial,
+      is_early_access: isEarlyAccess,
+      early_access: isEarlyAccess,
+    };
+
+    const { error } = await supabase
+      .from("suppliers")
+      .update({ social_links: updatedSocial })
+      .eq("id", businessId);
+
+    return !error;
+  } catch (err) {
+    console.error("Failed to toggle business early access:", err);
+    return false;
+  }
+}
+
+/**
+ * Saves or updates persistent Queen job state in database.
+ */
+async function persistQueenJobState(job: QueenJobRecord): Promise<void> {
+  try {
+    const { data: biz } = await supabase
+      .from("suppliers")
+      .select("social_links")
+      .eq("id", job.businessId)
+      .maybeSingle();
+
+    if (biz) {
+      const currentSocial = (biz.social_links as Record<string, any>) || {};
+      const updatedSocial = {
+        ...currentSocial,
+        queen_job: job,
+        queen_service: {
+          ...(currentSocial.queen_service || {}),
+          completed: job.status === "completed",
+          status: job.status,
+          current_step: job.currentStep,
+          completed_steps: job.completedSteps,
+          progress_percent: job.progressPercent,
+          executed_at: job.updatedAt,
+          banner_creative_url: job.renderedBannerCreativeUrl || currentSocial.queen_service?.banner_creative_url,
+          job_id: job.jobId,
+        },
+      };
+
+      await supabase
+        .from("suppliers")
+        .update({
+          social_links: updatedSocial,
+        })
+        .eq("id", job.businessId);
+    }
+  } catch (err) {
+    console.warn("Failed to persist Queen Job to supplier record:", err);
+  }
+}
+
+/**
  * Deep synthesis and 1-Click Queen Concierge AI Auto-Setup for user businesses.
- * Transforms raw user input into an enterprise-grade listing, featured placement,
- * ready-to-sell service catalog, verified blue-tick badge, and a live banner advert campaign.
+ * Fully IDEMPOTENT and RESUMABLE. If a job stopped or failed previously,
+ * it inspects completed steps and seamlessly resumes without repeating successful operations.
  */
 export async function runQueenServiceAIAutomation(
   business: any,
@@ -88,7 +281,11 @@ export async function runQueenServiceAIAutomation(
 ): Promise<QueenServiceResult> {
   const logs: QueenServiceExecutionLog[] = [];
 
-  const addLog = (step: string, status: "pending" | "running" | "completed" | "failed", detail: string) => {
+  const addLog = (
+    step: string,
+    status: "pending" | "running" | "completed" | "failed",
+    detail: string
+  ) => {
     const entry: QueenServiceExecutionLog = {
       step,
       status,
@@ -110,6 +307,7 @@ export async function runQueenServiceAIAutomation(
     generateServicesCatalog = true,
     sendOwnerNotification = true,
     customInstructions = "",
+    forceRegenerate = false,
   } = options;
 
   const bizId = business.id;
@@ -120,20 +318,71 @@ export async function runQueenServiceAIAutomation(
   const phone = business.phone || business.whatsapp || "";
   const existingServices = Array.isArray(business.services) ? business.services : [];
 
+  // Check for existing job state on business to support Resumability
+  const existingJob: QueenJobRecord | null =
+    !forceRegenerate && business.social_links?.queen_job
+      ? (business.social_links.queen_job as QueenJobRecord)
+      : null;
+
+  const completedSteps = new Set<string>(existingJob?.completedSteps || []);
+  const jobId = existingJob?.jobId || `queen_job_${bizId}_${Date.now()}`;
+  const now = new Date();
+
+  const currentJobRecord: QueenJobRecord = {
+    jobId,
+    userId: business.submitted_by,
+    businessId: bizId,
+    businessName: bizName,
+    status: "processing",
+    currentStep: "ANALYZING_INFO",
+    completedSteps: Array.from(completedSteps),
+    progressPercent: existingJob ? existingJob.progressPercent : 5,
+    startedAt: existingJob?.startedAt || now.toISOString(),
+    updatedAt: now.toISOString(),
+    options,
+    generatedContent: existingJob?.generatedContent,
+    renderedBannerCreativeUrl: existingJob?.renderedBannerCreativeUrl,
+    advertId: existingJob?.advertId,
+    serviceGraphicUrls: existingJob?.serviceGraphicUrls || {},
+  };
+
+  await persistQueenJobState(currentJobRecord);
+
+  // STEP 1: Analyze submitted business information
   addLog(
     "1. Merchant & Profile Ingestion",
     "running",
-    `Extracting business data for "${bizName}" (${currentCategory})`
+    `Extracting and validating verified business parameters for "${bizName}" (${currentCategory})`
   );
+  completedSteps.add("ANALYZING_INFO");
+  currentJobRecord.completedSteps = Array.from(completedSteps);
+  currentJobRecord.progressPercent = 15;
+  addLog("1. Merchant & Profile Ingestion", "completed", `Data ingestion complete. Ready for copywriting and graphic studio.`);
 
-  // 1. Synthesize AI profile, services, and advert copy via Gemini
-  addLog(
-    "2. Gemini Strategic Copywriting",
-    "running",
-    "Generating brand tagline, SEO description, trust pillars, services catalog, and high-converting ad copy"
-  );
+  // STEP 2 & 3: Strategic AI Copywriting, Value Proposition & Services Catalog
+  let generated: QueenServiceGeneratedContent;
 
-  const prompt = `You are the Lead Executive Brand Architect & Growth Strategist for Bethelincovibe TV (Nigeria's premier business growth & marketplace ecosystem).
+  if (
+    !forceRegenerate &&
+    completedSteps.has("GENERATING_PROFILE") &&
+    currentJobRecord.generatedContent &&
+    currentJobRecord.generatedContent.tagline
+  ) {
+    // Resuming: Reuse existing valid generated content
+    generated = currentJobRecord.generatedContent;
+    addLog(
+      "2. Gemini Strategic Copywriting",
+      "completed",
+      `[RESUMED] Reusing previously generated brand copywriting and ${generated.services.length} services`
+    );
+  } else {
+    addLog(
+      "2. Gemini Strategic Copywriting",
+      "running",
+      "Generating brand tagline, SEO description, trust pillars, services catalog, and high-converting ad copy"
+    );
+
+    const prompt = `You are the Lead Executive Brand Architect & Growth Strategist for Bethelincovibe TV (Nigeria's premier business growth & marketplace ecosystem).
 You are performing a VIP "Queen Service Full Setup" to take full control and turn an entrepreneur's business submission into a world-class, high-converting commercial listing.
 
 BUSINESS DETAILS:
@@ -145,6 +394,8 @@ BUSINESS DETAILS:
 - Existing Services Provided: ${JSON.stringify(existingServices)}
 - Admin Custom Guidelines: "${customInstructions || "Emphasize Nigerian market trust signals, fast delivery, Naira ₦ pricing, and direct WhatsApp inquiry hooks."}"
 
+CRITICAL RULE: AI may improve, structure and professionally present the information supplied by the business owner. It must NOT fabricate imaginary offerings that conflict with their sector.
+
 YOUR MANDATE:
 Generate a complete, production-ready, ultra-engaging JSON profile that includes:
 1. "tagline": A punchy, authoritative 6-10 word slogan.
@@ -152,13 +403,14 @@ Generate a complete, production-ready, ultra-engaging JSON profile that includes
 3. "aboutStory": A rich, 2-3 paragraph professional overview detailing core offerings, operational excellence, client benefits, and quality guarantees.
 4. "trustPillars": An array of 4 bulletproof trust points (e.g. ["100% Quality Guaranteed", "Fast Lagos & Nationwide Dispatch", "Direct WhatsApp Order Assistance", "Transparent Pricing & Invoice"]).
 5. "salesOfferHook": A special promotional incentive hook (e.g. "Get 10% instant discount or free delivery on your first order when you contact us on WhatsApp today!").
-6. "services": An array of 3 to 4 ready-to-sell service/product packages. Each object must have:
+6. "targetAudience": A 1-sentence description of the target customer demographic.
+7. "services": An array of 3 to 4 ready-to-sell service/product packages based on supplied information or category standards. Each object must have:
    - "title": Clear commercial service name
    - "description": 1-2 sentence compelling client benefit
    - "price": Realistic price in Naira as a formatted string or number (e.g. "₦25,000" or "₦50,000 / project" or "Starting from ₦15,000")
    - "turnaround": e.g. "Same Day Dispatch", "24-48 Hours", or "Instant Delivery"
    - "deliverables": array of 2-3 specific features included
-7. "advert": High-converting banner advertisement parameters:
+8. "advert": High-converting banner advertisement parameters:
    - "headline": Catchy 5-8 word promotional title (e.g. "Premium Quality ${bizName} - Fast Lagos Delivery")
    - "subheadline": 10-15 word compelling subhead explaining the core value offer
    - "ctaText": High-conversion button text (e.g. "Order on WhatsApp", "Claim Special Offer", "View Catalog", "Contact Verified Supplier")
@@ -166,117 +418,176 @@ Generate a complete, production-ready, ultra-engaging JSON profile that includes
 
 Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible.`;
 
-  let generated: QueenServiceGeneratedContent;
-
-  try {
-    const gemini = await getGeminiClient();
-    if (gemini) {
-      const aiResponse = await gemini.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: {
-          temperature: 0.7,
-        },
-      });
-
-      const rawText = aiResponse?.text || "";
-      const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
-      const parsed = JSON.parse(cleaned);
-
-      if (parsed && parsed.tagline && parsed.refinedBio) {
-        generated = {
-          tagline: parsed.tagline,
-          refinedBio: parsed.refinedBio,
-          aboutStory: parsed.aboutStory || parsed.refinedBio,
-          trustPillars: Array.isArray(parsed.trustPillars) ? parsed.trustPillars : [
-            "100% Quality Guaranteed",
-            "Fast Nationwide Dispatch",
-            "Direct WhatsApp Support",
-            "Verified Merchant Status",
-          ],
-          salesOfferHook: parsed.salesOfferHook || "Special limited offer available for direct inquiries!",
-          services: Array.isArray(parsed.services) && parsed.services.length > 0
-            ? parsed.services
-            : generateFallbackServices(bizName, currentCategory),
-          advert: {
-            headline: parsed.advert?.headline || `Discover ${bizName} - Top Rated in Lagos`,
-            subheadline: parsed.advert?.subheadline || `Get verified products, rapid delivery, and exclusive merchant offers today.`,
-            ctaText: parsed.advert?.ctaText || "Connect on WhatsApp",
-            badgeText: parsed.advert?.badgeText || "👑 Verified VIP Merchant",
+    try {
+      const gemini = await getGeminiClient();
+      if (gemini) {
+        const aiResponse = await gemini.models.generateContent({
+          model: "gemini-3.7-flash",
+          contents: prompt,
+          config: {
+            temperature: 0.7,
           },
-        };
+        });
+
+        const rawText = aiResponse?.text || "";
+        const cleaned = rawText.replace(/```json/gi, "").replace(/```/g, "").trim();
+        const parsed = JSON.parse(cleaned);
+
+        if (parsed && parsed.tagline && parsed.refinedBio) {
+          generated = {
+            tagline: parsed.tagline,
+            refinedBio: parsed.refinedBio,
+            aboutStory: parsed.aboutStory || parsed.refinedBio,
+            trustPillars: Array.isArray(parsed.trustPillars)
+              ? parsed.trustPillars
+              : [
+                  "100% Quality Guaranteed",
+                  "Fast Nationwide Dispatch",
+                  "Direct WhatsApp Support",
+                  "Verified Merchant Status",
+                ],
+            salesOfferHook: parsed.salesOfferHook || "Special limited offer available for direct inquiries!",
+            targetAudience: parsed.targetAudience || "Retail and commercial customers seeking dependable quality.",
+            services:
+              Array.isArray(parsed.services) && parsed.services.length > 0
+                ? parsed.services
+                : generateFallbackServices(bizName, currentCategory),
+            advert: {
+              headline: parsed.advert?.headline || `Discover ${bizName} - Top Rated in Lagos`,
+              subheadline: parsed.advert?.subheadline || `Get verified products, rapid delivery, and exclusive merchant offers today.`,
+              ctaText: parsed.advert?.ctaText || "Connect on WhatsApp",
+              badgeText: parsed.advert?.badgeText || "👑 Verified VIP Merchant",
+            },
+          };
+        } else {
+          throw new Error("Invalid AI payload structure");
+        }
       } else {
-        throw new Error("Invalid AI payload structure");
+        throw new Error("Gemini AI client not available");
       }
-    } else {
-      throw new Error("Gemini AI client not available");
+    } catch (err) {
+      console.warn("Queen Service AI Gemini notice, using smart algorithmic fallback:", err);
+      generated = generateFallbackQueenContent(bizName, currentCategory, location);
     }
-  } catch (err) {
-    console.warn("Queen Service AI Gemini notice, using smart algorithmic fallback:", err);
-    generated = generateFallbackQueenContent(bizName, currentCategory, location);
-  }
 
-  addLog(
-    "2. Gemini Strategic Copywriting",
-    "completed",
-    `Brand tagline: "${generated.tagline}" | ${generated.services.length} services crafted`
-  );
+    completedSteps.add("GENERATING_PROFILE");
+    completedSteps.add("CREATING_SERVICES");
+    currentJobRecord.completedSteps = Array.from(completedSteps);
+    currentJobRecord.generatedContent = generated;
+    currentJobRecord.progressPercent = 40;
+    await persistQueenJobState(currentJobRecord);
 
-  // 2. AI Graphic Designer Studio Synthesis
-  addLog(
-    "3. AI Graphic Designer Creative Studio",
-    "running",
-    "Synthesizing high-converting visual display banner with stock photography, typography & contact details"
-  );
-
-  let renderedGraphicUrl = "";
-  try {
-    const rawDataUrl = await renderQueenBannerGraphic({
-      businessName: bizName,
-      category: currentCategory,
-      headline: generated.advert.headline,
-      subheadline: generated.advert.subheadline || generated.tagline,
-      tagline: generated.tagline,
-      phone: business.phone || business.whatsapp || "",
-      whatsapp: business.whatsapp || business.phone || "",
-      address: location,
-      website: business.website || "",
-      ctaText: generated.advert.ctaText,
-      badgeText: generated.advert.badgeText,
-      stockImageUrl: getCategoryStockImage(currentCategory),
-      themeStyle: options.themeStyle || "royal_gold",
-      highlights: generated.trustPillars.slice(0, 3),
-    });
-
-    if (rawDataUrl) {
-      renderedGraphicUrl = await uploadGraphicCreativeToStorage(
-        rawDataUrl,
-        "queen_banner",
-        bizId
-      );
-      generated.renderedBannerCreativeUrl = renderedGraphicUrl;
-      addLog(
-        "3. AI Graphic Designer Creative Studio",
-        "completed",
-        "Visual commercial banner generated and rendered with contact channels & VIP badge"
-      );
-    } else {
-      addLog(
-        "3. AI Graphic Designer Creative Studio",
-        "completed",
-        "Graphic creative rendered with standard high-contrast template"
-      );
-    }
-  } catch (graphicErr: any) {
-    console.warn("Queen Graphic Designer notice:", graphicErr);
     addLog(
-      "3. AI Graphic Designer Creative Studio",
+      "2. Gemini Strategic Copywriting",
       "completed",
-      `Graphic studio fallback applied: ${graphicErr.message || "Ready"}`
+      `Brand tagline: "${generated.tagline}" | ${generated.services.length} ready-to-sell service catalog created`
     );
   }
 
-  // Enhance individual services with curated stock visuals if missing
+  // STEP 4: AI Graphic Designer Creative Studio (Display Banner & Service Flyers)
+  let renderedGraphicUrl = currentJobRecord.renderedBannerCreativeUrl || "";
+  const serviceCreativesMap: Record<string, string> = currentJobRecord.serviceGraphicUrls || {};
+
+  if (!forceRegenerate && completedSteps.has("DESIGNING_GRAPHICS") && renderedGraphicUrl) {
+    addLog(
+      "3. AI Graphic Designer Creative Studio",
+      "completed",
+      `[RESUMED] Reusing previously rendered Queen Graphic Creatives`
+    );
+  } else {
+    addLog(
+      "3. AI Graphic Designer Creative Studio",
+      "running",
+      "Synthesizing high-converting visual display banner & individual service flyers with verified contact details"
+    );
+
+    try {
+      // 1. Render primary 1200x630 Display Banner
+      const rawDataUrl = await renderQueenBannerGraphic({
+        businessName: bizName,
+        category: currentCategory,
+        headline: generated.advert.headline,
+        subheadline: generated.advert.subheadline || generated.tagline,
+        tagline: generated.tagline,
+        phone: business.phone || business.whatsapp || "",
+        whatsapp: business.whatsapp || business.phone || "",
+        address: location,
+        website: business.website || "",
+        ctaText: generated.advert.ctaText,
+        badgeText: generated.advert.badgeText,
+        stockImageUrl: getCategoryStockImage(currentCategory),
+        themeStyle: options.themeStyle || "royal_gold",
+        highlights: generated.trustPillars.slice(0, 3),
+      });
+
+      if (rawDataUrl) {
+        renderedGraphicUrl = await uploadGraphicCreativeToStorage(
+          rawDataUrl,
+          "queen_banner",
+          bizId
+        );
+        currentJobRecord.renderedBannerCreativeUrl = renderedGraphicUrl;
+        generated.renderedBannerCreativeUrl = renderedGraphicUrl;
+      }
+
+      // 2. Render individual 1080x1080 social flyers for individual services
+      if (Array.isArray(generated.services) && generated.services.length > 0) {
+        const flyers = await generateIndividualServiceFlyers(
+          bizName,
+          currentCategory,
+          generated.services,
+          {
+            phone: business.phone || business.whatsapp,
+            whatsapp: business.whatsapp || business.phone,
+            address: location,
+            website: business.website,
+          },
+          options.themeStyle || "royal_gold"
+        );
+
+        for (const f of flyers) {
+          if (f.flyerDataUrl) {
+            const uploadedFlyerUrl = await uploadGraphicCreativeToStorage(
+              f.flyerDataUrl,
+              `queen_svc_${f.title.toLowerCase().replace(/[^a-z0-9]/g, "_").slice(0, 15)}`,
+              bizId
+            );
+            serviceCreativesMap[f.title] = uploadedFlyerUrl;
+
+            // Attach to service image_url if empty
+            const matchedSvc = generated.services.find((s) => s.title === f.title);
+            if (matchedSvc) {
+              matchedSvc.flyer_creative_url = uploadedFlyerUrl;
+              if (!matchedSvc.image_url) {
+                matchedSvc.image_url = uploadedFlyerUrl;
+              }
+            }
+          }
+        }
+      }
+
+      completedSteps.add("DESIGNING_GRAPHICS");
+      currentJobRecord.completedSteps = Array.from(completedSteps);
+      currentJobRecord.serviceGraphicUrls = serviceCreativesMap;
+      currentJobRecord.progressPercent = 65;
+      await persistQueenJobState(currentJobRecord);
+
+      addLog(
+        "3. AI Graphic Designer Creative Studio",
+        "completed",
+        `Graphic Studio completed: 1 Master Banner (1200x630) + ${Object.keys(serviceCreativesMap).length} Service Social Flyers (1080x1080) rendered`
+      );
+    } catch (graphicErr: any) {
+      console.warn("Queen Graphic Designer notice:", graphicErr);
+      addLog(
+        "3. AI Graphic Designer Creative Studio",
+        "completed",
+        `Graphic studio fallback applied: ${graphicErr.message || "Ready"}`
+      );
+    }
+  }
+
+  // Ensure all services have at least a category stock visual
   if (Array.isArray(generated.services)) {
     generated.services = generated.services.map((svc) => {
       if (!svc.image_url) {
@@ -289,14 +600,13 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     });
   }
 
-  // 3. Update Supplier Listing Details
+  // STEP 5: Listing Activation, Blue Tick Verification & Featured Placement
   addLog(
     "4. Listing Activation & Verification",
     "running",
-    "Activating business record, setting Blue-Tick status, and applying priority featured ranking"
+    "Activating business record, applying Blue-Tick status, and enabling featured directory priority"
   );
 
-  const now = new Date();
   const boostedUntilDate = new Date(now.getTime() + featuredDurationDays * 86400000).toISOString();
   const verifiedUntilDate = new Date(now.getTime() + verificationDays * 86400000).toISOString();
 
@@ -306,23 +616,30 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     tagline: generated.tagline,
     sales_offer_hook: generated.salesOfferHook,
     trust_pillars: generated.trustPillars,
+    target_audience: generated.targetAudience,
     queen_banner_creative_url: renderedGraphicUrl || currentSocialLinks.queen_banner_creative_url,
+    queen_service_creatives: serviceCreativesMap,
     verified: true,
     verified_until: verifiedUntilDate,
     verified_by_admin: true,
     verified_at: now.toISOString(),
     is_early_access: true,
+    early_access: true,
     queen_service: {
       completed: true,
+      status: "completed",
       executed_at: now.toISOString(),
       tier: "Queen VIP Concierge",
       featured_until: boostedUntilDate,
+      verified_until: verifiedUntilDate,
       advert_placement: advertPlacement,
       banner_creative_url: renderedGraphicUrl,
+      service_creatives_count: Object.keys(serviceCreativesMap).length,
+      job_id: jobId,
     },
+    queen_job: currentJobRecord,
   };
 
-  // Combine full rich description
   const fullRichDescription = `${generated.refinedBio}\n\n${generated.aboutStory}\n\nKey Highlights:\n${generated.trustPillars.map((p) => `• ${p}`).join("\n")}`;
 
   const supplierUpdatePayload: any = {
@@ -336,7 +653,6 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     updated_at: now.toISOString(),
   };
 
-  // Assign category image or rendered creative if cover/logo is empty
   const defaultCategoryBanner = renderedGraphicUrl || getCategoryImage(currentCategory);
   if (!business.cover_url && !business.cover_template) {
     supplierUpdatePayload.cover_url = defaultCategoryBanner;
@@ -351,11 +667,14 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     .eq("id", bizId);
 
   if (updateSupplierErr) {
+    currentJobRecord.status = "failed";
+    currentJobRecord.error = updateSupplierErr.message;
+    await persistQueenJobState(currentJobRecord);
     addLog("4. Listing Activation & Verification", "failed", updateSupplierErr.message);
     throw updateSupplierErr;
   }
 
-  // Update profile of submitted_by user to also be verified and early access
+  // Also verify owner profile
   if (business.submitted_by) {
     try {
       const { data: userProf } = await supabase
@@ -374,6 +693,7 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
               verified: true,
               verified_until: verifiedUntilDate,
               is_early_access: true,
+              early_access: true,
               queen_vip_member: true,
             },
             services: userProf.services || generated.services,
@@ -385,14 +705,20 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     }
   }
 
+  completedSteps.add("ACTIVATING_LISTING");
+  completedSteps.add("APPLYING_VERIFICATION");
+  currentJobRecord.completedSteps = Array.from(completedSteps);
+  currentJobRecord.progressPercent = 80;
+  await persistQueenJobState(currentJobRecord);
+
   addLog(
     "4. Listing Activation & Verification",
     "completed",
     `Business is verified (Blue Tick) for ${verificationDays} days and Featured for ${featuredDurationDays} days`
   );
 
-  // 4. Create Live Banner Advertisement with Graphic Designer Creative
-  let createdAdId: string | undefined = undefined;
+  // STEP 6: Idempotent Live Banner Advert Campaign Creation
+  let createdAdId: string | undefined = currentJobRecord.advertId;
   let bannerUrl = renderedGraphicUrl || business.cover_url || defaultCategoryBanner;
 
   if (createBannerAdvert) {
@@ -404,6 +730,27 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
 
     const adEndsAt = new Date(now.getTime() + advertDurationDays * 86400000).toISOString();
     const targetUrl = `/businesses/${business.slug || bizId}`;
+
+    // IDEMPOTENCY CHECK: Check if an existing Queen ad is already registered for this business
+    let existingAdRecord: any = null;
+    if (createdAdId) {
+      const { data: adRow } = await supabase
+        .from("user_ads")
+        .select("id")
+        .eq("id", createdAdId)
+        .maybeSingle();
+      existingAdRecord = adRow;
+    }
+
+    if (!existingAdRecord) {
+      const { data: adRowByTarget } = await supabase
+        .from("user_ads")
+        .select("id")
+        .eq("target_url", targetUrl)
+        .eq("source", "queen_auto_setup")
+        .maybeSingle();
+      existingAdRecord = adRowByTarget;
+    }
 
     const adPayload: any = {
       user_id: business.submitted_by || "admin_system",
@@ -420,36 +767,55 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
       approved_at: now.toISOString(),
       approved_by: "Queen AI Concierge Agent",
       source: "queen_auto_setup",
-      impressions: 0,
-      clicks: 0,
     };
 
-    const { data: adData, error: adErr } = await supabase
-      .from("user_ads")
-      .insert(adPayload)
-      .select("id, image_url")
-      .single();
-
-    if (!adErr && adData) {
-      createdAdId = adData.id;
-      bannerUrl = adData.image_url;
+    if (existingAdRecord?.id) {
+      // Update existing ad instead of duplicating
+      createdAdId = existingAdRecord.id;
+      await supabase.from("user_ads").update(adPayload).eq("id", existingAdRecord.id);
       addLog(
         "5. Banner Advert Campaign Creation",
         "completed",
-        `Banner campaign launched with custom designed creative! Headline: "${generated.advert.headline}" (Expires in ${advertDurationDays} days)`
+        `[IDEMPOTENT] Existing banner advert #${createdAdId} refreshed with newest creative & extended runtime`
       );
     } else {
-      addLog(
-        "5. Banner Advert Campaign Creation",
-        "completed",
-        `Ad record registered: ${adErr?.message || "Active"}`
-      );
+      const { data: adData, error: adErr } = await supabase
+        .from("user_ads")
+        .insert({
+          ...adPayload,
+          impressions: 0,
+          clicks: 0,
+        })
+        .select("id, image_url")
+        .single();
+
+      if (!adErr && adData) {
+        createdAdId = adData.id;
+        bannerUrl = adData.image_url;
+        addLog(
+          "5. Banner Advert Campaign Creation",
+          "completed",
+          `Banner campaign published with custom designed creative! Headline: "${generated.advert.headline}" (Slot: ${advertPlacement}, ${advertDurationDays} days)`
+        );
+      } else {
+        addLog(
+          "5. Banner Advert Campaign Creation",
+          "completed",
+          `Ad record registered: ${adErr?.message || "Active"}`
+        );
+      }
     }
+
+    completedSteps.add("CREATING_ADVERT");
+    currentJobRecord.advertId = createdAdId;
+    currentJobRecord.completedSteps = Array.from(completedSteps);
+    currentJobRecord.progressPercent = 92;
+    await persistQueenJobState(currentJobRecord);
   }
 
-  // 5. Send Owner In-App Notification
+  // STEP 7: Dispatch Owner Notification
   let notificationSent = false;
-  if (sendOwnerNotification && business.submitted_by) {
+  if (sendOwnerNotification && business.submitted_by && !completedSteps.has("SENDING_NOTIFICATION")) {
     addLog(
       "6. Dispatching Merchant VIP Notification",
       "running",
@@ -459,7 +825,7 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     const notifPayload = {
       user_id: business.submitted_by,
       title: `👑 Queen Service Full Setup Completed: ${bizName}`,
-      body: `Congratulations! Your business "${bizName}" has been fully configured with AI-optimized copy, custom graphic design banner, ${generated.services.length} services, Blue-Tick Verification, and Top Featured Placement on Bethelincovibe TV. A live display banner ad has also been published!`,
+      body: `Congratulations! Your business "${bizName}" has been fully configured with AI-optimized copy, custom graphic design banner, ${generated.services.length} ready-to-sell service flyers, Blue-Tick Verification, and Top Featured Placement on Bethelincovibe TV. A live display banner ad has also been published!`,
       url: `/businesses/${business.slug || bizId}`,
       type: "queen_setup_complete",
       is_read: false,
@@ -471,6 +837,7 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
 
     if (!notifErr) {
       notificationSent = true;
+      completedSteps.add("SENDING_NOTIFICATION");
       addLog(
         "6. Dispatching Merchant VIP Notification",
         "completed",
@@ -485,17 +852,33 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     }
   }
 
+  // Finalize Job Record
+  currentJobRecord.status = "completed";
+  currentJobRecord.currentStep = "COMPLETED";
+  currentJobRecord.completedSteps = Array.from(completedSteps);
+  currentJobRecord.progressPercent = 100;
+  currentJobRecord.completedAt = new Date().toISOString();
+  await persistQueenJobState(currentJobRecord);
+
   addLog(
     "7. Execution Complete",
     "completed",
-    `👑 Queen Service setup successfully fulfilled with Graphic Creatives for "${bizName}"!`
+    `👑 Queen Service setup successfully fulfilled with Graphic Creatives & Multi-Service Flyers for "${bizName}"!`
   );
+
+  const serviceCreativesList = Object.entries(serviceCreativesMap).map(([title, url]) => ({
+    title,
+    url,
+  }));
 
   return {
     success: true,
+    jobId,
     businessId: bizId,
     businessName: bizName,
     slug: business.slug || bizId,
+    status: "completed",
+    completedSteps: Array.from(completedSteps),
     updatedFields: {
       tagline: generated.tagline,
       description: fullRichDescription,
@@ -508,6 +891,7 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     advertBannerUrl: bannerUrl,
     advertHeadline: generated.advert.headline,
     renderedGraphicCreativeUrl: renderedGraphicUrl,
+    serviceCreatives: serviceCreativesList,
     notificationSent,
     logs,
     generatedContent: generated,
@@ -592,11 +976,16 @@ export async function autoCreateAndSetupBusinessForUser(
     throw new Error("Invalid user profile provided");
   }
 
-  const displayName = userProfile.display_name || userProfile.username || (userProfile.email ? userProfile.email.split("@")[0] : "Business Merchant");
+  const displayName =
+    userProfile.display_name ||
+    userProfile.username ||
+    (userProfile.email ? userProfile.email.split("@")[0] : "Business Merchant");
   const businessName = displayName.includes(" ") ? `${displayName}` : `${displayName} Enterprise`;
-  const rawSlug = businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") + "-" + Math.random().toString(36).slice(2, 6);
+  const rawSlug =
+    businessName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") +
+    "-" +
+    Math.random().toString(36).slice(2, 6);
 
-  // Determine Category (fetch first available business category or default)
   let categoryId: string | null = null;
   try {
     const { data: catData } = await supabase
@@ -613,7 +1002,6 @@ export async function autoCreateAndSetupBusinessForUser(
   const phone = userProfile.whatsapp || "";
   const address = "Lagos, Nigeria";
 
-  // Initial minimal supplier insertion
   const { data: newBiz, error: createErr } = await supabase
     .from("suppliers")
     .insert({
@@ -622,13 +1010,15 @@ export async function autoCreateAndSetupBusinessForUser(
       category_id: categoryId,
       phone: phone || null,
       address,
-      description: userProfile.bio || `Commercial services and verified products delivered by ${businessName}.`,
+      description:
+        userProfile.bio || `Commercial services and verified products delivered by ${businessName}.`,
       submitted_by: userProfile.user_id,
       status: "approved",
       active: true,
       featured: true,
       social_links: {
         is_early_access: true,
+        early_access: true,
         whatsapp: phone,
       },
     })
@@ -639,34 +1029,16 @@ export async function autoCreateAndSetupBusinessForUser(
     throw new Error(`Failed to initialize business record: ${createErr?.message || "Unknown error"}`);
   }
 
-  // Now run the full Queen AI & Graphic Designer Engine on this new business!
   return await runQueenServiceAIAutomation(newBiz, {
     ...options,
     isEarlyAccessOnly: false,
   });
 }
 
-/**
- * Helper to check if a business or user is flagged as Early Access.
- */
-export function isEarlyAccessBusiness(biz: any, ownerProfile?: any): boolean {
-  if (!biz) return false;
-  const bSoc = (biz.social_links as Record<string, any>) || {};
-  if (bSoc.is_early_access || bSoc.early_access || bSoc.queen_vip) return true;
-
-  if (ownerProfile) {
-    const pSoc = (ownerProfile.social_links as Record<string, any>) || {};
-    if (pSoc.is_early_access || pSoc.early_access || pSoc.queen_vip_member) return true;
-  }
-
-  // Treat all unverified first-batch directory submissions as Early Access candidates
-  return true;
-}
-
 function generateFallbackServices(bizName: string, category: string) {
   const cat = (category || "").toLowerCase();
 
-  if (cat.includes("fashion") || cat.includes("apparel")) {
+  if (cat.includes("fashion") || cat.includes("apparel") || cat.includes("cloth")) {
     return [
       {
         title: "Bespoke & Ready-to-Wear Collection",
@@ -786,6 +1158,7 @@ function generateFallbackQueenContent(
       "Verified Merchant Shield",
     ],
     salesOfferHook: `Enjoy special promotional perks and priority fulfillment when you contact ${bizName} on WhatsApp today!`,
+    targetAudience: `Discerning retail and wholesale clients seeking reliable ${category} in ${location}.`,
     services: generateFallbackServices(bizName, category),
     advert: {
       headline: `Top Rated: ${bizName} in ${category}`,

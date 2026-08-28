@@ -530,6 +530,68 @@ export async function renderQueenServiceFlyerGraphic(
 }
 
 /**
+ * AI Graphic Designer: Batch generates dedicated 1080x1080 social flyers for individual services.
+ */
+export async function generateIndividualServiceFlyers(
+  businessName: string,
+  category: string,
+  services: Array<{
+    title: string;
+    description?: string;
+    price?: number | string;
+    turnaround?: string;
+    deliverables?: string[];
+    image_url?: string;
+  }>,
+  contactInfo: {
+    phone?: string;
+    whatsapp?: string;
+    address?: string;
+    website?: string;
+  },
+  themeStyle: QueenGraphicOptions["themeStyle"] = "royal_gold"
+): Promise<Array<{ title: string; flyerDataUrl: string }>> {
+  const results: Array<{ title: string; flyerDataUrl: string }> = [];
+
+  for (const svc of services) {
+    if (!svc.title) continue;
+    try {
+      const flyerDataUrl = await renderQueenServiceFlyerGraphic({
+        businessName,
+        category,
+        serviceTitle: svc.title,
+        servicePrice: svc.price ? String(svc.price) : undefined,
+        headline: svc.title,
+        subheadline: svc.description || `Premium quality service by ${businessName}`,
+        phone: contactInfo.phone || contactInfo.whatsapp,
+        whatsapp: contactInfo.whatsapp || contactInfo.phone,
+        address: contactInfo.address,
+        website: contactInfo.website,
+        highlights: svc.deliverables && svc.deliverables.length > 0
+          ? svc.deliverables.map((d) => `✓ ${d}`)
+          : [
+              "✓ 100% Quality Guaranteed",
+              "✓ Fast Lagos & Nationwide Turnaround",
+              "✓ Direct WhatsApp Order Support",
+            ],
+        themeStyle,
+      });
+
+      if (flyerDataUrl) {
+        results.push({
+          title: svc.title,
+          flyerDataUrl,
+        });
+      }
+    } catch (err) {
+      console.warn(`Failed to render flyer for service "${svc.title}":`, err);
+    }
+  }
+
+  return results;
+}
+
+/**
  * Uploads a base64 Data URL to Supabase storage bucket, or falls back to returning the Data URL.
  */
 export async function uploadGraphicCreativeToStorage(

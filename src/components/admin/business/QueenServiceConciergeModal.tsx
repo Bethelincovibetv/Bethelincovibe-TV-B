@@ -423,12 +423,40 @@ export default function QueenServiceConciergeModal({
                 </p>
               </div>
 
+              {/* Master Graphic Creative Banner Preview */}
+              {result.renderedGraphicCreativeUrl && (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      AI Graphic Designer Master Banner (1200x630)
+                    </h5>
+                    <a
+                      href={result.renderedGraphicCreativeUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-[11px] text-primary hover:underline font-semibold flex items-center gap-1"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      Open Full Size
+                    </a>
+                  </div>
+                  <div className="rounded-xl overflow-hidden border border-amber-500/30 shadow-xs bg-black">
+                    <img
+                      src={result.renderedGraphicCreativeUrl}
+                      alt="Queen Graphic Designer Creative"
+                      className="w-full h-auto max-h-[260px] object-cover"
+                    />
+                  </div>
+                </div>
+              )}
+
               {/* Advert Preview Card */}
               {result.advertHeadline && (
                 <div className="p-4 rounded-xl border bg-gradient-to-r from-amber-500/10 via-purple-500/10 to-pink-500/10 space-y-2">
                   <div className="flex items-center justify-between">
                     <Badge className="bg-amber-500 text-white text-[10px] px-2 font-bold">
-                      LIVE DISPLAY BANNER AD
+                      LIVE DISPLAY BANNER AD CAMPAIGN
                     </Badge>
                     <span className="text-[11px] text-muted-foreground">Slot: {adPlacement}</span>
                   </div>
@@ -447,18 +475,28 @@ export default function QueenServiceConciergeModal({
                 </div>
               )}
 
-              {/* Generated Services Preview */}
+              {/* Generated Services & Flyers Preview */}
               {result.updatedFields.services && result.updatedFields.services.length > 0 && (
                 <div className="space-y-2">
                   <h5 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                    Generated Services Catalog ({result.updatedFields.services.length} Packages)
+                    Generated Services Catalog &amp; Social Flyers ({result.updatedFields.services.length} Packages)
                   </h5>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                     {result.updatedFields.services.map((svc: any, idx: number) => (
-                      <div key={idx} className="p-2.5 rounded-lg border bg-card text-xs space-y-1">
+                      <div key={idx} className="p-3 rounded-xl border bg-card text-xs space-y-2">
+                        {svc.image_url && (
+                          <div className="aspect-video sm:aspect-square rounded-lg overflow-hidden border bg-muted">
+                            <img src={svc.image_url} alt={svc.title} className="w-full h-full object-cover" />
+                          </div>
+                        )}
                         <div className="font-bold text-foreground truncate">{svc.title}</div>
-                        <div className="text-primary font-semibold text-[11px]">{svc.price}</div>
+                        <div className="text-primary font-bold text-xs">{svc.price}</div>
                         <div className="text-muted-foreground text-[11px] line-clamp-2">{svc.description}</div>
+                        {svc.turnaround && (
+                          <span className="text-[10px] text-emerald-600 font-semibold block">
+                            ⚡ {svc.turnaround}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
