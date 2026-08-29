@@ -5,10 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, EyeOff, Building2, MapPin, Sparkles } from "lucide-react";
+import { Eye, EyeOff, Building2, MapPin, Sparkles, Compass, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { PRESET_BUSINESS_CATEGORIES, MAJOR_CITIES_LOCATIONS } from "@/lib/businessCategories";
+import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
+import { NIGERIAN_STATES, getStateByName, getStateCoordinates } from "@/lib/nigerianStates";
+import VoiceGuideHelper from "@/components/common/VoiceGuideHelper";
 import { toast } from "sonner";
 
 export default function Register() {
@@ -19,7 +21,11 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [isUsernameCustom, setIsUsernameCustom] = useState(false);
   const [categorySlug, setCategorySlug] = useState("tech");
-  const [selectedCity, setSelectedCity] = useState("Lagos");
+  
+  // 36 Nigerian States + FCT State Selection
+  const [selectedStateName, setSelectedStateName] = useState<string>("Lagos");
+  const [selectedCityName, setSelectedCityName] = useState<string>("Ikeja");
+
   const [loading, setLoading] = useState(false);
   const [dbCategories, setDbCategories] = useState<any[]>([]);
 
@@ -27,6 +33,8 @@ export default function Register() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const [refCode, setRefCode] = useState("");
+
+  const currentStateObj = getStateByName(selectedStateName) || NIGERIAN_STATES.find(s => s.name === "Lagos") || NIGERIAN_STATES[0];
 
   useEffect(() => {
     // Load categories from database
@@ -49,6 +57,15 @@ export default function Register() {
     if (fromUrl) localStorage.setItem("referral_code", fromUrl);
     if (code) setRefCode(code);
   }, [params]);
+
+  // When state changes, default city to capital or first major city in that Nigerian state
+  const handleStateChange = (stateName: string) => {
+    setSelectedStateName(stateName);
+    const found = getStateByName(stateName);
+    if (found && found.cities.length > 0) {
+      setSelectedCityName(found.cities[0]);
+    }
+  };
 
   const handleNameChange = (val: string) => {
     setDisplayName(val);
@@ -82,83 +99,109 @@ export default function Register() {
     setLoading(false);
     localStorage.removeItem("referral_code");
 
-    // Sync business category & location
+    // Sync business category & Nigerian State location
     try {
       const { data: { user: signedInUser } } = await supabase.auth.getUser();
       if (signedInUser) {
-        const foundLoc = MAJOR_CITIES_LOCATIONS.find((c) => c.city === selectedCity) || MAJOR_CITIES_LOCATIONS[0];
+        const coords = getStateCoordinates(selectedStateName);
         const matchedDbCat = dbCategories.find((c) => c.slug === categorySlug);
         const catName = matchedDbCat?.name || PRESET_BUSINESS_CATEGORIES.find((c) => c.slug === categorySlug)?.name || "Professional Services";
 
-        // Save to profile
+        // Save state permanently to user profile
         await supabase.from("profiles").update({
           background_template: categorySlug,
           social_links: {
             category_slug: categorySlug,
             category_name: catName,
             category_id: matchedDbCat?.id || null,
+            state: selectedStateName,
+            city: selectedCityName,
             location: {
-              country: foundLoc.country,
-              state: foundLoc.state,
-              city: foundLoc.city,
-              latitude: foundLoc.lat,
-              longitude: foundLoc.lng,
+              country: "Nigeria",
+              state: selectedStateName,
+              city: selectedCityName,
+              latitude: coords.lat,
+              longitude: coords.lng,
             },
           },
         }).eq("user_id", signedInUser.id);
 
-        // Initialize directory presence
+        // Initialize directory presence with pre-selected Nigerian State
         const bizSlug = finalUsername || displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
         await supabase.from("suppliers").upsert({
           name: displayName || "My Business",
           slug: bizSlug,
           category_id: matchedDbCat?.id || null,
           cover_template: categorySlug,
-          country: foundLoc.country,
-          state: foundLoc.state,
-          city: foundLoc.city,
-          latitude: foundLoc.lat,
-          longitude: foundLoc.lng,
+          country: "Nigeria",
+          state: selectedStateName,
+          city: selectedCityName,
+          address: `${selectedCityName}, ${selectedStateName} State, Nigeria`,
+          latitude: coords.lat,
+          longitude: coords.lng,
           submitted_by: signedInUser.id,
-          active: true,
-          status: "approved",
-        }, { onConflict: "slug" }).catch(() => {});
+          user_id: signedInUser.id,
+          status: "published",
+        } as any);
+
+        toast.success(`Welcome ${displayName}! Your store is registered in ${selectedStateName} State.`);
+        navigate(`/u/${finalUsername}`);
+        return;
       }
-    } catch (syncErr) {
-      console.warn("Initial business registration sync notice:", syncErr);
+    } catch (profileErr) {
+      console.warn("Profile location sync notice:", profileErr);
     }
 
-    if (signInError) {
-      toast.success("Account created! Please sign in.");
-      navigate("/login");
-    } else {
-      toast.success("Account created! Welcome to Bethelincovibe.");
-      navigate("/dashboard?wizard=1");
-    }
+    navigate(`/u/${finalUsername}`);
   };
 
   return (
-    <div className="container mx-auto px-4 py-10 sm:py-14 flex justify-center">
-      <Card className="w-full max-w-lg shadow-xl border-border/80 rounded-3xl">
-        <CardHeader className="text-center pb-4">
-          <img src="/logo.png" alt="Bethelincovibe TV" className="h-12 w-12 mx-auto mb-2 rounded-xl shadow-md" />
-          <CardTitle className="text-2xl font-black tracking-tight">Create Business Account</CardTitle>
-          <CardDescription>Join Bethelincovibe TV community & launch your verified public presence</CardDescription>
+    <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-3 sm:p-4 my-4 sm:my-8">
+      <Card className="w-full max-w-lg border-2 shadow-2xl rounded-3xl overflow-hidden bg-card">
+        {/* Header with audio helper */}
+        <CardHeader className="text-center space-y-1 bg-muted/40 p-4 sm:p-6 border-b">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[11px] font-bold text-primary tracking-wide uppercase">Bethelincovibe Ecosystem</span>
+          </div>
+          <CardTitle className="text-xl sm:text-2xl font-black tracking-tight text-foreground">Create Your Account</CardTitle>
+          <CardDescription className="text-xs text-muted-foreground">
+            Join verified merchants across all 36 Nigerian States & global markets.
+          </CardDescription>
+
+          <div className="pt-2 flex justify-center">
+            <VoiceGuideHelper
+              title="Registration Guide"
+              explanation="Hello! To join, simply enter your business name, pick your Nigerian State from the list, type your email, and pick a 6-digit password. Everything is automatically set up for you!"
+              simpleTip="Select your home State so nearby customers can find your shop easily."
+              variant="card"
+              className="text-left w-full mt-2"
+            />
+          </div>
         </CardHeader>
-        <CardContent>
+
+        <CardContent className="p-4 sm:p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Display / Business Name */}
             <div className="space-y-1.5">
-              <Label htmlFor="name" className="font-bold text-xs">Display Name / Business Name *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="name" className="font-bold text-xs">Display Name / Business Name *</Label>
+                <VoiceGuideHelper
+                  explanation="Type the name of your business or your personal full name here."
+                  variant="icon"
+                />
+              </div>
               <Input
                 id="name"
                 required
                 value={displayName}
                 onChange={(e) => handleNameChange(e.target.value)}
                 placeholder="e.g. Jane Doe or Apex Solar & Tech"
-                className="rounded-xl h-11"
+                className="rounded-xl h-11 text-xs sm:text-sm font-medium"
               />
             </div>
 
+            {/* Username / Handle */}
             <div className="space-y-1.5">
               <Label htmlFor="username" className="font-bold text-xs flex items-center justify-between">
                 <span>Public Profile Handle / Username *</span>
@@ -172,7 +215,7 @@ export default function Register() {
                   value={username}
                   onChange={(e) => handleUsernameChange(e.target.value)}
                   placeholder="apextech"
-                  className="pl-8 text-sm rounded-xl h-11"
+                  className="pl-8 text-xs sm:text-sm font-mono rounded-xl h-11"
                   maxLength={40}
                 />
               </div>
@@ -182,7 +225,7 @@ export default function Register() {
               </p>
             </div>
 
-            {/* Category and Location Grid */}
+            {/* Category & Nigerian State Selection (36 States + FCT) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
               <div className="space-y-1.5">
                 <Label className="font-bold text-xs flex items-center gap-1">
@@ -202,18 +245,25 @@ export default function Register() {
                 </Select>
               </div>
 
+              {/* 36 Nigerian States Selector */}
               <div className="space-y-1.5">
-                <Label className="font-bold text-xs flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5 text-primary" /> City / Region *
-                </Label>
-                <Select value={selectedCity} onValueChange={setSelectedCity}>
+                <div className="flex items-center justify-between">
+                  <Label className="font-bold text-xs flex items-center gap-1">
+                    <Compass className="h-3.5 w-3.5 text-emerald-600" /> Nigerian State *
+                  </Label>
+                  <VoiceGuideHelper
+                    explanation="Pick your Nigerian state from the list of 36 states. You will not need to re-enter this when editing your profile later."
+                    variant="icon"
+                  />
+                </div>
+                <Select value={selectedStateName} onValueChange={handleStateChange}>
                   <SelectTrigger className="h-11 rounded-xl text-xs font-semibold">
-                    <SelectValue placeholder="Select City" />
+                    <SelectValue placeholder="Select your State" />
                   </SelectTrigger>
                   <SelectContent className="max-h-64">
-                    {MAJOR_CITIES_LOCATIONS.map((loc) => (
-                      <SelectItem key={loc.city} value={loc.city} className="text-xs">
-                        {loc.city}, {loc.state}
+                    {NIGERIAN_STATES.map((st) => (
+                      <SelectItem key={st.code} value={st.name} className="text-xs">
+                        {st.name} State {st.name === "Federal Capital Territory" ? "(Abuja)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -221,8 +271,34 @@ export default function Register() {
               </div>
             </div>
 
+            {/* Major City / LGA Selection within Chosen State */}
             <div className="space-y-1.5">
-              <Label htmlFor="email" className="font-bold text-xs">Email Address *</Label>
+              <Label className="font-bold text-xs flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5 text-primary" /> City / Commercial Area in {selectedStateName} *
+              </Label>
+              <Select value={selectedCityName} onValueChange={setSelectedCityName}>
+                <SelectTrigger className="h-11 rounded-xl text-xs font-semibold">
+                  <SelectValue placeholder="Select City/Area" />
+                </SelectTrigger>
+                <SelectContent className="max-h-64">
+                  {currentStateObj.cities.map((city) => (
+                    <SelectItem key={city} value={city} className="text-xs">
+                      {city} ({selectedStateName})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Email Address */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="email" className="font-bold text-xs">Email Address *</Label>
+                <VoiceGuideHelper
+                  explanation="Enter your active email address. We use this so you can log into your account securely."
+                  variant="icon"
+                />
+              </div>
               <Input
                 id="email"
                 type="email"
@@ -230,12 +306,19 @@ export default function Register() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="rounded-xl h-11"
+                className="rounded-xl h-11 text-xs sm:text-sm"
               />
             </div>
 
+            {/* Password */}
             <div className="space-y-1.5">
-              <Label htmlFor="password" className="font-bold text-xs">Password *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password" className="font-bold text-xs">Password *</Label>
+                <VoiceGuideHelper
+                  explanation="Type a secret password with at least 6 characters that only you know."
+                  variant="icon"
+                />
+              </div>
               <div className="relative">
                 <Input
                   id="password"
@@ -245,7 +328,7 @@ export default function Register() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="At least 6 characters"
-                  className="rounded-xl h-11 pr-10"
+                  className="rounded-xl h-11 pr-10 text-xs sm:text-sm"
                 />
                 <button
                   type="button"

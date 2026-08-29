@@ -91,7 +91,7 @@ export function ChatMessageBubble({
 
           {/* Main Bubble Card */}
           <div
-            className={`relative rounded-3xl p-3.5 sm:p-4 text-xs sm:text-sm leading-relaxed transition-all shadow-sm ${
+            className={`relative rounded-3xl p-3.5 sm:p-4 text-sm sm:text-base leading-relaxed transition-all shadow-sm ${
               isMe
                 ? "bg-gradient-to-br from-primary via-primary to-primary/90 text-primary-foreground rounded-br-xs shadow-primary/20"
                 : "bg-card text-foreground rounded-bl-xs border border-border/80 shadow-xs"
@@ -103,15 +103,15 @@ export function ChatMessageBubble({
                 onClick={() => onScrollToMessage?.(message.replyTo!.id)}
                 className={`mb-2.5 p-2 sm:p-2.5 rounded-2xl border-l-4 text-xs cursor-pointer transition-opacity hover:opacity-90 ${
                   isMe
-                    ? "bg-black/15 border-white text-white/90"
-                    : "bg-muted/80 border-primary text-foreground/90"
+                    ? "bg-black/20 border-white text-white"
+                    : "bg-muted border-primary text-foreground"
                 }`}
               >
                 <p className="text-[10px] font-black uppercase tracking-wider flex items-center gap-1">
                   <Reply className="h-3 w-3" />
                   Replying to {message.replyTo.senderName}
                 </p>
-                <p className="text-[11px] truncate mt-0.5 line-clamp-1 italic font-medium">
+                <p className="text-xs truncate mt-0.5 line-clamp-1 italic font-medium">
                   "{message.replyTo.text}"
                 </p>
               </div>
@@ -131,15 +131,15 @@ export function ChatMessageBubble({
 
             {/* Message Text */}
             {message.text && (
-              <p className="whitespace-pre-wrap break-words font-normal tracking-wide">
+              <p className="whitespace-pre-wrap break-words font-medium text-sm sm:text-base leading-relaxed tracking-normal">
                 {message.text}
               </p>
             )}
 
-            {/* Timestamp and Delivery Marks */}
+            {/* Timestamp and Double Tick Delivery Marks */}
             <div
-              className={`flex items-center gap-1 text-[10px] mt-1 pt-1 ${
-                isMe ? "justify-end text-primary-foreground/75" : "justify-start text-muted-foreground"
+              className={`flex items-center gap-1.5 text-[11px] font-medium mt-1.5 pt-1 ${
+                isMe ? "justify-end text-primary-foreground/80" : "justify-start text-muted-foreground"
               }`}
             >
               <span>
@@ -147,7 +147,11 @@ export function ChatMessageBubble({
                   ? formatDistanceToNow(new Date(message.createdAt), { addSuffix: true })
                   : "just now"}
               </span>
-              {isMe && <CheckCheck className="h-3.5 w-3.5 text-primary-foreground/90 ml-0.5" />}
+              {isMe && (
+                <span className="inline-flex items-center" title="Delivered & Read">
+                  <CheckCheck className="h-4 w-4 text-emerald-300 ml-0.5 stroke-[2.5]" />
+                </span>
+              )}
             </div>
           </div>
 

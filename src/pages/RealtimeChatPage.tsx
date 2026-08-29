@@ -44,28 +44,42 @@ import { formatDistanceToNow } from "date-fns";
 import { ChatMessageBubble } from "@/components/chat/ChatMessageBubble";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 import { toast } from "sonner";
+import VoiceGuideHelper from "@/components/common/VoiceGuideHelper";
+import { getDigitalEmployeeById, INITIAL_DIGITAL_WORKFORCE } from "@/lib/aiWorkforceRegistry";
 
+// Professional Nigerian AI Workforce Specialists & Executive Support Contacts
 const DEFAULT_SUPPORT_CONTACTS = [
   {
     id: "support_bethel_hq",
-    name: "Bethelincovibe Support HQ",
-    role: "Official Platform Support & Verification",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=120&auto=format&fit=crop&q=80",
-    badge: "Official Support",
+    name: "Dr. Chidi Okafor (HQ Operations)",
+    role: "Official Platform Operations & CAC Verification Director",
+    avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&h=500&fit=crop&crop=faces&auto=format&q=80",
+    badge: "HQ Director",
+    systemPrompt: "You are Dr. Chidi Okafor, the Principal Director of Platform Operations and Verification at Bethelincovibe. You assist Nigerian businesses and international partners with verified listings, vendor compliance, CAC credentials, and safe commerce.",
   },
   {
     id: "support_maya_creative",
-    name: "Maya Sterling",
-    role: "Senior Creative Director & Brand Lead",
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=120&auto=format&fit=crop&q=80",
+    name: "Maya Sterling (Brand & Video Lead)",
+    role: "Senior Creative Director & Graphic Brand Lead",
+    avatar: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=500&h=500&fit=crop&crop=faces&auto=format&q=80",
     badge: "Creative Lead",
+    systemPrompt: "You are Maya Sterling, Senior Creative Director at Bethelincovibe. You guide users on visual branding, high-converting product photos, promotional video creation, logos, and digital marketing strategies.",
   },
   {
     id: "support_aria_merchant",
-    name: "Aria Chen",
-    role: "Merchant Success & Escrow Specialist",
-    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=120&auto=format&fit=crop&q=80",
+    name: "Nkechi Adebayo (Merchant Success)",
+    role: "Merchant Growth, Escrow & Payment Specialist",
+    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=500&h=500&fit=crop&crop=faces&auto=format&q=80",
     badge: "Merchant Escrow",
+    systemPrompt: "You are Nkechi Adebayo, Merchant Growth & Escrow Specialist at Bethelincovibe. You assist merchants with getting more buyer orders, escrow payment safety, logistics dispatch, and store optimization.",
+  },
+  {
+    id: "support_queen_concierge",
+    name: "Queen Victoria (Executive AI)",
+    role: "Executive Strategy Concierge & AI Workforce Lead",
+    avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=500&h=500&fit=crop&crop=faces&auto=format&q=80",
+    badge: "AI Concierge",
+    systemPrompt: "You are Queen Victoria, Executive AI Strategist at Bethelincovibe. You provide 24/7 business intelligence, revenue growth plans, customer acquisition blueprints, and autonomous workforce coordination.",
   },
 ];
 
@@ -300,6 +314,60 @@ export default function RealtimeChatPage() {
         replyContext,
         imgToSend || undefined
       );
+
+      // Check if chatting with an AI Agent / Official Support Specialist
+      const currentActiveRoom = chats.find((c) => c.id === activeChatId);
+      const recipientId = currentActiveRoom?.participants.find((p) => p !== currentUserId);
+
+      if (recipientId && (recipientId.startsWith("support_") || recipientId.includes("_ai") || recipientId.startsWith("ai_"))) {
+        const supportContact = DEFAULT_SUPPORT_CONTACTS.find((s) => s.id === recipientId);
+        const digitalEmp = getDigitalEmployeeById(recipientId);
+        const agentName = supportContact?.name || digitalEmp?.name || "AI Operations Specialist";
+        const agentAvatar = supportContact?.avatar || digitalEmp?.profilePhotoUrl || "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&h=500&fit=crop&crop=faces&auto=format&q=80";
+
+        // Asynchronously process real-time AI agent response
+        setTimeout(async () => {
+          try {
+            const employeeProfile = digitalEmp || {
+              id: recipientId,
+              name: agentName,
+              codename: agentName.split(" ")[0],
+              profilePhotoUrl: agentAvatar,
+              jobTitle: supportContact?.role || "Bethelincovibe Executive Support Specialist",
+              department: "Executive Platform Support",
+              workplace: "Live Support Center",
+              workplaceRoute: "/chat",
+              status: "active" as const,
+              rating: 4.95,
+              salaryTier: "executive" as const,
+              monthlyTokenUsage: 0,
+              accentColor: "#10b981",
+              capabilities: ["Real-time customer consultation", "Marketplace guidance", "Business listing optimization", "Escrow security"],
+              systemPrompt: supportContact?.systemPrompt || `You are ${agentName}, an elite Nigerian business specialist and support lead at Bethelincovibe. Provide practical, crystal-clear, actionable guidance to the user.`,
+            };
+
+            const { executeDigitalEmployeeTask } = await import("@/lib/aiWorkforceRegistry");
+            const aiAnswer = await executeDigitalEmployeeTask(
+              employeeProfile,
+              textToSend,
+              { userName: currentUserName, userEmail: user?.email, activeChatId }
+            );
+
+            if (aiAnswer) {
+              await sendMessageToChat(
+                activeChatId,
+                recipientId,
+                agentName,
+                aiAnswer,
+                agentAvatar
+              );
+              playNotificationSound();
+            }
+          } catch (agentErr) {
+            console.error("AI agent reply failed:", agentErr);
+          }
+        }, 1200);
+      }
     } catch (err) {
       console.error("Failed to send message:", err);
       toast.error("Failed to send message");

@@ -598,15 +598,15 @@ async function synthesizeVoiceAudio(
       }
     }
 
-    // 2. Synthesize ambient upbeat background soundscape buffer
-    const totalDuration = scenes.reduce((acc, s) => acc + s.durationSeconds, 0);
-    const sampleRate = ctx.sampleRate;
+    // 2. Synthesize ambient upbeat background soundscape buffer with balanced audio ducking
+    const totalDuration = Math.max(15, scenes.reduce((acc, s) => acc + (s.durationSeconds || 5), 0));
+    const sampleRate = ctx.sampleRate || 44100;
     const length = Math.floor(sampleRate * totalDuration);
     const buffer = ctx.createBuffer(2, length, sampleRate);
     const left = buffer.getChannelData(0);
     const right = buffer.getChannelData(1);
 
-    // Warm rhythmic chords & ambient sweep
+    // Warm, balanced melodic chords & dynamic ducking for voice clarity
     const chordFreqs = [220, 277.18, 329.63, 440, 554.37];
     for (let i = 0; i < length; i++) {
       const t = i / sampleRate;
@@ -615,9 +615,10 @@ async function synthesizeVoiceAudio(
       const chordIndex = Math.floor((t / 3) % chordFreqs.length);
       const freq = chordFreqs[chordIndex];
 
-      sample += Math.sin(2 * Math.PI * freq * t) * 0.08 * (0.8 + 0.2 * beat);
-      sample += Math.sin(2 * Math.PI * (freq * 1.5) * t) * 0.04;
-      sample += (Math.random() * 2 - 1) * 0.005; // subtle tape warmth
+      // Balanced low-level background ducking so voiceover stands out prominently
+      sample += Math.sin(2 * Math.PI * freq * t) * 0.045 * (0.8 + 0.2 * beat);
+      sample += Math.sin(2 * Math.PI * (freq * 1.5) * t) * 0.025;
+      sample += (Math.random() * 2 - 1) * 0.003; // Warm tape presence
 
       left[i] = sample;
       right[i] = sample * (1 + 0.1 * Math.sin(t * 2));

@@ -814,6 +814,8 @@ export function getAgentProfile(agentId: string): DigitalEmployeeProfile | undef
   return workforce.find((a) => a.id.toLowerCase() === agentId.toLowerCase());
 }
 
+export const getDigitalEmployeeById = getAgentProfile;
+
 /**
  * Retrieves all frontend public-facing specialist agents
  */

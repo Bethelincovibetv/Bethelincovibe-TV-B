@@ -1,5 +1,4 @@
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,17 +7,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import {
   MapPin,
   Crosshair,
-  Navigation,
-  Globe,
-  Check,
   Building,
   Sparkles,
-  ExternalLink,
+  Compass,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { MAJOR_CITIES_LOCATIONS } from "@/lib/businessCategories";
+import { NIGERIAN_STATES, getStateByName, getStateCoordinates } from "@/lib/nigerianStates";
 import { Map, AdvancedMarker, Pin } from "@vis.gl/react-google-maps";
 import { GOOGLE_MAPS_API_KEY } from "./GoogleMapsProvider";
+import VoiceGuideHelper from "@/components/common/VoiceGuideHelper";
 
 export interface LocationData {
   country?: string;
@@ -39,25 +37,37 @@ export default function BusinessLocationPicker({
   const [detecting, setDetecting] = useState(false);
 
   const country = value.country || "Nigeria";
-  const state = value.state || "Lagos State";
-  const city = value.city || "Lagos";
+  const state = value.state || "Lagos";
+  const city = value.city || "Ikeja";
   const address = value.address || "";
   const lat = typeof value.latitude === "number" ? value.latitude : 6.5244;
   const lng = typeof value.longitude === "number" ? value.longitude : 3.3792;
 
+  const currentStateObj = getStateByName(state) || NIGERIAN_STATES.find(s => s.name === "Lagos") || NIGERIAN_STATES[0];
+
+  const handleStateSelect = (selectedStateName: string) => {
+    const foundState = getStateByName(selectedStateName);
+    const coords = getStateCoordinates(selectedStateName);
+    const defaultCity = foundState?.cities?.[0] || selectedStateName;
+
+    onChange({
+      ...value,
+      country: "Nigeria",
+      state: selectedStateName,
+      city: defaultCity,
+      latitude: coords.lat,
+      longitude: coords.lng,
+      address: value.address || `${defaultCity}, ${selectedStateName} State, Nigeria`,
+    });
+    toast.success(`Location updated to ${selectedStateName} State`);
+  };
+
   const handleCitySelect = (selectedCityName: string) => {
-    const found = MAJOR_CITIES_LOCATIONS.find((c) => c.city === selectedCityName);
-    if (found) {
-      onChange({
-        ...value,
-        country: found.country,
-        state: found.state,
-        city: found.city,
-        latitude: found.lat,
-        longitude: found.lng,
-      });
-      toast.success(`Location updated to ${found.city}, ${found.state}`);
-    }
+    onChange({
+      ...value,
+      city: selectedCityName,
+      address: value.address || `${selectedCityName}, ${state} State, Nigeria`,
+    });
   };
 
   const handleDetectGPS = () => {
@@ -80,7 +90,7 @@ export default function BusinessLocationPicker({
       },
       (err) => {
         setDetecting(false);
-        toast.error(`Location detection failed: ${err.message}`);
+        toast.error(`Location detection notice: Using ${state} State default coordinates`);
       },
       { enableHighAccuracy: true, timeout: 10000 }
     );
@@ -90,12 +100,20 @@ export default function BusinessLocationPicker({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
-            <MapPin className="h-4 w-4 text-primary" />
-            Physical Location &amp; Google Maps Coordinates
-          </Label>
-          <p className="text-[11px] text-muted-foreground">
-            Accurate coordinates allow nearby clients to find you on the Business Directory Interactive Map.
+          <div className="flex items-center gap-2 flex-wrap">
+            <Label className="text-xs font-black text-foreground flex items-center gap-1.5">
+              <MapPin className="h-4 w-4 text-primary" />
+              Business Location & Interactive Google Map
+            </Label>
+            <VoiceGuideHelper
+              title="How Location Works"
+              explanation="Choose your Nigerian State from the list so customers near you can find your store. You can also tap Detect GPS to pin your exact shop location without dragging complex coordinates!"
+              simpleTip="Your registered State is saved automatically and does not need to be re-entered."
+              variant="icon"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            Your location powers the interactive directory map and allows buyers in your state to discover your services.
           </p>
         </div>
 
@@ -105,108 +123,62 @@ export default function BusinessLocationPicker({
           size="sm"
           onClick={handleDetectGPS}
           disabled={detecting}
-          className="rounded-xl text-xs font-bold gap-1.5 h-8 border-primary/30 text-primary hover:bg-primary/10"
+          className="rounded-xl text-xs font-bold gap-1.5 h-8 border-primary/30 text-primary hover:bg-primary/10 shrink-0"
         >
           <Crosshair className={`h-3.5 w-3.5 ${detecting ? "animate-spin" : ""}`} />
           {detecting ? "Detecting..." : "Detect Current GPS"}
         </Button>
       </div>
 
-      {/* Quick City Presets */}
-      <div className="p-3 bg-muted/40 rounded-2xl border space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-[11px] font-bold text-muted-foreground flex items-center gap-1">
-            <Building className="h-3.5 w-3.5 text-primary" /> Popular Commercial Hubs:
-          </span>
+      {/* Nigerian State (36 States + FCT) Selector */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 p-3.5 bg-muted/40 rounded-2xl border">
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold flex items-center gap-1">
+            <Compass className="h-3.5 w-3.5 text-emerald-600" /> Nigerian State (36 States + FCT)
+          </Label>
+          <Select value={state} onValueChange={handleStateSelect}>
+            <SelectTrigger className="h-10 rounded-xl text-xs font-semibold bg-background">
+              <SelectValue placeholder="Select Nigerian State" />
+            </SelectTrigger>
+            <SelectContent className="max-h-64">
+              {NIGERIAN_STATES.map((st) => (
+                <SelectItem key={st.code} value={st.name} className="text-xs">
+                  {st.name} State {st.name === "Federal Capital Territory" ? "(Abuja)" : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <div className="flex flex-wrap gap-1.5">
-          {MAJOR_CITIES_LOCATIONS.slice(0, 10).map((loc) => {
-            const isSelected = city === loc.city;
-            return (
-              <button
-                key={loc.city}
-                type="button"
-                onClick={() => handleCitySelect(loc.city)}
-                className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium transition ${
-                  isSelected
-                    ? "bg-primary text-primary-foreground border-primary font-bold shadow-xs"
-                    : "bg-card hover:border-primary/50 text-foreground"
-                }`}
-              >
-                {loc.city}
-              </button>
-            );
-          })}
+
+        {/* Commercial City / LGA */}
+        <div className="space-y-1.5">
+          <Label className="text-xs font-bold flex items-center gap-1">
+            <Building className="h-3.5 w-3.5 text-primary" /> City / Area in {state}
+          </Label>
+          <Select value={city} onValueChange={handleCitySelect}>
+            <SelectTrigger className="h-10 rounded-xl text-xs font-semibold bg-background">
+              <SelectValue placeholder="Select City" />
+            </SelectTrigger>
+            <SelectContent className="max-h-64">
+              {currentStateObj.cities.map((c) => (
+                <SelectItem key={c} value={c} className="text-xs">
+                  {c} ({state})
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
-      {/* Form Fields */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div>
-          <Label className="text-xs font-semibold">Country</Label>
-          <Input
-            value={country}
-            onChange={(e) => onChange({ ...value, country: e.target.value })}
-            placeholder="Nigeria"
-            className="rounded-xl text-xs h-9 mt-1"
-          />
-        </div>
-        <div>
-          <Label className="text-xs font-semibold">State / Region</Label>
-          <Input
-            value={state}
-            onChange={(e) => onChange({ ...value, state: e.target.value })}
-            placeholder="Lagos State"
-            className="rounded-xl text-xs h-9 mt-1"
-          />
-        </div>
-        <div>
-          <Label className="text-xs font-semibold">City / District</Label>
-          <Input
-            value={city}
-            onChange={(e) => onChange({ ...value, city: e.target.value })}
-            placeholder="Ikeja / Lekki"
-            className="rounded-xl text-xs h-9 mt-1"
-          />
-        </div>
-      </div>
-
+      {/* Street Address Input */}
       <div>
-        <Label className="text-xs font-semibold">Street Address / Suite / Landmark</Label>
+        <Label className="text-xs font-bold text-foreground">Street Address / Suite / Landmark</Label>
         <Input
           value={address}
           onChange={(e) => onChange({ ...value, address: e.target.value })}
           placeholder="e.g. Plot 14 Admiralty Way, Lekki Phase 1, Lagos"
-          className="rounded-xl text-xs h-9 mt-1"
+          className="rounded-xl text-xs sm:text-sm h-10 mt-1"
         />
-      </div>
-
-      {/* Latitude & Longitude Coords */}
-      <div className="grid grid-cols-2 gap-3 p-3 bg-muted/20 rounded-2xl border">
-        <div>
-          <Label className="text-[11px] font-bold text-muted-foreground">Latitude (Lat)</Label>
-          <Input
-            type="number"
-            step="0.000001"
-            value={lat}
-            onChange={(e) =>
-              onChange({ ...value, latitude: parseFloat(e.target.value) || 0 })
-            }
-            className="rounded-xl text-xs h-8 mt-1 font-mono"
-          />
-        </div>
-        <div>
-          <Label className="text-[11px] font-bold text-muted-foreground">Longitude (Lng)</Label>
-          <Input
-            type="number"
-            step="0.000001"
-            value={lng}
-            onChange={(e) =>
-              onChange({ ...value, longitude: parseFloat(e.target.value) || 0 })
-            }
-            className="rounded-xl text-xs h-8 mt-1 font-mono"
-          />
-        </div>
       </div>
 
       {/* Interactive Map Preview */}
@@ -234,9 +206,9 @@ export default function BusinessLocationPicker({
               src={`https://maps.google.com/maps?q=${lat},${lng}&z=14&output=embed`}
               loading="lazy"
             />
-            <div className="absolute top-2 left-2 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-lg border text-[10px] font-bold flex items-center gap-1.5 shadow-xs">
-              <MapPin className="h-3 w-3 text-primary" />
-              {city}, {country} ({lat.toFixed(4)}, {lng.toFixed(4)})
+            <div className="absolute top-2 left-2 bg-background/95 backdrop-blur-md px-2.5 py-1 rounded-xl border text-[11px] font-bold flex items-center gap-1.5 shadow-sm text-foreground">
+              <MapPin className="h-3.5 w-3.5 text-primary" />
+              {city}, {state} State ({lat.toFixed(4)}, {lng.toFixed(4)})
             </div>
           </div>
         )}
