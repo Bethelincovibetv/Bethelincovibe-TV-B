@@ -22,12 +22,18 @@ function isGraphicDesignPage(pathname: string) {
   );
 }
 
+/** Check if the current route is an interactive dashboard / studio page */
+function isDashboardPage(pathname: string) {
+  return pathname.startsWith("/dashboard");
+}
+
 export default function PublicLayout() {
   const { flags } = useFeatureFlags();
   const { user } = useAuth();
   const { pathname } = useLocation();
   const isGraphicPage = isGraphicDesignPage(pathname);
-  const clean = isListingDetail(pathname) || isGraphicPage;
+  const isDashboard = isDashboardPage(pathname);
+  const clean = isListingDetail(pathname) || isGraphicPage || isDashboard;
   const isHome = pathname === "/";
   const showFooter = !clean && (Boolean(user) || flags.footer_for_non_members !== false);
 

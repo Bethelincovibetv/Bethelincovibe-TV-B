@@ -9,14 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, MessageCircle, QrCode, Film, Gift
 } from "lucide-react";
 
-import ReferralCard from "@/components/ReferralCard";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
-import VixoraAICoachToday from "@/components/coach/VixoraAICoachToday";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -211,16 +209,16 @@ export default function UserDashboard() {
       <Helmet><title>My Dashboard | Bethelincovibe TV</title></Helmet>
 
       {/* Mobile-app style header */}
-      <div className="bg-gradient-to-br from-primary to-primary/70 text-primary-foreground px-4 py-5 sm:py-8 rounded-b-3xl shadow-lg">
+      <div className="bg-gradient-to-br from-primary via-purple-700 to-indigo-900 text-white px-4 py-5 sm:py-8 rounded-b-3xl shadow-xl">
         <div className="container mx-auto max-w-5xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="min-w-0 flex-1 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="text-xs opacity-80">Welcome back</p>
-                  {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold">Admin</Badge>}
+                  <p className="text-xs font-semibold text-white/80">Welcome back</p>
+                  {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold shadow-xs">Admin</Badge>}
                 </div>
-                <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight">{displayName}</h1>
+                <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight text-white">{displayName}</h1>
               </div>
 
               {profile?.username && (
@@ -268,13 +266,13 @@ export default function UserDashboard() {
           </div>
 
           {/* Wallet card */}
-          <Card className="mt-5 bg-background/95 text-foreground shadow-xl">
+          <Card className="mt-5 bg-card/95 text-card-foreground shadow-xl border-border/60">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground flex items-center gap-1"><Wallet className="h-3 w-3" />Wallet Balance</p>
-                <p className="text-2xl font-extrabold">₦{balance.toLocaleString()}</p>
+                <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5 text-primary" />Wallet Balance</p>
+                <p className="text-2xl font-black text-foreground">₦{balance.toLocaleString()}</p>
               </div>
-              <Button asChild size="sm">
+              <Button asChild size="sm" className="rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90">
                 <Link to="/dashboard/wallet"><Plus className="h-4 w-4 mr-1" />Top Up</Link>
               </Button>
             </CardContent>
@@ -283,9 +281,6 @@ export default function UserDashboard() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
-        {/* Today's Vixora AI Business Coach & Sprint */}
-        <VixoraAICoachToday />
-
         {/* Profile & Business Completion Card with Smart System Recommendations */}
         <ProfileCompletionCard
           profile={profile}
@@ -308,21 +303,17 @@ export default function UserDashboard() {
             <Link
               key={t.to}
               to={t.to}
-              className="group flex flex-col items-center justify-center gap-2.5 rounded-2xl border border-border/80 bg-card p-3.5 text-center shadow-xs hover:shadow-xl hover:border-primary/40 transition-all duration-300 active:scale-95"
+              className="group flex flex-col items-center justify-center gap-2.5 rounded-2xl border border-border/80 bg-card p-3.5 text-center shadow-xs hover:shadow-xl hover:border-primary/50 transition-all duration-300 active:scale-95"
             >
               {/* 3D Elevated Icon Badge */}
-              <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${t.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.32),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-2 ring-white/25 transition-transform group-hover:scale-110 duration-300`}>
+              <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${t.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.32),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-2 ring-white/20 transition-transform group-hover:scale-110 duration-300`}>
                 <t.icon className="h-6 w-6 drop-shadow-sm" strokeWidth={2.2} />
               </div>
-              <span className="text-xs sm:text-sm font-bold leading-snug tracking-tight text-foreground/90 group-hover:text-primary transition-colors line-clamp-2">
+              <span className="text-xs sm:text-sm font-bold leading-snug tracking-tight text-foreground group-hover:text-primary transition-colors line-clamp-2">
                 {t.label}
               </span>
             </Link>
           ))}
-        </div>
-
-        <div id="referral-section" className="scroll-mt-6">
-          <ReferralCard />
         </div>
 
         {/* Recent Activity Feed */}

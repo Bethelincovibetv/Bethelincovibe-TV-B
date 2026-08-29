@@ -28,6 +28,8 @@ import {
   DIGITAL_PRODUCT_CATEGORIES,
   ProductType,
   generateProductDescriptionAI,
+  resolveSafeProductCategoryUuid,
+  isValidUuid,
 } from "@/lib/productAIEngine";
 import { copyToClipboard } from "@/lib/clipboard";
 
@@ -257,13 +259,14 @@ export default function UnifiedProductManager({
     // Find category slug or preset
     const matchedCategory = dbCategories?.find((c) => c.id === p.category_id);
     const catSlug = matchedCategory?.slug || (isDigital ? "ebooks-guides" : "food-groceries");
+    const safeCatId = isValidUuid(p.category_id) ? p.category_id : (matchedCategory?.id || "");
 
     setForm({
       id: p.id,
       name: p.name || "",
       product_type: isDigital ? "digital" : "physical",
       category_slug: catSlug,
-      category_id: p.category_id || "",
+      category_id: safeCatId,
       description: p.description || "",
       price: p.price ? String(p.price) : "",
       condition: p.condition || (isDigital ? "digital" : "new"),
@@ -471,18 +474,15 @@ export default function UnifiedProductManager({
 
     setSubmitting(true);
     try {
-      // Find category_id
-      let resolvedCatId = form.category_id;
-      if (!resolvedCatId && dbCategories?.length) {
-        const match = dbCategories.find(
-          (c: any) => c.slug === form.category_slug || c.name.toLowerCase().includes(form.category_slug.replace("-", " "))
-        );
-        if (match) resolvedCatId = match.id;
-      }
+      // Safely resolve category_id to ensure only valid UUID or null is passed to database
+      const resolvedCatId = resolveSafeProductCategoryUuid(
+        form.category_id || form.category_slug,
+        dbCategories || []
+      );
 
       const coverImg = form.cover_image || gallery[0] || null;
-      const parsedPrice = form.price ? Number(form.price) : 0;
-      const parsedStock = form.product_type === "digital" ? 999 : (form.stock ? Number(form.stock) : 1);
+      const parsedPrice = form.price && !isNaN(Number(form.price)) && Number(form.price) > 0 ? Number(form.price) : null;
+      const parsedStock = form.product_type === "digital" ? 999 : (form.stock && !isNaN(Number(form.stock)) ? Number(form.stock) : 1);
       const isDigital = form.product_type === "digital";
 
       const payload: any = {
@@ -491,19 +491,20 @@ export default function UnifiedProductManager({
         price: parsedPrice,
         currency: "NGN",
         product_type: isDigital ? "digital" : "physical",
-        condition: isDigital ? "digital" : form.condition,
+        condition: isDigital ? "digital" : (form.condition || "new"),
         stock: parsedStock,
-        location: form.location || (isDigital ? "Instant Online Access" : "Nationwide Delivery"),
-        whatsapp: form.whatsapp || null,
-        phone: form.phone || null,
-        video_url: form.video_url || null,
-        category_id: resolvedCatId || null,
+        location: form.location ? form.location.trim() : (isDigital ? "Instant Online Access" : "Nationwide Delivery"),
+        whatsapp: form.whatsapp ? form.whatsapp.trim() : null,
+        phone: form.phone ? form.phone.trim() : null,
+        video_url: form.video_url ? form.video_url.trim() : null,
+        category_id: resolvedCatId,
         cover_image: coverImg,
-        images: gallery,
-        delivery_method: isDigital ? form.delivery_method : null,
-        delivery_url: isDigital ? form.delivery_url : null,
-        delivery_file_path: isDigital ? form.delivery_file_path : null,
+        images: gallery.length > 0 ? gallery : (coverImg ? [coverImg] : []),
+        delivery_method: isDigital ? (form.delivery_method || "file") : null,
+        delivery_url: isDigital ? (form.delivery_url ? form.delivery_url.trim() : null) : null,
+        delivery_file_path: isDigital ? (form.delivery_file_path ? form.delivery_file_path.trim() : null) : null,
         active: true,
+        status: form.status || "published",
       };
 
       if (isEditing && editingProductId) {
@@ -518,7 +519,8 @@ export default function UnifiedProductManager({
         toast.success(`"${form.name}" successfully updated!`);
       } else {
         // CREATE new product
-        const slug = `${slugify(form.name)}-${Math.random().toString(36).slice(2, 7)}`;
+        const cleanSlugBase = slugify(form.name) || "product";
+        const slug = `${cleanSlugBase}-${Math.random().toString(36).slice(2, 7)}`;
         const { data: newProd, error } = await supabase
           .from("directory_products")
           .insert({
@@ -560,39 +562,39 @@ export default function UnifiedProductManager({
 
       {/* Header Banner */}
       {!hideHeader && (
-        <div className="rounded-3xl bg-gradient-to-r from-primary/10 via-accent/10 to-card border border-border/80 p-5 sm:p-7 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="rounded-3xl bg-gradient-to-r from-purple-700 via-fuchsia-600 to-pink-600 border border-white/20 p-5 sm:p-7 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-white">
           <div className="space-y-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <Badge className="bg-primary text-primary-foreground text-xs font-bold gap-1">
-                <Sparkles className="h-3 w-3" /> Unified Product Studio
+              <Badge className="bg-white/20 backdrop-blur-md text-white border-white/30 text-xs font-bold gap-1">
+                <Sparkles className="h-3 w-3 text-amber-300" /> Unified Product Studio
               </Badge>
-              <Badge variant="outline" className="text-xs">
+              <Badge variant="outline" className="text-xs text-white/90 border-white/30">
                 {products.length} Listing{products.length === 1 ? "" : "s"} Active
               </Badge>
             </div>
-            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground tracking-tight">
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tight drop-shadow-sm">
               {title}
             </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground max-w-2xl">
+            <p className="text-xs sm:text-sm text-white/90 max-w-2xl font-medium">
               {description}
             </p>
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
             <Button
-              variant={activeTab === "form" ? "default" : "outline"}
+              variant={activeTab === "form" ? "secondary" : "outline"}
               onClick={() => {
                 if (activeTab !== "form") resetToNew();
                 setActiveTab("form");
               }}
-              className="gap-1.5 font-bold rounded-2xl w-full sm:w-auto shadow-sm"
+              className="gap-1.5 font-bold rounded-2xl w-full sm:w-auto shadow-sm bg-white text-purple-950 hover:bg-white/90"
             >
               <Plus className="h-4 w-4" /> {isEditing ? "Editing Product" : "Create New Product"}
             </Button>
             <Button
-              variant={activeTab === "manage" ? "default" : "outline"}
+              variant={activeTab === "manage" ? "secondary" : "outline"}
               onClick={() => setActiveTab("manage")}
-              className="gap-1.5 font-bold rounded-2xl w-full sm:w-auto"
+              className="gap-1.5 font-bold rounded-2xl w-full sm:w-auto text-white border-white/40 hover:bg-white/10"
             >
               <Package className="h-4 w-4" /> My Products ({products.length})
             </Button>
@@ -758,8 +760,8 @@ export default function UnifiedProductManager({
                     <Select
                       value={form.category_slug}
                       onValueChange={(val) => {
-                        const matched = availableCategories.find((c) => c.slug === val);
-                        setForm((f) => ({ ...f, category_slug: val, category_id: matched?.id || f.category_id }));
+                        const safeCat = resolveSafeProductCategoryUuid(val, dbCategories || []);
+                        setForm((f) => ({ ...f, category_slug: val, category_id: safeCat || "" }));
                       }}
                     >
                       <SelectTrigger className="rounded-xl h-11">

@@ -1,14 +1,17 @@
 import React, { useState, useEffect } from "react";
-import { Link, Navigate } from "react-router-dom";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   FileText,
   Sparkles,
@@ -32,6 +35,15 @@ import {
   Loader2,
   Copy,
   Check,
+  ImageIcon,
+  Camera,
+  Upload,
+  X,
+  Wallet,
+  Phone,
+  Mail,
+  Edit3,
+  SlidersHorizontal,
 } from "lucide-react";
 import {
   AreaChart,
@@ -41,13 +53,13 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
 } from "recharts";
-import { formatDistanceToNow, format } from "date-fns";
+import { format } from "date-fns";
 import { toast } from "sonner";
 
-interface BlogSubmissionItem {
+const DEFAULT_COST = 1000;
+
+export interface BlogSubmissionItem {
   id: string;
   business_name: string;
   description: string;
@@ -61,6 +73,8 @@ interface BlogSubmissionItem {
   website?: string | null;
   contact_phone?: string | null;
   contact_whatsapp?: string | null;
+  contact_email?: string | null;
+  category_id?: string | null;
   blog_post?: {
     id: string;
     title: string;
@@ -75,22 +89,87 @@ interface BlogSubmissionItem {
   deleted_at?: string | null;
 }
 
-export default function UserMyBlogs() {
-  const { user, loading: authLoading } = useAuth();
+interface UserMyBlogsProps {
+  defaultTab?: "my-blogs" | "submit";
+}
+
+export default function UserMyBlogs({ defaultTab = "my-blogs" }: UserMyBlogsProps) {
+  const { user, loading: authLoading, isAdmin } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
+  // URL tab handling (allows ?tab=submit)
+  const paramTab = searchParams.get("tab");
+  const initialMainTab = paramTab === "submit" ? "submit" : defaultTab;
+  const [mainTab, setMainTab] = useState<"my-blogs" | "submit">(initialMainTab);
+
   const [submissions, setSubmissions] = useState<BlogSubmissionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeTab, setActiveTab] = useState<"all" | "published" | "review" | "deleted">("all");
+  const [filterStatus, setFilterStatus] = useState<"all" | "published" | "review" | "deleted">("all");
 
   // Deletion Modal
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [blogToDelete, setBlogToDelete] = useState<BlogSubmissionItem | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Detailed Analytics Modal
+  // Analytics Modal
   const [analyticsModalOpen, setAnalyticsModalOpen] = useState(false);
   const [selectedBlogForStats, setSelectedBlogForStats] = useState<BlogSubmissionItem | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Update Featured Image Modal State
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [selectedBlogForImage, setSelectedBlogForImage] = useState<BlogSubmissionItem | null>(null);
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
+  const [customImageUrl, setCustomImageUrl] = useState("");
+  const [updatingImage, setUpdatingImage] = useState(false);
+
+  // Quick Edit Blog Details Modal State
+  const [editDetailsModalOpen, setEditDetailsModalOpen] = useState(false);
+  const [blogToEdit, setBlogToEdit] = useState<BlogSubmissionItem | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    business_name: "",
+    description: "",
+    website: "",
+    contact_phone: "",
+    contact_whatsapp: "",
+    contact_email: "",
+  });
+  const [savingDetails, setSavingDetails] = useState(false);
+
+  // Submit Form States
+  const [wallet, setWallet] = useState<any>(null);
+  const [feeFromSettings, setFeeFromSettings] = useState<number>(DEFAULT_COST);
+  const [submitBannerFile, setSubmitBannerFile] = useState<File | null>(null);
+  const [submitBannerPreview, setSubmitBannerPreview] = useState<string | null>(null);
+  const [submitPhotos, setSubmitPhotos] = useState<{ file: File; preview: string }[]>([]);
+  const [submittingBlog, setSubmittingBlog] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [submitCategoryId, setSubmitCategoryId] = useState<string>("");
+  const [submitForm, setSubmitForm] = useState({
+    business_name: "",
+    description: "",
+    website: "",
+    contact_email: "",
+    contact_phone: "",
+    contact_whatsapp: "",
+  });
+
+  // Sync main tab if searchParam changes
+  useEffect(() => {
+    if (paramTab === "submit" && mainTab !== "submit") {
+      setMainTab("submit");
+    } else if (paramTab === "my-blogs" && mainTab !== "my-blogs") {
+      setMainTab("my-blogs");
+    }
+  }, [paramTab]);
+
+  const handleTabChange = (val: string) => {
+    const tab = val as "my-blogs" | "submit";
+    setMainTab(tab);
+    setSearchParams(tab === "submit" ? { tab: "submit" } : {});
+  };
 
   const fetchBlogs = async () => {
     if (!user) return;
@@ -108,7 +187,7 @@ export default function UserMyBlogs() {
 
       // Hydrate linked blog_posts
       const postIds = (subs || []).map((s: any) => s.generated_post_id).filter(Boolean);
-      let postsMap = new Map<string, any>();
+      const postsMap = new Map<string, any>();
 
       if (postIds.length > 0) {
         const { data: posts } = await supabase
@@ -119,11 +198,10 @@ export default function UserMyBlogs() {
         (posts || []).forEach((p: any) => postsMap.set(p.id, p));
       }
 
-      // Merge performance metrics from localStorage and database
+      // Merge metrics
       const merged: BlogSubmissionItem[] = (subs || []).map((s: any) => {
         const linkedPost = s.generated_post_id ? postsMap.get(s.generated_post_id) : null;
         
-        // Calculate realistic view & inquiry metrics
         const seed = s.id.charCodeAt(0) + s.id.charCodeAt(s.id.length - 1);
         const daysOld = Math.max(1, Math.floor((Date.now() - new Date(s.created_at).getTime()) / (1000 * 60 * 60 * 24)));
         const isLive = s.status === "published" || s.status === "approved";
@@ -150,19 +228,231 @@ export default function UserMyBlogs() {
     }
   };
 
+  // Fetch submit form pre-requisites
+  const fetchSubmitMetadata = async () => {
+    if (!user) return;
+    supabase.from("wallets").select("*").eq("user_id", user.id).maybeSingle().then(({ data }) => setWallet(data));
+    supabase.from("site_settings").select("value").eq("key", "business_blog_fee").maybeSingle().then(({ data }) => {
+      const n = Number(data?.value);
+      if (!Number.isNaN(n) && n >= 0) setFeeFromSettings(n);
+    });
+    supabase.from("categories").select("id,name,slug").eq("type", "blog").order("name").then(({ data }) => setCategories(data || []));
+
+    // Prefill from user supplier profile if available
+    Promise.all([
+      supabase.from("suppliers").select("*, categories(id, name, slug)").eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
+    ]).then(([{ data: supplier }, { data: profile }]) => {
+      if (supplier || profile) {
+        setSubmitForm({
+          business_name: supplier?.name || profile?.display_name || "",
+          description: supplier?.description || profile?.bio || "",
+          website: supplier?.website || profile?.social_links?.website || "",
+          contact_phone: supplier?.phone || profile?.phone || "",
+          contact_whatsapp: supplier?.whatsapp_number || supplier?.whatsapp || profile?.whatsapp || supplier?.phone || "",
+          contact_email: profile?.email || user.email || "",
+        });
+        if (supplier?.category_id) {
+          setSubmitCategoryId(supplier.category_id);
+        }
+      }
+    });
+  };
+
   useEffect(() => {
-    fetchBlogs();
+    if (user) {
+      fetchBlogs();
+      fetchSubmitMetadata();
+    }
   }, [user]);
 
-  // Handle Deleting / Unpublishing Blog Post
+  // Clean up object URLs
+  useEffect(() => {
+    return () => {
+      if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+      if (submitBannerPreview) URL.revokeObjectURL(submitBannerPreview);
+      submitPhotos.forEach((p) => URL.revokeObjectURL(p.preview));
+    };
+  }, [newImagePreview, submitBannerPreview, submitPhotos]);
+
+  // ----------------------------------------------------
+  // FEATURED IMAGE UPDATE ACTION
+  // ----------------------------------------------------
+  const handleOpenImageModal = (blog: BlogSubmissionItem) => {
+    setSelectedBlogForImage(blog);
+    setNewImageFile(null);
+    setNewImagePreview(null);
+    setCustomImageUrl(blog.banner_url || blog.blog_post?.featured_image || "");
+    setImageModalOpen(true);
+  };
+
+  const handleNewImageFileSelect = (file: File | null) => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    if (!file) {
+      setNewImageFile(null);
+      setNewImagePreview(null);
+      return;
+    }
+    setNewImageFile(file);
+    setNewImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSaveFeaturedImage = async () => {
+    if (!selectedBlogForImage || !user) return;
+    try {
+      setUpdatingImage(true);
+      let finalBannerUrl = customImageUrl.trim();
+
+      // If user uploaded a new file, upload to storage
+      if (newImageFile) {
+        const ext = newImageFile.name.split(".").pop();
+        const filePath = `${user.id}/banner-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("guest-submissions")
+          .upload(filePath, newImageFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data } = supabase.storage.from("guest-submissions").getPublicUrl(filePath);
+        finalBannerUrl = data.publicUrl;
+      }
+
+      if (!finalBannerUrl) {
+        return toast.error("Please select an image file or provide an image URL.");
+      }
+
+      // 1. Update guest_blog_submissions
+      const { error: subError } = await supabase
+        .from("guest_blog_submissions")
+        .update({
+          banner_url: finalBannerUrl,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", selectedBlogForImage.id);
+
+      if (subError) throw subError;
+
+      // 2. If generated_post_id exists, update linked blog_post featured_image
+      if (selectedBlogForImage.generated_post_id) {
+        await supabase
+          .from("blog_posts")
+          .update({
+            featured_image: finalBannerUrl,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", selectedBlogForImage.generated_post_id);
+      }
+
+      // 3. Update local state
+      setSubmissions((prev) =>
+        prev.map((b) =>
+          b.id === selectedBlogForImage.id
+            ? {
+                ...b,
+                banner_url: finalBannerUrl,
+                blog_post: b.blog_post
+                  ? { ...b.blog_post, featured_image: finalBannerUrl }
+                  : b.blog_post,
+              }
+            : b
+        )
+      );
+
+      toast.success("Featured banner image updated successfully!");
+      setImageModalOpen(false);
+      setSelectedBlogForImage(null);
+    } catch (err: any) {
+      console.error("Error updating image:", err);
+      toast.error(err?.message || "Failed to update featured image");
+    } finally {
+      setUpdatingImage(false);
+    }
+  };
+
+  // ----------------------------------------------------
+  // EDIT BLOG DETAILS ACTION
+  // ----------------------------------------------------
+  const handleOpenEditDetails = (blog: BlogSubmissionItem) => {
+    setBlogToEdit(blog);
+    setEditFormData({
+      business_name: blog.business_name || "",
+      description: blog.description || "",
+      website: blog.website || "",
+      contact_phone: blog.contact_phone || "",
+      contact_whatsapp: blog.contact_whatsapp || "",
+      contact_email: blog.contact_email || "",
+    });
+    setEditDetailsModalOpen(true);
+  };
+
+  const handleSaveDetails = async () => {
+    if (!blogToEdit || !user) return;
+    if (!editFormData.business_name.trim() || !editFormData.description.trim()) {
+      return toast.error("Business name and description are required.");
+    }
+    try {
+      setSavingDetails(true);
+      const { error } = await supabase
+        .from("guest_blog_submissions")
+        .update({
+          business_name: editFormData.business_name.trim(),
+          description: editFormData.description.trim(),
+          website: editFormData.website.trim() || null,
+          contact_phone: editFormData.contact_phone.trim() || null,
+          contact_whatsapp: editFormData.contact_whatsapp.trim() || null,
+          contact_email: editFormData.contact_email.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", blogToEdit.id);
+
+      if (error) throw error;
+
+      // Update linked post title / excerpt if exists
+      if (blogToEdit.generated_post_id) {
+        await supabase
+          .from("blog_posts")
+          .update({
+            excerpt: editFormData.description.slice(0, 240),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", blogToEdit.generated_post_id);
+      }
+
+      setSubmissions((prev) =>
+        prev.map((b) =>
+          b.id === blogToEdit.id
+            ? {
+                ...b,
+                business_name: editFormData.business_name.trim(),
+                description: editFormData.description.trim(),
+                website: editFormData.website.trim() || null,
+                contact_phone: editFormData.contact_phone.trim() || null,
+                contact_whatsapp: editFormData.contact_whatsapp.trim() || null,
+                contact_email: editFormData.contact_email.trim() || null,
+              }
+            : b
+        )
+      );
+
+      toast.success("Business details updated successfully!");
+      setEditDetailsModalOpen(false);
+      setBlogToEdit(null);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to update business details");
+    } finally {
+      setSavingDetails(false);
+    }
+  };
+
+  // ----------------------------------------------------
+  // DELETE BLOG ACTION
+  // ----------------------------------------------------
   const handleConfirmDelete = async () => {
     if (!blogToDelete || !user) return;
     try {
       setDeleting(true);
-
       const deletedTimestamp = new Date().toISOString();
 
-      // 1. Mark status as deleted in guest_blog_submissions
       await supabase
         .from("guest_blog_submissions")
         .update({
@@ -171,17 +461,13 @@ export default function UserMyBlogs() {
         })
         .eq("id", blogToDelete.id);
 
-      // 2. Unpublish linked blog_post if exists so it never accumulates on public pages
       if (blogToDelete.generated_post_id) {
         await supabase
           .from("blog_posts")
-          .update({
-            published: false,
-          })
+          .update({ published: false })
           .eq("id", blogToDelete.generated_post_id);
       }
 
-      // 3. Update local state
       setSubmissions((prev) =>
         prev.map((b) =>
           b.id === blogToDelete.id
@@ -195,7 +481,7 @@ export default function UserMyBlogs() {
         )
       );
 
-      toast.success(`"${blogToDelete.business_name}" blog has been archived and removed from public listings.`);
+      toast.success(`"${blogToDelete.business_name}" blog has been archived.`);
       setDeleteModalOpen(false);
       setBlogToDelete(null);
     } catch (err: any) {
@@ -215,6 +501,139 @@ export default function UserMyBlogs() {
     setTimeout(() => setCopiedId(null), 2500);
   };
 
+  // ----------------------------------------------------
+  // SUBMIT NEW BUSINESS BLOG FLOW
+  // ----------------------------------------------------
+  const COST_CREDITS = isAdmin ? 0 : feeFromSettings;
+  const balance = wallet?.balance ?? 0;
+  const canAfford = isAdmin || balance >= COST_CREDITS;
+
+  const handleSubmitBannerChange = (file: File | null) => {
+    if (submitBannerPreview) URL.revokeObjectURL(submitBannerPreview);
+    if (!file) {
+      setSubmitBannerFile(null);
+      setSubmitBannerPreview(null);
+      return;
+    }
+    setSubmitBannerFile(file);
+    setSubmitBannerPreview(URL.createObjectURL(file));
+  };
+
+  const handleAddSubmitPhotos = (newFiles: FileList | null) => {
+    if (!newFiles) return;
+    const added = Array.from(newFiles).slice(0, 8 - submitPhotos.length).map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+    setSubmitPhotos((prev) => [...prev, ...added]);
+  };
+
+  const handleRemoveSubmitPhoto = (index: number) => {
+    const target = submitPhotos[index];
+    if (target?.preview) URL.revokeObjectURL(target.preview);
+    setSubmitPhotos((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const uploadStorageFile = async (file: File, prefix: string): Promise<string> => {
+    const ext = file.name.split(".").pop();
+    const path = `${user?.id}/${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}.${ext}`;
+    const { error } = await supabase.storage.from("guest-submissions").upload(path, file);
+    if (error) throw error;
+    const { data } = supabase.storage.from("guest-submissions").getPublicUrl(path);
+    return data.publicUrl;
+  };
+
+  const handleSubmitNewBlog = async () => {
+    if (!user) return;
+    if (!submitForm.business_name.trim() || !submitForm.description.trim()) {
+      return toast.error("Business name and description are required.");
+    }
+    if (!canAfford) {
+      return toast.error(`Insufficient wallet balance. You need ₦${COST_CREDITS.toLocaleString()}. Please top up your wallet.`);
+    }
+
+    try {
+      setSubmittingBlog(true);
+
+      // Upload banner if selected
+      let bannerUrl: string | null = null;
+      if (submitBannerFile) {
+        bannerUrl = await uploadStorageFile(submitBannerFile, "banner");
+      }
+
+      // Upload gallery photos if any
+      const photoUrls: string[] = [];
+      for (const p of submitPhotos) {
+        const url = await uploadStorageFile(p.file, "photo");
+        photoUrls.push(url);
+      }
+
+      // Deduct wallet if not admin and fee > 0
+      if (!isAdmin && COST_CREDITS > 0) {
+        const newBal = balance - COST_CREDITS;
+        const { error: wErr } = await supabase
+          .from("wallets")
+          .update({ balance: newBal, updated_at: new Date().toISOString() })
+          .eq("user_id", user.id);
+        if (wErr) throw wErr;
+
+        await supabase.from("transactions").insert({
+          user_id: user.id,
+          type: "guest_blog_fee",
+          amount: -COST_CREDITS,
+          balance_after: newBal,
+          description: `Business Blog Promotion Submission: ${submitForm.business_name.trim()}`,
+          status: "completed",
+        });
+      }
+
+      // Insert submission
+      const { data: subData, error: subErr } = await supabase
+        .from("guest_blog_submissions")
+        .insert({
+          user_id: user.id,
+          business_name: submitForm.business_name.trim(),
+          description: submitForm.description.trim(),
+          website: submitForm.website.trim() || null,
+          contact_email: submitForm.contact_email.trim() || null,
+          contact_phone: submitForm.contact_phone.trim() || null,
+          contact_whatsapp: submitForm.contact_whatsapp.trim() || null,
+          banner_url: bannerUrl,
+          photos: photoUrls,
+          category_id: submitCategoryId || null,
+          cost_credits: COST_CREDITS,
+          status: "paid",
+        })
+        .select()
+        .single();
+
+      if (subErr) throw subErr;
+
+      // Invoke AI generation function in background
+      if (subData?.id) {
+        supabase.functions.invoke("generate-blog-post", {
+          body: { submission_id: subData.id },
+        }).catch((e) => console.warn("Background AI generation invoked:", e));
+      }
+
+      toast.success("Business blog submitted successfully! AI article is being prepared.");
+      
+      // Reset form
+      setSubmitBannerFile(null);
+      setSubmitBannerPreview(null);
+      setSubmitPhotos([]);
+      
+      // Refresh list and switch to My Blogs tab
+      await fetchBlogs();
+      handleTabChange("my-blogs");
+    } catch (err: any) {
+      console.error("Submission failed:", err);
+      toast.error(err?.message || "Failed to submit business blog");
+    } finally {
+      setSubmittingBlog(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-[60vh] flex items-center justify-center">
@@ -228,28 +647,12 @@ export default function UserMyBlogs() {
   // Aggregated Performance Metrics
   const activeBlogs = submissions.filter((s) => s.status !== "deleted");
   const liveBlogs = submissions.filter((s) => s.status === "published" || s.status === "approved");
-  const reviewBlogs = submissions.filter((s) => ["paid", "review", "generating"].includes(s.status));
-  const deletedBlogs = submissions.filter((s) => s.status === "deleted");
-
   const totalViews = liveBlogs.reduce((acc, curr) => acc + (curr.views_count || 0), 0);
   const totalInquiries = liveBlogs.reduce((acc, curr) => acc + (curr.inquiries_count || 0), 0);
   const totalShares = liveBlogs.reduce((acc, curr) => acc + (curr.shares_count || 0), 0);
   const avgCtr = totalViews > 0 ? ((totalInquiries / totalViews) * 100).toFixed(1) : "0.0";
 
-  // Mock 14-day Time Series Performance Data
-  const performanceTrendData = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (13 - i));
-    const dayViews = liveBlogs.length > 0 ? Math.floor((totalViews / 14) * (0.6 + Math.sin(i * 0.7) * 0.4 + (i * 0.05))) : 0;
-    const dayLeads = Math.max(0, Math.floor(dayViews * 0.08));
-    return {
-      date: format(d, "MMM dd"),
-      views: Math.max(0, dayViews),
-      inquiries: dayLeads,
-    };
-  });
-
-  // Filter Submissions based on Tab & Search
+  // Filter Submissions
   const filteredSubmissions = submissions.filter((b) => {
     const matchesSearch =
       b.business_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -258,435 +661,853 @@ export default function UserMyBlogs() {
 
     if (!matchesSearch) return false;
 
-    if (activeTab === "published") return b.status === "published" || b.status === "approved";
-    if (activeTab === "review") return ["paid", "review", "generating", "pending_payment"].includes(b.status);
-    if (activeTab === "deleted") return b.status === "deleted";
+    if (filterStatus === "published") return b.status === "published" || b.status === "approved";
+    if (filterStatus === "review") return ["paid", "review", "generating", "pending_payment"].includes(b.status);
+    if (filterStatus === "deleted") return b.status === "deleted";
     return true;
   });
 
   return (
     <>
       <Helmet>
-        <title>My Business Blogs &amp; Performance Analytics | Bethelincovibe TV</title>
+        <title>My Business Blogs &amp; Submissions | Bethelincovibe TV</title>
       </Helmet>
 
       <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 pb-16">
         <div className="container mx-auto px-4 py-6 sm:py-8 max-w-6xl space-y-6 sm:space-y-8">
-          {/* Top Breadcrumbs & Header Actions */}
+          
+          {/* Header Bar */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <Button asChild variant="ghost" size="sm" className="rounded-xl font-bold h-8 text-xs mb-1 -ml-2">
+              <Button asChild variant="ghost" size="sm" className="rounded-xl font-bold h-8 text-xs mb-1 -ml-2 text-muted-foreground hover:text-foreground">
                 <Link to="/dashboard">
                   <ChevronLeft className="h-4 w-4 mr-1" />
                   Back to Dashboard
                 </Link>
               </Button>
-              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground flex items-center gap-2.5">
                 <FileText className="h-7 w-7 text-primary" />
-                My Business Blogs &amp; Performance
+                Business Blogs Hub
               </h1>
               <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                Monitor your business article readership, reader conversions, and live SEO distribution.
+                Manage your published business stories, update featured banner images, track reader leads, or submit a new feature article.
               </p>
             </div>
 
-            {/* Submit Blog Button (Cleaned up from footer) */}
             <div className="flex items-center gap-2.5 w-full sm:w-auto">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={fetchBlogs}
                 disabled={loading}
-                className="rounded-xl font-bold text-xs h-10 border-border"
+                className="rounded-xl font-bold text-xs h-10 border-border/80"
               >
                 <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
-
               <Button
-                asChild
-                className="rounded-2xl bg-gradient-to-r from-purple-600 via-primary to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-extrabold text-xs sm:text-sm h-10 px-4 shadow-[0_8px_20px_-4px_rgba(147,51,234,0.4)] flex-1 sm:flex-initial"
+                size="sm"
+                onClick={() => handleTabChange(mainTab === "submit" ? "my-blogs" : "submit")}
+                className={`rounded-xl font-bold text-xs h-10 shadow-md ${
+                  mainTab === "submit" ? "bg-secondary text-secondary-foreground" : "bg-primary text-primary-foreground"
+                }`}
               >
-                <Link to="/dashboard/submit-blog">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  Submit a Business Blog
-                </Link>
+                {mainTab === "submit" ? (
+                  <>
+                    <FileText className="h-4 w-4 mr-1.5" /> View My Blogs
+                  </>
+                ) : (
+                  <>
+                    <Plus className="h-4 w-4 mr-1.5" /> Submit New Business
+                  </>
+                )}
               </Button>
             </div>
           </div>
 
-          {/* ================= SECTION 1: PERFORMANCE ANALYTICS OVERVIEW ================= */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
-            {/* Metric 1: Total Submissions */}
-            <Card className="rounded-2xl border-border/80 shadow-xs bg-card">
-              <CardContent className="p-3.5 sm:p-4 space-y-1">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Submissions</span>
-                  <FileText className="h-4 w-4 text-purple-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-black text-foreground">{submissions.length}</p>
-                <p className="text-[10px] text-muted-foreground">{liveBlogs.length} Published Live</p>
-              </CardContent>
-            </Card>
-
-            {/* Metric 2: Live Articles */}
-            <Card className="rounded-2xl border-border/80 shadow-xs bg-card">
-              <CardContent className="p-3.5 sm:p-4 space-y-1">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Live &amp; Active</span>
-                  <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">{liveBlogs.length}</p>
-                <p className="text-[10px] text-muted-foreground">{reviewBlogs.length} in review</p>
-              </CardContent>
-            </Card>
-
-            {/* Metric 3: Total Reads / Views */}
-            <Card className="rounded-2xl border-border/80 shadow-xs bg-card">
-              <CardContent className="p-3.5 sm:p-4 space-y-1">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Total Reads</span>
-                  <Eye className="h-4 w-4 text-sky-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-black text-foreground">{totalViews.toLocaleString()}</p>
-                <p className="text-[10px] text-sky-600 dark:text-sky-400 font-semibold">+18% this week</p>
-              </CardContent>
-            </Card>
-
-            {/* Metric 4: WhatsApp Leads */}
-            <Card className="rounded-2xl border-border/80 shadow-xs bg-card">
-              <CardContent className="p-3.5 sm:p-4 space-y-1">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Inquiries</span>
-                  <MessageCircle className="h-4 w-4 text-emerald-600" />
-                </div>
-                <p className="text-xl sm:text-2xl font-black text-emerald-600">{totalInquiries.toLocaleString()}</p>
-                <p className="text-[10px] text-muted-foreground">Direct WhatsApp leads</p>
-              </CardContent>
-            </Card>
-
-            {/* Metric 5: Conversion CTR */}
-            <Card className="rounded-2xl border-border/80 shadow-xs bg-card">
-              <CardContent className="p-3.5 sm:p-4 space-y-1">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Conversion CTR</span>
-                  <TrendingUp className="h-4 w-4 text-amber-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-black text-foreground">{avgCtr}%</p>
-                <p className="text-[10px] text-muted-foreground">Read-to-lead rate</p>
-              </CardContent>
-            </Card>
-
-            {/* Metric 6: Social Shares */}
-            <Card className="rounded-2xl border-border/80 shadow-xs bg-card">
-              <CardContent className="p-3.5 sm:p-4 space-y-1">
-                <div className="flex items-center justify-between text-muted-foreground">
-                  <span className="text-[11px] font-bold uppercase tracking-wider">Shares</span>
-                  <Share2 className="h-4 w-4 text-rose-500" />
-                </div>
-                <p className="text-xl sm:text-2xl font-black text-foreground">{totalShares}</p>
-                <p className="text-[10px] text-muted-foreground">Community shares</p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Interactive Performance Time-Series Chart */}
-          <Card className="rounded-3xl border-border/80 shadow-md overflow-hidden bg-card">
-            <CardHeader className="p-4 sm:p-6 bg-muted/20 border-b border-border/60 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
-              <div>
-                <CardTitle className="text-base font-extrabold flex items-center gap-2">
-                  <BarChart3 className="h-4 w-4 text-primary" />
-                  Readership &amp; Customer Inquiries Growth Trend
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Daily reader visits and direct business inquiries over the last 14 days.
-                </CardDescription>
-              </div>
-              <div className="flex items-center gap-3 text-xs font-semibold">
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-primary" /> Article Reads
-                </span>
-                <span className="flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> WhatsApp Leads
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 sm:p-6 pt-6">
-              <div className="h-64 sm:h-72 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={performanceTrendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="viewsGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#9333ea" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#9333ea" stopOpacity={0.0} />
-                      </linearGradient>
-                      <linearGradient id="leadsGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" opacity={0.15} vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <YAxis tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "rgba(15, 23, 42, 0.95)",
-                        borderRadius: "12px",
-                        border: "1px solid rgba(255,255,255,0.1)",
-                        color: "#fff",
-                        fontSize: "12px",
-                      }}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="views"
-                      name="Article Reads"
-                      stroke="#9333ea"
-                      strokeWidth={2.5}
-                      fillOpacity={1}
-                      fill="url(#viewsGrad)"
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="inquiries"
-                      name="Inquiries"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#leadsGrad)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* ================= SECTION 2: ARTICLES MANAGEMENT LIST ================= */}
-          <div className="space-y-4">
-            {/* Filter Tabs & Search Bar */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-2">
-              <Tabs
-                value={activeTab}
-                onValueChange={(v: any) => setActiveTab(v)}
-                className="w-full sm:w-auto"
+          {/* Top Level Unified Navigation Tabs */}
+          <Tabs value={mainTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="grid grid-cols-2 p-1.5 h-auto bg-muted/60 rounded-2xl border border-border/80 max-w-md mx-auto">
+              <TabsTrigger
+                value="my-blogs"
+                className="rounded-xl py-2.5 font-extrabold text-xs data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-md transition-all flex items-center justify-center gap-2"
               >
-                <TabsList className="rounded-2xl p-1 bg-muted/60 border border-border/80 h-10">
-                  <TabsTrigger value="all" className="rounded-xl text-xs font-bold px-3">
-                    All ({submissions.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="published" className="rounded-xl text-xs font-bold px-3">
-                    Live ({liveBlogs.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="review" className="rounded-xl text-xs font-bold px-3">
-                    In Review ({reviewBlogs.length})
-                  </TabsTrigger>
-                  <TabsTrigger value="deleted" className="rounded-xl text-xs font-bold px-3">
-                    Archived ({deletedBlogs.length})
-                  </TabsTrigger>
-                </TabsList>
-              </Tabs>
+                <FileText className="h-4 w-4 text-primary" />
+                My Business Blogs
+                <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 py-0 h-4 font-black">
+                  {submissions.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger
+                value="submit"
+                className="rounded-xl py-2.5 font-extrabold text-xs data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md transition-all flex items-center justify-center gap-2"
+              >
+                <Sparkles className="h-4 w-4" />
+                Submit New Blog
+              </TabsTrigger>
+            </TabsList>
 
-              {/* Search Box */}
-              <div className="relative w-full sm:w-72">
-                <Search className="h-3.5 w-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
-                <Input
-                  placeholder="Search articles or business..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 h-9 rounded-xl text-xs bg-card border-border/80"
-                />
-              </div>
-            </div>
+            {/* ============================================================ */}
+            {/* TAB 1: MY BUSINESS BLOGS & PERFORMANCE */}
+            {/* ============================================================ */}
+            <TabsContent value="my-blogs" className="space-y-6 mt-6 focus-visible:outline-hidden">
+              {/* Stat Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+                <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Submissions</p>
+                    <p className="text-2xl font-black text-foreground">{submissions.length}</p>
+                    <p className="text-[10px] text-muted-foreground">{activeBlogs.length} Active</p>
+                  </CardContent>
+                </Card>
 
-            {/* Articles List / Grid */}
-            {loading ? (
-              <div className="py-16 text-center">
-                <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
-                <p className="text-xs text-muted-foreground mt-2">Loading your business blogs...</p>
+                <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">Live Articles</p>
+                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{liveBlogs.length}</p>
+                    <p className="text-[10px] text-muted-foreground">SEO Indexing</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-[11px] font-bold text-primary uppercase tracking-wider">Total Reads</p>
+                    <p className="text-2xl font-black text-primary">{totalViews.toLocaleString()}</p>
+                    <p className="text-[10px] text-muted-foreground">Verified views</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-[11px] font-bold text-teal-600 dark:text-teal-400 uppercase tracking-wider">Inquiries</p>
+                    <p className="text-2xl font-black text-teal-600 dark:text-teal-400">{totalInquiries}</p>
+                    <p className="text-[10px] text-muted-foreground">Direct leads</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-[11px] font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wider">Lead CTR</p>
+                    <p className="text-2xl font-black text-purple-600 dark:text-purple-400">{avgCtr}%</p>
+                    <p className="text-[10px] text-muted-foreground">Conversion rate</p>
+                  </CardContent>
+                </Card>
+
+                <Card className="rounded-2xl border-border/80 bg-card shadow-xs">
+                  <CardContent className="p-4 space-y-1">
+                    <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Total Shares</p>
+                    <p className="text-2xl font-black text-amber-600 dark:text-amber-400">{totalShares}</p>
+                    <p className="text-[10px] text-muted-foreground">Viral Reach</p>
+                  </CardContent>
+                </Card>
               </div>
-            ) : filteredSubmissions.length === 0 ? (
-              <Card className="rounded-3xl border-dashed border-2 border-border/80 p-8 sm:p-12 text-center bg-card">
-                <div className="max-w-md mx-auto space-y-3">
-                  <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
-                    <FileText className="h-6 w-6" />
-                  </div>
-                  <h3 className="text-lg font-extrabold text-foreground">
-                    {activeTab === "deleted" ? "No archived blogs" : "No business blogs found"}
-                  </h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {activeTab === "deleted"
-                      ? "When you delete a business blog, it will be safely tracked here in your archives."
-                      : "Submit your business to have an authoritative SEO article published and promoted across our network."}
-                  </p>
-                  {activeTab !== "deleted" && (
-                    <Button asChild className="rounded-xl font-bold text-xs mt-2">
-                      <Link to="/dashboard/submit-blog">
-                        <Plus className="h-3.5 w-3.5 mr-1" /> Submit Your Business
-                      </Link>
-                    </Button>
-                  )}
+
+              {/* Search & Status Filter Controls */}
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                <div className="relative w-full sm:w-72">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by business name or story..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-9 rounded-2xl text-xs h-10 border-border/80 bg-card"
+                  />
                 </div>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                {filteredSubmissions.map((blog) => {
-                  const isLive = blog.status === "published" || blog.status === "approved";
-                  const isDeleted = blog.status === "deleted";
-                  const postSlug = blog.blog_post?.slug || blog.generated_post_id;
-                  const liveUrl = postSlug ? `/blog/${postSlug}` : null;
 
-                  return (
-                    <Card
-                      key={blog.id}
-                      className={`rounded-3xl border transition-all overflow-hidden bg-card ${
-                        isDeleted
-                          ? "opacity-60 border-border/50 bg-muted/20"
-                          : "border-border/80 hover:border-primary/40 shadow-xs hover:shadow-md"
+                <div className="flex items-center gap-1.5 p-1 bg-muted/50 rounded-2xl border border-border/80 w-full sm:w-auto overflow-x-auto">
+                  {(["all", "published", "review", "deleted"] as const).map((tab) => (
+                    <Button
+                      key={tab}
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setFilterStatus(tab)}
+                      className={`rounded-xl text-xs font-bold h-8 px-3 capitalize shrink-0 ${
+                        filterStatus === tab
+                          ? "bg-card text-foreground shadow-xs"
+                          : "text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      <CardContent className="p-4 sm:p-6 space-y-4">
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                          <div className="flex items-start gap-3.5 min-w-0">
-                            {/* Banner / Avatar Thumbnail */}
-                            <div className="h-14 w-14 sm:h-16 sm:w-16 rounded-2xl bg-gradient-to-br from-primary/10 to-indigo-500/20 border border-primary/20 flex items-center justify-center text-primary shrink-0 overflow-hidden shadow-xs">
-                              {blog.banner_url || blog.blog_post?.featured_image ? (
-                                <img
-                                  src={blog.banner_url || blog.blog_post?.featured_image || ""}
-                                  alt={blog.business_name}
-                                  className="w-full h-full object-cover"
-                                />
-                              ) : (
-                                <Sparkles className="h-6 w-6 text-primary" />
-                              )}
-                            </div>
+                      {tab === "all"
+                        ? "All Blogs"
+                        : tab === "published"
+                        ? "Live Published"
+                        : tab === "review"
+                        ? "In Review"
+                        : "Archived"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
 
-                            {/* Title & Info */}
-                            <div className="min-w-0 space-y-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <h3 className="font-extrabold text-sm sm:text-base text-foreground truncate">
-                                  {blog.business_name}
-                                </h3>
-                                <BlogStatusBadge status={blog.status} />
-                              </div>
+              {/* Business Blog Articles List */}
+              {loading ? (
+                <div className="py-20 text-center">
+                  <Loader2 className="h-8 w-8 mx-auto animate-spin text-primary" />
+                  <p className="text-xs text-muted-foreground mt-2 font-medium">Loading your business blogs...</p>
+                </div>
+              ) : filteredSubmissions.length === 0 ? (
+                <Card className="rounded-3xl border-dashed border-2 border-border/80 p-8 sm:p-12 text-center bg-card">
+                  <div className="max-w-md mx-auto space-y-3">
+                    <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                      <FileText className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-extrabold text-foreground">
+                      {filterStatus === "deleted" ? "No archived blogs" : "No business blogs found"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {filterStatus === "deleted"
+                        ? "When you delete a business blog, it will be safely tracked here in your archives."
+                        : "Submit your business to have an authoritative SEO article published and promoted across our network."}
+                    </p>
+                    {filterStatus !== "deleted" && (
+                      <Button onClick={() => handleTabChange("submit")} className="rounded-xl font-bold text-xs mt-2">
+                        <Plus className="h-3.5 w-3.5 mr-1" /> Submit Your Business
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ) : (
+                <div className="space-y-4">
+                  {filteredSubmissions.map((blog) => {
+                    const isLive = blog.status === "published" || blog.status === "approved";
+                    const isDeleted = blog.status === "deleted";
+                    const postSlug = blog.blog_post?.slug || blog.generated_post_id;
+                    const liveUrl = postSlug ? `/blog/${postSlug}` : null;
+                    const displayImage = blog.banner_url || blog.blog_post?.featured_image;
 
-                              {blog.blog_post?.title && (
-                                <p className="text-xs font-semibold text-primary line-clamp-1">
-                                  {blog.blog_post.title}
-                                </p>
-                              )}
-
-                              <p className="text-[11px] text-muted-foreground">
-                                Submitted {format(new Date(blog.created_at), "MMM d, yyyy")} · Cost: ₦{Number(blog.cost_credits).toLocaleString()}
-                                {isDeleted && blog.deleted_at && (
-                                  <span className="text-destructive font-semibold ml-1.5">
-                                    · (Archived on {format(new Date(blog.deleted_at), "MMM d")})
-                                  </span>
+                    return (
+                      <Card
+                        key={blog.id}
+                        className={`rounded-3xl border transition-all overflow-hidden bg-card ${
+                          isDeleted
+                            ? "opacity-60 border-border/50 bg-muted/20"
+                            : "border-border/80 hover:border-primary/40 shadow-xs hover:shadow-md"
+                        }`}
+                      >
+                        <CardContent className="p-4 sm:p-6 space-y-4">
+                          
+                          {/* Top Section: Featured Image & Business Details */}
+                          <div className="grid grid-cols-1 md:grid-cols-12 gap-4 sm:gap-6 items-start">
+                            
+                            {/* Featured Banner / Image Display & Quick Update Action */}
+                            <div className="md:col-span-4 space-y-2">
+                              <div className="relative group aspect-video sm:aspect-16/10 rounded-2xl bg-gradient-to-br from-primary/10 via-purple-500/10 to-indigo-500/20 border border-border overflow-hidden shadow-sm flex items-center justify-center">
+                                {displayImage ? (
+                                  <img
+                                    src={displayImage}
+                                    alt={blog.business_name}
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                  />
+                                ) : (
+                                  <div className="text-center p-4">
+                                    <ImageIcon className="h-8 w-8 text-primary/60 mx-auto mb-1" />
+                                    <p className="text-[11px] font-semibold text-muted-foreground">No banner uploaded</p>
+                                  </div>
                                 )}
-                              </p>
-                            </div>
-                          </div>
 
-                          {/* Quick Live Performance Pills */}
-                          {isLive && !isDeleted && (
-                            <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-2xl border border-border/60 shrink-0 text-xs">
-                              <div className="text-center px-2">
-                                <p className="text-[10px] text-muted-foreground font-medium">Reads</p>
-                                <p className="font-extrabold text-foreground">{blog.views_count}</p>
+                                {/* Overlay Button to Change / Update Image */}
+                                {!isDeleted && (
+                                  <button
+                                    onClick={() => handleOpenImageModal(blog)}
+                                    className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white text-xs font-bold backdrop-blur-xs cursor-pointer"
+                                  >
+                                    <Camera className="h-5 w-5" />
+                                    <span>Update Featured Image</span>
+                                  </button>
+                                )}
+
+                                <div className="absolute top-2 left-2">
+                                  <Badge className="bg-black/60 backdrop-blur-md text-white text-[10px] font-bold border-white/20">
+                                    Featured Image
+                                  </Badge>
+                                </div>
                               </div>
-                              <div className="h-6 w-px bg-border/60" />
-                              <div className="text-center px-2">
-                                <p className="text-[10px] text-muted-foreground font-medium">Leads</p>
-                                <p className="font-extrabold text-emerald-600">{blog.inquiries_count}</p>
-                              </div>
-                              <div className="h-6 w-px bg-border/60" />
-                              <div className="text-center px-2">
-                                <p className="text-[10px] text-muted-foreground font-medium">Shares</p>
-                                <p className="font-extrabold text-foreground">{blog.shares_count}</p>
-                              </div>
-                            </div>
-                          )}
-                        </div>
 
-                        {/* Description excerpt */}
-                        <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                          {blog.description}
-                        </p>
-
-                        {/* Rejection / Note feedback */}
-                        {blog.rejection_reason && (
-                          <div className="p-2.5 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
-                            <span className="font-bold">Review Feedback:</span> {blog.rejection_reason}
-                          </div>
-                        )}
-
-                        {/* Action Buttons Toolbar */}
-                        <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60 flex-wrap">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {isLive && liveUrl && (
-                              <>
-                                <Button asChild size="sm" className="rounded-xl font-bold text-xs h-8 bg-primary text-white">
-                                  <Link to={liveUrl} target="_blank" rel="noopener">
-                                    <ExternalLink className="h-3.5 w-3.5 mr-1" /> View Live Article
-                                  </Link>
-                                </Button>
-
+                              {!isDeleted && (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleCopyShareLink(blog)}
-                                  className="rounded-xl font-bold text-xs h-8"
+                                  onClick={() => handleOpenImageModal(blog)}
+                                  className="w-full rounded-xl text-xs font-bold h-8 border-border/80 flex items-center justify-center gap-1.5"
                                 >
-                                  {copiedId === blog.id ? (
-                                    <Check className="h-3.5 w-3.5 mr-1 text-emerald-600" />
-                                  ) : (
-                                    <Copy className="h-3.5 w-3.5 mr-1" />
-                                  )}
-                                  {copiedId === blog.id ? "Copied" : "Share Link"}
+                                  <Camera className="h-3.5 w-3.5 text-primary" />
+                                  Update Featured Image
                                 </Button>
-                              </>
-                            )}
+                              )}
+                            </div>
 
-                            {isLive && (
+                            {/* Business Story, Title, Performance & Metadata */}
+                            <div className="md:col-span-8 space-y-3">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <h3 className="font-black text-base sm:text-lg text-foreground">
+                                      {blog.business_name}
+                                    </h3>
+                                    <BlogStatusBadge status={blog.status} />
+                                  </div>
+                                  {blog.blog_post?.title && (
+                                    <p className="text-xs font-bold text-primary line-clamp-1 mt-0.5">
+                                      {blog.blog_post.title}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* Performance metrics pill */}
+                                {isLive && !isDeleted && (
+                                  <div className="flex items-center gap-2 bg-muted/40 p-2 rounded-2xl border border-border/60 shrink-0 text-xs self-start sm:self-auto">
+                                    <div className="text-center px-2">
+                                      <p className="text-[10px] text-muted-foreground font-medium">Reads</p>
+                                      <p className="font-extrabold text-foreground">{blog.views_count}</p>
+                                    </div>
+                                    <div className="h-6 w-px bg-border/60" />
+                                    <div className="text-center px-2">
+                                      <p className="text-[10px] text-muted-foreground font-medium">Leads</p>
+                                      <p className="font-extrabold text-emerald-600">{blog.inquiries_count}</p>
+                                    </div>
+                                    <div className="h-6 w-px bg-border/60" />
+                                    <div className="text-center px-2">
+                                      <p className="text-[10px] text-muted-foreground font-medium">Shares</p>
+                                      <p className="font-extrabold text-foreground">{blog.shares_count}</p>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                                {blog.description}
+                              </p>
+
+                              {/* Contact Details Chips */}
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-1">
+                                {blog.website && (
+                                  <span className="flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-md border border-border/60">
+                                    <Globe className="h-3 w-3 text-primary" /> {blog.website.replace(/^https?:\/\//, "")}
+                                  </span>
+                                )}
+                                {blog.contact_phone && (
+                                  <span className="flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-md border border-border/60">
+                                    <Phone className="h-3 w-3 text-emerald-600" /> {blog.contact_phone}
+                                  </span>
+                                )}
+                                {blog.contact_whatsapp && (
+                                  <span className="flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-md border border-border/60">
+                                    <MessageCircle className="h-3 w-3 text-teal-600" /> {blog.contact_whatsapp}
+                                  </span>
+                                )}
+                                <span className="text-[10px] text-muted-foreground ml-auto">
+                                  Submitted {format(new Date(blog.created_at), "MMM d, yyyy")}
+                                </span>
+                              </div>
+
+                              {/* Rejection / Review feedback */}
+                              {blog.rejection_reason && (
+                                <div className="p-2.5 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs">
+                                  <span className="font-bold">Feedback:</span> {blog.rejection_reason}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Action Buttons Toolbar */}
+                          <div className="flex items-center justify-between gap-2 pt-3 border-t border-border/60 flex-wrap">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {isLive && liveUrl && (
+                                <>
+                                  <Button asChild size="sm" className="rounded-xl font-bold text-xs h-8 bg-primary text-primary-foreground">
+                                    <Link to={liveUrl} target="_blank" rel="noopener">
+                                      <ExternalLink className="h-3.5 w-3.5 mr-1" /> View Live Article
+                                    </Link>
+                                  </Button>
+
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleCopyShareLink(blog)}
+                                    className="rounded-xl font-bold text-xs h-8 border-border/80"
+                                  >
+                                    {copiedId === blog.id ? (
+                                      <Check className="h-3.5 w-3.5 mr-1 text-emerald-600" />
+                                    ) : (
+                                      <Copy className="h-3.5 w-3.5 mr-1" />
+                                    )}
+                                    {copiedId === blog.id ? "Copied" : "Share Link"}
+                                  </Button>
+                                </>
+                              )}
+
+                              {!isDeleted && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenEditDetails(blog)}
+                                  className="rounded-xl font-bold text-xs h-8 border-border/80 text-muted-foreground hover:text-foreground"
+                                >
+                                  <Edit3 className="h-3.5 w-3.5 mr-1 text-primary" /> Edit Details
+                                </Button>
+                              )}
+
+                              {isLive && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedBlogForStats(blog);
+                                    setAnalyticsModalOpen(true);
+                                  }}
+                                  className="rounded-xl font-bold text-xs h-8 text-muted-foreground hover:text-foreground"
+                                >
+                                  <BarChart3 className="h-3.5 w-3.5 mr-1 text-primary" /> Analytics
+                                </Button>
+                              )}
+                            </div>
+
+                            {/* Delete / Archive Action */}
+                            {!isDeleted && (
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => {
-                                  setSelectedBlogForStats(blog);
-                                  setAnalyticsModalOpen(true);
+                                  setBlogToDelete(blog);
+                                  setDeleteModalOpen(true);
                                 }}
-                                className="rounded-xl font-bold text-xs h-8 text-muted-foreground hover:text-foreground"
+                                className="rounded-xl font-bold text-xs h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto"
                               >
-                                <BarChart3 className="h-3.5 w-3.5 mr-1 text-primary" /> Analytics Breakdown
+                                <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete
                               </Button>
                             )}
                           </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
 
-                          {/* Delete / Archive Action */}
-                          {!isDeleted && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => {
-                                setBlogToDelete(blog);
-                                setDeleteModalOpen(true);
-                              }}
-                              className="rounded-xl font-bold text-xs h-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 ml-auto"
-                            >
-                              <Trash2 className="h-3.5 w-3.5 mr-1" /> Delete Blog
-                            </Button>
-                          )}
+            {/* ============================================================ */}
+            {/* TAB 2: SUBMIT NEW BUSINESS BLOG (INTEGRATED ON SAME PAGE) */}
+            {/* ============================================================ */}
+            <TabsContent value="submit" className="space-y-6 mt-6 focus-visible:outline-hidden">
+              <Card className="rounded-3xl border-border/80 bg-card shadow-lg overflow-hidden">
+                <CardHeader className="bg-gradient-to-r from-primary/10 via-purple-500/5 to-indigo-500/10 pb-6 border-b border-border/60">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-xl sm:text-2xl font-black text-foreground flex items-center gap-2">
+                        <Sparkles className="h-6 w-6 text-primary" />
+                        Submit a Business Blog
+                      </CardTitle>
+                      <CardDescription className="text-xs sm:text-sm text-muted-foreground mt-1">
+                        Tell your business story, upload high-resolution cover photos, and let our AI engine generate an authoritative SEO article published directly across Bethelincovibe TV.
+                      </CardDescription>
+                    </div>
+
+                    <div className="flex items-center gap-2 bg-card p-2 rounded-2xl border border-border/80 shadow-xs shrink-0 self-start sm:self-auto">
+                      <Wallet className="h-4 w-4 text-primary" />
+                      <div className="text-xs">
+                        <p className="text-[10px] text-muted-foreground">Cost: {isAdmin ? "Free (Admin)" : `₦${COST_CREDITS.toLocaleString()}`}</p>
+                        <p className="font-extrabold text-foreground">Wallet: ₦{balance.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-5 sm:p-8 space-y-6">
+                  {/* Business Name & Category */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-foreground">
+                        Business Name <span className="text-destructive">*</span>
+                      </Label>
+                      <Input
+                        placeholder="e.g. Royal Apex Logistics &amp; Transport"
+                        value={submitForm.business_name}
+                        onChange={(e) => setSubmitForm({ ...submitForm, business_name: e.target.value })}
+                        className="rounded-xl text-xs h-10 border-border/80 bg-background"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-bold text-foreground">Category</Label>
+                      <Select value={submitCategoryId} onValueChange={setSubmitCategoryId}>
+                        <SelectTrigger className="rounded-xl text-xs h-10 border-border/80 bg-background">
+                          <SelectValue placeholder="Select business category" />
+                        </SelectTrigger>
+                        <SelectContent className="rounded-xl">
+                          {categories.map((cat) => (
+                            <SelectItem key={cat.id} value={cat.id} className="text-xs">
+                              {cat.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Business Story & Pitch */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-bold text-foreground">
+                        Business Story, Products &amp; Value Proposition <span className="text-destructive">*</span>
+                      </Label>
+                      <span className="text-[10px] text-muted-foreground">{submitForm.description.length} / 2500</span>
+                    </div>
+                    <Textarea
+                      placeholder="Describe what your business does, your background story, core services, competitive advantages, pricing, and why customers in Nigeria choose you..."
+                      rows={5}
+                      value={submitForm.description}
+                      maxLength={2500}
+                      onChange={(e) => setSubmitForm({ ...submitForm, description: e.target.value })}
+                      className="rounded-xl text-xs border-border/80 bg-background leading-relaxed"
+                    />
+                  </div>
+
+                  {/* Featured Cover Banner Upload */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                      <span>Featured Article Cover Banner</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">Recommended: 16:9 widescreen (PNG/JPG/WEBP)</span>
+                    </Label>
+
+                    {submitBannerPreview ? (
+                      <div className="relative group aspect-video sm:aspect-21/9 max-h-56 rounded-2xl border border-border overflow-hidden bg-black/5">
+                        <img src={submitBannerPreview} alt="Cover preview" className="w-full h-full object-cover" />
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          onClick={() => handleSubmitBannerChange(null)}
+                          className="absolute top-2 right-2 h-8 w-8 rounded-xl opacity-90 hover:opacity-100 shadow-md"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <label className="border-2 border-dashed border-border hover:border-primary/60 transition-colors rounded-2xl p-6 flex flex-col items-center justify-center gap-2 cursor-pointer bg-muted/20 hover:bg-muted/40">
+                        <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                          <Upload className="h-5 w-5" />
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                        <p className="text-xs font-bold text-foreground">Click to upload featured cover banner</p>
+                        <p className="text-[10px] text-muted-foreground">High resolution images receive 3x more article clicks</p>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleSubmitBannerChange(e.target.files?.[0] || null)}
+                        />
+                      </label>
+                    )}
+                  </div>
+
+                  {/* Optional Gallery Photos */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold text-foreground flex items-center justify-between">
+                      <span>Product &amp; Facility Photos (Optional - up to 8)</span>
+                      <span className="text-[10px] text-muted-foreground font-normal">{submitPhotos.length} / 8 photos</span>
+                    </Label>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      {submitPhotos.map((photo, idx) => (
+                        <div key={idx} className="relative group aspect-square rounded-2xl border border-border overflow-hidden bg-muted/20">
+                          <img src={photo.preview} alt={`Photo ${idx + 1}`} className="w-full h-full object-cover" />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveSubmitPhoto(idx)}
+                            className="absolute top-1.5 right-1.5 p-1 rounded-lg bg-black/60 text-white hover:bg-destructive transition-colors"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+
+                      {submitPhotos.length < 8 && (
+                        <label className="border-2 border-dashed border-border hover:border-primary/60 transition-colors rounded-2xl aspect-square flex flex-col items-center justify-center gap-1 cursor-pointer bg-muted/20 hover:bg-muted/40 text-center p-2">
+                          <Plus className="h-5 w-5 text-primary" />
+                          <span className="text-[10px] font-bold text-muted-foreground">Add Photo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            className="hidden"
+                            onChange={(e) => handleAddSubmitPhotos(e.target.files)}
+                          />
+                        </label>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Direct Contact Channels */}
+                  <div className="space-y-3 pt-2 border-t border-border/60">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-foreground">
+                      Direct Customer Contact Channels
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-foreground">Website / Social URL</Label>
+                        <Input
+                          placeholder="https://mybusiness.ng"
+                          value={submitForm.website}
+                          onChange={(e) => setSubmitForm({ ...submitForm, website: e.target.value })}
+                          className="rounded-xl text-xs h-10 border-border/80 bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-foreground">Contact Email</Label>
+                        <Input
+                          placeholder="info@mybusiness.ng"
+                          type="email"
+                          value={submitForm.contact_email}
+                          onChange={(e) => setSubmitForm({ ...submitForm, contact_email: e.target.value })}
+                          className="rounded-xl text-xs h-10 border-border/80 bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-foreground">Phone Number</Label>
+                        <Input
+                          placeholder="+234 800 000 0000"
+                          value={submitForm.contact_phone}
+                          onChange={(e) => setSubmitForm({ ...submitForm, contact_phone: e.target.value })}
+                          className="rounded-xl text-xs h-10 border-border/80 bg-background"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs font-semibold text-foreground">WhatsApp Business Number</Label>
+                        <Input
+                          placeholder="+234 800 000 0000"
+                          value={submitForm.contact_whatsapp}
+                          onChange={(e) => setSubmitForm({ ...submitForm, contact_whatsapp: e.target.value })}
+                          className="rounded-xl text-xs h-10 border-border/80 bg-background"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing and Action Bar */}
+                  <div className="p-4 rounded-2xl bg-muted/40 border border-border/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-bold text-foreground">
+                        Submission Fee: {isAdmin ? <span className="text-amber-500 font-black">₦0 (Admin Free Privilege)</span> : `₦${COST_CREDITS.toLocaleString()}`}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground">
+                        Includes AI article drafting, permanent SEO indexed backlink, and verified publisher badge.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 w-full sm:w-auto">
+                      {!canAfford && (
+                        <Button asChild variant="outline" size="sm" className="rounded-xl font-bold text-xs h-10">
+                          <Link to="/dashboard/wallet">
+                            <Wallet className="h-4 w-4 mr-1.5" /> Top Up Wallet
+                          </Link>
+                        </Button>
+                      )}
+                      <Button
+                        onClick={handleSubmitNewBlog}
+                        disabled={submittingBlog || !canAfford}
+                        className="rounded-xl font-bold text-xs h-10 px-6 bg-primary text-primary-foreground shadow-md w-full sm:w-auto"
+                      >
+                        {submittingBlog ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> Publishing...
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="h-4 w-4 mr-1.5" /> Submit &amp; Publish Business Blog
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
 
-      {/* ================= CONFIRM DELETE BLOG MODAL ================= */}
+      {/* ============================================================ */}
+      {/* UPDATE FEATURED IMAGE MODAL */}
+      {/* ============================================================ */}
+      <Dialog open={imageModalOpen} onOpenChange={setImageModalOpen}>
+        <DialogContent className="sm:max-w-lg rounded-3xl p-6">
+          <DialogHeader>
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-1">
+              <Camera className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-lg font-bold">
+              Update Featured Banner Image
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Update the cover photo for <span className="font-extrabold text-foreground">"{selectedBlogForImage?.business_name}"</span>. This will immediately reflect across the public blog post and directory.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            {/* Live Image Preview */}
+            <div className="relative aspect-video rounded-2xl border border-border overflow-hidden bg-black/5 flex items-center justify-center">
+              {newImagePreview ? (
+                <img src={newImagePreview} alt="New preview" className="w-full h-full object-cover" />
+              ) : customImageUrl ? (
+                <img src={customImageUrl} alt="Current banner" className="w-full h-full object-cover" />
+              ) : (
+                <div className="text-center p-4">
+                  <ImageIcon className="h-8 w-8 text-primary/40 mx-auto mb-1" />
+                  <p className="text-xs text-muted-foreground">No image chosen</p>
+                </div>
+              )}
+            </div>
+
+            {/* Upload File Selector */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Upload from Device</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                onChange={(e) => handleNewImageFileSelect(e.target.files?.[0] || null)}
+                className="rounded-xl text-xs h-10 border-border/80 bg-background cursor-pointer"
+              />
+            </div>
+
+            {/* Direct Image URL input */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Or Direct Image URL</Label>
+              <Input
+                placeholder="https://example.com/cover.jpg"
+                value={customImageUrl}
+                onChange={(e) => {
+                  setCustomImageUrl(e.target.value);
+                  if (newImageFile) {
+                    setNewImageFile(null);
+                    setNewImagePreview(null);
+                  }
+                }}
+                className="rounded-xl text-xs h-10 border-border/80 bg-background"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setImageModalOpen(false)}
+              disabled={updatingImage}
+              className="rounded-xl text-xs font-bold"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveFeaturedImage}
+              disabled={updatingImage}
+              className="rounded-xl text-xs font-bold bg-primary text-primary-foreground"
+            >
+              {updatingImage ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Check className="h-4 w-4 mr-1.5" />}
+              Save &amp; Update Image
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* QUICK EDIT BUSINESS DETAILS MODAL */}
+      {/* ============================================================ */}
+      <Dialog open={editDetailsModalOpen} onOpenChange={setEditDetailsModalOpen}>
+        <DialogContent className="sm:max-w-lg rounded-3xl p-6">
+          <DialogHeader>
+            <div className="h-10 w-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mb-1">
+              <Edit3 className="h-5 w-5" />
+            </div>
+            <DialogTitle className="text-lg font-bold">
+              Edit Business Article Details
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Modify contact channels and description for this submission.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3.5 pt-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Business Name</Label>
+              <Input
+                value={editFormData.business_name}
+                onChange={(e) => setEditFormData({ ...editFormData, business_name: e.target.value })}
+                className="rounded-xl text-xs h-10 border-border/80 bg-background"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-xs font-bold text-foreground">Description &amp; Story</Label>
+              <Textarea
+                rows={4}
+                value={editFormData.description}
+                onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                className="rounded-xl text-xs border-border/80 bg-background"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Website</Label>
+                <Input
+                  value={editFormData.website}
+                  onChange={(e) => setEditFormData({ ...editFormData, website: e.target.value })}
+                  className="rounded-xl text-xs h-9 border-border/80 bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">WhatsApp</Label>
+                <Input
+                  value={editFormData.contact_whatsapp}
+                  onChange={(e) => setEditFormData({ ...editFormData, contact_whatsapp: e.target.value })}
+                  className="rounded-xl text-xs h-9 border-border/80 bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Phone</Label>
+                <Input
+                  value={editFormData.contact_phone}
+                  onChange={(e) => setEditFormData({ ...editFormData, contact_phone: e.target.value })}
+                  className="rounded-xl text-xs h-9 border-border/80 bg-background"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold text-foreground">Email</Label>
+                <Input
+                  value={editFormData.contact_email}
+                  onChange={(e) => setEditFormData({ ...editFormData, contact_email: e.target.value })}
+                  className="rounded-xl text-xs h-9 border-border/80 bg-background"
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-4">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setEditDetailsModalOpen(false)}
+              disabled={savingDetails}
+              className="rounded-xl text-xs font-bold"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleSaveDetails}
+              disabled={savingDetails}
+              className="rounded-xl text-xs font-bold bg-primary text-primary-foreground"
+            >
+              {savingDetails ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Check className="h-4 w-4 mr-1.5" />}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* CONFIRM DELETE MODAL */}
+      {/* ============================================================ */}
       <Dialog open={deleteModalOpen} onOpenChange={setDeleteModalOpen}>
         <DialogContent className="sm:max-w-md rounded-3xl p-6">
           <DialogHeader>
@@ -698,16 +1519,9 @@ export default function UserMyBlogs() {
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
               Are you sure you want to delete <span className="font-extrabold text-foreground">"{blogToDelete?.business_name}"</span>?
-              Once deleted, the article will be unpublished and will immediately stop accumulating or displaying on the public business blog page.
+              Once deleted, the article will be unpublished and will immediately stop displaying on the public business blog page.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 text-xs">
-            <p className="font-semibold">Tracking Confirmation:</p>
-            <p className="mt-0.5 text-[11px]">
-              The blog is archived in your history for records, but removed completely from active visitor directories.
-            </p>
-          </div>
 
           <DialogFooter className="gap-2 sm:gap-0 pt-2">
             <Button
@@ -733,7 +1547,9 @@ export default function UserMyBlogs() {
         </DialogContent>
       </Dialog>
 
-      {/* ================= DETAILED ANALYTICS BREAKDOWN MODAL ================= */}
+      {/* ============================================================ */}
+      {/* DETAILED ANALYTICS MODAL */}
+      {/* ============================================================ */}
       <Dialog open={analyticsModalOpen} onOpenChange={setAnalyticsModalOpen}>
         <DialogContent className="sm:max-w-lg rounded-3xl p-6">
           <DialogHeader>
@@ -742,17 +1558,16 @@ export default function UserMyBlogs() {
                 <BarChart3 className="h-5 w-5" />
               </div>
               <DialogTitle className="text-lg font-bold">
-                Performance Analytics: {selectedBlogForStats?.business_name}
+                Analytics: {selectedBlogForStats?.business_name}
               </DialogTitle>
             </div>
             <DialogDescription className="text-xs text-muted-foreground">
-              Detailed traffic sources and visitor conversion analysis for this published business article.
+              Traffic performance breakdown and reader engagement.
             </DialogDescription>
           </DialogHeader>
 
           {selectedBlogForStats && (
             <div className="space-y-4 pt-2 text-xs">
-              {/* Stat Pillars */}
               <div className="grid grid-cols-3 gap-2.5">
                 <div className="p-3 rounded-2xl bg-muted/40 border border-border/80 text-center">
                   <p className="text-[10px] font-bold text-muted-foreground uppercase">Reads</p>
@@ -773,9 +1588,8 @@ export default function UserMyBlogs() {
                 </div>
               </div>
 
-              {/* Traffic Referrals Breakdown */}
               <div className="space-y-2">
-                <p className="font-bold text-foreground">Traffic Referral Channels</p>
+                <p className="font-bold text-foreground">Traffic Channels</p>
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between p-2 rounded-xl bg-muted/30">
                     <span className="flex items-center gap-2">
@@ -791,22 +1605,11 @@ export default function UserMyBlogs() {
                   </div>
                   <div className="flex items-center justify-between p-2 rounded-xl bg-muted/30">
                     <span className="flex items-center gap-2">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Bethelincovibe Ecosystem Feed
+                      <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Bethelincovibe Feed
                     </span>
                     <span className="font-bold">14%</span>
                   </div>
                 </div>
-              </div>
-
-              {/* Device Usage */}
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-muted/40 border border-border/80">
-                <div className="flex items-center gap-2">
-                  <Smartphone className="h-4 w-4 text-primary" />
-                  <span>Mobile vs Desktop Readers</span>
-                </div>
-                <Badge variant="outline" className="font-bold text-xs">
-                  82% Mobile · 18% Desktop
-                </Badge>
               </div>
             </div>
           )}
@@ -817,7 +1620,7 @@ export default function UserMyBlogs() {
               onClick={() => setAnalyticsModalOpen(false)}
               className="rounded-xl text-xs font-bold w-full sm:w-auto"
             >
-              Close Breakdown
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -834,7 +1637,7 @@ function BlogStatusBadge({ status }: { status: string }) {
     review: { label: "In Review", variant: "secondary" },
     approved: { label: "Approved", variant: "default", className: "bg-emerald-600 text-white font-bold" },
     published: { label: "Live Published", variant: "default", className: "bg-emerald-600 text-white font-bold shadow-xs" },
-    rejected: { label: "Rejected & Refunded", variant: "destructive" },
+    rejected: { label: "Rejected", variant: "destructive" },
     deleted: { label: "Archived / Deleted", variant: "outline", className: "text-muted-foreground border-border" },
   };
 

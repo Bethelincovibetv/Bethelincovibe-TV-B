@@ -167,11 +167,6 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link to="/dashboard/submit-blog" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 font-medium">
-                  <Sparkles className="h-3.5 w-3.5 text-primary/70" /> Submit Business Blog
-                </Link>
-              </li>
-              <li>
                 <Link to="/products/list" className="text-muted-foreground hover:text-primary transition-colors flex items-center gap-2 font-medium">
                   <Rocket className="h-3.5 w-3.5 text-primary/70" /> Sell a Product
                 </Link>

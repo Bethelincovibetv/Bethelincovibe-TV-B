@@ -211,13 +211,13 @@ export default function BusinessDirectory() {
         {/* Hero */}
         <section className="relative mb-5 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent p-5 text-primary-foreground shadow-[0_18px_40px_-24px_hsl(var(--primary)/0.9)] md:p-10">
           <div className="relative z-10 max-w-3xl">
-            <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold backdrop-blur">
+            <span className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-[11px] font-bold text-white backdrop-blur border border-white/20">
               <Building2 className="h-3.5 w-3.5" />Lagos Business Marketplace
             </span>
-            <h1 className="mb-2 text-2xl font-extrabold leading-tight md:text-4xl">
+            <h1 className="mb-2 text-2xl font-extrabold leading-tight md:text-4xl text-white drop-shadow-sm">
               {activeCategory ? `${activeCategory.name} businesses in Lagos` : "Find trusted local businesses"}
             </h1>
-            <p className="mb-5 text-sm opacity-90 md:text-base">
+            <p className="mb-5 text-sm text-white/90 md:text-base font-medium">
               Verified listings, real photos and direct contact — or list your own business and reach thousands of customers.
             </p>
             <div className="flex flex-wrap gap-2">

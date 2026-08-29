@@ -59,10 +59,66 @@ export const ALL_PRODUCT_CATEGORIES = [
   ...DIGITAL_PRODUCT_CATEGORIES,
 ];
 
+export function isValidUuid(val?: string | null): boolean {
+  if (!val || typeof val !== "string") return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+}
+
+/**
+ * Safely resolves a category UUID for database insertion.
+ * Ensures we NEVER pass non-UUID strings into Postgres category_id columns, preventing 22P02 invalid input syntax errors.
+ */
+export function resolveSafeProductCategoryUuid(
+  categoryIdOrSlug: string | undefined | null,
+  dbCategories: Array<{ id: string; slug?: string; name?: string; type?: string }> = []
+): string | null {
+  if (!categoryIdOrSlug) return null;
+  const clean = String(categoryIdOrSlug).trim();
+
+  // 1. If already a valid UUID
+  if (isValidUuid(clean)) return clean;
+
+  // 2. Search in database categories by slug or name or id
+  const directMatch = dbCategories.find(
+    (c) =>
+      c.id === clean ||
+      (c.slug && c.slug.toLowerCase() === clean.toLowerCase()) ||
+      (c.name && c.name.toLowerCase() === clean.toLowerCase()) ||
+      (c.slug && clean.toLowerCase().replace(/-/g, " ").includes(c.slug.toLowerCase().replace(/-/g, " "))) ||
+      (c.name && clean.toLowerCase().includes(c.name.toLowerCase()))
+  );
+
+  if (directMatch && isValidUuid(directMatch.id)) {
+    return directMatch.id;
+  }
+
+  // 3. Match against ALL_PRODUCT_CATEGORIES presets
+  const preset = ALL_PRODUCT_CATEGORIES.find(
+    (p) => p.id === clean || p.slug === clean || p.name.toLowerCase() === clean.toLowerCase()
+  );
+  if (preset) {
+    const presetMatch = dbCategories.find(
+      (c) =>
+        (c.slug && (c.slug === preset.slug || preset.slug.includes(c.slug))) ||
+        (c.name && (c.name.toLowerCase() === preset.name.toLowerCase() || preset.name.toLowerCase().includes(c.name.toLowerCase())))
+    );
+    if (presetMatch && isValidUuid(presetMatch.id)) return presetMatch.id;
+  }
+
+  // 4. If any product category exists in dbCategories, pick the first valid UUID
+  const productCat = dbCategories.find(c => isValidUuid(c.id) && (c.type === "product" || c.type === "business"));
+  if (productCat) {
+    return productCat.id;
+  }
+
+  return null;
+}
+
 export function getCategoryBySlug(slug?: string | null) {
   if (!slug) return null;
   return ALL_PRODUCT_CATEGORIES.find((c) => c.slug === slug || c.name.toLowerCase() === slug.toLowerCase());
 }
+
 
 /**
  * Clean stray asterisks, hashes, and markdown formatting artifacts from text
