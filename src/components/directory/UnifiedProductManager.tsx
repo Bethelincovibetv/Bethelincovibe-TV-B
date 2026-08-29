@@ -580,23 +580,31 @@ export default function UnifiedProductManager({
             </p>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto shrink-0">
             <Button
+              type="button"
               variant={activeTab === "form" ? "secondary" : "outline"}
               onClick={() => {
                 if (activeTab !== "form") resetToNew();
                 setActiveTab("form");
               }}
-              className="gap-1.5 font-bold rounded-2xl w-full sm:w-auto shadow-sm bg-white text-purple-950 hover:bg-white/90"
+              className="gap-2 font-bold rounded-2xl h-11 px-4 sm:px-5 w-full sm:w-auto shadow-md bg-white text-purple-950 hover:bg-white/90 justify-center text-xs sm:text-sm active:scale-98 transition-all"
             >
-              <Plus className="h-4 w-4" /> {isEditing ? "Editing Product" : "Create New Product"}
+              <Plus className="h-4 w-4 shrink-0" />
+              <span>{isEditing ? "Editing Product" : "Create New Product"}</span>
             </Button>
             <Button
+              type="button"
               variant={activeTab === "manage" ? "secondary" : "outline"}
               onClick={() => setActiveTab("manage")}
-              className="gap-1.5 font-bold rounded-2xl w-full sm:w-auto text-white border-white/40 hover:bg-white/10"
+              className={`gap-2 font-bold rounded-2xl h-11 px-4 sm:px-5 w-full sm:w-auto justify-center text-xs sm:text-sm whitespace-nowrap active:scale-98 transition-all ${
+                activeTab === "manage"
+                  ? "bg-white text-purple-950 shadow-md"
+                  : "text-white border border-white/40 hover:bg-white/15 bg-white/5"
+              }`}
             >
-              <Package className="h-4 w-4" /> My Products ({products.length})
+              <Package className="h-4 w-4 shrink-0" />
+              <span>My Products ({products.length})</span>
             </Button>
           </div>
         </div>

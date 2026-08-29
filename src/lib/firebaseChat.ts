@@ -97,6 +97,14 @@ export async function testFirestoreConnection(): Promise<boolean> {
 
 export interface RealtimeChatRoom {
   id: string;
+  name?: string;
+  description?: string;
+  roomType?: "direct" | "group" | "community" | "trade_mastermind";
+  avatarEmoji?: string;
+  avatarUrl?: string;
+  creatorId?: string;
+  adminIds?: string[];
+  isOfficial?: boolean;
   participants: string[];
   participantNames: Record<string, string>;
   participantAvatars?: Record<string, string>;
@@ -234,6 +242,242 @@ export async function getOrCreateChatRoom(
   return roomId;
 }
 
+export const BETHELINCO_GENERAL_ROOM_ID = "room_bethelincovibetv_general";
+
+/**
+ * Connects to or creates the official BethelincovibeTV Community Chat Room
+ */
+export async function getOrCreateGeneralBethelChatRoom(
+  userId: string,
+  userName: string,
+  userAvatar?: string
+): Promise<RealtimeChatRoom> {
+  const roomId = BETHELINCO_GENERAL_ROOM_ID;
+  const officialRoomData: Partial<RealtimeChatRoom> = {
+    id: roomId,
+    name: "Bethelincovibe TV Official Community",
+    description: "Official real-time networking & trade channel for all entrepreneurs, verified merchants, and platform creators.",
+    roomType: "community",
+    avatarUrl: "/logo.png",
+    avatarEmoji: "📺",
+    isOfficial: true,
+    creatorId: "system_admin",
+    adminIds: ["system_admin", "admin_lead"],
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const roomRef = doc(firestoreDb, "chats", roomId);
+    const existing = await getDoc(roomRef);
+
+    if (existing.exists()) {
+      const data = existing.data() as any;
+      const participants = Array.isArray(data.participants) ? [...data.participants] : [];
+      const participantNames = { ...(data.participantNames || {}) };
+      const participantAvatars = { ...(data.participantAvatars || {}) };
+
+      if (!participants.includes(userId)) {
+        participants.push(userId);
+      }
+      participantNames[userId] = userName;
+      if (userAvatar) participantAvatars[userId] = userAvatar;
+
+      await setDoc(roomRef, { participants, participantNames, participantAvatars }, { merge: true });
+    } else {
+      await setDoc(roomRef, {
+        ...officialRoomData,
+        participants: [userId, "system_admin"],
+        participantNames: {
+          [userId]: userName,
+          system_admin: "Bethelincovibe TV Official",
+        },
+        participantAvatars: {
+          system_admin: "/logo.png",
+          [userId]: userAvatar || "",
+        },
+        lastMessageText: "Welcome to Bethelincovibe TV Official Community! 🚀 Connect, trade, and network in real-time.",
+        lastMessageTime: serverTimestamp(),
+        createdAt: serverTimestamp(),
+      });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
+  }
+
+  // Update local storage
+  const fullRoom: RealtimeChatRoom = {
+    id: roomId,
+    name: "Bethelincovibe TV Official Community",
+    description: "Official real-time networking & trade channel for all entrepreneurs, verified merchants, and platform creators.",
+    roomType: "community",
+    avatarUrl: "/logo.png",
+    avatarEmoji: "📺",
+    isOfficial: true,
+    creatorId: "system_admin",
+    adminIds: ["system_admin", "admin_lead"],
+    participants: [userId, "system_admin"],
+    participantNames: {
+      [userId]: userName,
+      system_admin: "Bethelincovibe TV Official",
+    },
+    participantAvatars: {
+      system_admin: "/logo.png",
+      [userId]: userAvatar || "",
+    },
+    lastMessageText: "Welcome to Bethelincovibe TV Official Community! 🚀 Connect, trade, and network in real-time.",
+    createdAt: new Date().toISOString(),
+  };
+
+  const localList = getLocalChats(userId);
+  if (!localList.some((c) => c.id === roomId)) {
+    saveLocalChats(userId, [fullRoom, ...localList]);
+  }
+
+  return fullRoom;
+}
+
+/**
+ * Creates a new custom Group / Mastermind Chat Room with admin privileges for creator
+ */
+export async function createCustomChatRoom(params: {
+  creatorId: string;
+  creatorName: string;
+  creatorAvatar?: string;
+  name: string;
+  description: string;
+  roomType: "group" | "trade_mastermind" | "business_inquiry";
+  avatarEmoji: string;
+  avatarUrl?: string;
+  initialMemberIds?: string[];
+}): Promise<string> {
+  const roomId = `room_group_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  const participants = Array.from(new Set([params.creatorId, ...(params.initialMemberIds || [])]));
+  const participantNames: Record<string, string> = { [params.creatorId]: params.creatorName };
+  const participantAvatars: Record<string, string> = { [params.creatorId]: params.creatorAvatar || "" };
+
+  const roomData: RealtimeChatRoom = {
+    id: roomId,
+    name: params.name,
+    description: params.description,
+    roomType: params.roomType,
+    avatarEmoji: params.avatarEmoji,
+    avatarUrl: params.avatarUrl,
+    creatorId: params.creatorId,
+    adminIds: [params.creatorId],
+    participants,
+    participantNames,
+    participantAvatars,
+    lastMessageText: `Room created by ${params.creatorName}`,
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const roomRef = doc(firestoreDb, "chats", roomId);
+    await setDoc(roomRef, {
+      ...roomData,
+      createdAt: serverTimestamp(),
+      lastMessageTime: serverTimestamp(),
+    });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
+  }
+
+  const localList = getLocalChats(params.creatorId);
+  saveLocalChats(params.creatorId, [roomData, ...localList]);
+
+  return roomId;
+}
+
+/**
+ * Admin Action: Add member to a chat room
+ */
+export async function addMemberToChatRoom(
+  chatId: string,
+  memberId: string,
+  memberName: string,
+  memberAvatar?: string
+): Promise<void> {
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const participants = Array.from(new Set([...(data.participants || []), memberId]));
+      const participantNames = { ...(data.participantNames || {}), [memberId]: memberName };
+      const participantAvatars = { ...(data.participantAvatars || {}), [memberId]: memberAvatar || "" };
+
+      await setDoc(
+        roomRef,
+        { participants, participantNames, participantAvatars },
+        { merge: true }
+      );
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+  }
+}
+
+/**
+ * Admin Action: Remove a member from chat room
+ */
+export async function removeMemberFromChatRoom(
+  chatId: string,
+  memberId: string
+): Promise<void> {
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const participants = (data.participants || []).filter((id: string) => id !== memberId);
+      const adminIds = (data.adminIds || []).filter((id: string) => id !== memberId);
+      await setDoc(roomRef, { participants, adminIds }, { merge: true });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+  }
+}
+
+/**
+ * Admin Action: Promote member to admin
+ */
+export async function promoteMemberToAdmin(
+  chatId: string,
+  memberId: string
+): Promise<void> {
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const adminIds = Array.from(new Set([...(data.adminIds || []), memberId]));
+      await setDoc(roomRef, { adminIds }, { merge: true });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+  }
+}
+
+/**
+ * Admin Action: Update room info (name, description, emoji icon)
+ */
+export async function updateChatRoomDetails(
+  chatId: string,
+  updates: {
+    name?: string;
+    description?: string;
+    avatarEmoji?: string;
+    avatarUrl?: string;
+  }
+): Promise<void> {
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    await setDoc(roomRef, updates, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+  }
+}
+
 /**
  * Subscribes to real-time chats for the given user
  */
@@ -258,6 +502,14 @@ export function subscribeToUserChats(
           const data = d.data();
           list.push({
             id: d.id,
+            name: data.name,
+            description: data.description,
+            roomType: data.roomType,
+            avatarEmoji: data.avatarEmoji,
+            avatarUrl: data.avatarUrl,
+            creatorId: data.creatorId,
+            adminIds: data.adminIds,
+            isOfficial: data.isOfficial,
             participants: data.participants || [],
             participantNames: data.participantNames || {},
             participantAvatars: data.participantAvatars || {},

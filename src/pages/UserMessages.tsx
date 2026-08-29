@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Link, Navigate } from "react-router-dom";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +35,11 @@ import {
   Sparkles,
   Loader2,
   Info,
+  Tv,
+  AtSign,
+  Reply,
+  X,
+  Store,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -43,15 +48,18 @@ import { VoiceNotePlayer } from "@/components/chat/VoiceNotePlayer";
 import { VoiceNoteRecorder } from "@/components/chat/VoiceNoteRecorder";
 import { EmojiReactionsMenu } from "@/components/chat/EmojiReactionsMenu";
 import { CreateChatRoomDialog } from "@/components/chat/CreateChatRoomDialog";
+import { ReactionDetailsDialog } from "@/components/chat/ReactionDetailsDialog";
+import { MessageInfoDialog } from "@/components/chat/MessageInfoDialog";
+import { MentionSuggestions } from "@/components/chat/MentionSuggestions";
 import { chatSounds } from "@/lib/chatSounds";
 
-interface ChatReaction {
+export interface ChatReaction {
   emoji: string;
   count: number;
   users: string[];
 }
 
-interface ChatMessage {
+export interface ChatMessage {
   id: string;
   sender_id: string;
   sender_name: string;
@@ -65,15 +73,26 @@ interface ChatMessage {
   is_outgoing: boolean;
   status: "sent" | "delivered" | "read";
   created_at: string;
+  reply_to?: {
+    id: string;
+    sender_name: string;
+    message: string;
+  };
   reactions?: Record<string, ChatReaction>;
+  viewers?: {
+    userId: string;
+    userName: string;
+    userAvatar?: string;
+    readAt?: string;
+  }[];
 }
 
-interface ChatRoom {
+export interface ChatRoom {
   id: string;
   name: string;
   avatarEmoji?: string;
   avatarUrl?: string;
-  type: "direct" | "group" | "business_inquiry" | "trade_mastermind";
+  type: "direct" | "group" | "business_inquiry" | "trade_mastermind" | "official";
   lastMessage?: string;
   lastMessageTime?: string;
   unreadCount: number;
@@ -82,10 +101,21 @@ interface ChatRoom {
   participantCount?: number;
   phone?: string;
   businessTitle?: string;
+  targetUserId?: string;
+  participants?: string[];
+  participantNames?: Record<string, string>;
+  participantAvatars?: Record<string, string>;
 }
 
 export default function UserMessages() {
   const { user, loading: authLoading } = useAuth();
+  const [searchParams] = useSearchParams();
+
+  const targetUserParam = searchParams.get("targetUserId");
+  const targetNameParam = searchParams.get("targetName");
+  const targetAvatarParam = searchParams.get("targetAvatar");
+  const officialRoomParam = searchParams.get("officialRoom");
+  const roomIdParam = searchParams.get("roomId");
 
   // Rooms & Active Chat State
   const [rooms, setRooms] = useState<ChatRoom[]>([]);
@@ -95,7 +125,15 @@ export default function UserMessages() {
   const [searchQuery, setSearchQuery] = useState("");
   const [messageText, setMessageText] = useState("");
 
-  // UI Interactive States
+  // Directory Search State (search verified vendors & members)
+  const [directorySearch, setDirectorySearch] = useState("");
+  const [discoveredContacts, setDiscoveredContacts] = useState<any[]>([]);
+  const [isSearchingDirectory, setIsSearchingDirectory] = useState(false);
+
+  // Reply Target
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
+
+  // UI Dialog States
   const [isRecordingVoice, setIsRecordingVoice] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(chatSounds.isEnabled());
   const [activeReactionMessageId, setActiveReactionMessageId] = useState<string | null>(null);
@@ -104,9 +142,23 @@ export default function UserMessages() {
   const [wallpaperTheme, setWallpaperTheme] = useState<"classic" | "dark" | "emerald" | "slate">("classic");
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
 
-  // File Upload Ref
+  // Who Reacted Modal State
+  const [reactionDetailsMessage, setReactionDetailsMessage] = useState<ChatMessage | null>(null);
+  // Message Info / Who Viewed Modal State
+  const [infoMessage, setInfoMessage] = useState<ChatMessage | null>(null);
+
+  // Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const messageInputRef = useRef<HTMLInputElement | null>(null);
+
+  const currentUserId = user?.id || "guest_user";
+  const currentUserName =
+    user?.user_metadata?.display_name ||
+    user?.user_metadata?.full_name ||
+    user?.email?.split("@")[0] ||
+    "You";
+  const currentUserAvatar = user?.user_metadata?.avatar_url;
 
   // Auto-scroll chat to latest message smoothly
   const scrollToBottom = (behavior: ScrollBehavior = "smooth") => {
@@ -117,11 +169,56 @@ export default function UserMessages() {
     scrollToBottom();
   }, [messages, activeRoomId]);
 
-  // Load User Businesses & Initial Conversations
+  // Load User Conversations & Rooms
   useEffect(() => {
     if (!user) return;
     loadConversations();
   }, [user]);
+
+  // Handle URL Query Params (e.g. clicking "Chat with Vendor" or "Official Community")
+  useEffect(() => {
+    if (!user || loading) return;
+
+    if (officialRoomParam === "true" || officialRoomParam === "bethelincovibetv") {
+      const officialRoom = rooms.find((r) => r.id === "room_official_lounge");
+      if (officialRoom) {
+        handleSelectRoom(officialRoom);
+      }
+    } else if (targetUserParam) {
+      const existing = rooms.find((r) => r.targetUserId === targetUserParam || r.id === `direct_${targetUserParam}`);
+      if (existing) {
+        handleSelectRoom(existing);
+      } else {
+        // Create direct room on the fly
+        const targetName = targetNameParam || "Platform Merchant";
+        const newDirectRoom: ChatRoom = {
+          id: `direct_${targetUserParam}`,
+          name: targetName,
+          avatarUrl: targetAvatarParam || undefined,
+          avatarEmoji: "💬",
+          type: "direct",
+          lastMessage: "Direct encrypted chat started",
+          lastMessageTime: new Date().toISOString(),
+          unreadCount: 0,
+          isEncrypted: true,
+          targetUserId: targetUserParam,
+          participantNames: {
+            [targetUserParam]: targetName,
+            [currentUserId]: currentUserName,
+          },
+          participantAvatars: {
+            ...(targetAvatarParam ? { [targetUserParam]: targetAvatarParam } : {}),
+            ...(currentUserAvatar ? { [currentUserId]: currentUserAvatar } : {}),
+          },
+        };
+        setRooms((prev) => [newDirectRoom, ...prev]);
+        handleSelectRoom(newDirectRoom);
+      }
+    } else if (roomIdParam) {
+      const room = rooms.find((r) => r.id === roomIdParam);
+      if (room) handleSelectRoom(room);
+    }
+  }, [targetUserParam, targetNameParam, officialRoomParam, roomIdParam, loading]);
 
   const loadConversations = async () => {
     try {
@@ -147,24 +244,47 @@ export default function UserMessages() {
         inquiryMessages = msgs || [];
       }
 
-      // 3. Build WhatsApp Channels & Contact Rooms
+      // 3. Build WhatsApp Channels & Rooms
       const loadedRooms: ChatRoom[] = [];
 
-      // Add Default Community Trade Mastermind Group
+      // Official Bethelincovibe TV Lounge (Community)
+      loadedRooms.push({
+        id: "room_official_lounge",
+        name: "BethelincovibeTV Official Lounge",
+        avatarEmoji: "📺",
+        type: "official",
+        lastMessage: "Global verified trade announcements, broadcasts & community discussions.",
+        lastMessageTime: new Date().toISOString(),
+        unreadCount: 0,
+        isPinned: true,
+        isEncrypted: true,
+        participantCount: 2840,
+        participantNames: {
+          [currentUserId]: currentUserName,
+          support: "Bethelincovibe Support",
+          community: "Verified Merchants",
+        },
+      });
+
+      // VIP Trade Mastermind Hub
       loadedRooms.push({
         id: "room_general_trade",
-        name: "Bethelincovibe VIP Trade Hub",
+        name: "VIP Trade Mastermind Hub",
         avatarEmoji: "🚀",
         type: "trade_mastermind",
-        lastMessage: "Welcome to the verified Nigeria & Lagos business networking group!",
+        lastMessage: "Verified Nigeria & West Africa wholesale trade and partnership group.",
         lastMessageTime: new Date().toISOString(),
         unreadCount: 0,
         isPinned: true,
         isEncrypted: true,
         participantCount: 1420,
+        participantNames: {
+          [currentUserId]: currentUserName,
+          community: "VIP Traders",
+        },
       });
 
-      // Add Customer Inquiries mapped to rooms
+      // Customer Inquiries mapped to rooms
       const customerMap = new Map<string, any[]>();
       inquiryMessages.forEach((m) => {
         const key = m.sender_phone || m.sender_email || m.sender_name || m.id;
@@ -188,10 +308,14 @@ export default function UserMessages() {
           isEncrypted: true,
           phone: latest.sender_phone,
           businessTitle: `${bizName} · ${latest.service_title || "General"}`,
+          participantNames: {
+            [currentUserId]: currentUserName,
+            customer: latest.sender_name || "Customer",
+          },
         });
       });
 
-      // Check stored custom rooms in localStorage
+      // Stored Custom Rooms in localStorage
       const storedRooms = localStorage.getItem(`btv_custom_rooms_${user?.id}`);
       if (storedRooms) {
         try {
@@ -206,10 +330,11 @@ export default function UserMessages() {
 
       setRooms(loadedRooms);
 
-      // Select first room if none selected
+      // Select initial room
       if (loadedRooms.length > 0 && !activeRoomId) {
-        setActiveRoomId(loadedRooms[0].id);
-        loadRoomMessages(loadedRooms[0]);
+        const initial = loadedRooms[0];
+        setActiveRoomId(initial.id);
+        loadRoomMessages(initial);
       }
     } catch (err) {
       console.warn("Failed loading conversations:", err);
@@ -218,9 +343,117 @@ export default function UserMessages() {
     }
   };
 
+  // Directory Member & Business Search
+  useEffect(() => {
+    if (!directorySearch.trim()) {
+      setDiscoveredContacts([]);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsSearchingDirectory(true);
+
+    async function searchDirectory() {
+      try {
+        const q = directorySearch.trim();
+        const { data: businesses } = await supabase
+          .from("businesses")
+          .select("id, name, category, city, logo_url")
+          .or(`name.ilike.%${q}%,category.ilike.%${q}%,city.ilike.%${q}%`)
+          .limit(5);
+
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .or(`username.ilike.%${q}%,display_name.ilike.%${q}%`)
+          .limit(5);
+
+        if (!isCancelled) {
+          const list: any[] = [];
+          (businesses || []).forEach((b) => {
+            list.push({
+              id: b.id,
+              name: b.name,
+              role: b.category || "Verified Business",
+              avatar: b.logo_url,
+              isBusiness: true,
+            });
+          });
+          (profiles || []).forEach((p) => {
+            if (p.id !== currentUserId) {
+              list.push({
+                id: p.id,
+                name: p.display_name || `@${p.username}`,
+                role: p.username ? `@${p.username}` : "Platform Member",
+                avatar: p.avatar_url,
+                isBusiness: false,
+              });
+            }
+          });
+          setDiscoveredContacts(list);
+        }
+      } catch (err) {
+        console.warn("Directory search error:", err);
+      } finally {
+        if (!isCancelled) setIsSearchingDirectory(false);
+      }
+    }
+
+    const timer = setTimeout(searchDirectory, 250);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [directorySearch, currentUserId]);
+
+  const handleStartChatWith = (contact: {
+    id: string;
+    name: string;
+    role: string;
+    avatar?: string;
+    isBusiness?: boolean;
+  }) => {
+    const roomId = `direct_${contact.id}`;
+    const existing = rooms.find((r) => r.id === roomId || r.targetUserId === contact.id);
+
+    if (existing) {
+      handleSelectRoom(existing);
+    } else {
+      const newRoom: ChatRoom = {
+        id: roomId,
+        name: contact.name,
+        avatarUrl: contact.avatar,
+        avatarEmoji: contact.isBusiness ? "🏬" : "👤",
+        type: "direct",
+        lastMessage: "Direct encrypted chat started",
+        lastMessageTime: new Date().toISOString(),
+        unreadCount: 0,
+        isEncrypted: true,
+        businessTitle: contact.role,
+        targetUserId: contact.id,
+        participantNames: {
+          [contact.id]: contact.name,
+          [currentUserId]: currentUserName,
+        },
+        participantAvatars: {
+          ...(contact.avatar ? { [contact.id]: contact.avatar } : {}),
+          ...(currentUserAvatar ? { [currentUserId]: currentUserAvatar } : {}),
+        },
+      };
+
+      const updated = [newRoom, ...rooms];
+      setRooms(updated);
+      localStorage.setItem(`btv_custom_rooms_${user?.id}`, JSON.stringify(updated));
+      handleSelectRoom(newRoom);
+    }
+
+    setDirectorySearch("");
+    setDiscoveredContacts([]);
+    toast.success(`Opened chat with ${contact.name}`);
+  };
+
   // Load Messages for the Selected Room
   const loadRoomMessages = (room: ChatRoom) => {
-    // Check cached messages for this room
     const cacheKey = `btv_room_msgs_${room.id}`;
     const cached = localStorage.getItem(cacheKey);
 
@@ -231,16 +464,48 @@ export default function UserMessages() {
       } catch {}
     }
 
-    // Default starting messages with realistic WhatsApp demo conversation
+    // Default starting messages
     const initialMsgs: ChatMessage[] = [];
 
-    if (room.type === "trade_mastermind") {
+    if (room.id === "room_official_lounge") {
+      initialMsgs.push(
+        {
+          id: "m_off_1",
+          sender_id: "system",
+          sender_name: "Bethelincovibe Security",
+          message: "Welcome to the BethelincovibeTV Official Community Lounge! Messages and voice notes are end-to-end encrypted with SHA-256 client cryptography. Use @all to tag all channel members.",
+          type: "system",
+          is_outgoing: false,
+          status: "read",
+          created_at: new Date(Date.now() - 3600000 * 3).toISOString(),
+        },
+        {
+          id: "m_off_2",
+          sender_id: "merchant_amina",
+          sender_name: "Amina Fashion Hub",
+          message: "Hello everyone! Just updated our wholesale Ankara catalogs on Bethelincovibe TV. Feel free to connect for bulk supply orders.",
+          type: "text",
+          is_outgoing: false,
+          status: "read",
+          created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
+          reactions: {
+            "🔥": { emoji: "🔥", count: 12, users: ["u1", "u2", "u3"] },
+            "👏": { emoji: "👏", count: 8, users: ["u4", "u5"] },
+          },
+          viewers: [
+            { userId: "u1", userName: "Emeka Tech", readAt: "10:14" },
+            { userId: "u2", userName: "Kemi Lagos Store", readAt: "10:18" },
+            { userId: "u3", userName: "Tunde Logistics", readAt: "10:25" },
+          ],
+        }
+      );
+    } else if (room.type === "trade_mastermind") {
       initialMsgs.push(
         {
           id: "m_init_1",
           sender_id: "system",
           sender_name: "Bethelincovibe Security",
-          message: "Messages and calls in this room are end-to-end encrypted with SHA-256 client cryptography. No one outside of this chat can read or listen to them.",
+          message: "Messages and calls in this VIP trade hub are end-to-end encrypted with SHA-256 client cryptography.",
           type: "system",
           is_outgoing: false,
           status: "read",
@@ -248,16 +513,16 @@ export default function UserMessages() {
         },
         {
           id: "m_init_2",
-          sender_id: "agent_bethel",
-          sender_name: "Coach Bethel Goodgift",
-          message: "Welcome to the verified VIP Trade Mastermind! Feel free to share your business updates, supplier needs, or voice notes here.",
+          sender_id: "vendor_david",
+          sender_name: "David Alaba Wholesale",
+          message: "Welcome to the VIP Mastermind Hub! Share wholesale trade offers, escrow verified goods, and container inventory here.",
           type: "text",
           is_outgoing: false,
           status: "read",
           created_at: new Date(Date.now() - 3600000).toISOString(),
           reactions: {
-            "🔥": { emoji: "🔥", count: 8, users: ["user1", "user2"] },
-            "👏": { emoji: "👏", count: 5, users: ["user3"] },
+            "🔥": { emoji: "🔥", count: 6, users: ["u1", "u2"] },
+            "🤝": { emoji: "🤝", count: 4, users: ["u3"] },
           },
         }
       );
@@ -267,7 +532,7 @@ export default function UserMessages() {
           id: "m_inq_1",
           sender_id: "system",
           sender_name: "System",
-          message: `Inquiry from customer regarding ${room.businessTitle || "your business listing"}.`,
+          message: `Inquiry from verified buyer regarding ${room.businessTitle || "your business listing"}.`,
           type: "system",
           is_outgoing: false,
           status: "read",
@@ -277,7 +542,7 @@ export default function UserMessages() {
           id: "m_inq_2",
           sender_id: "customer",
           sender_name: room.name,
-          message: room.lastMessage || "Hello, I saw your verified listing on Bethelincovibe TV and would like more details.",
+          message: room.lastMessage || "Hello, I saw your verified listing on Bethelincovibe TV and would like to inquire about pricing and delivery.",
           type: "text",
           is_outgoing: false,
           status: "read",
@@ -305,6 +570,7 @@ export default function UserMessages() {
     setActiveRoomId(room.id);
     loadRoomMessages(room);
     setMobileView("chat");
+    setReplyingTo(null);
 
     // Mark as read in room list
     setRooms((prev) =>
@@ -312,26 +578,59 @@ export default function UserMessages() {
     );
   };
 
+  // Mention Autocomplete (@...)
+  const activeMentionMatch = messageText.match(/@([a-zA-Z0-9_-]*)$/);
+  const mentionQuery = activeMentionMatch ? activeMentionMatch[1] : null;
+
+  const handleSelectMention = (tag: string) => {
+    if (activeMentionMatch) {
+      const prefix = messageText.slice(0, activeMentionMatch.index);
+      setMessageText(prefix + tag);
+    } else {
+      setMessageText((prev) => prev + " " + tag);
+    }
+    messageInputRef.current?.focus();
+  };
+
   // Send Text Message
   const handleSendMessage = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!messageText.trim() || !activeRoomId || !user) return;
 
+    const currentRoom = rooms.find((r) => r.id === activeRoomId);
+
     const newMsg: ChatMessage = {
       id: `msg_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       sender_id: user.id,
-      sender_name: user.email?.split("@")[0] || "You",
+      sender_name: currentUserName,
+      sender_avatar: currentUserAvatar,
       room_id: activeRoomId,
       message: messageText.trim(),
       type: "text",
       is_outgoing: true,
       status: "delivered",
       created_at: new Date().toISOString(),
+      reply_to: replyingTo
+        ? {
+            id: replyingTo.id,
+            sender_name: replyingTo.sender_name,
+            message: replyingTo.message || replyingTo.type,
+          }
+        : undefined,
+      viewers: [
+        {
+          userId: user.id,
+          userName: currentUserName,
+          userAvatar: currentUserAvatar,
+          readAt: format(new Date(), "HH:mm"),
+        },
+      ],
     };
 
     const updated = [...messages, newMsg];
     setMessages(updated);
     setMessageText("");
+    setReplyingTo(null);
 
     // Cache locally
     localStorage.setItem(`btv_room_msgs_${activeRoomId}`, JSON.stringify(updated));
@@ -348,8 +647,7 @@ export default function UserMessages() {
       )
     );
 
-    // Simulate realistic auto-response in demo / customer threads after short delay
-    const currentRoom = rooms.find((r) => r.id === activeRoomId);
+    // Auto simulated response in customer inquiries after brief delay
     if (currentRoom && currentRoom.type === "business_inquiry") {
       setTimeout(() => {
         const replyMsg: ChatMessage = {
@@ -357,7 +655,7 @@ export default function UserMessages() {
           sender_id: "customer",
           sender_name: currentRoom.name,
           room_id: activeRoomId,
-          message: "Thank you for the prompt reply! Looking forward to finalizing this.",
+          message: "Thank you for the prompt response! Let's proceed with the details.",
           type: "text",
           is_outgoing: false,
           status: "read",
@@ -369,7 +667,7 @@ export default function UserMessages() {
           return nextMsgs;
         });
         chatSounds.playReceivedSound();
-      }, 1400);
+      }, 1200);
     }
   };
 
@@ -382,7 +680,8 @@ export default function UserMessages() {
     const newMsg: ChatMessage = {
       id: `vn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
       sender_id: user.id,
-      sender_name: user.email?.split("@")[0] || "You",
+      sender_name: currentUserName,
+      sender_avatar: currentUserAvatar,
       room_id: activeRoomId,
       type: "voice_note",
       media_url: audioUrl,
@@ -418,7 +717,8 @@ export default function UserMessages() {
     const newMsg: ChatMessage = {
       id: `file_${Date.now()}`,
       sender_id: user.id,
-      sender_name: user.email?.split("@")[0] || "You",
+      sender_name: currentUserName,
+      sender_avatar: currentUserAvatar,
       room_id: activeRoomId,
       type: isImage ? "image" : "file",
       message: file.name,
@@ -440,8 +740,8 @@ export default function UserMessages() {
   // Add Emoji Reaction to Message
   const handleAddReaction = (messageId: string, emoji: string) => {
     if (!user) return;
-    setMessages((prev) =>
-      prev.map((msg) => {
+    setMessages((prev) => {
+      const next = prev.map((msg) => {
         if (msg.id !== messageId) return msg;
 
         const currentReactions = { ...(msg.reactions || {}) };
@@ -469,7 +769,7 @@ export default function UserMessages() {
             };
           }
         } else {
-          // New reaction entry
+          // New reaction
           currentReactions[emoji] = {
             emoji,
             count: 1,
@@ -478,8 +778,13 @@ export default function UserMessages() {
         }
 
         return { ...msg, reactions: currentReactions };
-      })
-    );
+      });
+
+      if (activeRoomId) {
+        localStorage.setItem(`btv_room_msgs_${activeRoomId}`, JSON.stringify(next));
+      }
+      return next;
+    });
 
     setActiveReactionMessageId(null);
   };
@@ -502,6 +807,9 @@ export default function UserMessages() {
       unreadCount: 0,
       isEncrypted: true,
       participantCount: 1,
+      participantNames: {
+        [currentUserId]: currentUserName,
+      },
     };
 
     const updated = [newRoom, ...rooms];
@@ -509,7 +817,7 @@ export default function UserMessages() {
     localStorage.setItem(`btv_custom_rooms_${user?.id}`, JSON.stringify(updated));
 
     handleSelectRoom(newRoom);
-    toast.success(`Created WhatsApp room "${roomData.name}"`);
+    toast.success(`Created room "${roomData.name}"`);
   };
 
   // Clear Chat Messages
@@ -540,7 +848,7 @@ export default function UserMessages() {
     const next = !soundEnabled;
     setSoundEnabled(next);
     chatSounds.setEnabled(next);
-    toast.success(next ? "WhatsApp chat sounds ON" : "WhatsApp chat sounds MUTED");
+    toast.success(next ? "Chat sounds ON" : "Chat sounds MUTED");
   };
 
   if (authLoading) {
@@ -576,9 +884,9 @@ export default function UserMessages() {
         accept="image/*,.pdf,.doc,.docx,.xlsx"
       />
 
-      <div className="container mx-auto px-2 sm:px-4 py-3 sm:py-6 max-w-7xl">
-        {/* Top Breadcrumb Navigation */}
-        <div className="flex items-center justify-between gap-3 mb-3">
+      <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-5 max-w-7xl">
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between gap-3 mb-2.5">
           <div className="flex items-center gap-2">
             <Button asChild variant="ghost" size="sm" className="rounded-xl font-bold h-8 text-xs">
               <Link to="/dashboard">
@@ -586,14 +894,14 @@ export default function UserMessages() {
                 Dashboard
               </Link>
             </Button>
-            <span className="text-muted-foreground">•</span>
+            <span className="text-muted-foreground hidden sm:inline">•</span>
             <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
               <Lock className="w-3 h-3" />
               <span>End-to-End Encrypted</span>
             </div>
           </div>
 
-          {/* Sound Mute/Unmute & Create Room Button */}
+          {/* Sound Toggle & Create Room Button */}
           <div className="flex items-center gap-2">
             <button
               onClick={toggleSound}
@@ -606,34 +914,35 @@ export default function UserMessages() {
             <Button
               onClick={() => setCreateRoomOpen(true)}
               size="sm"
-              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 shadow-xs"
+              className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs h-8 px-3 shadow-xs gap-1.5"
             >
-              <Plus className="w-3.5 h-3.5 mr-1" />
-              New Room
+              <Plus className="w-3.5 h-3.5" />
+              <span>New Room</span>
             </Button>
           </div>
         </div>
 
-        {/* Main WhatsApp Messenger App Container */}
+        {/* Main WhatsApp-Style Encrypted Messenger Canvas */}
         <div className="h-[78vh] sm:h-[82vh] border border-border/80 rounded-3xl overflow-hidden shadow-2xl bg-card flex flex-col md:flex-row relative">
-          {/* ================= LEFT SIDEBAR (CONVERSATIONS LIST) ================= */}
+          
+          {/* ================= LEFT SIDEBAR (CHATS & DIRECTORY SEARCH) ================= */}
           <div
             className={`w-full md:w-80 lg:w-96 border-r border-border bg-muted/20 flex flex-col shrink-0 ${
               mobileView === "chat" ? "hidden md:flex" : "flex"
             }`}
           >
             {/* Sidebar Header */}
-            <div className="p-3.5 bg-card border-b border-border flex items-center justify-between gap-2">
+            <div className="p-3 bg-card border-b border-border flex items-center justify-between gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-2xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-black text-sm shadow-xs ring-1 ring-white/20">
                   <MessageCircle className="w-5 h-5" />
                 </div>
                 <div>
                   <h2 className="text-sm font-extrabold leading-none text-foreground">
-                    Chats &amp; Rooms
+                    Chats &amp; Channels
                   </h2>
                   <p className="text-[10px] text-muted-foreground mt-0.5 font-medium">
-                    Verified WhatsApp Network
+                    Verified Encrypted Network
                   </p>
                 </div>
               </div>
@@ -643,30 +952,113 @@ export default function UserMessages() {
                 size="icon"
                 onClick={() => setCreateRoomOpen(true)}
                 className="h-8 w-8 rounded-xl"
-                title="Create WhatsApp Room"
+                title="Create Chat Room"
               >
                 <Plus className="w-4 h-4 text-foreground" />
               </Button>
             </div>
 
-            {/* Search Bar */}
-            <div className="p-2.5 border-b border-border/60 bg-card/60">
+            {/* Global Directory Search (Find businesses & verified members) */}
+            <div className="p-2.5 border-b border-border/60 bg-card/60 relative">
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-muted-foreground absolute left-3 top-1/2 -translate-y-1/2" />
                 <Input
-                  placeholder="Search chats or messages..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search members, businesses, categories..."
+                  value={directorySearch}
+                  onChange={(e) => setDirectorySearch(e.target.value)}
                   className="pl-8 h-8 rounded-xl text-xs bg-muted/50 border-border/70"
                 />
+                {directorySearch && (
+                  <button
+                    onClick={() => setDirectorySearch("")}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
               </div>
+
+              {/* Directory Results Dropdown */}
+              {directorySearch && (
+                <div className="absolute left-2 right-2 top-full mt-1 bg-card border rounded-2xl shadow-xl z-40 max-h-56 overflow-y-auto divide-y divide-border/40 p-1">
+                  {isSearchingDirectory ? (
+                    <div className="p-3 text-center text-xs text-muted-foreground flex items-center justify-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
+                      <span>Searching directory...</span>
+                    </div>
+                  ) : discoveredContacts.length === 0 ? (
+                    <p className="text-xs text-muted-foreground text-center p-3">
+                      No matching vendors or members found.
+                    </p>
+                  ) : (
+                    discoveredContacts.map((c) => (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => handleStartChatWith(c)}
+                        className="w-full p-2 text-left rounded-xl hover:bg-muted flex items-center gap-2.5 transition-colors"
+                      >
+                        <div className="w-8 h-8 rounded-xl bg-emerald-600/15 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+                          {c.isBusiness ? <Store className="w-4 h-4" /> : c.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-foreground truncate">{c.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
+                        </div>
+                        <Badge className="text-[9px] py-0 px-1 bg-emerald-600 text-white font-bold">
+                          Chat
+                        </Badge>
+                      </button>
+                    ))
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Bethelincovibe TV Lounge Top Banner Button */}
+            <div className="p-2 border-b bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent">
+              <button
+                type="button"
+                onClick={() => {
+                  const lounge = rooms.find((r) => r.id === "room_official_lounge");
+                  if (lounge) handleSelectRoom(lounge);
+                }}
+                className={`w-full text-left p-2 rounded-2xl border transition-all flex items-center gap-2.5 ${
+                  activeRoomId === "room_official_lounge"
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-md"
+                    : "bg-card border-emerald-500/30 hover:border-emerald-500 hover:shadow-xs"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                  activeRoomId === "room_official_lounge" ? "bg-white/20 text-white" : "bg-emerald-600 text-white"
+                }`}>
+                  <Tv className="w-4 h-4" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black truncate">
+                      BethelincovibeTV Lounge
+                    </span>
+                    <Badge className={`text-[8px] py-0 px-1 font-bold shrink-0 ${
+                      activeRoomId === "room_official_lounge" ? "bg-white text-emerald-800" : "bg-emerald-600 text-white"
+                    }`}>
+                      Official
+                    </Badge>
+                  </div>
+                  <p className={`text-[10px] truncate ${
+                    activeRoomId === "room_official_lounge" ? "text-white/80" : "text-muted-foreground"
+                  }`}>
+                    Global broadcast &amp; trade community
+                  </p>
+                </div>
+              </button>
             </div>
 
             {/* Conversation Threads Scroll Area */}
             <div className="flex-1 overflow-y-auto divide-y divide-border/40">
               {filteredRooms.length === 0 ? (
                 <div className="p-6 text-center text-xs text-muted-foreground">
-                  No conversations match your search.
+                  No conversations found. Use directory search to start chatting.
                 </div>
               ) : (
                 filteredRooms.map((room) => {
@@ -684,7 +1076,7 @@ export default function UserMessages() {
                     >
                       {/* Avatar */}
                       <div className="relative shrink-0">
-                        <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-600/20 to-teal-600/30 text-foreground flex items-center justify-center text-lg shadow-xs border border-emerald-500/20">
+                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600/20 to-teal-600/30 text-foreground flex items-center justify-center text-base shadow-xs border border-emerald-500/20">
                           {room.avatarEmoji || (
                             <span className="font-bold text-xs">
                               {room.name.charAt(0).toUpperCase()}
@@ -692,7 +1084,7 @@ export default function UserMessages() {
                           )}
                         </div>
                         {/* Online Indicator */}
-                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-card" />
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-card" />
                       </div>
 
                       {/* Info & Last Message */}
@@ -831,13 +1223,13 @@ export default function UserMessages() {
               {/* Chat Messages Scroll Container */}
               <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 relative z-10">
                 {/* E2EE WhatsApp Security Yellow Banner */}
-                <div className="mx-auto max-w-md p-2.5 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-center shadow-xs backdrop-blur-xs">
+                <div className="mx-auto max-w-md p-2 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-center shadow-xs backdrop-blur-xs">
                   <div className="flex items-center justify-center gap-1.5 text-[11px] font-extrabold mb-0.5">
                     <Lock className="w-3.5 h-3.5 text-amber-600" />
                     <span>End-to-End Encrypted</span>
                   </div>
                   <p className="text-[10px] text-amber-800/90 dark:text-amber-300 leading-tight">
-                    Messages and voice notes in this room are end-to-end encrypted with Bethelincovibe SHA-256 client cryptography.
+                    Messages and voice notes in this room are end-to-end encrypted with SHA-256 client cryptography.
                   </p>
                 </div>
 
@@ -870,11 +1262,23 @@ export default function UserMessages() {
                             : "bg-card dark:bg-[#202c33] text-foreground rounded-tl-xs border border-border"
                         }`}
                       >
-                        {/* Sender Name in Group Chats */}
+                        {/* Sender Name in Group/Community Chats */}
                         {!isOut && (
                           <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mb-1">
                             {msg.sender_name}
                           </p>
+                        )}
+
+                        {/* Quoted Reply Target (WhatsApp Style) */}
+                        {msg.reply_to && (
+                          <div className="mb-1.5 p-2 rounded-xl bg-black/5 dark:bg-white/10 border-l-4 border-emerald-600 text-xs">
+                            <span className="font-bold text-[10px] text-emerald-700 dark:text-emerald-300 block">
+                              {msg.reply_to.sender_name}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground line-clamp-1">
+                              {msg.reply_to.message}
+                            </span>
+                          </div>
                         )}
 
                         {/* Content based on type */}
@@ -916,25 +1320,31 @@ export default function UserMessages() {
                           </p>
                         )}
 
-                        {/* Timestamp & WhatsApp Double Blue Ticks */}
-                        <div className="flex items-center justify-end gap-1 mt-1 text-[10px] text-muted-foreground/80 font-medium">
+                        {/* Timestamp, Info Button & WhatsApp Double Blue Ticks */}
+                        <div className="flex items-center justify-end gap-1.5 mt-1 text-[10px] text-muted-foreground/80 font-medium">
                           <span>{format(new Date(msg.created_at), "HH:mm")}</span>
                           {isOut && (
-                            <span className="text-emerald-600 dark:text-emerald-400">
+                            <button
+                              type="button"
+                              onClick={() => setInfoMessage(msg)}
+                              title="Click to view message delivery & read receipts"
+                              className="text-emerald-600 dark:text-emerald-400 hover:scale-110 transition-transform"
+                            >
                               <CheckCheck className="w-3.5 h-3.5 inline stroke-[2.5]" />
-                            </span>
+                            </button>
                           )}
                         </div>
 
-                        {/* Reaction Badges */}
+                        {/* Reaction Badges (Click to see WHO reacted, WhatsApp Style) */}
                         {msg.reactions && Object.keys(msg.reactions).length > 0 && (
                           <div className="flex flex-wrap gap-1 -mb-3.5 mt-1">
                             {Object.values(msg.reactions).map((rx) => (
                               <button
                                 key={rx.emoji}
-                                onClick={() => handleAddReaction(msg.id, rx.emoji)}
+                                onClick={() => setReactionDetailsMessage(msg)}
                                 type="button"
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border shadow-xs text-xs hover:scale-110 transition-transform active:scale-95"
+                                title="Click to see who reacted"
+                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border shadow-xs text-xs hover:scale-105 transition-transform active:scale-95 cursor-pointer"
                               >
                                 <span>{rx.emoji}</span>
                                 {rx.count > 1 && (
@@ -948,19 +1358,37 @@ export default function UserMessages() {
                         )}
                       </div>
 
-                      {/* Quick Emoji Reaction Hover Trigger Button */}
-                      <button
-                        onClick={() =>
-                          setActiveReactionMessageId(
-                            activeReactionMessageId === msg.id ? null : msg.id
-                          )
-                        }
-                        type="button"
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full bg-card border border-border shadow-xs text-muted-foreground hover:text-foreground absolute -top-2 right-2 z-20"
-                        title="React with Emoji"
-                      >
-                        <Smile className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Quick Hover Actions (Reply, React, Message Info) */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 absolute -top-3 right-2 z-20 bg-card/90 backdrop-blur-xs border border-border rounded-full p-0.5 shadow-sm">
+                        <button
+                          onClick={() => setReplyingTo(msg)}
+                          type="button"
+                          className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="Reply to message"
+                        >
+                          <Reply className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            setActiveReactionMessageId(
+                              activeReactionMessageId === msg.id ? null : msg.id
+                            )
+                          }
+                          type="button"
+                          className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="React with Emoji"
+                        >
+                          <Smile className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          onClick={() => setInfoMessage(msg)}
+                          type="button"
+                          className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title="Message Info / Viewers"
+                        >
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
 
                       {/* Reaction Popover Bar */}
                       {activeReactionMessageId === msg.id && (
@@ -978,8 +1406,48 @@ export default function UserMessages() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Bottom WhatsApp Input Bar */}
+              {/* Replying Banner (WhatsApp Style) */}
+              {replyingTo && (
+                <div className="p-2 bg-muted/90 border-t border-border flex items-center justify-between gap-2 text-xs relative z-20">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Reply className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-emerald-700 dark:text-emerald-400 text-[11px] truncate">
+                        Replying to {replyingTo.sender_name}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        {replyingTo.message || replyingTo.type}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setReplyingTo(null)}
+                    className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              {/* Bottom WhatsApp Input Bar with Mentions */}
               <div className="p-2 sm:p-3 bg-card border-t border-border relative z-20">
+                {mentionQuery !== null && (
+                  <div className="absolute bottom-full left-2 right-2 mb-1 z-30">
+                    <MentionSuggestions
+                      query={mentionQuery}
+                      room={activeRoom ? {
+                        id: activeRoom.id,
+                        name: activeRoom.name,
+                        participants: Object.keys(activeRoom.participantNames || {}),
+                        participantNames: activeRoom.participantNames || {},
+                        createdAt: new Date(),
+                      } : null}
+                      currentUserId={currentUserId}
+                      onSelectMention={handleSelectMention}
+                    />
+                  </div>
+                )}
+
                 {isRecordingVoice ? (
                   <VoiceNoteRecorder
                     onSend={handleSendVoiceNote}
@@ -997,9 +1465,20 @@ export default function UserMessages() {
                       <Paperclip className="w-5 h-5" />
                     </button>
 
+                    {/* @all Tag Quick Button */}
+                    <button
+                      type="button"
+                      onClick={() => handleSelectMention("@all ")}
+                      className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-emerald-600 transition-colors shrink-0 hidden sm:flex"
+                      title="Tag Everyone (@all)"
+                    >
+                      <AtSign className="w-5 h-5" />
+                    </button>
+
                     {/* Textarea / Input Bar */}
                     <Input
-                      placeholder="Type a message..."
+                      ref={messageInputRef}
+                      placeholder={`Message ${activeRoom.name}... (Type @ for mentions)`}
                       value={messageText}
                       onChange={(e) => setMessageText(e.target.value)}
                       className="h-10 rounded-2xl bg-muted/50 border-border/80 text-xs sm:text-sm px-3.5 flex-1"
@@ -1034,11 +1513,40 @@ export default function UserMessages() {
         </div>
       </div>
 
-      {/* Create Room Modal */}
+      {/* Mobile-Fitted Create Room Modal */}
       <CreateChatRoomDialog
         open={createRoomOpen}
         onOpenChange={setCreateRoomOpen}
         onCreateRoom={handleCreateRoom}
+      />
+
+      {/* WhatsApp-Style Who Reacted Dialog */}
+      <ReactionDetailsDialog
+        open={Boolean(reactionDetailsMessage)}
+        onOpenChange={(open) => {
+          if (!open) setReactionDetailsMessage(null);
+        }}
+        reactions={reactionDetailsMessage?.reactions}
+        participantNames={activeRoom?.participantNames}
+        participantAvatars={activeRoom?.participantAvatars}
+        currentUserId={currentUserId}
+        onToggleReaction={(emoji) => {
+          if (reactionDetailsMessage) {
+            handleAddReaction(reactionDetailsMessage.id, emoji);
+          }
+        }}
+      />
+
+      {/* WhatsApp-Style Message Info & Viewers Dialog */}
+      <MessageInfoDialog
+        open={Boolean(infoMessage)}
+        onOpenChange={(open) => {
+          if (!open) setInfoMessage(null);
+        }}
+        message={infoMessage}
+        participantNames={activeRoom?.participantNames}
+        participantAvatars={activeRoom?.participantAvatars}
+        isGroup={activeRoom?.type !== "direct"}
       />
 
       {/* End-to-End Encryption Security Certificate Modal */}

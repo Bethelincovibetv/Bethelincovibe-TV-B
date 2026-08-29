@@ -115,7 +115,6 @@ import WhatsAppStatusEngine from "./pages/WhatsAppStatusEngine";
 import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
 import Referral from "./pages/Referral";
 import GraphicDesignerPage from "./pages/GraphicDesignerPage";
-import RealtimeChatPage from "./pages/RealtimeChatPage";
 import AdminPricingManagement from "./pages/admin/AdminPricingManagement";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -237,13 +236,16 @@ const App = () => (
               <Route path="/referrals" element={<Referral />} />
               <Route path="/dashboard/referrals" element={<Referral />} />
               <Route path="/dashboard/businesses" element={<FeatureGate feature="businesses"><UserBusinesses /></FeatureGate>} />
-              <Route path="/dashboard/messages" element={<FeatureGate feature="businesses"><UserMessages /></FeatureGate>} />
-              <Route path="/dashboard/chat" element={<FeatureGate feature="realtime_chat"><RealtimeChatPage /></FeatureGate>} />
-              <Route path="/dashboard/realtime-chat" element={<FeatureGate feature="realtime_chat"><RealtimeChatPage /></FeatureGate>} />
-              <Route path="/chat" element={<FeatureGate feature="realtime_chat"><RealtimeChatPage /></FeatureGate>} />
+              <Route path="/dashboard/messages" element={<UserMessages />} />
+              <Route path="/dashboard/chat" element={<UserMessages />} />
+              <Route path="/dashboard/realtime-chat" element={<UserMessages />} />
+              <Route path="/chat" element={<UserMessages />} />
+              <Route path="/messages" element={<UserMessages />} />
               <Route path="/dashboard/businesses/:id/edit" element={<FeatureGate feature="businesses"><EditBusiness /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/boost" element={<FeatureGate feature="business_boost"><BoostBusiness /></FeatureGate>} />
               <Route path="/dashboard/profile-edit" element={<UserProfileEdit />} />
+              <Route path="/dashboard/services" element={<UserProfileEdit />} />
+              <Route path="/services/manage" element={<UserProfileEdit />} />
               <Route path="/dashboard/how-to" element={<HowToGuide />} />
               <Route path="/dashboard/guides" element={<HowToGuide />} />
               <Route path="/how-to" element={<HowToGuide />} />

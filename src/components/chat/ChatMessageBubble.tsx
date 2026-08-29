@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { motion, PanInfo } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
-import { Reply, Smile, CheckCheck, Check, MoreVertical, Copy, ShieldCheck } from "lucide-react";
+import { Reply, Smile, CheckCheck, Check, MoreVertical, Copy, ShieldCheck, AtSign } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { RealtimeChatMessage } from "@/lib/firebaseChat";
 import { toast } from "sonner";
 
-const QUICK_REACTION_EMOJIS = ["❤️", "👍", "🔥", "😂", "👏", "🎉", "😍", "🙏"];
+const QUICK_REACTION_EMOJIS = ["❤️", "👍", "🔥", "😂", "👏", "🎉", "😍", "🙏", "🚀", "💯", "🤝", "👑"];
 
 interface ChatMessageBubbleProps {
   message: RealtimeChatMessage;
@@ -17,6 +17,48 @@ interface ChatMessageBubbleProps {
   onReply: (message: RealtimeChatMessage) => void;
   onToggleReaction: (messageId: string, emoji: string) => void;
   onScrollToMessage?: (messageId: string) => void;
+}
+
+/**
+ * Parses message text to highlight @all and @mentions
+ */
+function renderFormattedMessageText(text: string, isMe: boolean) {
+  if (!text) return null;
+  // Match @all or @username
+  const parts = text.split(/(@all|@[a-zA-Z0-9_-]+)/g);
+
+  return parts.map((part, idx) => {
+    if (part.toLowerCase() === "@all") {
+      return (
+        <span
+          key={idx}
+          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg text-xs font-black mx-0.5 shadow-xs ${
+            isMe
+              ? "bg-white/25 text-white ring-1 ring-white/40"
+              : "bg-amber-500/20 text-amber-600 dark:text-amber-400 ring-1 ring-amber-500/30"
+          }`}
+        >
+          <AtSign className="h-3 w-3 inline" />
+          all
+        </span>
+      );
+    }
+    if (part.startsWith("@") && part.length > 1) {
+      return (
+        <span
+          key={idx}
+          className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-lg text-xs font-bold mx-0.5 ${
+            isMe
+              ? "bg-white/20 text-white"
+              : "bg-primary/15 text-primary"
+          }`}
+        >
+          {part}
+        </span>
+      );
+    }
+    return <span key={idx}>{part}</span>;
+  });
 }
 
 export function ChatMessageBubble({
@@ -29,12 +71,26 @@ export function ChatMessageBubble({
 }: ChatMessageBubbleProps) {
   const [isSwiping, setIsSwiping] = useState(false);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const handleDragEnd = (_: any, info: PanInfo) => {
     setIsSwiping(false);
     // WhatsApp style swipe right to reply
     if (info.offset.x > 50) {
       onReply(message);
+    }
+  };
+
+  const handleTouchStart = () => {
+    longPressTimerRef.current = setTimeout(() => {
+      setShowEmojiPicker(true);
+    }, 450);
+  };
+
+  const handleTouchEnd = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
   };
 
@@ -66,7 +122,9 @@ export function ChatMessageBubble({
         dragElastic={0.15}
         onDragStart={() => setIsSwiping(true)}
         onDragEnd={handleDragEnd}
-        className={`relative z-10 flex gap-2.5 max-w-[92%] sm:max-w-[80%] ${
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className={`relative z-10 flex gap-2.5 max-w-[94%] sm:max-w-[80%] ${
           isMe ? "ml-auto flex-row-reverse" : "mr-auto"
         }`}
       >
@@ -129,11 +187,11 @@ export function ChatMessageBubble({
               </div>
             )}
 
-            {/* Message Text */}
+            {/* Message Text with Mentions */}
             {message.text && (
-              <p className="whitespace-pre-wrap break-words font-medium text-sm sm:text-base leading-relaxed tracking-normal">
-                {message.text}
-              </p>
+              <div className="whitespace-pre-wrap break-words font-medium text-sm sm:text-base leading-relaxed tracking-normal">
+                {renderFormattedMessageText(message.text, isMe)}
+              </div>
             )}
 
             {/* Timestamp and Double Tick Delivery Marks */}
@@ -184,7 +242,7 @@ export function ChatMessageBubble({
           )}
         </div>
 
-        {/* Hover / Long-press Action Bar */}
+        {/* Hover / Action Bar */}
         <div
           className={`flex items-center gap-1 self-center opacity-0 group-hover/bubble:opacity-100 transition-opacity ${
             isMe ? "flex-row-reverse" : "flex-row"
@@ -204,7 +262,7 @@ export function ChatMessageBubble({
             <PopoverContent
               side="top"
               align={isMe ? "end" : "start"}
-              className="p-1.5 rounded-2xl w-auto flex items-center gap-1 bg-card/95 backdrop-blur-md shadow-xl border border-border"
+              className="p-2 rounded-2xl w-auto max-w-[280px] sm:max-w-none flex flex-wrap items-center gap-1.5 bg-card/95 backdrop-blur-md shadow-xl border border-border"
             >
               {QUICK_REACTION_EMOJIS.map((emoji) => (
                 <button

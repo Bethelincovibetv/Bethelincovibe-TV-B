@@ -10,6 +10,8 @@ import {
   subscribeToChatMessages,
   sendMessageToChat,
   getOrCreateChatRoom,
+  getOrCreateGeneralBethelChatRoom,
+  createCustomChatRoom,
   ensureFirebaseAuth,
   testFirestoreConnection,
   toggleMessageReaction,
@@ -39,9 +41,17 @@ import {
   Smile,
   Volume2,
   VolumeX,
+  Users,
+  Settings,
+  Tv,
+  Info,
+  AtSign,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ChatMessageBubble } from "@/components/chat/ChatMessageBubble";
+import { CreateChatRoomDialog } from "@/components/chat/CreateChatRoomDialog";
+import { ChatRoomAdminDialog } from "@/components/chat/ChatRoomAdminDialog";
+import { MentionSuggestions } from "@/components/chat/MentionSuggestions";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 import { toast } from "sonner";
 import VoiceGuideHelper from "@/components/common/VoiceGuideHelper";
@@ -89,6 +99,7 @@ export default function RealtimeChatPage() {
   const targetUserParam = searchParams.get("targetUserId");
   const targetNameParam = searchParams.get("targetName");
   const targetAvatarParam = searchParams.get("targetAvatar");
+  const officialRoomParam = searchParams.get("officialRoom");
 
   const [chats, setChats] = useState<RealtimeChatRoom[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -100,6 +111,10 @@ export default function RealtimeChatPage() {
   const [isSearchingContacts, setIsSearchingContacts] = useState(false);
   const [isFirebaseConnected, setIsFirebaseConnected] = useState<boolean | null>(null);
   const [soundEnabled, setSoundState] = useState(() => isNotificationSoundEnabled());
+
+  // Dialog states
+  const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
+  const [isAdminDialogOpen, setIsAdminDialogOpen] = useState(false);
 
   // WhatsApp style reply target
   const [replyingTo, setReplyingTo] = useState<RealtimeChatMessage | null>(null);
@@ -133,9 +148,17 @@ export default function RealtimeChatPage() {
     testFirestoreConnection().then(setIsFirebaseConnected);
   }, []);
 
-  // Handle URL query parameters to immediately open a chat with a specific person
+  // Handle URL query parameters to open official community room or direct chat
   useEffect(() => {
-    if (targetUserParam) {
+    if (officialRoomParam === "true" || officialRoomParam === "bethelincovibetv") {
+      getOrCreateGeneralBethelChatRoom(
+        currentUserId,
+        currentUserName,
+        user?.user_metadata?.avatar_url
+      ).then((roomId) => {
+        setActiveChatId(roomId);
+      });
+    } else if (targetUserParam) {
       const targetName = targetNameParam || "Support Contact";
       getOrCreateChatRoom(
         currentUserId,
@@ -147,17 +170,17 @@ export default function RealtimeChatPage() {
         setActiveChatId(roomId);
       });
     }
-  }, [targetUserParam, targetNameParam, currentUserId]);
+  }, [targetUserParam, targetNameParam, officialRoomParam, currentUserId, currentUserName]);
 
   // Subscribe to user chat rooms
   useEffect(() => {
     if (!currentUserId) return;
     const unsub = subscribeToUserChats(currentUserId, (loadedChats) => {
       setChats(loadedChats);
-      setActiveChatId((curr) => (!curr && loadedChats.length > 0 && !targetUserParam ? loadedChats[0].id : curr));
+      setActiveChatId((curr) => (!curr && loadedChats.length > 0 && !targetUserParam && !officialRoomParam ? loadedChats[0].id : curr));
     });
     return () => unsub();
-  }, [currentUserId, targetUserParam]);
+  }, [currentUserId, targetUserParam, officialRoomParam]);
 
   // Subscribe to messages in active room
   useEffect(() => {
@@ -191,17 +214,18 @@ export default function RealtimeChatPage() {
 
     async function searchDirectory() {
       try {
+        const queryTerm = contactSearch.trim();
         const { data: businesses } = await supabase
           .from("businesses")
           .select("id, name, category, city, logo_url")
-          .ilike("name", `%${contactSearch.trim()}%`)
-          .limit(5);
+          .or(`name.ilike.%${queryTerm}%,category.ilike.%${queryTerm}%,city.ilike.%${queryTerm}%`)
+          .limit(6);
 
         const { data: profiles } = await supabase
           .from("profiles")
           .select("id, username, display_name, avatar_url")
-          .ilike("username", `%${contactSearch.trim()}%`)
-          .limit(5);
+          .or(`username.ilike.%${queryTerm}%,display_name.ilike.%${queryTerm}%`)
+          .limit(6);
 
         if (!isCancelled) {
           const list: any[] = [];
@@ -215,13 +239,15 @@ export default function RealtimeChatPage() {
             });
           });
           (profiles || []).forEach((p) => {
-            list.push({
-              id: p.id,
-              name: p.display_name || `@${p.username}`,
-              role: p.username ? `@${p.username}` : "Platform Member",
-              avatar: p.avatar_url,
-              badge: "Member",
-            });
+            if (p.id !== currentUserId) {
+              list.push({
+                id: p.id,
+                name: p.display_name || `@${p.username}`,
+                role: p.username ? `@${p.username}` : "Platform Member",
+                avatar: p.avatar_url,
+                badge: "Member",
+              });
+            }
           });
           setDiscoveredContacts(list);
         }
@@ -232,11 +258,12 @@ export default function RealtimeChatPage() {
       }
     }
 
-    searchDirectory();
+    const timer = setTimeout(searchDirectory, 200);
     return () => {
       isCancelled = true;
+      clearTimeout(timer);
     };
-  }, [contactSearch]);
+  }, [contactSearch, currentUserId]);
 
   const handleStartChatWith = async (contact: {
     id: string;
@@ -253,6 +280,20 @@ export default function RealtimeChatPage() {
     setActiveChatId(roomId);
     setContactSearch("");
     setDiscoveredContacts([]);
+  };
+
+  const handleJoinOfficialLounge = async () => {
+    try {
+      const roomId = await getOrCreateGeneralBethelChatRoom(
+        currentUserId,
+        currentUserName,
+        user?.user_metadata?.avatar_url
+      );
+      setActiveChatId(roomId);
+      toast.success("Joined BethelincovibeTV Official Lounge! 📺✨");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to open official lounge");
+    }
   };
 
   const handleReplyToMessage = (message: RealtimeChatMessage) => {
@@ -283,6 +324,20 @@ export default function RealtimeChatPage() {
       setSelectedImage(reader.result as string);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Mention check (@...)
+  const activeMentionMatch = inputText.match(/@([a-zA-Z0-9_-]*)$/);
+  const mentionQuery = activeMentionMatch ? activeMentionMatch[1] : null;
+
+  const handleSelectMention = (tag: string) => {
+    if (activeMentionMatch) {
+      const prefix = inputText.slice(0, activeMentionMatch.index);
+      setInputText(prefix + tag);
+    } else {
+      setInputText((prev) => prev + " " + tag);
+    }
+    inputRef.current?.focus();
   };
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -377,18 +432,34 @@ export default function RealtimeChatPage() {
   };
 
   const activeChat = chats.find((c) => c.id === activeChatId);
-  const otherParticipantId = activeChat?.participants.find((p) => p !== currentUserId);
-  const otherParticipantName = otherParticipantId
-    ? activeChat?.participantNames[otherParticipantId] || "Contact"
-    : "Support Team";
-  const otherParticipantAvatar = otherParticipantId
-    ? activeChat?.participantAvatars?.[otherParticipantId]
-    : undefined;
+  const isGroupRoom = activeChat?.roomType === "group" || activeChat?.roomType === "trade_mastermind" || activeChat?.isOfficial || (activeChat?.participants.length || 0) > 2;
+
+  // Determine active chat display metadata
+  let activeTitle = "Chat Room";
+  let activeSubtitle = "Encrypted messaging channel";
+  let activeAvatar: string | undefined = undefined;
+  let activeEmoji: string | undefined = undefined;
+
+  if (activeChat) {
+    if (activeChat.name) {
+      activeTitle = activeChat.name;
+      activeSubtitle = activeChat.description || `${(activeChat.participants || []).length} participants`;
+      activeAvatar = activeChat.avatarUrl;
+      activeEmoji = activeChat.avatarEmoji;
+    } else {
+      const otherId = activeChat.participants.find((p) => p !== currentUserId);
+      if (otherId) {
+        activeTitle = activeChat.participantNames[otherId] || "Contact";
+        activeSubtitle = "Verified Encrypted Channel";
+        activeAvatar = activeChat.participantAvatars?.[otherId];
+      }
+    }
+  }
 
   return (
     <>
       <Helmet>
-        <title>Real-time Chat & Support · Bethelincovibe</title>
+        <title>Real-time Chat & Community · Bethelincovibe</title>
       </Helmet>
 
       {/* Spacious Full-View Container */}
@@ -401,15 +472,25 @@ export default function RealtimeChatPage() {
             </div>
             <div>
               <h1 className="text-lg sm:text-xl font-black text-foreground tracking-tight">
-                Real-Time Messaging
+                Real-Time Messaging & Channels
               </h1>
               <p className="text-xs text-muted-foreground hidden sm:block">
-                Direct instant chat with clients, verified vendors, and support team
+                Direct chat with clients, verified vendors, trade masterminds, and support team
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => setIsCreateRoomOpen(true)}
+              className="h-9 px-3.5 rounded-xl gap-1.5 text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-md"
+            >
+              <Plus className="h-4 w-4" />
+              <span>New Room</span>
+            </Button>
+
             <Button
               variant="outline"
               size="sm"
@@ -452,7 +533,7 @@ export default function RealtimeChatPage() {
               <div className="relative">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search contacts, verified vendors..."
+                  placeholder="Search members, businesses, categories..."
                   value={contactSearch}
                   onChange={(e) => setContactSearch(e.target.value)}
                   className="pl-9 h-10 text-xs rounded-2xl bg-background"
@@ -465,11 +546,11 @@ export default function RealtimeChatPage() {
                   {isSearchingContacts ? (
                     <div className="p-4 text-center text-xs text-muted-foreground">
                       <Loader2 className="h-4 w-4 animate-spin mx-auto mb-1 text-primary" />
-                      Searching platform members...
+                      Searching platform directory...
                     </div>
                   ) : discoveredContacts.length === 0 ? (
                     <p className="text-xs text-muted-foreground text-center p-3">
-                      No matching vendors or users found.
+                      No matching vendors or members found.
                     </p>
                   ) : (
                     discoveredContacts.map((c) => (
@@ -501,6 +582,32 @@ export default function RealtimeChatPage() {
                   )}
                 </div>
               )}
+            </div>
+
+            {/* Official Bethelincovibe TV Lounge Top Banner */}
+            <div className="p-2.5 border-b bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-transparent">
+              <button
+                type="button"
+                onClick={handleJoinOfficialLounge}
+                className="w-full text-left p-2.5 rounded-2xl bg-card border border-emerald-500/30 hover:border-emerald-500 hover:shadow-md flex items-center gap-3 transition-all group"
+              >
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                  <Tv className="w-5 h-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-black text-foreground group-hover:text-emerald-600 transition-colors truncate">
+                      BethelincovibeTV Lounge
+                    </span>
+                    <Badge className="text-[9px] py-0 px-1.5 bg-emerald-600 text-white font-bold shrink-0">
+                      Official
+                    </Badge>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground truncate">
+                    Global community channel &amp; broadcasts
+                  </p>
+                </div>
+              </button>
             </div>
 
             {/* Quick Contacts / Official Advisors */}
@@ -548,14 +655,16 @@ export default function RealtimeChatPage() {
                   <MessageSquare className="h-10 w-10 mx-auto opacity-30 text-primary" />
                   <p className="font-bold text-foreground">No active chats yet</p>
                   <p className="text-[11px] leading-relaxed">
-                    Select an advisor above or search a business directory contact to start real-time messaging.
+                    Select an advisor, create a group channel, or search a business directory contact to start messaging.
                   </p>
                 </div>
               ) : (
                 chats.map((c) => {
+                  const isRoom = Boolean(c.name || c.roomType === "group" || c.roomType === "trade_mastermind" || c.isOfficial);
                   const targetId = c.participants.find((p) => p !== currentUserId);
-                  const name = targetId ? c.participantNames[targetId] || "Contact" : "Chat Room";
-                  const avatar = targetId ? c.participantAvatars?.[targetId] : undefined;
+                  const roomName = c.name || (targetId ? c.participantNames[targetId] || "Contact" : "Chat Room");
+                  const avatar = c.avatarUrl || (targetId ? c.participantAvatars?.[targetId] : undefined);
+                  const emoji = c.avatarEmoji;
                   const isSelected = c.id === activeChatId;
 
                   return (
@@ -569,19 +678,28 @@ export default function RealtimeChatPage() {
                           : "hover:bg-muted/80 text-foreground"
                       }`}
                     >
-                      <Avatar className="h-10 w-10 shrink-0 ring-2 ring-primary/20">
-                        <AvatarImage src={avatar} />
-                        <AvatarFallback
-                          className={`text-xs font-black ${
-                            isSelected ? "bg-primary-foreground/20 text-white" : "bg-muted"
-                          }`}
-                        >
-                          {name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
+                      {emoji ? (
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg shrink-0 ${
+                          isSelected ? "bg-primary-foreground/20 text-white" : "bg-primary/10 text-primary"
+                        }`}>
+                          {emoji}
+                        </div>
+                      ) : (
+                        <Avatar className="h-10 w-10 shrink-0 ring-2 ring-primary/20">
+                          <AvatarImage src={avatar} />
+                          <AvatarFallback
+                            className={`text-xs font-black ${
+                              isSelected ? "bg-primary-foreground/20 text-white" : "bg-muted"
+                            }`}
+                          >
+                            {roomName.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                      )}
+
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-1">
-                          <p className="text-xs sm:text-sm font-bold truncate">{name}</p>
+                          <p className="text-xs sm:text-sm font-bold truncate">{roomName}</p>
                           {c.lastMessageTime && (
                             <span
                               className={`text-[10px] shrink-0 ${
@@ -619,38 +737,69 @@ export default function RealtimeChatPage() {
               <>
                 {/* Active Chat Header */}
                 <div className="p-3 sm:p-4 border-b flex items-center justify-between bg-card/70 backdrop-blur-md">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setActiveChatId(null)}
-                      className="md:hidden p-1 h-9 w-9 rounded-xl"
+                      className="md:hidden p-1 h-9 w-9 rounded-xl shrink-0"
                     >
                       <ChevronLeft className="h-6 w-6" />
                     </Button>
-                    <Avatar className="h-10 w-10 sm:h-11 sm:w-11 ring-2 ring-primary/20">
-                      <AvatarImage src={otherParticipantAvatar} />
-                      <AvatarFallback className="text-xs sm:text-sm font-black bg-primary/10 text-primary">
-                        {otherParticipantName.slice(0, 2).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="text-sm sm:text-base font-extrabold text-foreground tracking-tight">
-                          {otherParticipantName}
-                        </h2>
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] py-0 px-2 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold"
-                        >
-                          Online
-                        </Badge>
+
+                    {activeEmoji ? (
+                      <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl shrink-0 border border-primary/20 shadow-xs">
+                        {activeEmoji}
                       </div>
-                      <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                        Verified Real-time Encrypted Channel
+                    ) : (
+                      <Avatar className="h-10 w-10 sm:h-11 sm:w-11 ring-2 ring-primary/20 shrink-0">
+                        <AvatarImage src={activeAvatar} />
+                        <AvatarFallback className="text-xs sm:text-sm font-black bg-primary/10 text-primary">
+                          {activeTitle.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                    )}
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-sm sm:text-base font-extrabold text-foreground tracking-tight truncate">
+                          {activeTitle}
+                        </h2>
+                        {activeChat?.isOfficial ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-2 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold shrink-0"
+                          >
+                            Official
+                          </Badge>
+                        ) : (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] py-0 px-2 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold shrink-0"
+                          >
+                            Online
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-muted-foreground flex items-center gap-1 truncate">
+                        <ShieldCheck className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="truncate">{activeSubtitle}</span>
                       </p>
                     </div>
+                  </div>
+
+                  {/* Header Actions (Room Settings / Info) */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setIsAdminDialogOpen(true)}
+                      title="Room Info &amp; Members"
+                      className="h-9 px-2.5 rounded-xl text-xs font-bold gap-1.5 hover:bg-muted text-muted-foreground hover:text-foreground"
+                    >
+                      <Users className="h-4 w-4 text-primary" />
+                      <span className="hidden sm:inline">Info &amp; Members</span>
+                    </Button>
                   </div>
                 </div>
 
@@ -662,10 +811,10 @@ export default function RealtimeChatPage() {
                         <MessageSquare className="h-7 w-7" />
                       </div>
                       <p className="text-base font-bold text-foreground">
-                        Say Hello to {otherParticipantName}!
+                        Say Hello in {activeTitle}!
                       </p>
                       <p className="text-xs max-w-sm leading-relaxed">
-                        Start your direct conversation regarding service bookings, custom creative orders, or platform support.
+                        Start your conversation regarding service bookings, wholesale trade, or community discussions. Use <span className="font-bold text-primary">@all</span> to tag everyone in the room.
                       </p>
                     </div>
                   ) : (
@@ -745,53 +894,75 @@ export default function RealtimeChatPage() {
                   </div>
                 )}
 
-                {/* Message Input Box */}
-                <form
-                  onSubmit={handleSendMessage}
-                  className="p-3 sm:p-4 border-t bg-card flex items-center gap-2"
-                >
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    accept="image/*"
-                    onChange={handleImageSelect}
-                    className="hidden"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => fileInputRef.current?.click()}
-                    title="Attach image"
-                    className="h-11 w-11 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-                  >
-                    <ImageIcon className="h-5 w-5" />
-                  </Button>
+                {/* Message Input Box with Mention Autocomplete */}
+                <div className="relative">
+                  {mentionQuery !== null && (
+                    <MentionSuggestions
+                      query={mentionQuery}
+                      room={activeChat || null}
+                      currentUserId={currentUserId}
+                      onSelectMention={handleSelectMention}
+                    />
+                  )}
 
-                  <Input
-                    ref={inputRef}
-                    placeholder={`Message ${otherParticipantName}...`}
-                    value={inputText}
-                    onChange={(e) => setInputText(e.target.value)}
-                    className="h-12 rounded-2xl text-xs sm:text-sm bg-background border-border/80 shadow-xs focus-visible:ring-primary"
-                    disabled={isSending}
-                  />
-
-                  <Button
-                    type="submit"
-                    disabled={(!inputText.trim() && !selectedImage) || isSending}
-                    className="h-12 px-5 sm:px-6 rounded-2xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shrink-0 shadow-md transition-all active:scale-95"
+                  <form
+                    onSubmit={handleSendMessage}
+                    className="p-3 sm:p-4 border-t bg-card flex items-center gap-2"
                   >
-                    {isSending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        <Send className="h-4 w-4" />
-                        <span className="hidden sm:inline">Send</span>
-                      </>
-                    )}
-                  </Button>
-                </form>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      accept="image/*"
+                      onChange={handleImageSelect}
+                      className="hidden"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Attach image"
+                      className="h-11 w-11 rounded-2xl text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
+                    >
+                      <ImageIcon className="h-5 w-5" />
+                    </Button>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleSelectMention("@all ")}
+                      title="Mention Everyone (@all)"
+                      className="h-11 w-11 rounded-2xl text-muted-foreground hover:text-primary hover:bg-muted shrink-0 hidden sm:flex"
+                    >
+                      <AtSign className="h-5 w-5" />
+                    </Button>
+
+                    <Input
+                      ref={inputRef}
+                      placeholder={`Message ${activeTitle}... (Type @ for mentions)`}
+                      value={inputText}
+                      onChange={(e) => setInputText(e.target.value)}
+                      className="h-12 rounded-2xl text-xs sm:text-sm bg-background border-border/80 shadow-xs focus-visible:ring-primary"
+                      disabled={isSending}
+                    />
+
+                    <Button
+                      type="submit"
+                      disabled={(!inputText.trim() && !selectedImage) || isSending}
+                      className="h-12 px-5 sm:px-6 rounded-2xl font-bold bg-primary hover:bg-primary/90 text-primary-foreground gap-2 shrink-0 shadow-md transition-all active:scale-95"
+                    >
+                      {isSending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          <span className="hidden sm:inline">Send</span>
+                        </>
+                      )}
+                    </Button>
+                  </form>
+                </div>
               </>
             ) : (
               <div className="h-full flex flex-col items-center justify-center p-8 text-center text-muted-foreground space-y-4">
@@ -799,16 +970,49 @@ export default function RealtimeChatPage() {
                   <Headphones className="h-10 w-10" />
                 </div>
                 <h3 className="text-xl font-extrabold text-foreground">
-                  Select a Conversation
+                  Select a Conversation or Channel
                 </h3>
                 <p className="text-xs sm:text-sm max-w-md leading-relaxed">
-                  Connect instantly with verified platform merchants, creative leads, and support team with real-time sync, WhatsApp-style replies, reactions, and attachments.
+                  Connect instantly with verified platform merchants, trade masterminds, creative leads, and the BethelincovibeTV community with real-time sync, WhatsApp-style replies, reactions, @all mentions, and attachments.
                 </p>
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    onClick={() => setIsCreateRoomOpen(true)}
+                    className="rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" /> Create Trade Room
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={handleJoinOfficialLounge}
+                    className="rounded-2xl font-bold text-xs gap-1.5"
+                  >
+                    <Tv className="w-4 h-4 text-emerald-600" /> BethelincovibeTV Lounge
+                  </Button>
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* Create Room Dialog */}
+      <CreateChatRoomDialog
+        open={isCreateRoomOpen}
+        onOpenChange={setIsCreateRoomOpen}
+        onRoomCreated={(roomId) => {
+          setActiveChatId(roomId);
+        }}
+      />
+
+      {/* Chat Room Admin & Info Dialog */}
+      <ChatRoomAdminDialog
+        open={isAdminDialogOpen}
+        onOpenChange={setIsAdminDialogOpen}
+        room={activeChat || null}
+        currentUserId={currentUserId}
+      />
     </>
   );
 }
+

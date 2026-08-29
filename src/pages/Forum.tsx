@@ -197,15 +197,27 @@ export default function Forum() {
             </p>
           </div>
 
-          <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center gap-3.5 shrink-0">
+          <div className="flex flex-col sm:flex-row lg:flex-col items-stretch sm:items-center gap-3 shrink-0">
+            <Button
+              asChild
+              size="lg"
+              className="rounded-2xl h-12 px-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] transition-all gap-2 text-sm sm:text-base border border-emerald-400/30"
+            >
+              <Link to="/chat?officialRoom=true">
+                <img src="/logo.png" alt="Bethelincovibe" className="w-5 h-5 rounded-full object-cover border border-white/40" />
+                <span>BethelincovibeTV Chat Room</span>
+              </Link>
+            </Button>
+
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button
                   onClick={() => { if (!user) { navigate("/login"); return; } setOpen(true); }}
                   size="lg"
-                  className="rounded-2xl h-12 px-6 bg-gradient-to-r from-primary to-amber-600 text-white font-extrabold shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:scale-[1.02] transition-all gap-2 text-sm sm:text-base"
+                  variant="outline"
+                  className="rounded-2xl h-12 px-6 bg-card/80 hover:bg-card text-foreground font-extrabold shadow-md hover:scale-[1.02] transition-all gap-2 text-sm sm:text-base border-primary/30"
                 >
-                  <Plus className="h-5 w-5" /> Start New Discussion
+                  <Plus className="h-5 w-5 text-primary" /> Start New Discussion
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg rounded-3xl border-border/80 p-6">

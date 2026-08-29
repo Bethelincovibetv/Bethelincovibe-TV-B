@@ -176,6 +176,7 @@ export default function UserDashboard() {
     { to: "/dashboard/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-green-600", show: flags.whatsapp_engine },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
     { to: "/referral", label: "Refer & Earn", icon: Gift, color: "from-amber-500 via-rose-500 to-purple-600", show: true },
+    { to: "/dashboard/services", label: "Service Management", icon: Briefcase, color: "from-blue-600 via-indigo-600 to-violet-700", show: true },
     { to: "/dashboard/create-video", label: "BTV Video Studio", icon: Film, color: "from-purple-600 via-pink-600 to-amber-500", show: flags.video_creator },
     { to: "/dashboard/wallet", label: "Wallet & Receipts", icon: Wallet, color: "from-emerald-500 to-teal-500", show: flags.wallet },
     { to: "/dashboard/ad-earnings", label: "Ad Earnings", icon: MousePointerClick, color: "from-green-500 to-emerald-600", show: flags.ad_earnings },
