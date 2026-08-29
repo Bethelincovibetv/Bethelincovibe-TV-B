@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { toast } from "sonner";
 import { Bell, Send, Loader2, Sparkles, Check, Users, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { triggerDirectBrowserNotification } from "@/lib/fcm";
 
 type PromptStyle = "bell" | "modal" | "custom";
 
@@ -181,6 +182,15 @@ export default function AdminNotifications() {
         user_ids: [user.id],
       };
       const { data } = await supabase.functions.invoke("onesignal-send", { body: payload }).catch(() => ({ data: { recipients: 1 } }));
+
+      // 3. Trigger immediate OS push on test device if permission granted
+      triggerDirectBrowserNotification({
+        title: testTitle,
+        body: testBody,
+        url: testUrl,
+        icon: "/logo.png",
+      });
+
       return data || { recipients: 1 };
     },
     onSuccess: () => toast.success("Test notification delivered to your device!"),

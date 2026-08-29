@@ -38,13 +38,21 @@ export default function ProductCard({
   const to = `/products/${p.slug || p.id}`;
 
   const isDigital =
+    (p as any).product_type === "digital" ||
     p.condition === "digital" ||
     p.categories?.slug?.includes("ebook") ||
     p.categories?.slug?.includes("course") ||
     p.categories?.slug?.includes("software") ||
     p.categories?.slug?.includes("template") ||
+    p.categories?.slug?.includes("script") ||
+    p.categories?.slug?.includes("code") ||
+    p.categories?.slug?.includes("graphic") ||
+    p.categories?.slug?.includes("audio") ||
+    p.categories?.slug?.includes("video") ||
     p.name?.toLowerCase().includes("ebook") ||
     p.name?.toLowerCase().includes("course") ||
+    p.name?.toLowerCase().includes("software") ||
+    p.name?.toLowerCase().includes("bot") ||
     p.name?.toLowerCase().includes("download");
 
   const media = (

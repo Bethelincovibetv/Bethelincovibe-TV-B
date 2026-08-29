@@ -1,4 +1,5 @@
 import { getGeminiClient } from "./aiCollaborationEngine";
+import { supabase } from "@/integrations/supabase/client";
 
 import catFoodImg from "@/assets/images/cat_food_1787472795354.jpg";
 import catFashionImg from "@/assets/images/cat_fashion_1787472783551.jpg";
@@ -67,6 +68,7 @@ export function isValidUuid(val?: string | null): boolean {
 /**
  * Safely resolves a category UUID for database insertion.
  * Ensures we NEVER pass non-UUID strings into Postgres category_id columns, preventing 22P02 invalid input syntax errors.
+ * Strictly guarantees that a chosen category (e.g. Software) is NOT arbitrarily reassigned to an unrelated category (e.g. Agriculture).
  */
 export function resolveSafeProductCategoryUuid(
   categoryIdOrSlug: string | undefined | null,
@@ -78,14 +80,12 @@ export function resolveSafeProductCategoryUuid(
   // 1. If already a valid UUID
   if (isValidUuid(clean)) return clean;
 
-  // 2. Search in database categories by slug or name or id
+  // 2. Search in database categories by slug or name
   const directMatch = dbCategories.find(
     (c) =>
       c.id === clean ||
       (c.slug && c.slug.toLowerCase() === clean.toLowerCase()) ||
-      (c.name && c.name.toLowerCase() === clean.toLowerCase()) ||
-      (c.slug && clean.toLowerCase().replace(/-/g, " ").includes(c.slug.toLowerCase().replace(/-/g, " "))) ||
-      (c.name && clean.toLowerCase().includes(c.name.toLowerCase()))
+      (c.name && c.name.toLowerCase() === clean.toLowerCase())
   );
 
   if (directMatch && isValidUuid(directMatch.id)) {
@@ -96,22 +96,108 @@ export function resolveSafeProductCategoryUuid(
   const preset = ALL_PRODUCT_CATEGORIES.find(
     (p) => p.id === clean || p.slug === clean || p.name.toLowerCase() === clean.toLowerCase()
   );
+
   if (preset) {
     const presetMatch = dbCategories.find(
       (c) =>
-        (c.slug && (c.slug === preset.slug || preset.slug.includes(c.slug))) ||
-        (c.name && (c.name.toLowerCase() === preset.name.toLowerCase() || preset.name.toLowerCase().includes(c.name.toLowerCase())))
+        (c.slug && c.slug.toLowerCase() === preset.slug.toLowerCase()) ||
+        (c.name && c.name.toLowerCase() === preset.name.toLowerCase())
     );
     if (presetMatch && isValidUuid(presetMatch.id)) return presetMatch.id;
   }
 
-  // 4. If any product category exists in dbCategories, pick the first valid UUID
-  const productCat = dbCategories.find(c => isValidUuid(c.id) && (c.type === "product" || c.type === "business"));
-  if (productCat) {
-    return productCat.id;
+  // DO NOT fall back to arbitrary first category. Return null so the caller can create/seed it precisely.
+  return null;
+}
+
+/**
+ * Resolves or automatically registers a product category in the database,
+ * guaranteeing the returned UUID accurately maps to the exact category slug/name.
+ */
+export async function resolveOrCreateProductCategoryUuid(
+  categoryIdOrSlug: string | undefined | null,
+  dbCategories: Array<{ id: string; slug?: string; name?: string; type?: string }> = []
+): Promise<string | null> {
+  if (!categoryIdOrSlug) return null;
+  const clean = String(categoryIdOrSlug).trim();
+
+  // 1. Check synchronous resolution first
+  const existingUuid = resolveSafeProductCategoryUuid(clean, dbCategories);
+  if (existingUuid) return existingUuid;
+
+  // 2. Check if clean string is in presets
+  const preset = ALL_PRODUCT_CATEGORIES.find(
+    (p) => p.id === clean || p.slug === clean || p.name.toLowerCase() === clean.toLowerCase()
+  );
+
+  const targetSlug = preset ? preset.slug : clean.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+  const targetName = preset ? preset.name : clean;
+
+  try {
+    // Check if category exists in DB by slug
+    const { data: dbCat } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("slug", targetSlug)
+      .maybeSingle();
+
+    if (dbCat && isValidUuid(dbCat.id)) {
+      return dbCat.id;
+    }
+
+    // Insert new category row into categories table
+    const { data: inserted, error: insErr } = await supabase
+      .from("categories")
+      .insert({
+        name: targetName,
+        slug: targetSlug,
+        type: "product",
+        icon: preset?.icon || "Package",
+        description: preset?.description || `${targetName} on Bethelincovibe Marketplace`,
+      })
+      .select("id")
+      .single();
+
+    if (!insErr && inserted?.id && isValidUuid(inserted.id)) {
+      return inserted.id;
+    }
+  } catch (err) {
+    console.warn("Could not auto-seed category:", err);
   }
 
   return null;
+}
+
+/**
+ * Ensures all standard product categories exist in the database.
+ */
+export async function ensureAllProductCategoriesSeeded(): Promise<void> {
+  try {
+    const { data: existing } = await supabase
+      .from("categories")
+      .select("slug")
+      .in("type", ["product", "business"]);
+
+    const existingSlugs = new Set((existing || []).map((c) => c.slug?.toLowerCase()));
+
+    const missingPresets = ALL_PRODUCT_CATEGORIES.filter(
+      (p) => !existingSlugs.has(p.slug.toLowerCase())
+    );
+
+    if (missingPresets.length > 0) {
+      const inserts = missingPresets.map((p) => ({
+        name: p.name,
+        slug: p.slug,
+        type: "product",
+        icon: "Package",
+        description: p.description || `${p.name} category`,
+      }));
+
+      await supabase.from("categories").insert(inserts).catch(() => {});
+    }
+  } catch (err) {
+    console.warn("Notice checking product categories seed:", err);
+  }
 }
 
 export function getCategoryBySlug(slug?: string | null) {

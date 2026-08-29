@@ -26,9 +26,12 @@ import { slugify } from "@/lib/seo";
 import {
   PHYSICAL_PRODUCT_CATEGORIES,
   DIGITAL_PRODUCT_CATEGORIES,
+  ALL_PRODUCT_CATEGORIES,
   ProductType,
   generateProductDescriptionAI,
   resolveSafeProductCategoryUuid,
+  resolveOrCreateProductCategoryUuid,
+  ensureAllProductCategoriesSeeded,
   isValidUuid,
 } from "@/lib/productAIEngine";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -141,6 +144,7 @@ export default function UnifiedProductManager({
   const { data: dbCategories } = useQuery({
     queryKey: ["unified-product-categories"],
     queryFn: async () => {
+      await ensureAllProductCategoriesSeeded();
       const { data } = await supabase
         .from("categories")
         .select("id, name, slug, type")
@@ -272,7 +276,11 @@ export default function UnifiedProductManager({
 
     // Find category slug or preset
     const matchedCategory = dbCategories?.find((c) => c.id === p.category_id);
-    const catSlug = matchedCategory?.slug || (isDigital ? "ebooks-guides" : "food-groceries");
+    let catSlug = matchedCategory?.slug;
+    if (!catSlug) {
+      const matchedPreset = ALL_PRODUCT_CATEGORIES.find((preset) => preset.id === p.category_id || preset.slug === p.category_id);
+      catSlug = matchedPreset?.slug || (isDigital ? "software-apps" : "food-groceries");
+    }
     const safeCatId = isValidUuid(p.category_id) ? p.category_id : (matchedCategory?.id || "");
 
     setForm({
@@ -488,9 +496,9 @@ export default function UnifiedProductManager({
 
     setSubmitting(true);
     try {
-      // Safely resolve category_id to ensure only valid UUID or null is passed to database
-      const resolvedCatId = resolveSafeProductCategoryUuid(
-        form.category_id || form.category_slug,
+      // Safely resolve category_id with guarantee to create or match exact chosen category
+      const resolvedCatId = await resolveOrCreateProductCategoryUuid(
+        form.category_slug || form.category_id,
         dbCategories || []
       );
 
@@ -821,8 +829,9 @@ export default function UnifiedProductManager({
                     <Select
                       value={form.category_slug}
                       onValueChange={(val) => {
+                        const matchedCat = dbCategories?.find((c) => c.slug === val);
                         const safeCat = resolveSafeProductCategoryUuid(val, dbCategories || []);
-                        setForm((f) => ({ ...f, category_slug: val, category_id: safeCat || "" }));
+                        setForm((f) => ({ ...f, category_slug: val, category_id: safeCat || matchedCat?.id || "" }));
                       }}
                     >
                       <SelectTrigger className="rounded-xl h-11">

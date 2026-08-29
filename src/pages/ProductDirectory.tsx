@@ -119,13 +119,16 @@ export default function ProductDirectory() {
         const pDesc = (p.description || "").toLowerCase();
 
         if (cSlug === cat) return true;
+        if (cat === "software-apps" && (cSlug.includes("software") || cSlug.includes("script") || pName.includes("software") || pName.includes("bot") || pName.includes("app") || pName.includes("script") || pDesc.includes("software") || pDesc.includes("script"))) return true;
+        if (cat === "software-apps-scripts" && (cSlug.includes("software") || pName.includes("software") || pName.includes("bot") || pName.includes("app") || pName.includes("script"))) return true;
+        if (cat === "source-code-scripts" && (cSlug.includes("script") || cSlug.includes("code") || pName.includes("script") || pName.includes("code") || pDesc.includes("code"))) return true;
+        if (cat === "graphics-design" && (cSlug.includes("graphic") || cSlug.includes("design") || pName.includes("graphic") || pName.includes("logo") || pName.includes("flyer"))) return true;
         if (cat === "food-groceries" && (cSlug.includes("food") || pName.includes("food") || pName.includes("spice") || pName.includes("grocery") || pDesc.includes("food"))) return true;
         if (cat === "fashion-apparel" && (cSlug.includes("fashion") || pName.includes("wear") || pName.includes("cloth") || pName.includes("shoe"))) return true;
         if (cat === "phones-tablets" && (cSlug.includes("phone") || pName.includes("iphone") || pName.includes("samsung") || pName.includes("phone"))) return true;
-        if (cat === "ebooks-guides" && (pName.includes("ebook") || pName.includes("guide") || pName.includes("pdf") || pDesc.includes("ebook"))) return true;
-        if (cat === "courses-masterclasses" && (pName.includes("course") || pName.includes("class") || pName.includes("training"))) return true;
-        if (cat === "software-apps-scripts" && (pName.includes("software") || pName.includes("bot") || pName.includes("app") || pName.includes("script"))) return true;
-        if (cat === "templates-spreadsheets" && (pName.includes("template") || pName.includes("sheet") || pName.includes("notion") || pName.includes("canva"))) return true;
+        if (cat === "ebooks-guides" && (cSlug.includes("ebook") || pName.includes("ebook") || pName.includes("guide") || pName.includes("pdf") || pDesc.includes("ebook"))) return true;
+        if (cat === "courses-masterclasses" && (cSlug.includes("course") || pName.includes("course") || pName.includes("class") || pName.includes("training"))) return true;
+        if (cat === "templates-spreadsheets" && (cSlug.includes("template") || pName.includes("template") || pName.includes("sheet") || pName.includes("notion") || pName.includes("canva"))) return true;
         return false;
       });
     }
