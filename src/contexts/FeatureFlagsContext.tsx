@@ -3,52 +3,89 @@ import { Navigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 export type FeatureKey =
-  | "blog" | "businesses" | "business_listing" | "business_boost"
-  | "tools" | "inventory" | "coach" | "advertise" | "wallet"
-  | "favorites" | "comments" | "push" | "daily_rewards" | "guest_blog"
-  | "tv_videos" | "hero_slider" | "pwa_install" | "email_subscribe"
-  | "ad_earnings" | "video_creator" | "sales_pages" | "ai_admin" | "ai_blogger"
-  | "products" | "search" | "register" | "ai_auto_blog_slider" | "learn" | "forum" | "whatsapp_engine"
-  | "footer_for_non_members"
-  | "graphic_designer" | "logo_creator" | "realtime_chat" | "dashboard_search" | "birthday_filter";
+  // Core Commerce & Marketplace
+  | "products" | "businesses" | "business_listing" | "business_boost" | "sales_pages" | "user_leads"
+  // AI & Creative Studios
+  | "graphic_designer" | "logo_creator" | "video_creator" | "coach" | "ai_blogger" | "ai_admin"
+  // WhatsApp & Communication
+  | "whatsapp_engine" | "realtime_chat"
+  // Advertising & Ad Placements
+  | "advertise" | "ad_earnings" | "ads_marketplace" | "ads_blog" | "ads_dashboard" | "ads_directory"
+  // Finance & Wallet
+  | "wallet" | "referrals" | "daily_rewards"
+  // Content & Editorial
+  | "blog" | "guest_blog" | "comments" | "favorites" | "learn" | "forum" | "tv_videos" | "hero_slider" | "ai_auto_blog_slider"
+  // Tools & Utilities
+  | "tools" | "inventory" | "birthday_filter" | "dashboard_search" | "user_verification"
+  // Platform & UI Controls
+  | "search" | "register" | "push" | "pwa_install" | "email_subscribe" | "footer_for_non_members";
 
-export const FEATURE_META: { key: FeatureKey; label: string; description: string }[] = [
-  { key: "graphic_designer", label: "AI Graphic Designer & Flyer Maker", description: "Autonomous commercial flyer generator, stock pipeline, and Maya Sterling creative director studio" },
-  { key: "logo_creator", label: "Vector & 3D Logo Creator Suite", description: "Multi-type logo creator with wordmark, lettermark, emblem, combination, and dimensional 3D renders" },
-  { key: "realtime_chat", label: "Real-time Live Chat & Support", description: "Live messaging and support conversations with buyers, merchants, and staff" },
-  { key: "dashboard_search", label: "Dashboard Search & Universal Discovery", description: "Universal live search bar across products, designs, templates, businesses, and users on user dashboard" },
-  { key: "birthday_filter", label: "Birthday Templates & Celebration Filter", description: "Dedicated quick filter and presets for birthday flyers, WhatsApp stories, bakery cakes, and party promos" },
-  { key: "footer_for_non_members", label: "Footer Menu for Non-Members", description: "Display footer menu and navigation links to non-members (unauthenticated visitors)" },
-  { key: "whatsapp_engine", label: "WhatsApp Status Engine", description: "Mutual Google Contacts exchange, audience growth, and status ad monetization" },
-  { key: "blog", label: "Blog", description: "Blog posts, reading, and listing pages" },
-  { key: "video_creator", label: "Video Studio & Creation", description: "AI Video Studio, video generator, and video creator navigation & dashboards" },
-  { key: "products", label: "Product Marketplace", description: "Product listings, marketplace pages and selling" },
-  { key: "businesses", label: "Business Directory", description: "Public business directory & profiles" },
-  { key: "business_listing", label: "List a Business", description: "Allow users to submit new businesses" },
-  { key: "business_boost", label: "Boost / Sponsorship", description: "Paid business boosting feature" },
-  { key: "sales_pages", label: "Sales & Landing Pages", description: "Custom product landing and sales funnel pages" },
-  { key: "tools", label: "Business Tools", description: "Startup calculator and entrepreneur tools" },
-  { key: "inventory", label: "Inventory Manager", description: "Stock, sales and expense tracking" },
-  { key: "coach", label: "AI Business Coach", description: "AI-powered business coaching chat" },
-  { key: "ai_admin", label: "AI Administrator", description: "AI Strategy Director & Platform Intelligence console" },
-  { key: "ai_blogger", label: "AI Blogger Studio", description: "Autonomous AI Blogging and content scheduling studio" },
-  { key: "advertise", label: "Advertise With Us", description: "Advertising page and user ad submissions" },
-  { key: "wallet", label: "Wallet", description: "User wallet and top-ups" },
-  { key: "favorites", label: "Favorites", description: "Allow users to save favorite posts" },
-  { key: "comments", label: "Blog Comments", description: "Comments on blog posts" },
-  { key: "push", label: "Push Notifications", description: "Web push subscribe prompt & sending" },
-  { key: "daily_rewards", label: "Daily Rewards", description: "Daily login reward credits" },
-  { key: "guest_blog", label: "Guest Blog Submissions", description: "Allow paid guest blog submissions" },
-  { key: "tv_videos", label: "TV Videos", description: "YouTube TV video carousel" },
-  { key: "hero_slider", label: "Hero Slider", description: "Homepage hero slider" },
-  { key: "pwa_install", label: "PWA Install Prompt", description: "Install app prompt" },
-  { key: "email_subscribe", label: "Email Subscribe", description: "Newsletter subscription form" },
-  { key: "search", label: "Site Search", description: "Global header search" },
-  { key: "register", label: "Public Registration", description: "Allow new account sign-ups" },
-  { key: "ai_auto_blog_slider", label: "Auto Blog Slider", description: "Automatically rotate top posts into the homepage slider" },
-  { key: "learn", label: "Learning Hub", description: "Courses & video learning page (/learn)" },
-  { key: "forum", label: "Community Forum", description: "Community Q&A and discussions (/forum)" },
-  { key: "ad_earnings", label: "Ad Click Earnings", description: "Show 'Ad Earnings' card on user dashboards" },
+export interface FeatureMetaItem {
+  key: FeatureKey;
+  label: string;
+  category: "commerce" | "ai_creative" | "communication" | "advertising" | "finance" | "content" | "tools" | "platform";
+  description: string;
+}
+
+export const FEATURE_META: FeatureMetaItem[] = [
+  // Commerce & Marketplace
+  { key: "products", label: "Product Marketplace", category: "commerce", description: "Public Lagos marketplace, product detail pages (/products, /products/:slug) and seller management" },
+  { key: "businesses", label: "Business Directory", category: "commerce", description: "Public verified supplier and business directory profiles (/businesses)" },
+  { key: "business_listing", label: "List a Business", category: "commerce", description: "Allow users and suppliers to register and list new businesses (/businesses/list)" },
+  { key: "business_boost", label: "Business Boost & Sponsorship", category: "commerce", description: "Paid business boosting, verified partner status and featured placement" },
+  { key: "sales_pages", label: "Sales & Landing Pages", category: "commerce", description: "Custom product landing funnels, checkout sales pages, and analytics (/sales)" },
+  { key: "user_leads", label: "Seller Leads & Inquiries", category: "commerce", description: "Lead tracking, WhatsApp customer captures and sales inquiries" },
+
+  // AI & Creative Studios
+  { key: "graphic_designer", label: "AI Graphic Designer & Flyer Studio", category: "ai_creative", description: "Autonomous commercial flyer generator, stock pipeline, and creative director studio (/graphic-designer)" },
+  { key: "logo_creator", label: "Vector & 3D Logo Creator Suite", category: "ai_creative", description: "Multi-type logo creator with wordmark, lettermark, emblem, combination, and dimensional 3D renders (/logo-creator)" },
+  { key: "video_creator", label: "AI Video Studio & Generator", category: "ai_creative", description: "AI Video Studio, script-to-video generator, and video creator navigation (/create-video)" },
+  { key: "coach", label: "AI Business Coach", category: "ai_creative", description: "Coach Bethel Goodgift AI-powered advisory chat and business mentor (/dashboard/coach)" },
+  { key: "ai_blogger", label: "AI Blogger Studio", category: "ai_creative", description: "Autonomous AI Blogging and content scheduling studio for automated articles" },
+  { key: "ai_admin", label: "Executive AI Admin Console", category: "ai_creative", description: "AI Strategy Director, revenue analytics & platform intelligence console" },
+
+  // WhatsApp & Communication
+  { key: "whatsapp_engine", label: "WhatsApp Status Engine", category: "communication", description: "Mutual Google Contacts exchange, audience growth, and status ad monetization (/whatsapp-engine)" },
+  { key: "realtime_chat", label: "Real-time Live Chat & Support", category: "communication", description: "Live messaging and support conversations with buyers, merchants, and staff (/chat)" },
+
+  // Advertising & Ad Placements
+  { key: "advertise", label: "Advertise With Us Portal", category: "advertising", description: "Public advertising page, self-serve campaign creator, and ad manager (/advertise)" },
+  { key: "ads_marketplace", label: "Marketplace Ad Placements", category: "advertising", description: "Showcase programmatic ads and verified sponsored banners across /products and /products/:slug" },
+  { key: "ads_blog", label: "Blog Article Ads", category: "advertising", description: "Promotional sponsor banners in blog articles and editorial sidebars" },
+  { key: "ads_dashboard", label: "User Dashboard Ads", category: "advertising", description: "High-visibility sponsored partner banners on the merchant user dashboard" },
+  { key: "ads_directory", label: "Directory Sponsored Cards", category: "advertising", description: "Sponsored partner cards in the business directory listings feed" },
+  { key: "ad_earnings", label: "Ad Click Earnings", category: "advertising", description: "Show 'Ad Earnings' card and monetization balance on user dashboards" },
+
+  // Finance & Wallet
+  { key: "wallet", label: "User Wallet & Receipts", category: "finance", description: "User wallet balance, top-ups, transaction history, and payment receipts (/wallet)" },
+  { key: "referrals", label: "Referral & Affiliate System", category: "finance", description: "Refer-and-earn affiliate rewards, custom referral links and bonus tracking (/referral)" },
+  { key: "daily_rewards", label: "Daily Login Rewards", category: "finance", description: "Daily login reward credits and activity engagement points" },
+
+  // Content & Editorial
+  { key: "blog", label: "Editorial Blog", category: "content", description: "Blog posts, reading, category filters and listing pages (/blog)" },
+  { key: "guest_blog", label: "Guest Blog Submissions", category: "content", description: "Allow paid and community guest blog submissions (/dashboard/submit-blog)" },
+  { key: "comments", label: "Blog Comments", category: "content", description: "Public commentary and discussions on editorial blog posts" },
+  { key: "favorites", label: "Favorites & Saved Articles", category: "content", description: "Allow users to save favorite articles and business bookmarks (/dashboard/favorites)" },
+  { key: "learn", label: "Learning Hub & Courses", category: "content", description: "Video courses, entrepreneur guides, and learning resources (/learn)" },
+  { key: "forum", label: "Community Forum", category: "content", description: "Community Q&A, topics, and merchant discussions (/forum)" },
+  { key: "tv_videos", label: "TV Video Carousel", category: "content", description: "YouTube TV video carousel and video player showcase" },
+  { key: "hero_slider", label: "Homepage Hero Slider", category: "content", description: "Interactive animated 3D slider on the homepage" },
+  { key: "ai_auto_blog_slider", label: "Auto Blog Slider", category: "content", description: "Automatically rotate top trending posts into the homepage slider" },
+
+  // Tools & Utilities
+  { key: "tools", label: "Business Tools & Calculators", category: "tools", description: "Startup calculator, break-even calculator, and entrepreneur tools (/tools/startup-calculator)" },
+  { key: "inventory", label: "Inventory & Expense Manager", category: "tools", description: "Stock management, sales tracking, and expense logging (/dashboard/inventory)" },
+  { key: "birthday_filter", label: "Birthday & Celebration Filter", category: "tools", description: "Dedicated quick filter and presets for birthday flyers, bakery cakes, and party promos" },
+  { key: "dashboard_search", label: "Dashboard Universal Search", category: "tools", description: "Universal live search bar across products, designs, templates, and businesses on dashboard" },
+  { key: "user_verification", label: "User & Merchant KYC Verification", category: "tools", description: "Identity verification, business CAC registration review, and badge issuance (/verification)" },
+
+  // Platform & UI Controls
+  { key: "search", label: "Global Site Search", category: "platform", description: "Universal header search bar across all site content" },
+  { key: "register", label: "Public User Registration", category: "platform", description: "Allow new account sign-ups on /register" },
+  { key: "push", label: "Push Notifications", category: "platform", description: "Web push subscribe prompt & broadcast notifications" },
+  { key: "pwa_install", label: "PWA Install Prompt", category: "platform", description: "Progressive Web App install banner and mobile home-screen prompt" },
+  { key: "email_subscribe", label: "Email Newsletter Subscription", category: "platform", description: "Newsletter subscription forms across footer and articles" },
+  { key: "footer_for_non_members", label: "Footer for Non-Members", category: "platform", description: "Display footer menu and navigation links to unauthenticated visitors" },
 ];
 
 type FlagsMap = Record<FeatureKey, boolean>;

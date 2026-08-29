@@ -3,21 +3,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Megaphone, ExternalLink, Sparkles, ShieldCheck } from "lucide-react";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 export interface ProgrammaticAdBannerProps {
-  placement?: "blog" | "dashboard" | "shop" | "listings" | "header" | "footer" | "sidebar" | "in_article" | "services" | "marketplace" | string;
+  placement?: "blog" | "dashboard" | "shop" | "listings" | "header" | "footer" | "sidebar" | "in_article" | "services" | "marketplace" | "products" | string;
   className?: string;
   format?: "banner" | "card" | "compact" | "feed" | "flyer" | "billboard";
 }
 
 const PLACEMENT_ALIASES: Record<string, string[]> = {
-  shop: ["shop", "marketplace", "products", "store", "all"],
+  shop: ["marketplace", "shop", "products", "store", "all"],
   marketplace: ["marketplace", "shop", "products", "store", "all"],
-  products: ["products", "shop", "marketplace", "store", "all"],
+  products: ["marketplace", "products", "shop", "store", "all"],
   blog: ["blog", "article", "in_article", "editorial", "all"],
   dashboard: ["dashboard", "user_dashboard", "all"],
   listings: ["listings", "services", "businesses", "directory", "all"],
   services: ["services", "listings", "businesses", "directory", "all"],
+  businesses: ["businesses", "listings", "services", "directory", "all"],
   home: ["home", "homepage", "all"],
   header: ["header", "all"],
   footer: ["footer", "all"],
@@ -25,23 +27,39 @@ const PLACEMENT_ALIASES: Record<string, string[]> = {
 };
 
 export default function ProgrammaticAdBanner({
-  placement = "dashboard",
+  placement = "marketplace",
   className = "",
   format = "banner",
 }: ProgrammaticAdBannerProps) {
+  const { flags } = useFeatureFlags();
   const [ad, setAd] = useState<any>(null);
   const [watermark, setWatermark] = useState<{ text?: string; url?: string }>({});
   const [loading, setLoading] = useState(true);
   const impressionRecorded = useRef(false);
 
+  const targetPlacement = (placement || "marketplace").toLowerCase().trim();
+
+  // Check admin feature flag toggles
+  const isFeatureDisabled =
+    flags.advertise === false ||
+    ((targetPlacement === "marketplace" || targetPlacement === "shop" || targetPlacement === "products") && flags.ads_marketplace === false) ||
+    ((targetPlacement === "blog" || targetPlacement === "article" || targetPlacement === "in_article") && flags.ads_blog === false) ||
+    (targetPlacement === "dashboard" && flags.ads_dashboard === false) ||
+    ((targetPlacement === "listings" || targetPlacement === "services" || targetPlacement === "businesses") && flags.ads_directory === false);
+
   useEffect(() => {
+    if (isFeatureDisabled) {
+      setAd(null);
+      setLoading(false);
+      return;
+    }
+
     let isMounted = true;
     impressionRecorded.current = false;
 
     async function fetchProgrammaticAd() {
       try {
         setLoading(true);
-        const targetPlacement = (placement || "dashboard").toLowerCase().trim();
         const candidateKeys = PLACEMENT_ALIASES[targetPlacement] || [targetPlacement, "all"];
 
         // 1. Fetch site ad controls & placement toggles
@@ -52,6 +70,10 @@ export default function ProgrammaticAdBanner({
           .in("key", [
             "ads_global_enabled",
             "ads_provider_native",
+            `ad_placement_${targetPlacement}_enabled`,
+            "ad_placement_marketplace_enabled",
+            "ad_placement_shop_enabled",
+            "ad_placement_products_enabled",
             ...placementSettingKeys,
             "ad_watermark_text",
             "ad_watermark_url",
@@ -62,11 +84,21 @@ export default function ProgrammaticAdBanner({
           settingsMap[s.key] = s.value || "";
         });
 
-        // If master switches disabled or any relevant placement switch is explicitly turned off
+        // Master switch check
         const isMasterDisabled = settingsMap.ads_global_enabled === "false" || settingsMap.ads_provider_native === "false";
-        const isPlacementDisabled = candidateKeys.some(
-          (k) => settingsMap[`ad_placement_${k}_enabled`] === "false"
-        );
+        
+        // Specific placement switch check: only disabled if the target is specifically false or all synonyms are explicitly false
+        let isPlacementDisabled = false;
+        if (settingsMap[`ad_placement_${targetPlacement}_enabled`] === "false") {
+          isPlacementDisabled = true;
+        } else if (
+          (targetPlacement === "marketplace" || targetPlacement === "shop" || targetPlacement === "products") &&
+          settingsMap.ad_placement_marketplace_enabled === "false" &&
+          settingsMap.ad_placement_shop_enabled === "false" &&
+          settingsMap.ad_placement_products_enabled === "false"
+        ) {
+          isPlacementDisabled = true;
+        }
 
         if (isMasterDisabled || isPlacementDisabled) {
           if (isMounted) setAd(null);
@@ -191,7 +223,7 @@ export default function ProgrammaticAdBanner({
     return () => {
       isMounted = false;
     };
-  }, [placement]);
+  }, [placement, isFeatureDisabled]);
 
   const recordImpression = async (adId: string) => {
     try {

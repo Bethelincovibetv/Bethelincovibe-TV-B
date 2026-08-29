@@ -184,8 +184,8 @@ const App = () => (
               <Route path="/suppliers/submit" element={<Navigate to="/businesses/list" replace />} />
               <Route path="/suppliers/:slug" element={<FeatureGate feature="businesses"><BusinessProfile /></FeatureGate>} />
               <Route path="/tools/startup-calculator" element={<FeatureGate feature="tools"><StartupCalculator /></FeatureGate>} />
-              <Route path="/tools/video-creator" element={<VideoCreator />} />
-              <Route path="/create-video" element={<VideoCreator />} />
+              <Route path="/tools/video-creator" element={<FeatureGate feature="video_creator"><VideoCreator /></FeatureGate>} />
+              <Route path="/create-video" element={<FeatureGate feature="video_creator"><VideoCreator /></FeatureGate>} />
               <Route path="/studio/*" element={<VixoraStudioApp />} />
               <Route path="/studio" element={<VixoraStudioApp />} />
               <Route path="/advertise" element={<FeatureGate feature="advertise"><AdvertiseWithUs /></FeatureGate>} />
@@ -195,12 +195,12 @@ const App = () => (
               <Route path="/dashboard/my-designs" element={<FeatureGate feature="graphic_designer"><GraphicDesignerPage /></FeatureGate>} />
               <Route path="/graphic-designer" element={<FeatureGate feature="graphic_designer"><GraphicDesignerPage /></FeatureGate>} />
               <Route path="/logo-creator" element={<FeatureGate feature="logo_creator"><GraphicDesignerPage /></FeatureGate>} />
-              <Route path="/dashboard/create-video" element={<VideoCreator />} />
+              <Route path="/dashboard/create-video" element={<FeatureGate feature="video_creator"><VideoCreator /></FeatureGate>} />
               <Route path="/dashboard/notifications" element={<UserNotificationsPage />} />
               <Route path="/dashboard/settings/notifications" element={<UserNotificationSettingsPage />} />
               <Route path="/dashboard/activity" element={<UserActivityPage />} />
-              <Route path="/dashboard/verification" element={<UserVerification />} />
-              <Route path="/verification" element={<UserVerification />} />
+              <Route path="/dashboard/verification" element={<FeatureGate feature="user_verification"><UserVerification /></FeatureGate>} />
+              <Route path="/verification" element={<FeatureGate feature="user_verification"><UserVerification /></FeatureGate>} />
               <Route path="/activity" element={<UserActivityPage />} />
               <Route path="/dashboard/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
               <Route path="/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
@@ -211,19 +211,19 @@ const App = () => (
               <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
-              <Route path="/dashboard/ad-earnings" element={<UserAdEarnings />} />
+              <Route path="/dashboard/ad-earnings" element={<FeatureGate feature="ad_earnings"><UserAdEarnings /></FeatureGate>} />
               <Route path="/dashboard/ads" element={<FeatureGate feature="advertise"><UserAds /></FeatureGate>} />
               <Route path="/dashboard/ads/:id/analytics" element={<FeatureGate feature="advertise"><UserAdAnalytics /></FeatureGate>} />
               <Route path="/dashboard/coach" element={<FeatureGate feature="coach"><BusinessCoach /></FeatureGate>} />
               <Route path="/dashboard/inventory" element={<FeatureGate feature="inventory"><BusinessInventory /></FeatureGate>} />
-              <Route path="/dashboard/sales-pages" element={<SalesPages />} />
-              <Route path="/dashboard/sales-pages/new" element={<SalesPageEditor />} />
-              <Route path="/dashboard/sales-pages/:id/edit" element={<SalesPageEditor />} />
-              <Route path="/dashboard/sales-pages/:id/analytics" element={<SalesPageAnalytics />} />
-              <Route path="/dashboard/products" element={<SellerProducts />} />
+              <Route path="/dashboard/sales-pages" element={<FeatureGate feature="sales_pages"><SalesPages /></FeatureGate>} />
+              <Route path="/dashboard/sales-pages/new" element={<FeatureGate feature="sales_pages"><SalesPageEditor /></FeatureGate>} />
+              <Route path="/dashboard/sales-pages/:id/edit" element={<FeatureGate feature="sales_pages"><SalesPageEditor /></FeatureGate>} />
+              <Route path="/dashboard/sales-pages/:id/analytics" element={<FeatureGate feature="sales_pages"><SalesPageAnalytics /></FeatureGate>} />
+              <Route path="/dashboard/products" element={<FeatureGate feature="products"><SellerProducts /></FeatureGate>} />
               <Route path="/dashboard/payments" element={<SellerPayments />} />
               <Route path="/dashboard/purchases" element={<UserPurchases />} />
-              <Route path="/dashboard/leads" element={<UserLeads />} />
+              <Route path="/dashboard/leads" element={<FeatureGate feature="user_leads"><UserLeads /></FeatureGate>} />
               <Route path="/dashboard/settings" element={<UserSettings />} />
               <Route path="/dashboard/settings/audio" element={<UserSettings />} />
               <Route path="/dashboard/settings/profile" element={<UserSettings />} />
@@ -234,15 +234,15 @@ const App = () => (
               <Route path="/dashboard/favorites" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />
               <Route path="/dashboard/saved-blogs" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />
               <Route path="/saved-blogs" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />
-              <Route path="/referral" element={<Referral />} />
-              <Route path="/referrals" element={<Referral />} />
-              <Route path="/dashboard/referrals" element={<Referral />} />
+              <Route path="/referral" element={<FeatureGate feature="referrals"><Referral /></FeatureGate>} />
+              <Route path="/referrals" element={<FeatureGate feature="referrals"><Referral /></FeatureGate>} />
+              <Route path="/dashboard/referrals" element={<FeatureGate feature="referrals"><Referral /></FeatureGate>} />
               <Route path="/dashboard/businesses" element={<FeatureGate feature="businesses"><UserBusinesses /></FeatureGate>} />
-              <Route path="/dashboard/messages" element={<UserMessages />} />
-              <Route path="/dashboard/chat" element={<UserMessages />} />
-              <Route path="/dashboard/realtime-chat" element={<UserMessages />} />
-              <Route path="/chat" element={<UserMessages />} />
-              <Route path="/messages" element={<UserMessages />} />
+              <Route path="/dashboard/messages" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
+              <Route path="/dashboard/chat" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
+              <Route path="/dashboard/realtime-chat" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
+              <Route path="/chat" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
+              <Route path="/messages" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/edit" element={<FeatureGate feature="businesses"><EditBusiness /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/boost" element={<FeatureGate feature="business_boost"><BoostBusiness /></FeatureGate>} />
               <Route path="/dashboard/profile-edit" element={<UserProfileEdit />} />
@@ -266,10 +266,10 @@ const App = () => (
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/disclaimer" element={<Disclaimer />} />
-              <Route path="/learn" element={<Learn />} />
+              <Route path="/learn" element={<FeatureGate feature="learn"><Learn /></FeatureGate>} />
               <Route path="/forum" element={<FeatureGate feature="forum"><Forum /></FeatureGate>} />
               <Route path="/forum/:id" element={<FeatureGate feature="forum"><ForumPost /></FeatureGate>} />
-              <Route path="/sales" element={<PublicSalesDirectory />} />
+              <Route path="/sales" element={<FeatureGate feature="sales_pages"><PublicSalesDirectory /></FeatureGate>} />
             </Route>
 
             <Route path="/admin" element={<ProtectedAdminRoute><AdminLayout /></ProtectedAdminRoute>}>
