@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2, Key, Bot, Sliders, Cpu } from "lucide-react";
