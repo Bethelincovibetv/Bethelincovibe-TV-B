@@ -62,8 +62,18 @@ export default function OnboardingSetupWizard({
   // Business Step Form State
   const [bizName, setBizName] = useState("");
   const [bizCategory, setBizCategory] = useState("Technology & Software");
-  const [bizLocation, setBizLocation] = useState("Ikeja, Lagos");
+  const [bizLocation, setBizLocation] = useState(
+    profile?.city ? `${profile.city}${profile?.state ? `, ${profile.state}` : ""}` : (profile?.address || "Ikeja, Lagos")
+  );
   const [bizService, setBizService] = useState("");
+
+  // KYC Verification State
+  const [showKyc, setShowKyc] = useState(false);
+  const [ninNumber, setNinNumber] = useState(profile?.metadata?.kyc?.nin || "");
+  const [idType, setIdType] = useState(profile?.metadata?.kyc?.id_type || "nin");
+  const [residentialAddress, setResidentialAddress] = useState(
+    profile?.metadata?.kyc?.address || profile?.address || ""
+  );
 
   useEffect(() => {
     if (profile) {
@@ -77,6 +87,11 @@ export default function OnboardingSetupWizard({
           ...prev,
           ...profile.social_links,
         }));
+      }
+      if (profile.metadata?.kyc) {
+        setNinNumber(profile.metadata.kyc.nin || "");
+        setIdType(profile.metadata.kyc.id_type || "nin");
+        setResidentialAddress(profile.metadata.kyc.address || profile.address || "");
       }
     }
   }, [profile]);
@@ -112,6 +127,18 @@ export default function OnboardingSetupWizard({
       const cleanSocials = { ...socialLinks };
       if (whatsapp) cleanSocials.whatsapp = whatsapp;
 
+      const existingMetadata = (profile?.metadata && typeof profile.metadata === "object") ? profile.metadata : {};
+      const updatedMetadata = {
+        ...existingMetadata,
+        kyc: {
+          nin: ninNumber.trim(),
+          id_type: idType,
+          address: residentialAddress.trim(),
+          submitted_at: new Date().toISOString(),
+          status: ninNumber.trim() ? "submitted" : "unverified",
+        },
+      };
+
       const payload: any = {
         user_id: user.id,
         email: user.email,
@@ -121,12 +148,14 @@ export default function OnboardingSetupWizard({
         whatsapp: whatsapp,
         avatar_url: avatarUrl,
         social_links: cleanSocials,
+        address: residentialAddress.trim() || profile?.address || null,
+        metadata: updatedMetadata,
         is_public: true,
       };
       const { error } = await supabase.from("profiles").upsert(payload, { onConflict: "user_id" });
       if (error) throw error;
       localStorage.setItem(`wizard_completed_${user.id}`, "true");
-      toast.success("Profile and social handles saved!");
+      toast.success("Profile, social handles & identity saved!");
       if (onProfileUpdated) onProfileUpdated();
       setStep(3);
     } catch (err: any) {
@@ -164,22 +193,49 @@ export default function OnboardingSetupWizard({
           (c) => c.name.toLowerCase() === bizCategory.toLowerCase() || c.slug.toLowerCase() === bizCategory.toLowerCase()
         );
 
-        const { error: insertErr } = await supabase.from("suppliers").insert({
-          name: bizName.trim(),
-          slug,
-          description: bio || `${bizName} business in ${bizLocation}`,
-          phone: whatsapp || profile?.whatsapp || null,
-          whatsapp_number: whatsapp || profile?.whatsapp || null,
-          address: bizLocation,
-          logo_url: avatarUrl || profile?.avatar_url || null,
-          cover_template: "tech",
-          submitted_by: user.id,
-          status: "approved",
-          active: true,
-        });
+        // Check if user already has an existing business record (Source of Truth)
+        const { data: existingSupplier } = await supabase
+          .from("suppliers")
+          .select("id, name, slug")
+          .eq("submitted_by", user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-        if (!insertErr) {
-          toast.success("Business profile activated & live on the directory!");
+        if (existingSupplier?.id) {
+          const { error: updateErr } = await supabase
+            .from("suppliers")
+            .update({
+              name: bizName.trim(),
+              description: bio || `${bizName} business in ${bizLocation}`,
+              phone: whatsapp || profile?.whatsapp || null,
+              whatsapp_number: whatsapp || profile?.whatsapp || null,
+              address: bizLocation,
+              logo_url: avatarUrl || profile?.avatar_url || null,
+            })
+            .eq("id", existingSupplier.id);
+
+          if (!updateErr) {
+            toast.success("Business profile synchronized & updated on the directory!");
+          }
+        } else {
+          const { error: insertErr } = await supabase.from("suppliers").insert({
+            name: bizName.trim(),
+            slug,
+            description: bio || `${bizName} business in ${bizLocation}`,
+            phone: whatsapp || profile?.whatsapp || null,
+            whatsapp_number: whatsapp || profile?.whatsapp || null,
+            address: bizLocation,
+            logo_url: avatarUrl || profile?.avatar_url || null,
+            cover_template: "tech",
+            submitted_by: user.id,
+            status: "approved",
+            active: true,
+          });
+
+          if (!insertErr) {
+            toast.success("Business profile activated & live on the directory!");
+          }
         }
       }
 
@@ -188,6 +244,22 @@ export default function OnboardingSetupWizard({
         const currentServices = Array.isArray(profile?.services) ? profile.services : [];
         const updatedServices = [...currentServices, { title: bizService.trim(), description: `${bizName || displayName} service offering` }];
         await supabase.from("profiles").update({ services: updatedServices }).eq("user_id", user.id);
+      }
+
+      // Also persist KYC info if supplied
+      if (ninNumber.trim() || residentialAddress.trim()) {
+        const existingMetadata = (profile?.metadata && typeof profile.metadata === "object") ? profile.metadata : {};
+        const updatedMetadata = {
+          ...existingMetadata,
+          kyc: {
+            nin: ninNumber.trim(),
+            id_type: idType,
+            address: residentialAddress.trim() || bizLocation,
+            submitted_at: new Date().toISOString(),
+            status: ninNumber.trim() ? "submitted" : "unverified",
+          },
+        };
+        await supabase.from("profiles").update({ metadata: updatedMetadata }).eq("user_id", user.id);
       }
 
       // Record congratulations notification in system
@@ -469,6 +541,80 @@ export default function OnboardingSetupWizard({
                         value={socialLinks.website || ""}
                         onChange={(e) => updateSocial("website", e.target.value)}
                         placeholder="https://mybusiness.com"
+                        className="h-8 text-xs"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* KYC & Identity Verification (Optional for Verified Badge) */}
+              <div className="rounded-2xl border border-border/80 bg-muted/20 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={() => setShowKyc(!showKyc)}
+                  className="w-full p-3.5 flex items-center justify-between hover:bg-muted/40 transition text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-7 w-7 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center">
+                      <ShieldCheck className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-xs font-bold text-foreground">Identity &amp; Address Verification (KYC)</p>
+                        <Badge className="bg-emerald-600 text-white text-[9px] px-1.5 py-0">Verified Badge</Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">Add NIN, CAC, or Government ID to unlock trusted merchant status</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant={ninNumber ? "default" : "secondary"} className="text-[10px] font-bold">
+                      {ninNumber ? "KYC Filled" : "Optional"}
+                    </Badge>
+                    {showKyc ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
+                  </div>
+                </button>
+
+                {showKyc && (
+                  <div className="p-4 pt-1 space-y-3 border-t border-border/60">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold">Verification Document Type</Label>
+                        <select
+                          value={idType}
+                          onChange={(e) => setIdType(e.target.value)}
+                          className="w-full h-8 rounded-md border bg-background px-3 text-xs"
+                        >
+                          <option value="nin">National Identity Number (NIN)</option>
+                          <option value="cac">Corporate Affairs Commission (CAC / RC Number)</option>
+                          <option value="voters_card">Voter's Card (VIN)</option>
+                          <option value="drivers_license">Driver's License</option>
+                          <option value="passport">International Passport</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-1">
+                        <Label className="text-[11px] font-semibold">ID / Registration Number</Label>
+                        <Input
+                          value={ninNumber}
+                          onChange={(e) => setNinNumber(e.target.value)}
+                          placeholder="e.g. 11-digit NIN or RC Number"
+                          className="h-8 text-xs font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-semibold">Residential / Business Physical Address</Label>
+                      <Input
+                        value={residentialAddress}
+                        onChange={(e) => {
+                          setResidentialAddress(e.target.value);
+                          if (!bizLocation || bizLocation === "Ikeja, Lagos") {
+                            setBizLocation(e.target.value);
+                          }
+                        }}
+                        placeholder="e.g. 14 Victoria Island Boulevard, Lagos"
                         className="h-8 text-xs"
                       />
                     </div>

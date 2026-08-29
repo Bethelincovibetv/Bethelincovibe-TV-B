@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2, Key, Bot, Sliders, Cpu } from "lucide-react";
+import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2, Key, Bot, Sliders, Cpu, ShoppingBag, PhoneCall, ShieldCheck } from "lucide-react";
 import { NOTIFICATION_SOUND_PRESETS, previewNotificationSound, uploadNotificationAudio, setCachedSoundPreference, NotificationSoundPreset } from "@/lib/notificationSound";
 import MultiApiKeyManagerPanel from "@/components/admin/MultiApiKeyManagerPanel";
 
@@ -50,6 +50,7 @@ const KEYS = [
   "ad_rotation_style", "ai_interactive_ads_enabled",
   "whatsapp_community_url", "referral_signup_bonus", "referral_purchase_pct",
   "sales_page_first_free", "sales_page_price", "leads_enabled_global",
+  "digital_products_enabled", "marketplace_enabled", "direct_calls_global_enabled",
   "notification_sound_enabled", "notification_sound_preset", "notification_sound_url",
   "allow_background_music", "master_jingle_volume",
   ...SOCIAL_KEYS,
@@ -147,10 +148,11 @@ export default function AdminSettings() {
       </div>
 
       <Tabs defaultValue="ai_keys" className="w-full">
-        <TabsList className="grid grid-cols-3 sm:grid-cols-7 h-auto p-1 gap-1">
+        <TabsList className="grid grid-cols-4 sm:grid-cols-8 h-auto p-1 gap-1">
           <TabsTrigger value="ai_keys" className="flex flex-col gap-1 py-2 text-[11px] font-black bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white">
             <Key className="h-4 w-4" />Multi-API &amp; AI
           </TabsTrigger>
+          <TabsTrigger value="marketplace" className="flex flex-col gap-1 py-2 text-[11px]"><ShoppingBag className="h-4 w-4 text-emerald-600" />Shop &amp; Products</TabsTrigger>
           <TabsTrigger value="ads" className="flex flex-col gap-1 py-2 text-[11px]"><Megaphone className="h-4 w-4" />Ads</TabsTrigger>
           <TabsTrigger value="rewards" className="flex flex-col gap-1 py-2 text-[11px]"><Wallet className="h-4 w-4" />Rewards</TabsTrigger>
           <TabsTrigger value="payments" className="flex flex-col gap-1 py-2 text-[11px]"><CreditCard className="h-4 w-4" />Payments</TabsTrigger>
@@ -161,6 +163,89 @@ export default function AdminSettings() {
 
         <TabsContent value="ai_keys" className="space-y-4 mt-4">
           <MultiApiKeyManagerPanel />
+        </TabsContent>
+
+        <TabsContent value="marketplace" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ShoppingBag className="h-4 w-4 text-emerald-600" /> Marketplace &amp; Product Sales Controls
+              </CardTitle>
+              <CardDescription>
+                Configure global merchant permissions for physical merchandise and digital products selling.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-5">
+              <div className="flex items-start justify-between gap-4 p-3.5 bg-muted/30 rounded-2xl border border-border/80">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="digital_products_enabled" className="font-bold cursor-pointer text-sm">
+                      Digital Products Selling
+                    </Label>
+                    <Badge className={get("digital_products_enabled") !== "false" ? "bg-emerald-600 text-white text-[10px]" : "bg-muted text-muted-foreground text-[10px]"}>
+                      {get("digital_products_enabled") !== "false" ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Allow merchants and vendors to upload digital downloads, eBooks, software, courses, and digital assets.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="digital_products_enabled"
+                  checked={get("digital_products_enabled") !== "false"}
+                  onChange={(e) => set("digital_products_enabled", e.target.checked ? "true" : "false")}
+                  className="h-5 w-5 accent-primary cursor-pointer mt-1"
+                />
+              </div>
+
+              <div className="flex items-start justify-between gap-4 p-3.5 bg-muted/30 rounded-2xl border border-border/80">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="marketplace_enabled" className="font-bold cursor-pointer text-sm">
+                      Public Marketplace &amp; Shop Catalog
+                    </Label>
+                    <Badge className={get("marketplace_enabled") !== "false" ? "bg-emerald-600 text-white text-[10px]" : "bg-muted text-muted-foreground text-[10px]"}>
+                      {get("marketplace_enabled") !== "false" ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enables the global storefront directory, cart checkout, and public product browsing.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="marketplace_enabled"
+                  checked={get("marketplace_enabled") !== "false"}
+                  onChange={(e) => set("marketplace_enabled", e.target.checked ? "true" : "false")}
+                  className="h-5 w-5 accent-primary cursor-pointer mt-1"
+                />
+              </div>
+
+              <div className="flex items-start justify-between gap-4 p-3.5 bg-muted/30 rounded-2xl border border-border/80">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="direct_calls_global_enabled" className="font-bold cursor-pointer text-sm">
+                      Vendor Direct Call Buttons
+                    </Label>
+                    <Badge className={get("direct_calls_global_enabled") !== "false" ? "bg-emerald-600 text-white text-[10px]" : "bg-muted text-muted-foreground text-[10px]"}>
+                      {get("direct_calls_global_enabled") !== "false" ? "Active" : "Disabled"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Allow vendors to accept direct phone calls from listings &amp; product pages.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="direct_calls_global_enabled"
+                  checked={get("direct_calls_global_enabled") !== "false"}
+                  onChange={(e) => set("direct_calls_global_enabled", e.target.checked ? "true" : "false")}
+                  className="h-5 w-5 accent-primary cursor-pointer mt-1"
+                />
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="ads" className="space-y-4 mt-4">

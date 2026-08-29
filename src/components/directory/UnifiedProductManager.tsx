@@ -201,6 +201,20 @@ export default function UnifiedProductManager({
     },
   });
 
+  // 6. Fetch Admin Digital Products Global Setting
+  const { data: digitalProductsSetting } = useQuery({
+    queryKey: ["site-setting-digital-products"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "digital_products_enabled")
+        .maybeSingle();
+      return data?.value !== "false"; // default true
+    },
+  });
+  const isDigitalAllowed = digitalProductsSetting !== false;
+
   // Auto pre-fill new form from user's business profile
   useEffect(() => {
     if (userBusiness && !isEditing && !form.name) {
@@ -741,7 +755,11 @@ export default function UnifiedProductManager({
 
                     <button
                       type="button"
-                      onClick={() =>
+                      onClick={() => {
+                        if (!isDigitalAllowed) {
+                          toast.error("Digital product selling is currently paused by platform administrator.");
+                          return;
+                        }
                         setForm((f) => {
                           const isCurrentlyPhysical = f.product_type === "physical";
                           const nextCatSlug = isCurrentlyPhysical ? "software-apps" : f.category_slug;
@@ -754,9 +772,10 @@ export default function UnifiedProductManager({
                             category_slug: nextCatSlug,
                             category_id: nextCatId || "",
                           };
-                        })
-                      }
+                        });
+                      }}
                       className={`p-4 rounded-2xl border-2 text-left transition-all flex items-start gap-3.5 ${
+                        !isDigitalAllowed ? "opacity-60 cursor-not-allowed bg-muted/40 border-border/50" :
                         form.product_type === "digital"
                           ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
                           : "border-border/70 hover:border-border bg-card"
@@ -767,10 +786,17 @@ export default function UnifiedProductManager({
                       </div>
                       <div className="min-w-0">
                         <p className="font-extrabold text-sm text-foreground flex items-center gap-1.5">
-                          Digital Product / Download <Badge className="bg-emerald-600 text-white text-[10px]">Instant</Badge>
+                          Digital Product / Download{" "}
+                          {isDigitalAllowed ? (
+                            <Badge className="bg-emerald-600 text-white text-[10px]">Instant</Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-amber-600 border-amber-500/40 text-[10px]">Disabled by Admin</Badge>
+                          )}
                         </p>
                         <p className="text-xs text-muted-foreground mt-0.5 leading-normal">
-                          E-books, templates, online courses, software bots, graphic packs &amp; instant downloadable files.
+                          {isDigitalAllowed
+                            ? "E-books, templates, online courses, software bots, graphic packs & instant downloadable files."
+                            : "Digital uploads are temporarily disabled by the platform administrator."}
                         </p>
                       </div>
                     </button>

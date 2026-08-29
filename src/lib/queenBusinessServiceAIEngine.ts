@@ -1204,6 +1204,22 @@ export async function autoCreateAndSetupBusinessForUser(
     throw new Error("Invalid user profile provided");
   }
 
+  // 1. Check if user already has an existing business record (Source of Truth)
+  const { data: existingBiz } = await supabase
+    .from("suppliers")
+    .select("*")
+    .eq("submitted_by", userProfile.user_id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingBiz?.id) {
+    return await runQueenServiceAIAutomation(existingBiz, {
+      ...options,
+      isEarlyAccessOnly: false,
+    });
+  }
+
   const displayName =
     userProfile.display_name ||
     userProfile.username ||

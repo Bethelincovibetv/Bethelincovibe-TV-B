@@ -8,7 +8,7 @@ import { Megaphone, ExternalLink, Sparkles, ShieldCheck } from "lucide-react";
 export interface ProgrammaticAdBannerProps {
   placement?: "blog" | "dashboard" | "shop" | "listings" | "header" | "footer" | "sidebar" | "in_article" | string;
   className?: string;
-  format?: "banner" | "card" | "compact" | "feed";
+  format?: "banner" | "card" | "compact" | "feed" | "flyer" | "billboard";
 }
 
 export default function ProgrammaticAdBanner({
@@ -71,7 +71,7 @@ export default function ProgrammaticAdBanner({
         const nowIso = new Date().toISOString();
 
         // 2. Query active user ads from database
-        const { data: directAds, error: dbError } = await supabase
+        const { data: directAds } = await supabase
           .from("user_ads")
           .select("*")
           .eq("status", "active")
@@ -94,7 +94,6 @@ export default function ProgrammaticAdBanner({
 
         // Programmatic rotation: Pick ad with lowest impressions or random weighted
         if (pool.length > 0) {
-          // Sort by lowest impressions first with slight randomness
           const sorted = [...pool].sort((a, b) => {
             const impA = Number(a.impressions || 0);
             const impB = Number(b.impressions || 0);
@@ -177,7 +176,75 @@ export default function ProgrammaticAdBanner({
   const displayDesc = ad.description || "Discover verified goods, merchandise and exclusive deals on Bethelincovibe.";
   const displayImage = ad.image_url;
 
-  // Format 1: In-feed card (fits in product/business grids)
+  // Format 1: Full Flyer Showcase Template (No cropping, full promotional graphic preserved)
+  if (format === "flyer") {
+    return (
+      <div
+        id={`ad-flyer-${ad.id}`}
+        className={`group relative overflow-hidden rounded-2xl border-2 border-primary/30 bg-card p-4 shadow-lg hover:shadow-2xl transition-all duration-300 ${className}`}
+      >
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <Badge
+            variant="default"
+            className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-black uppercase tracking-wider px-2 py-0.5"
+          >
+            <Sparkles className="h-3 w-3 mr-1" /> Featured Flyer
+          </Badge>
+          <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Verified Partner
+          </span>
+        </div>
+
+        {displayImage && (
+          <a
+            href={targetHref}
+            target="_blank"
+            rel="noopener sponsored"
+            onClick={handleAdClick}
+            className="relative block overflow-hidden rounded-xl bg-muted/40 mb-3.5 group-hover:opacity-95 transition-opacity"
+          >
+            <img
+              src={displayImage}
+              alt={displayTitle}
+              loading="lazy"
+              className="w-full max-h-[420px] object-contain mx-auto rounded-xl transition-transform duration-300 group-hover:scale-[1.01]"
+            />
+            {(watermark.url || watermark.text) && (
+              <span className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1 pointer-events-none">
+                {watermark.url && <img src={watermark.url} alt="" className="h-3 w-3 object-contain" />}
+                {watermark.text || "Bethelincovibe TV"}
+              </span>
+            )}
+          </a>
+        )}
+
+        <div className="space-y-1.5 mb-3.5">
+          <a
+            href={targetHref}
+            target="_blank"
+            rel="noopener sponsored"
+            onClick={handleAdClick}
+            className="font-bold text-base text-foreground hover:text-primary transition-colors block"
+          >
+            {displayTitle}
+          </a>
+          <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{displayDesc}</p>
+        </div>
+
+        <Button
+          asChild
+          size="sm"
+          className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md text-xs h-10 gap-1.5"
+        >
+          <a href={targetHref} target="_blank" rel="noopener sponsored" onClick={handleAdClick}>
+            View Full Offer <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
+  // Format 2: In-feed card (fits in product/business grids with FULL uncropped image scaling)
   if (format === "feed" || format === "card") {
     return (
       <div
@@ -202,13 +269,13 @@ export default function ProgrammaticAdBanner({
             target="_blank"
             rel="noopener sponsored"
             onClick={handleAdClick}
-            className="relative block overflow-hidden rounded-xl bg-muted/30 aspect-video mb-3 group-hover:opacity-95 transition-opacity"
+            className="relative block overflow-hidden rounded-xl bg-muted/40 min-h-[160px] max-h-[260px] mb-3 group-hover:opacity-95 transition-opacity flex items-center justify-center"
           >
             <img
               src={displayImage}
               alt={displayTitle}
               loading="lazy"
-              className="h-full w-full object-cover rounded-xl transition-transform duration-500 group-hover:scale-105"
+              className="w-full max-h-[260px] object-contain rounded-xl transition-transform duration-500 group-hover:scale-105"
             />
             {(watermark.url || watermark.text) && (
               <span className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white text-[9px] px-1.5 py-0.5 rounded-md flex items-center gap-1 pointer-events-none">
@@ -245,11 +312,41 @@ export default function ProgrammaticAdBanner({
     );
   }
 
-  // Format 2: Standard Wide Banner (Dashboard, Blog, Header, Footer)
+  // Format 3: Compact Inline Bar
+  if (format === "compact") {
+    return (
+      <div
+        id={`ad-compact-${ad.id}`}
+        className={`my-2 flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-muted/40 px-3 py-2 shadow-xs ${className}`}
+      >
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-black uppercase px-1.5 py-0">
+            Ad
+          </Badge>
+          <a
+            href={targetHref}
+            target="_blank"
+            rel="noopener sponsored"
+            onClick={handleAdClick}
+            className="text-xs font-bold text-foreground hover:text-primary transition truncate"
+          >
+            {displayTitle}
+          </a>
+        </div>
+        <Button asChild size="sm" variant="ghost" className="h-7 text-xs font-bold px-2 shrink-0">
+          <a href={targetHref} target="_blank" rel="noopener sponsored" onClick={handleAdClick}>
+            Open <ExternalLink className="h-3 w-3 ml-1" />
+          </a>
+        </Button>
+      </div>
+    );
+  }
+
+  // Format 4: Standard Wide Banner (Preserving full artwork with uncropped scaling)
   return (
     <div
       id={`ad-banner-${ad.id}`}
-      className={`my-4 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-amber-500/5 p-3.5 sm:p-4 shadow-xs transition-all hover:border-primary/40 ${className}`}
+      className={`my-4 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-amber-500/5 p-3.5 sm:p-4 shadow-sm transition-all hover:border-primary/40 ${className}`}
     >
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
         {displayImage && (
@@ -258,13 +355,13 @@ export default function ProgrammaticAdBanner({
             target="_blank"
             rel="noopener sponsored"
             onClick={handleAdClick}
-            className="relative shrink-0 w-full sm:w-48 max-h-32 overflow-hidden rounded-xl bg-muted/40 shadow-xs group"
+            className="relative shrink-0 w-full sm:w-56 min-h-[100px] max-h-40 overflow-hidden rounded-xl bg-muted/40 shadow-xs group flex items-center justify-center"
           >
             <img
               src={displayImage}
               alt={displayTitle}
               loading="lazy"
-              className="h-24 sm:h-28 w-full object-cover rounded-xl transition-transform duration-300 group-hover:scale-105"
+              className="max-h-36 w-full object-contain rounded-xl transition-transform duration-300 group-hover:scale-105"
             />
             {(watermark.url || watermark.text) && (
               <span className="absolute bottom-1 right-1 bg-black/60 backdrop-blur-xs text-white text-[8px] px-1 py-0.5 rounded flex items-center gap-1 pointer-events-none">
