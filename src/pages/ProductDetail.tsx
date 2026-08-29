@@ -174,7 +174,13 @@ export default function ProductDetail() {
     );
   }
 
-  const isOwner = Boolean(user && (user.id === product?.user_id || isAdmin));
+  // Only the actual creator or business owner who submitted this product can see owner controls
+  const isOwner = Boolean(
+    user?.id && (
+      (product?.user_id && user.id === product.user_id) ||
+      (sellerBusiness?.submitted_by && user.id === sellerBusiness.submitted_by)
+    )
+  );
 
   const isDigital =
     product.product_type === "digital" ||

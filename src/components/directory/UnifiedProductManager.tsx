@@ -220,13 +220,18 @@ export default function UnifiedProductManager({
 
   // Load product for editing if editParamId exists
   useEffect(() => {
-    if (editParamId && products.length > 0) {
+    if (!editParamId) return;
+
+    if (!loadingProducts && products.length >= 0) {
       const found = products.find((p) => p.id === editParamId);
       if (found) {
         startEditProduct(found);
+      } else {
+        toast.error("You do not have permission to edit this product.");
+        resetToNew();
       }
     }
-  }, [editParamId, products]);
+  }, [editParamId, products, loadingProducts]);
 
   // Compute live sales metrics
   const stats = useMemo(() => {
