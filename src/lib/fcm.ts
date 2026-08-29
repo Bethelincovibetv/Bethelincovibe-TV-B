@@ -325,7 +325,79 @@ export async function sendFcmNotificationToUser(params: {
         user_ids: [params.userId],
       },
     }).catch(() => {});
+
+    // Also trigger direct browser notification if permitted on current device
+    triggerDirectBrowserNotification({
+      title: params.title,
+      body: params.body,
+      url: params.url || "/dashboard",
+      icon: params.icon || "/logo.png",
+      image: params.image,
+    });
   } catch (err) {
     console.warn("Failed sending FCM notification:", err);
   }
+}
+
+/**
+ * Triggers a real-time system/browser push notification directly on the active device using site logo
+ */
+export function triggerDirectBrowserNotification(options: {
+  title: string;
+  body: string;
+  url?: string;
+  icon?: string;
+  image?: string;
+}) {
+  if (typeof window === "undefined" || !("Notification" in window)) return;
+  if (Notification.permission !== "granted") return;
+
+  try {
+    const icon = options.icon || "/logo.png";
+    const notif = new Notification(options.title, {
+      body: options.body,
+      icon,
+      badge: icon,
+      image: options.image,
+      data: { url: options.url || "/dashboard" },
+    });
+
+    notif.onclick = (e) => {
+      e.preventDefault();
+      window.focus();
+      if (options.url) {
+        window.location.href = options.url;
+      }
+      notif.close();
+    };
+  } catch (e) {
+    // If standard constructor fails (e.g. on some mobile browsers), try service worker registration
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.ready.then((reg) => {
+        reg.showNotification(options.title, {
+          body: options.body,
+          icon: options.icon || "/logo.png",
+          badge: "/logo.png",
+          image: options.image,
+          data: { url: options.url || "/dashboard" },
+        }).catch(() => {});
+      }).catch(() => {});
+    }
+  }
+}
+
+/**
+ * Sends a real-time Welcome Push Notification to the user's device with the official site logo
+ */
+export async function sendWelcomePushNotification(userId: string) {
+  const welcomePayload = {
+    userId,
+    title: "Welcome to Bethelincovibe TV! 🚀",
+    body: "Push notifications are successfully active on your device. You'll receive real-time alerts for business inquiries, blog performance, and community trade updates.",
+    url: "/dashboard",
+    icon: "/logo.png",
+    type: "system",
+  };
+
+  await sendFcmNotificationToUser(welcomePayload);
 }

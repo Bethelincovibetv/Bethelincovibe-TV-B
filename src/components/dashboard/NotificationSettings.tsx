@@ -7,6 +7,7 @@ import {
   getUserNotificationPreferences,
   saveUserNotificationPreferences,
   sendFcmNotificationToUser,
+  sendWelcomePushNotification,
   FcmDevice,
   FcmNotificationPreferences,
   DEFAULT_PREFERENCES,
@@ -36,6 +37,7 @@ import {
   Volume2,
   Play,
   Music,
+  Sparkles,
 } from "lucide-react";
 import {
   isNotificationSoundEnabled,
@@ -67,6 +69,7 @@ export default function NotificationSettings() {
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [enablingPush, setEnablingPush] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
+  const [sendingWelcome, setSendingWelcome] = useState(false);
 
   const permissionStatus = typeof window !== "undefined" && "Notification" in window ? Notification.permission : "unsupported";
 
@@ -140,12 +143,26 @@ export default function NotificationSettings() {
         body: "Your FCM push notifications are working perfectly on Bethelincovibe TV!",
         url: "/dashboard",
         type: "system",
+        icon: "/logo.png",
       });
       toast.success("Test notification triggered! Check your device or notification bell.");
     } catch (err: any) {
       toast.error(err?.message || "Failed to send test push notification");
     } finally {
       setSendingTest(false);
+    }
+  };
+
+  const handleSendWelcome = async () => {
+    if (!user) return;
+    setSendingWelcome(true);
+    try {
+      await sendWelcomePushNotification(user.id);
+      toast.success("Welcome notification sent with site logo! Check your device notifications.");
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to send welcome push notification");
+    } finally {
+      setSendingWelcome(false);
     }
   };
 
@@ -197,6 +214,20 @@ export default function NotificationSettings() {
           )}
 
           <div className="mt-4 flex flex-wrap items-center gap-3 pt-2 border-t">
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleSendWelcome}
+              disabled={sendingWelcome || !prefs.enabled}
+              className="text-xs bg-gradient-to-r from-primary via-purple-600 to-indigo-600 text-white font-bold shadow-sm"
+            >
+              {sendingWelcome ? (
+                <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              ) : (
+                <Sparkles className="h-3.5 w-3.5 mr-1.5 text-amber-300" />
+              )}
+              Send Welcome Realtime Push
+            </Button>
             <Button
               variant="outline"
               size="sm"

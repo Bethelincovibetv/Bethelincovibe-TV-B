@@ -235,16 +235,16 @@ export default function SubmitBlog() {
         </div>
 
         {/* Hero Card */}
-        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary/90 via-primary to-indigo-950 text-white p-6 sm:p-8 shadow-xl">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-700 via-primary to-indigo-950 text-white p-6 sm:p-8 shadow-xl">
           <div className="relative z-10 space-y-3">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-extrabold ring-1 ring-white/20">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-extrabold text-white ring-1 ring-white/30">
               <Sparkles className="h-3.5 w-3.5 text-amber-300" />
-              Executive Business Feature
+              <span className="text-white">Executive Business Feature</span>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
               Publish an AI-Powered Feature on Your Business
             </h1>
-            <p className="text-sm sm:text-base text-white/80 max-w-xl leading-relaxed">
+            <p className="text-sm sm:text-base text-white/95 max-w-xl leading-relaxed font-medium">
               Our intelligent SEO system writes an authoritative long-form article featuring your brand, photo gallery, products, and direct WhatsApp contact channels.
             </p>
           </div>

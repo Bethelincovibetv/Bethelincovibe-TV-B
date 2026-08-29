@@ -59,6 +59,7 @@ import UserFavorites from "./pages/UserFavorites";
 import UserProfileEdit from "./pages/UserProfileEdit";
 import PublicProfile from "./pages/PublicProfile";
 import SubmitBlog from "./pages/SubmitBlog";
+import UserMyBlogs from "./pages/UserMyBlogs";
 import AdvertiseWithUs from "./pages/AdvertiseWithUs";
 import TransactionReceipt from "./pages/TransactionReceipt";
 import UserAds from "./pages/UserAds";
@@ -247,6 +248,9 @@ const App = () => (
               <Route path="/dashboard/guides" element={<HowToGuide />} />
               <Route path="/how-to" element={<HowToGuide />} />
               <Route path="/dashboard/submit-blog" element={<FeatureGate feature="guest_blog"><SubmitBlog /></FeatureGate>} />
+              <Route path="/dashboard/my-blogs" element={<UserMyBlogs />} />
+              <Route path="/dashboard/blogs" element={<UserMyBlogs />} />
+              <Route path="/dashboard/blog-performance" element={<UserMyBlogs />} />
               <Route path="/u/:username" element={<PublicProfile />} />
               <Route path="/about" element={<About />} />
               <Route path="/support" element={<Support />} />

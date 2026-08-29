@@ -9,13 +9,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift, Palette, BookOpen
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, UserCheck, MessageCircle, QrCode, Film, Gift
 } from "lucide-react";
 
+import ReferralCard from "@/components/ReferralCard";
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
-import DashboardSearchDiscovery from "@/components/dashboard/DashboardSearchDiscovery";
+import VixoraAICoachToday from "@/components/coach/VixoraAICoachToday";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -26,7 +27,6 @@ export default function UserDashboard() {
   const [favCount, setFavCount] = useState(0);
   const [submissions, setSubmissions] = useState<any[]>([]);
   const [businessCount, setBusinessCount] = useState(0);
-  const [userBiz, setUserBiz] = useState<any>(null);
   const [activities, setActivities] = useState<any[]>([]);
   const [wizardOpen, setWizardOpen] = useState(false);
 
@@ -38,7 +38,6 @@ export default function UserDashboard() {
       { count: fCount },
       { data: rawSubs },
       { count: bCount },
-      { data: bizRecord },
       { data: leads },
       { data: notifications },
       { data: forumPosts }
@@ -48,7 +47,6 @@ export default function UserDashboard() {
       supabase.from("favorites").select("*", { count: "exact", head: true }).eq("user_id", user.id),
       supabase.from("guest_blog_submissions").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(10),
       supabase.from("suppliers").select("*", { count: "exact", head: true }).eq("submitted_by", user.id),
-      supabase.from("suppliers").select("id,name,logo_url,image_url,city,state,verified").eq("submitted_by", user.id).order("created_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("sales_page_leads").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
       supabase.from("user_notifications").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
       supabase.from("forum_posts").select("*").eq("user_id", user.id).order("created_at", { ascending: false }).limit(5),
@@ -86,7 +84,6 @@ export default function UserDashboard() {
     setFavCount(totalFavs);
     setSubmissions(subs || []);
     setBusinessCount(bCount || 0);
-    setUserBiz(bizRecord);
 
     // Build unified activity timeline
     const feed: any[] = [];
@@ -160,10 +157,13 @@ export default function UserDashboard() {
   useEffect(() => {
     if (!user) return;
     const forceWizard = params.get("wizard") === "1";
-    if (forceWizard) {
+    const alreadyDone = localStorage.getItem(`wizard_completed_${user.id}`);
+    if (forceWizard || !alreadyDone) {
       setWizardOpen(true);
-      params.delete("wizard");
-      setParams(params, { replace: true });
+      if (forceWizard) {
+        params.delete("wizard");
+        setParams(params, { replace: true });
+      }
     }
   }, [user, params]);
 
@@ -175,10 +175,6 @@ export default function UserDashboard() {
 
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
-    { to: "/how-to", label: "How-To Guide", icon: BookOpen, color: "from-blue-600 via-indigo-600 to-purple-600", show: true },
-    { to: "/dashboard/graphic-designer", label: "Graphic Design", icon: Palette, color: "from-amber-500 via-orange-500 to-pink-500", show: flags.graphic_designer },
-    { to: "/dashboard/logo-creator", label: "Logo Creator", icon: Sparkles, color: "from-yellow-400 via-amber-500 to-amber-600", show: flags.logo_creator },
-    { to: "/dashboard/chat", label: "Live Chat", icon: MessageSquare, color: "from-cyan-500 via-blue-500 to-indigo-600", show: flags.realtime_chat },
     { to: "/dashboard/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-green-600", show: flags.whatsapp_engine },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
     { to: "/referral", label: "Refer & Earn", icon: Gift, color: "from-amber-500 via-rose-500 to-purple-600", show: true },
@@ -194,11 +190,11 @@ export default function UserDashboard() {
     { to: "/dashboard/leads", label: "My Leads", icon: Mail, color: "from-pink-600 to-rose-500", show: flags.sales_pages },
     { to: "/dashboard/ads", label: "Run Ad", icon: Megaphone, color: "from-fuchsia-500 to-purple-600", show: flags.advertise },
     { to: "/dashboard/favorites", label: "Saved Articles", icon: Heart, color: "from-rose-500 to-orange-500", show: true },
-    { to: "/dashboard/submit-blog", label: "Submit a Business Blog", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
+    { to: "/dashboard/my-blogs", label: "My Business Blogs", icon: FileText, color: "from-purple-600 via-indigo-600 to-blue-600", show: flags.guest_blog },
+    { to: "/dashboard/submit-blog", label: "Submit Business", icon: Sparkles, color: "from-indigo-500 to-blue-500", show: flags.guest_blog },
     { to: "/dashboard/businesses", label: "My Business", icon: Building2, color: "from-amber-500 to-yellow-500", show: flags.businesses },
-    { to: "/dashboard/messages", label: "Messages", icon: Mail, color: "from-pink-500 to-rose-500", show: flags.businesses },
+    { to: "/dashboard/messages", label: "Encrypted Messages", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-emerald-600", show: flags.businesses },
     { to: "/dashboard/notifications", label: "Notifications", icon: Bell, color: "from-amber-500 to-rose-600", show: true },
-    { to: "/dashboard/settings", label: "Settings & Audio", icon: Settings, color: "from-violet-600 to-indigo-600", show: true },
     { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, color: "from-cyan-500 to-sky-500", show: flags.tools },
     { to: "/learn", label: "Learning Hub", icon: GraduationCap, color: "from-blue-500 to-indigo-600", show: flags.learn },
     { to: "/forum", label: "Community", icon: MessageSquare, color: "from-teal-500 to-cyan-600", show: flags.forum },
@@ -214,39 +210,12 @@ export default function UserDashboard() {
         <div className="container mx-auto max-w-5xl">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="min-w-0 flex-1 flex items-center justify-between">
-              <div className="flex items-center gap-3.5 min-w-0">
-                {/* Business Logo or User Avatar */}
-                <div className="relative shrink-0">
-                  {userBiz?.logo_url || userBiz?.image_url || profile?.avatar_url ? (
-                    <img
-                      src={userBiz?.logo_url || userBiz?.image_url || profile?.avatar_url}
-                      alt={userBiz?.name || displayName}
-                      className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl object-cover ring-2 ring-white/40 shadow-md bg-white/10"
-                    />
-                  ) : (
-                    <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-white/20 text-white font-black text-xl flex items-center justify-center shadow-md ring-2 ring-white/30">
-                      {(userBiz?.name || displayName).charAt(0).toUpperCase()}
-                    </div>
-                  )}
-                  {userBiz?.verified && (
-                    <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white ring-2 ring-primary text-[10px] font-bold" title="Verified Business">
-                      ✓
-                    </span>
-                  )}
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-xs opacity-80">Welcome back</p>
+                  {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold">Admin</Badge>}
                 </div>
-
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-xs text-white/90 font-semibold truncate">
-                      {userBiz?.name ? `${userBiz.name}` : "Welcome back"}
-                    </p>
-                    {isAdmin && <Badge className="bg-amber-400 text-amber-950 hover:bg-amber-300 text-[10px] font-extrabold">Admin</Badge>}
-                  </div>
-                  <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight text-white">{displayName}</h1>
-                  {userBiz?.city && (
-                    <p className="text-[11px] text-white/80 font-medium truncate">{userBiz.city}{userBiz.state ? `, ${userBiz.state}` : ""}</p>
-                  )}
-                </div>
+                <h1 className="text-xl sm:text-2xl font-black truncate tracking-tight">{displayName}</h1>
               </div>
 
               {profile?.username && (
@@ -286,14 +255,8 @@ export default function UserDashboard() {
               )}
               <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
                 <Link to="/dashboard/profile-edit">
-                  <UserIcon className="h-4 w-4 sm:mr-1" />
+                  <Settings className="h-4 w-4 sm:mr-1" />
                   <span>Edit Profile</span>
-                </Link>
-              </Button>
-              <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
-                <Link to="/dashboard/settings">
-                  <Settings className="h-4 w-4 sm:mr-1 text-amber-300" />
-                  <span>Settings</span>
                 </Link>
               </Button>
             </div>
@@ -315,98 +278,8 @@ export default function UserDashboard() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-6 space-y-6">
-        {/* Universal Search & Resource Discovery (Products, Designs, Templates, Users, and Birthday filter) */}
-        {flags.dashboard_search && <DashboardSearchDiscovery />}
-
-        {/* AI Graphic Designer & Logo Creator Suite Banner */}
-        {(flags.graphic_designer || flags.logo_creator) && (
-          <Card className="border-0 shadow-lg bg-gradient-to-r from-neutral-900 via-amber-950/40 to-neutral-900 text-white rounded-3xl overflow-hidden relative">
-            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,rgba(245,158,11,0.18),transparent_60%)] pointer-events-none" />
-            <CardContent className="p-5 sm:p-7 relative z-10 space-y-4">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1.5 max-w-xl">
-                  <div className="flex items-center gap-2">
-                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 font-black text-[10px] tracking-wider uppercase">
-                      ✨ AI Creative Suite
-                    </Badge>
-                    <span className="text-xs text-amber-200/80 font-semibold">
-                      Maya Sterling & Apollo Brand
-                    </span>
-                  </div>
-                  <h2 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-                    Design Flyers, Banners & Vector Logos in Seconds
-                  </h2>
-                  <p className="text-xs sm:text-sm text-neutral-300">
-                    Generate 1080x1350 business flyers, WhatsApp story promos, and 8 bespoke logo concepts with instant brand sync.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
-                  {flags.graphic_designer && (
-                    <Button
-                      asChild
-                      className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black shadow-md rounded-2xl h-11 px-5 gap-2"
-                    >
-                      <Link to="/dashboard/graphic-designer">
-                        <Palette className="h-4 w-4" />
-                        Open Graphic Studio
-                      </Link>
-                    </Button>
-                  )}
-                  {flags.logo_creator && (
-                    <Button
-                      asChild
-                      variant="outline"
-                      className="bg-white/10 hover:bg-white/20 text-white border-white/20 font-bold rounded-2xl h-11 px-4 gap-2"
-                    >
-                      <Link to="/dashboard/logo-creator">
-                        <Sparkles className="h-4 w-4 text-amber-400" />
-                        Create Logo (₦50)
-                      </Link>
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Master How-To Guide & Feature Handbook Card */}
-        <Card className="border border-blue-500/30 shadow-md bg-gradient-to-r from-blue-950/30 via-indigo-950/20 to-purple-950/30 rounded-3xl overflow-hidden">
-          <CardContent className="p-5 sm:p-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black text-xl shrink-0 shadow-md ring-2 ring-blue-400/30">
-                📖
-              </div>
-              <div className="space-y-1 max-w-xl">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/40 text-[10px] font-black uppercase">
-                    Interactive Knowledge Base
-                  </Badge>
-                  <span className="text-xs font-semibold text-muted-foreground">Problem → Action → Result</span>
-                </div>
-                <h3 className="text-base sm:text-lg font-black text-foreground">
-                  New to Bethelincovibe TV? Learn Every Feature Step-by-Step
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  Interactive guides with Maya Sterling covering Graphic Design, Logo Creation, WhatsApp closing scripts, Sales Pages, Directory inquiries, and CAC calculators.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0 self-stretch md:self-auto justify-end">
-              <Button
-                asChild
-                className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black shadow-md rounded-2xl h-10 px-4 gap-1.5 text-xs"
-              >
-                <Link to="/how-to">
-                  <BookOpen className="h-4 w-4" />
-                  Open How-To Guide
-                </Link>
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Today's Vixora AI Business Coach & Sprint */}
+        <VixoraAICoachToday />
 
         {/* Profile & Business Completion Card with Smart System Recommendations */}
         <ProfileCompletionCard
@@ -441,6 +314,10 @@ export default function UserDashboard() {
               </span>
             </Link>
           ))}
+        </div>
+
+        <div id="referral-section" className="scroll-mt-6">
+          <ReferralCard />
         </div>
 
         {/* Recent Activity Feed */}
@@ -510,10 +387,26 @@ export default function UserDashboard() {
         </div>
 
         {/* My business submissions */}
-        <Card>
-          <CardHeader className="flex-row items-center justify-between">
-            <CardTitle className="text-base flex items-center gap-2"><FileText className="h-4 w-4" /> My Business Submissions</CardTitle>
-            <Button asChild size="sm" variant="ghost"><Link to="/dashboard/submit-blog">New <Plus className="h-3 w-3 ml-1" /></Link></Button>
+        <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between bg-muted/30 pb-3 border-b">
+            <CardTitle className="text-base font-extrabold flex items-center gap-2">
+              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600">
+                <FileText className="h-4 w-4" />
+              </div>
+              My Business Submissions
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button asChild size="sm" variant="outline" className="rounded-xl text-xs font-bold h-8">
+                <Link to="/dashboard/my-blogs">
+                  Performance &amp; Manage <ArrowRight className="h-3.5 w-3.5 ml-1" />
+                </Link>
+              </Button>
+              <Button asChild size="sm" className="rounded-xl text-xs font-bold h-8 bg-primary text-white">
+                <Link to="/dashboard/submit-blog">
+                  <Plus className="h-3.5 w-3.5 mr-1" /> Submit
+                </Link>
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {submissions.length === 0 ? (
@@ -526,28 +419,18 @@ export default function UserDashboard() {
                 {submissions.map((s: any) => {
                   const isLive = s.status === "published" || s.status === "approved";
                   const postSlug = s.blog_posts?.slug || s.generated_post_id;
-                  const thumb = s.banner_url || s.blog_posts?.cover_image_url;
                   return (
-                    <div key={s.id} className="flex items-center justify-between gap-3 p-3.5 border border-border/70 hover:border-primary/40 bg-card hover:bg-muted/20 transition-all rounded-2xl">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        {thumb ? (
-                          <img src={thumb} alt={s.business_name} className="h-12 w-12 rounded-xl object-cover shrink-0 border border-border/60" />
-                        ) : (
-                          <div className="h-12 w-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center shrink-0 font-bold text-sm">
-                            <FileText className="h-5 w-5" />
-                          </div>
-                        )}
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-bold text-sm truncate text-foreground">{s.business_name}</p>
-                            {isLive && postSlug && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-600 bg-emerald-500/10 font-bold">
-                                Live Blog
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
+                    <div key={s.id} className="flex items-center justify-between gap-3 p-3.5 border border-border/70 hover:border-primary/40 bg-card hover:bg-muted/20 transition-all rounded-xl">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm truncate text-foreground">{s.business_name}</p>
+                          {isLive && postSlug && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-600 bg-emerald-500/10 font-bold">
+                              Live Blog
+                            </Badge>
+                          )}
                         </div>
+                        <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <StatusBadge status={s.status} />

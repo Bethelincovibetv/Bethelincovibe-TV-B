@@ -121,12 +121,14 @@ export default function AdminPosts() {
   // Delete Mutation
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => {
+      await supabase.from("guest_blog_submissions").update({ status: "deleted" }).eq("generated_post_id", id);
       const { error } = await supabase.from("blog_posts").delete().eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-posts"] });
-      toast.success("Post deleted");
+      queryClient.invalidateQueries({ queryKey: ["guest-blogs"] });
+      toast.success("Post deleted and removed from all listings");
       if (previewPost) setPreviewPost(null);
     },
     onError: (e: any) => toast.error(e.message),
