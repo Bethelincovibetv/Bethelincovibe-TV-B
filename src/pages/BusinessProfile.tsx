@@ -662,16 +662,16 @@ function ActionBtn({ icon: Icon, label, onClick, highlight }: any) {
 
 function InfoRow({ icon: Icon, label, value, href, external, onClick }: any) {
   const content = (
-    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/60 transition">
-      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary"><Icon className="h-4 w-4" /></div>
-      <div className="flex-1 min-w-0">
+    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/60 transition min-w-0 max-w-full">
+      <div className="h-9 w-9 rounded-lg bg-primary/10 flex items-center justify-center text-primary shrink-0"><Icon className="h-4 w-4" /></div>
+      <div className="flex-1 min-w-0 overflow-hidden">
         <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-sm font-medium truncate">{value}</p>
+        <p className="text-sm font-medium truncate" title={typeof value === "string" ? value : undefined}>{value}</p>
       </div>
-      {external && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />}
+      {external && <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
     </div>
   );
-  return href ? <a href={href} target={external ? "_blank" : undefined} rel="noopener" onClick={onClick}>{content}</a> : content;
+  return href ? <a href={href} target={external ? "_blank" : undefined} rel="noopener" onClick={onClick} className="block min-w-0 max-w-full no-underline">{content}</a> : content;
 }
 
 function SocialBtn({ href, icon: Icon, label }: any) {

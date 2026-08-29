@@ -979,10 +979,11 @@ export default function UserMyBlogs({ defaultTab = "my-blogs" }: UserMyBlogsProp
                               </p>
 
                               {/* Contact Details Chips */}
-                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-1">
+                              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-1 min-w-0 max-w-full">
                                 {blog.website && (
-                                  <span className="flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-md border border-border/60">
-                                    <Globe className="h-3 w-3 text-primary" /> {blog.website.replace(/^https?:\/\//, "")}
+                                  <span className="inline-flex items-center gap-1 bg-muted/50 px-2 py-0.5 rounded-md border border-border/60 max-w-full min-w-0">
+                                    <Globe className="h-3 w-3 text-primary shrink-0" />
+                                    <span className="truncate max-w-[200px] sm:max-w-[320px]">{blog.website.replace(/^https?:\/\//, "")}</span>
                                   </span>
                                 )}
                                 {blog.contact_phone && (

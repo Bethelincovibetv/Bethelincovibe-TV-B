@@ -131,7 +131,7 @@ export default function BlogComments({ postId }: { postId: string }) {
                   </Button>
                 )}
               </div>
-              <p className="text-sm">{c.content}</p>
+              <p className="text-sm break-words [overflow-wrap:anywhere] min-w-0 max-w-full leading-relaxed">{c.content}</p>
             </CardContent>
           </Card>
         ))}

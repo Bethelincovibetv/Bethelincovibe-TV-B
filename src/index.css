@@ -439,3 +439,64 @@
   margin: 1.5em 0;
 }
 
+/* ============ GLOBAL USER LINK & TEXT OVERFLOW CONTAINMENT (Task 2D) ============ */
+/* Ensure all links and text break safely across all devices without horizontal blowout */
+a, .user-link, [data-user-link], .break-url {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+/* User-generated article & blog content URL & table safety */
+.prose a,
+.prose p,
+.prose li,
+.prose span,
+.prose td,
+.prose th,
+.blog-article-content a,
+.blog-article-content p,
+.blog-article-content li {
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.prose a,
+.blog-article-content a {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.prose {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Prevent layout blowout on all cards and containers */
+.card,
+.card-premium,
+[class*="Card"],
+article,
+section,
+main {
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* Safe truncated chip for URLs */
+.url-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Global scroll containment: prevent horizontal page scroll caused by long strings */
+#root, body {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+

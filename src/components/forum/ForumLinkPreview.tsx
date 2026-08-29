@@ -392,14 +392,14 @@ export function ForumFormattedContent({ content }: { content: string }) {
   };
 
   return (
-    <div className="space-y-3">
-      <div className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed text-foreground/90">
+    <div className="space-y-3 min-w-0 max-w-full">
+      <div className="whitespace-pre-wrap text-sm sm:text-base leading-relaxed text-foreground/90 break-words [overflow-wrap:anywhere] min-w-0 max-w-full">
         {renderTextWithClickableLinks(content)}
       </div>
 
       {/* Embedded Rich Links / Video / Social Previews */}
       {links.length > 0 && (
-        <div className="space-y-2 pt-1">
+        <div className="space-y-2 pt-1 min-w-0 max-w-full">
           {links.slice(0, 3).map((meta, i) => (
             <ForumLinkCard key={i} meta={meta} />
           ))}

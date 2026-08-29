@@ -382,89 +382,38 @@ export default function UserDashboard() {
 
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Saved Posts</p><p className="text-2xl font-bold">{favCount}</p></CardContent></Card>
-          <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Blog Submissions</p><p className="text-2xl font-bold">{submissions.length}</p></CardContent></Card>
-          <Card className="col-span-2 sm:col-span-1"><CardContent className="p-4"><p className="text-xs text-muted-foreground">Profile Status</p><p className="text-sm font-semibold">{profile?.username ? <Badge variant="secondary">@{profile.username}</Badge> : <Badge variant="outline">Set username</Badge>}</p></CardContent></Card>
+          <Link to="/dashboard/favorites" className="block">
+            <Card className="hover:border-primary/40 transition-colors h-full">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Saved Posts</p>
+                <p className="text-2xl font-bold">{favCount}</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link to="/dashboard/my-blogs" className="block">
+            <Card className="hover:border-primary/40 transition-colors h-full">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Blog Submissions</p>
+                <p className="text-2xl font-bold text-primary">{submissions.length}</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Link to="/dashboard/profile-edit" className="col-span-2 sm:col-span-1 block">
+            <Card className="hover:border-primary/40 transition-colors h-full">
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Profile Status</p>
+                <p className="text-sm font-semibold mt-1">
+                  {profile?.username ? (
+                    <Badge variant="secondary" className="font-bold">@{profile.username}</Badge>
+                  ) : (
+                    <Badge variant="outline">Set username</Badge>
+                  )}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
-
-        {/* My business submissions */}
-        <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden">
-          <CardHeader className="flex-row items-center justify-between bg-muted/30 pb-3 border-b">
-            <CardTitle className="text-base font-extrabold flex items-center gap-2">
-              <div className="p-2 rounded-xl bg-purple-500/10 text-purple-600">
-                <FileText className="h-4 w-4" />
-              </div>
-              My Business Submissions
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Button asChild size="sm" variant="outline" className="rounded-xl text-xs font-bold h-8">
-                <Link to="/dashboard/my-blogs">
-                  Performance &amp; Manage <ArrowRight className="h-3.5 w-3.5 ml-1" />
-                </Link>
-              </Button>
-              <Button asChild size="sm" className="rounded-xl text-xs font-bold h-8 bg-primary text-white">
-                <Link to="/dashboard/submit-blog">
-                  <Plus className="h-3.5 w-3.5 mr-1" /> Submit
-                </Link>
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {submissions.length === 0 ? (
-              <div className="text-center py-6 text-sm text-muted-foreground">
-                <p>No submissions yet.</p>
-                <Button asChild className="mt-3"><Link to="/dashboard/submit-blog">Submit Your Business <ChevronRight className="h-4 w-4 ml-1" /></Link></Button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {submissions.map((s: any) => {
-                  const isLive = s.status === "published" || s.status === "approved";
-                  const postSlug = s.blog_posts?.slug || s.generated_post_id;
-                  return (
-                    <div key={s.id} className="flex items-center justify-between gap-3 p-3.5 border border-border/70 hover:border-primary/40 bg-card hover:bg-muted/20 transition-all rounded-xl">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-sm truncate text-foreground">{s.business_name}</p>
-                          {isLive && postSlug && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 border-emerald-500/40 text-emerald-600 bg-emerald-500/10 font-bold">
-                              Live Blog
-                            </Badge>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{new Date(s.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}</p>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <StatusBadge status={s.status} />
-                        {isLive && postSlug && (
-                          <Button size="sm" variant="outline" className="h-8 gap-1 text-xs font-bold text-primary border-primary/30 hover:bg-primary hover:text-white" asChild>
-                            <Link to={`/blog/${postSlug}`}>
-                              View Post <ExternalLink className="h-3 w-3" />
-                            </Link>
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; variant: any }> = {
-    pending_payment: { label: "Pending Payment", variant: "outline" },
-    paid: { label: "Paid", variant: "secondary" },
-    generating: { label: "Generating", variant: "secondary" },
-    review: { label: "In Review", variant: "secondary" },
-    approved: { label: "Approved", variant: "default" },
-    published: { label: "Published", variant: "default" },
-    rejected: { label: "Rejected", variant: "destructive" },
-  };
-  const m = map[status] || { label: status, variant: "outline" };
-  return <Badge variant={m.variant} className="text-xs shrink-0">{m.label}</Badge>;
 }
