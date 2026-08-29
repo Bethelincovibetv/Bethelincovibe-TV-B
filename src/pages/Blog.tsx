@@ -11,6 +11,7 @@ import heroBlog from "@/assets/hero-blog.jpg";
 import { Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
 import FavoriteButton from "@/components/FavoriteButton";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
+import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 
 export default function Blog() {
   const { categorySlug } = useParams();
@@ -132,7 +133,7 @@ export default function Blog() {
         </div>
 
         {/* Search Bar */}
-        <div className="relative max-w-xl mb-8">
+        <div className="relative max-w-xl mb-6">
           <Search className="absolute left-3.5 top-3 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Search articles by title or keyword..."
@@ -141,6 +142,9 @@ export default function Blog() {
             className="pl-10 h-10 rounded-xl"
           />
         </div>
+
+        {/* Public Native Blog Advertisement Placement */}
+        <ProgrammaticAdBanner placement="blog" format="banner" className="mb-8" />
 
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

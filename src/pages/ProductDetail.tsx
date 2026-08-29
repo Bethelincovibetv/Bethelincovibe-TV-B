@@ -20,6 +20,7 @@ import {
   Store, User, Pencil
 } from "lucide-react";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import ProductCard, { formatPrice, DirectoryProduct } from "@/components/directory/ProductCard";
 import ProductVideo from "@/components/directory/ProductVideo";
 import BuyDigitalProduct from "@/components/directory/BuyDigitalProduct";
@@ -1119,6 +1120,9 @@ export default function ProductDetail() {
 
           </div>
         )}
+
+        {/* Public Native Marketplace Offer Ad Banner */}
+        <ProgrammaticAdBanner placement="shop" format="banner" className="mt-8" />
 
         {/* RELATED PRODUCTS SECTION */}
         {relatedProducts.length > 0 && (

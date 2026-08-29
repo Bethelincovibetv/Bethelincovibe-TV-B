@@ -1,7 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
 
 interface Props {
   placement: "header" | "footer" | "sidebar" | "in_article";
@@ -12,14 +11,9 @@ export default function AdPlaceholder({ placement, className = "" }: Props) {
   const isHeader = placement === "header";
   const settingKey = `ad_${placement}`;
   const location = useLocation();
-  let isUserAdmin = false;
-  try {
-    const auth = useAuth();
-    isUserAdmin = auth?.isAdmin ?? false;
-  } catch {
-    // ignore
-  }
-  const isAdmin = isUserAdmin || location.pathname.startsWith("/admin");
+
+  // Exclude within admin backend management dashboard
+  const isInAdminPortal = location.pathname.startsWith("/admin");
 
   const { data: settings } = useQuery({
     queryKey: ["ad-placement", settingKey],
@@ -33,7 +27,7 @@ export default function AdPlaceholder({ placement, className = "" }: Props) {
       return map;
     },
     staleTime: 1000 * 60 * 2,
-    enabled: !isAdmin && !isHeader,
+    enabled: !isInAdminPortal && !isHeader,
   });
 
   // Hard block for header placement ads as requested
@@ -46,7 +40,7 @@ export default function AdPlaceholder({ placement, className = "" }: Props) {
   // Block any adsterra content if present in custom placement
   const isAdsterra = /adsterra|alwingulla|highperformancegate/i.test(adHtml);
 
-  if (isAdmin || !settings || globalDisabled || providerDisabled || !adHtml || isAdsterra) return null;
+  if (isInAdminPortal || !settings || globalDisabled || providerDisabled || !adHtml || isAdsterra) return null;
 
   return (
     <div className={className} dangerouslySetInnerHTML={{ __html: adHtml }} />

@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Megaphone, ExternalLink, Sparkles, ShieldCheck } from "lucide-react";
 
 export interface ProgrammaticAdBannerProps {
-  placement?: "blog" | "dashboard" | "shop" | "listings" | "header" | "footer" | "sidebar" | "in_article" | string;
+  placement?: "blog" | "dashboard" | "shop" | "listings" | "header" | "footer" | "sidebar" | "in_article" | "services" | "marketplace" | string;
   className?: string;
   format?: "banner" | "card" | "compact" | "feed" | "flyer" | "billboard";
 }
@@ -20,16 +19,6 @@ export default function ProgrammaticAdBanner({
   const [watermark, setWatermark] = useState<{ text?: string; url?: string }>({});
   const [loading, setLoading] = useState(true);
   const impressionRecorded = useRef(false);
-
-  let suppressAds = false;
-  try {
-    const auth = useAuth();
-    const email = auth?.user?.email?.toLowerCase();
-    // Do not suppress ads for testing unless explicitly opted out
-    if (auth?.isAdmin && (email === "bethelgoodgift3@gmail.com" || email === "goodgiftdigital@gmail.com")) {
-      suppressAds = false; // allow admin to see and verify ads live
-    }
-  } catch {}
 
   useEffect(() => {
     let isMounted = true;
@@ -46,7 +35,6 @@ export default function ProgrammaticAdBanner({
           .in("key", [
             "ads_global_enabled",
             "ads_provider_native",
-            "ad_server_enabled",
             `ad_placement_${placement}_enabled`,
             "ad_watermark_text",
             "ad_watermark_url",
@@ -57,82 +45,128 @@ export default function ProgrammaticAdBanner({
           settingsMap[s.key] = s.value || "";
         });
 
-        // If master switches disabled
+        // If master switches disabled or placement specifically toggled off by admin
         if (
           settingsMap.ads_global_enabled === "false" ||
           settingsMap.ads_provider_native === "false" ||
-          settingsMap.ad_server_enabled === "false" ||
           settingsMap[`ad_placement_${placement}_enabled`] === "false"
         ) {
           if (isMounted) setAd(null);
           return;
         }
 
-        const nowIso = new Date().toISOString();
+        const watermarkInfo = {
+          text: settingsMap.ad_watermark_text || "Bethelincovibe TV",
+          url: settingsMap.ad_watermark_url,
+        };
 
-        // 2. Query active user ads from database
-        const { data: directAds } = await supabase
-          .from("user_ads")
-          .select("*")
-          .eq("status", "active")
-          .or(`ends_at.gte.${nowIso},ends_at.is.null`);
+        let candidateAd: any = null;
 
-        let pool = directAds || [];
-
-        // Filter by placement if candidates available
-        if (pool.length > 0) {
-          const placementMatches = pool.filter((a: any) => {
-            if (!a.placement || a.placement === "all") return true;
-            const places = a.placement.toLowerCase().split(",").map((p: string) => p.trim());
-            return places.includes(placement.toLowerCase()) || places.includes("all");
+        // Strategy A: Security Definer RPC serve_random_ad
+        // Bypasses table RLS so guests and all registered users receive active public ads
+        try {
+          const { data: rpcAd, error: rpcErr } = await supabase.rpc("serve_random_ad", {
+            _placement: placement,
           });
 
-          if (placementMatches.length > 0) {
-            pool = placementMatches;
+          if (!rpcErr && rpcAd) {
+            const item = Array.isArray(rpcAd) ? rpcAd[0] : rpcAd;
+            if (item && item.id && item.image_url) {
+              candidateAd = item;
+            }
+          }
+        } catch {
+          // Continue to fallback strategies
+        }
+
+        // Strategy B: If RPC didn't return an item (or for placement alias matching), try direct query
+        if (!candidateAd) {
+          try {
+            const { data: directAds } = await supabase
+              .from("user_ads")
+              .select("*")
+              .in("status", ["active", "approved"]);
+
+            if (directAds && directAds.length > 0) {
+              const now = Date.now();
+              const validAds = directAds.filter((a: any) => {
+                // Status validation
+                if (a.status !== "active" && a.status !== "approved") return false;
+                // Date restrictions
+                if (a.starts_at && new Date(a.starts_at).getTime() > now) return false;
+                if (a.ends_at && new Date(a.ends_at).getTime() < now) return false;
+
+                // Placement check with alias support
+                if (!a.placement || a.placement === "all") return true;
+                const places = a.placement.toLowerCase().split(",").map((p: string) => p.trim());
+                const targetPlacement = placement.toLowerCase();
+
+                const aliases: Record<string, string[]> = {
+                  shop: ["shop", "marketplace", "products", "store"],
+                  marketplace: ["shop", "marketplace", "products", "store"],
+                  blog: ["blog", "article", "in_article", "editorial"],
+                  dashboard: ["dashboard", "user_dashboard"],
+                  listings: ["listings", "services", "businesses", "directory"],
+                  services: ["listings", "services", "businesses", "directory"],
+                };
+
+                const allowedAliases = aliases[targetPlacement] || [targetPlacement];
+                return places.some((p: string) => allowedAliases.includes(p) || p === "all");
+              });
+
+              if (validAds.length > 0) {
+                // Programmatic rotation: Pick ad with lowest impressions / weighted random
+                validAds.sort((a: any, b: any) => {
+                  const impA = Number(a.impressions || 0);
+                  const impB = Number(b.impressions || 0);
+                  return impA - impB + (Math.random() - 0.5) * 5;
+                });
+                candidateAd = validAds[0];
+              }
+            }
+          } catch {
+            // Continue to edge function fallback
           }
         }
 
-        // Programmatic rotation: Pick ad with lowest impressions or random weighted
-        if (pool.length > 0) {
-          const sorted = [...pool].sort((a, b) => {
-            const impA = Number(a.impressions || 0);
-            const impB = Number(b.impressions || 0);
-            return impA - impB + (Math.random() - 0.5) * 5;
-          });
-
-          const chosen = sorted[0];
-          if (isMounted) {
-            setAd(chosen);
-            setWatermark({
-              text: settingsMap.ad_watermark_text || "Bethelincovibe TV",
-              url: settingsMap.ad_watermark_url,
-            });
-
-            // Record impression once
-            if (!impressionRecorded.current && chosen.id) {
-              impressionRecorded.current = true;
-              recordImpression(chosen.id, Number(chosen.impressions || 0));
-            }
-          }
-        } else {
-          // Try edge function ad server as fallback
+        // Strategy C: Edge function ad server fallback with anon key authentication
+        if (!candidateAd) {
           const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
           if (supabaseUrl) {
             try {
+              const headers: Record<string, string> = {};
+              if (anonKey) {
+                headers["apikey"] = anonKey;
+                headers["Authorization"] = `Bearer ${anonKey}`;
+              }
               const res = await fetch(
-                `${supabaseUrl}/functions/v1/ad-server?placement=${placement}&page=${encodeURIComponent(
+                `${supabaseUrl}/functions/v1/ad-server?placement=${encodeURIComponent(placement)}&page=${encodeURIComponent(
                   window.location.pathname
-                )}`
+                )}`,
+                { headers }
               );
-              const data = await res.json();
-              if (isMounted && data?.ad) {
-                setAd(data.ad);
-                setWatermark({
-                  text: settingsMap.ad_watermark_text || "Bethelincovibe TV",
-                  url: settingsMap.ad_watermark_url,
-                });
+              if (res.ok) {
+                const data = await res.json();
+                if (data?.ad && data.ad.id && data.ad.image_url) {
+                  candidateAd = data.ad;
+                }
               }
             } catch {}
+          }
+        }
+
+        if (isMounted) {
+          if (candidateAd) {
+            setAd(candidateAd);
+            setWatermark(watermarkInfo);
+
+            if (!impressionRecorded.current && candidateAd.id) {
+              impressionRecorded.current = true;
+              recordImpression(candidateAd.id);
+            }
+          } else {
+            setAd(null);
           }
         }
       } catch (err) {
@@ -149,27 +183,34 @@ export default function ProgrammaticAdBanner({
     };
   }, [placement]);
 
-  const recordImpression = async (adId: string, currentCount: number) => {
+  const recordImpression = async (adId: string) => {
     try {
-      await supabase
-        .from("user_ads")
-        .update({ impressions: currentCount + 1 })
-        .eq("id", adId);
+      await supabase.from("ad_events").insert({
+        ad_id: adId,
+        event_type: "impression",
+        page_path: window.location.pathname,
+      });
     } catch {}
   };
 
-  const handleAdClick = async (e: React.MouseEvent) => {
-    if (!ad) return;
+  const handleAdClick = async () => {
+    if (!ad || !ad.id) return;
     try {
-      const currentClicks = Number(ad.clicks || 0);
-      await supabase
-        .from("user_ads")
-        .update({ clicks: currentClicks + 1 })
-        .eq("id", ad.id);
-    } catch {}
+      // 1. Call Security Definer RPC to record click safely for any visitor (guest or registered)
+      await supabase.rpc("record_ad_click", { _ad_id: ad.id });
+    } catch {
+      // Direct update fallback if permissions allow
+      try {
+        const currentClicks = Number(ad.clicks || 0);
+        await supabase
+          .from("user_ads")
+          .update({ clicks: currentClicks + 1 })
+          .eq("id", ad.id);
+      } catch {}
+    }
   };
 
-  if (suppressAds || !ad) return null;
+  if (!ad) return null;
 
   const targetHref = ad.target_url || ad.click_url || "#";
   const displayTitle = ad.title || "Featured Sponsor";

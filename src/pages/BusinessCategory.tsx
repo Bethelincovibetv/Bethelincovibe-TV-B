@@ -10,6 +10,7 @@ import { getCategoryIcon, Category3DVisual, getCategoryTheme } from "@/lib/categ
 import BusinessCard from "@/components/directory/BusinessCard";
 import CategoryTile from "@/components/directory/CategoryTile";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
 
 export default function BusinessCategory() {
@@ -224,6 +225,9 @@ export default function BusinessCategory() {
               <Button asChild className="mt-4"><Link to="/businesses/list"><Plus className="mr-1.5 h-4 w-4" />List Your Business Here</Link></Button>
             </Card>
           )}
+
+          {/* Public Native Services & Listings Advertisement Placement */}
+          <ProgrammaticAdBanner placement="listings" format="banner" className="mt-8" />
         </section>
 
         {/* SEO body copy */}

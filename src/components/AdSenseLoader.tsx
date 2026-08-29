@@ -1,22 +1,14 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "react-router-dom";
 
 export default function AdSenseLoader() {
   const [client, setClient] = useState<string | null>(null);
   const location = useLocation();
-  let suppressAds = false;
-  try {
-    const auth = useAuth();
-    const email = auth?.user?.email?.toLowerCase();
-    suppressAds = auth?.isAdmin || email === "bethelgoodgift3@gmail.com" || email === "goodgiftdigital@gmail.com";
-  } catch {
-    // ignore
-  }
 
-  const isInAdminPortal = suppressAds || location.pathname.startsWith("/admin");
+  // Exclude third-party scripts only within the admin backend management portal
+  const isInAdminPortal = location.pathname.startsWith("/admin");
 
   const { data: adSettings } = useQuery({
     queryKey: ["ad-settings-adsense"],
