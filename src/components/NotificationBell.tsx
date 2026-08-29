@@ -167,10 +167,17 @@ export default function NotificationBell() {
               </div>
             );
 
-            return n.url ? (
-              <Link key={n.id} to={n.url} onClick={() => { markRead(n.id); setOpen(false); }}>{inner}</Link>
-            ) : (
-              <div key={n.id} onClick={() => markRead(n.id)}>{inner}</div>
+            return (
+              <Link
+                key={n.id}
+                to={`/dashboard/notifications?id=${n.id}`}
+                onClick={() => {
+                  markRead(n.id);
+                  setOpen(false);
+                }}
+              >
+                {inner}
+              </Link>
             );
           })}
         </div>
