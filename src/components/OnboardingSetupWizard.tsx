@@ -239,13 +239,17 @@ export default function OnboardingSetupWizard({
       }
 
       // Record congratulations notification in system
-      await supabase.from("user_notifications").insert({
-        user_id: user.id,
-        title: "🎉 Congratulations on Completing Your Business Profile!",
-        message: `Your business "${bizName || displayName}" is now active, verified, and featured on the Lagos Business Directory.`,
-        type: "system",
-        link: profile?.username ? `/u/${profile.username}` : "/dashboard",
-      }).catch(() => {});
+      try {
+        await supabase.from("user_notifications").insert({
+          user_id: user.id,
+          title: "🎉 Congratulations on Completing Your Business Profile!",
+          body: `Your business "${bizName || displayName}" is now active, verified, and featured on the Lagos Business Directory.`,
+          type: "system",
+          url: profile?.username ? `/u/${profile.username}` : "/dashboard",
+        });
+      } catch (notifErr) {
+        console.warn("Secondary notification notice:", notifErr);
+      }
 
       localStorage.setItem(`wizard_completed_${user.id}`, "true");
       if (onProfileUpdated) onProfileUpdated();

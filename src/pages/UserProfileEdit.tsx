@@ -410,16 +410,20 @@ export default function UserProfileEdit() {
         setUserSupplierId(syncResult.supplierId);
       }
 
-      // Record congratulations notification
-      await supabase.from("user_notifications").insert({
-        user_id: user.id,
-        title: "🎉 Congratulations on Updating Your Business Profile!",
-        message: `Your verified business listing "${profile.display_name || username}" is active on Bethelincovibe TV Directory.`,
-        type: "system",
-        link: username ? `/u/${username}` : "/dashboard",
-      }).catch(() => {});
+      // Non-critical secondary operation: record in-app congratulations notification
+      try {
+        await supabase.from("user_notifications").insert({
+          user_id: user.id,
+          title: "🎉 Congratulations on Updating Your Business Profile!",
+          body: `Your verified business listing "${profile.display_name || username}" is active on Bethelincovibe TV Directory.`,
+          type: "system",
+          url: username ? `/u/${username}` : "/dashboard",
+        });
+      } catch (notifErr) {
+        console.warn("Secondary notification notice:", notifErr);
+      }
 
-      // Trigger celebration sound & confetti
+      // Non-critical secondary operation: trigger celebration sound & confetti
       try {
         confetti({
           particleCount: 130,
