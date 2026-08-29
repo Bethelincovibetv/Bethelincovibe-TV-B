@@ -192,6 +192,7 @@ export default function ProductDetail() {
     product.categories?.slug?.includes("software");
 
   const imgs: string[] = [product.cover_image, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean);
+  const allowDirectCalls = (seller?.social_links as any)?.allow_direct_calls !== false;
   const waNumber = (product.whatsapp || seller?.whatsapp || "").replace(/[^\d]/g, "");
   const formattedPriceStr = formatPrice(product.price, product.currency);
   const regularAnchorPrice = product.price ? Math.round(Number(product.price) * 2.2) : 0;
@@ -1032,7 +1033,7 @@ export default function ProductDetail() {
                       </Button>
                     ) : null}
 
-                    {product.phone ? (
+                    {product.phone && allowDirectCalls ? (
                       <Button
                         asChild
                         variant="outline"
@@ -1175,7 +1176,7 @@ export default function ProductDetail() {
                   <MessageCircle className="h-4 w-4 shrink-0" /> WhatsApp
                 </a>
               </Button>
-            ) : product.phone ? (
+            ) : product.phone && allowDirectCalls ? (
               <Button asChild size="sm" variant="default" className="font-bold gap-1 px-3 py-4 rounded-xl text-xs">
                 <a href={`tel:${product.phone}`}>
                   <Phone className="h-4 w-4 shrink-0" /> Call

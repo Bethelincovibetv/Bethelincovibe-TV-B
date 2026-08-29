@@ -130,6 +130,7 @@ export default function BusinessProfile() {
 
   const sl = biz.social_links || {};
   const isBoosted = biz.boosted_until && new Date(biz.boosted_until) > new Date();
+  const allowDirectCalls = sl.allow_direct_calls !== false;
   const phoneClean = biz.phone?.replace(/\D/g, "");
   const waClean = (sl.whatsapp || biz.phone)?.replace(/\D/g, "");
   const waGroupUrl = sl.whatsapp_group || sl.whatsapp_group_url || biz.whatsapp_group_url;
@@ -277,7 +278,7 @@ export default function BusinessProfile() {
 
               {/* Quick action chips (desktop) */}
               <div className="mt-5 hidden md:grid grid-cols-6 gap-2">
-                {biz.phone && <ActionBtn icon={Phone} label="Call" onClick={() => { track(biz.id, "call"); window.location.href = `tel:${biz.phone}`; }} />}
+                {biz.phone && allowDirectCalls && <ActionBtn icon={Phone} label="Call" onClick={() => { track(biz.id, "call"); window.location.href = `tel:${biz.phone}`; }} />}
                 {waClean && <ActionBtn icon={MessageCircle} label="WhatsApp" onClick={() => { track(biz.id, "whatsapp"); window.open(`https://wa.me/${waClean}`); }} />}
                 {waGroupUrl && (
                   <ActionBtn
@@ -620,7 +621,7 @@ export default function BusinessProfile() {
         {/* Sticky mobile CTA bar */}
         <div className="md:hidden fixed bottom-16 left-0 right-0 z-40 px-3">
           <div className="bg-card/95 backdrop-blur border shadow-xl rounded-2xl p-2 flex gap-2 max-w-md mx-auto">
-            {biz.phone && (
+            {biz.phone && allowDirectCalls && (
               <Button className="flex-1" size="sm" onClick={() => { track(biz.id, "call"); window.location.href = `tel:${biz.phone}`; }}>
                 <Phone className="h-4 w-4 mr-1" />Call
               </Button>

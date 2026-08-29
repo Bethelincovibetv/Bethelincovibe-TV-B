@@ -34,6 +34,7 @@ import {
   Crown,
   Building2,
   MapPin,
+  Phone,
 } from "lucide-react";
 import { toast } from "sonner";
 import confetti from "canvas-confetti";
@@ -991,6 +992,22 @@ export default function UserProfileEdit() {
               <p className="text-[11px] text-muted-foreground">
                 Select your country code and enter your WhatsApp number — customers will be able to message your business instantly.
               </p>
+            </div>
+
+            {/* Direct Phone Calling Toggle */}
+            <div className="flex items-center justify-between border-t pt-5 bg-muted/20 p-4 rounded-2xl border border-border/60">
+              <div className="space-y-0.5">
+                <Label className="text-xs font-black flex items-center gap-1.5 text-foreground">
+                  <Phone className="h-4 w-4 text-emerald-600" /> Allow Direct Phone Calling
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  When enabled, public buyers can call your business directly via one-click phone dialing from your Business Profile and Marketplace product cards.
+                </p>
+              </div>
+              <Switch
+                checked={profile.social_links?.allow_direct_calls !== false}
+                onCheckedChange={(checked) => updateSocial("allow_direct_calls", checked)}
+              />
             </div>
 
             {/* Social Media Links */}

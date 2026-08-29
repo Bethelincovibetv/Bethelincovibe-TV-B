@@ -25,6 +25,10 @@ import {
   Loader2,
   Lock,
   Crown,
+  Camera,
+  Image as ImageIcon,
+  Upload,
+  Trash2,
 } from "lucide-react";
 import {
   RealtimeChatRoom,
@@ -60,6 +64,8 @@ export function ChatRoomAdminDialog({
   const [editName, setEditName] = useState(room.name || "");
   const [editDesc, setEditDesc] = useState(room.description || "");
   const [editEmoji, setEditEmoji] = useState(room.avatarEmoji || "💼");
+  const [editAvatarUrl, setEditAvatarUrl] = useState(room.avatarUrl || "");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // User search for adding members
@@ -71,6 +77,7 @@ export function ChatRoomAdminDialog({
     setEditName(room.name || "");
     setEditDesc(room.description || "");
     setEditEmoji(room.avatarEmoji || "💼");
+    setEditAvatarUrl(room.avatarUrl || "");
   }, [room]);
 
   useEffect(() => {
@@ -127,6 +134,7 @@ export function ChatRoomAdminDialog({
         name: editName.trim(),
         description: editDesc.trim(),
         avatarEmoji: editEmoji,
+        avatarUrl: editAvatarUrl.trim(),
       });
       toast.success("Room details updated successfully");
       setActiveTab("members");
@@ -135,6 +143,28 @@ export function ChatRoomAdminDialog({
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image file must be under 5MB");
+      return;
+    }
+    setIsUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Url = event.target?.result as string;
+      setEditAvatarUrl(base64Url);
+      setIsUploadingPhoto(false);
+      toast.success("Room photo uploaded");
+    };
+    reader.onerror = () => {
+      setIsUploadingPhoto(false);
+      toast.error("Failed to read image file");
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleAddMember = async (userObj: { id: string; name: string; avatar?: string }) => {
@@ -377,9 +407,74 @@ export function ChatRoomAdminDialog({
         {/* Tab 3: Edit Room Info (Admin Only) */}
         {activeTab === "edit" && isAdmin && (
           <form onSubmit={handleSaveDetails} className="space-y-4 py-2">
-            {/* Emoji picker */}
+            {/* Custom Room Photo Upload */}
+            <div className="space-y-2 bg-muted/20 p-3.5 rounded-2xl border border-border/60">
+              <Label className="text-xs font-bold flex items-center justify-between">
+                <span>Room Avatar / Community Photo</span>
+                {editAvatarUrl && (
+                  <span className="text-[10px] text-emerald-600 font-semibold">Custom Photo Set</span>
+                )}
+              </Label>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-14 w-14 rounded-2xl border ring-2 ring-primary/20 shadow-sm shrink-0">
+                  {editAvatarUrl ? (
+                    <AvatarImage src={editAvatarUrl} className="object-cover" />
+                  ) : null}
+                  <AvatarFallback className="text-xl bg-primary/10 text-primary">
+                    {editEmoji || "📺"}
+                  </AvatarFallback>
+                </Avatar>
+
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-2">
+                    <label className="cursor-pointer">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={isUploadingPhoto}
+                        className="rounded-xl text-xs h-8 font-semibold gap-1.5"
+                        onClick={() => document.getElementById("room-photo-input")?.click()}
+                      >
+                        {isUploadingPhoto ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        Upload Photo
+                      </Button>
+                      <input
+                        type="file"
+                        id="room-photo-input"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                      />
+                    </label>
+
+                    {editAvatarUrl && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setEditAvatarUrl("")}
+                        className="rounded-xl text-xs h-8 text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="w-3.5 h-3.5 mr-1" />
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Upload a high-resolution logo or room image (JPG, PNG, WebP)
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Emoji fallback picker */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold">Room Icon</Label>
+              <Label className="text-xs font-bold">Fallback Emoji Icon</Label>
               <div className="flex gap-1.5 overflow-x-auto pb-1.5 no-scrollbar py-1">
                 {EMOJI_OPTIONS.map((em) => (
                   <button

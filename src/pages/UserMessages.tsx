@@ -40,6 +40,7 @@ import {
   Reply,
   X,
   Store,
+  PhoneCall,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -51,6 +52,7 @@ import { CreateChatRoomDialog } from "@/components/chat/CreateChatRoomDialog";
 import { ReactionDetailsDialog } from "@/components/chat/ReactionDetailsDialog";
 import { MessageInfoDialog } from "@/components/chat/MessageInfoDialog";
 import { MentionSuggestions } from "@/components/chat/MentionSuggestions";
+import { WebRTCCallModal } from "@/components/chat/WebRTCCallModal";
 import { chatSounds } from "@/lib/chatSounds";
 
 export interface ChatReaction {
@@ -146,6 +148,14 @@ export default function UserMessages() {
   const [reactionDetailsMessage, setReactionDetailsMessage] = useState<ChatMessage | null>(null);
   // Message Info / Who Viewed Modal State
   const [infoMessage, setInfoMessage] = useState<ChatMessage | null>(null);
+  // Real-Time WebRTC Voice Call Modal State
+  const [webrtcCallOpen, setWebrtcCallOpen] = useState(false);
+  const [webrtcTargetUser, setWebrtcTargetUser] = useState<{
+    id: string;
+    name: string;
+    avatar?: string;
+    role?: string;
+  } | null>(null);
 
   // Refs
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1194,13 +1204,32 @@ export default function UserMessages() {
 
                   {/* Header Actions */}
                   <div className="flex items-center gap-1 shrink-0">
+                    {/* WebRTC Real-Time Encrypted Voice Call Button */}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setWebrtcTargetUser({
+                          id: activeRoom.id,
+                          name: activeRoom.name || "Contact",
+                          avatar: activeRoom.avatar,
+                          role: activeRoom.badge || "Verified Merchant",
+                        });
+                        setWebrtcCallOpen(true);
+                      }}
+                      className="h-8 w-8 rounded-xl text-emerald-600 hover:bg-emerald-500/10"
+                      title="Encrypted WebRTC Voice Call"
+                    >
+                      <Phone className="w-4 h-4 text-emerald-600" />
+                    </Button>
+
                     {activeRoom.phone && (
                       <Button
                         asChild
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 rounded-xl text-emerald-600 hover:bg-emerald-500/10"
-                        title="WhatsApp Call"
+                        title="WhatsApp Chat"
                       >
                         <a
                           href={`https://wa.me/${activeRoom.phone.replace(/\D/g, "")}`}
@@ -1599,6 +1628,18 @@ export default function UserMessages() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Real-Time WebRTC Voice Calling Modal */}
+      {webrtcTargetUser && (
+        <WebRTCCallModal
+          open={webrtcCallOpen}
+          onOpenChange={(open) => {
+            setWebrtcCallOpen(open);
+            if (!open) setWebrtcTargetUser(null);
+          }}
+          targetUser={webrtcTargetUser}
+        />
+      )}
     </>
   );
 }
