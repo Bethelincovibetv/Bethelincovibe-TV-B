@@ -198,6 +198,7 @@ export default function UserDashboard() {
     { to: "/dashboard/businesses", label: "My Business", icon: Building2, color: "from-amber-500 to-yellow-500", show: flags.businesses },
     { to: "/dashboard/messages", label: "Messages", icon: Mail, color: "from-pink-500 to-rose-500", show: flags.businesses },
     { to: "/dashboard/notifications", label: "Notifications", icon: Bell, color: "from-amber-500 to-rose-600", show: true },
+    { to: "/dashboard/settings", label: "Settings & Audio", icon: Settings, color: "from-violet-600 to-indigo-600", show: true },
     { to: "/tools/startup-calculator", label: "Calculator", icon: Calculator, color: "from-cyan-500 to-sky-500", show: flags.tools },
     { to: "/learn", label: "Learning Hub", icon: GraduationCap, color: "from-blue-500 to-indigo-600", show: flags.learn },
     { to: "/forum", label: "Community", icon: MessageSquare, color: "from-teal-500 to-cyan-600", show: flags.forum },
@@ -285,8 +286,14 @@ export default function UserDashboard() {
               )}
               <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
                 <Link to="/dashboard/profile-edit">
-                  <Settings className="h-4 w-4 sm:mr-1" />
+                  <UserIcon className="h-4 w-4 sm:mr-1" />
                   <span>Edit Profile</span>
+                </Link>
+              </Button>
+              <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
+                <Link to="/dashboard/settings">
+                  <Settings className="h-4 w-4 sm:mr-1 text-amber-300" />
+                  <span>Settings</span>
                 </Link>
               </Button>
             </div>

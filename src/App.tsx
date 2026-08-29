@@ -53,6 +53,7 @@ import AdminPlatformAI from "./pages/admin/AdminPlatformAI";
 import AdminNotifications from "./pages/admin/AdminNotifications";
 import AdminGuestBlogs from "./pages/admin/AdminGuestBlogs";
 import UserDashboard from "./pages/UserDashboard";
+import UserSettings from "./pages/UserSettings";
 import UserWallet from "./pages/UserWallet";
 import UserFavorites from "./pages/UserFavorites";
 import UserProfileEdit from "./pages/UserProfileEdit";
@@ -221,6 +222,12 @@ const App = () => (
               <Route path="/dashboard/payments" element={<SellerPayments />} />
               <Route path="/dashboard/purchases" element={<UserPurchases />} />
               <Route path="/dashboard/leads" element={<UserLeads />} />
+              <Route path="/dashboard/settings" element={<UserSettings />} />
+              <Route path="/dashboard/settings/audio" element={<UserSettings />} />
+              <Route path="/dashboard/settings/profile" element={<UserSettings />} />
+              <Route path="/dashboard/settings/notifications" element={<UserSettings />} />
+              <Route path="/dashboard/settings/security" element={<UserSettings />} />
+              <Route path="/settings" element={<UserSettings />} />
               
               <Route path="/dashboard/favorites" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />
               <Route path="/dashboard/saved-blogs" element={<FeatureGate feature="favorites"><UserFavorites /></FeatureGate>} />

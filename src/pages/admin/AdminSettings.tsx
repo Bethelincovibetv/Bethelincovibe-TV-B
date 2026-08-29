@@ -50,6 +50,7 @@ const KEYS = [
   "whatsapp_community_url", "referral_signup_bonus", "referral_purchase_pct",
   "sales_page_first_free", "sales_page_price", "leads_enabled_global",
   "notification_sound_enabled", "notification_sound_preset", "notification_sound_url",
+  "allow_background_music", "master_jingle_volume",
   ...SOCIAL_KEYS,
 ] as const;
 
@@ -628,6 +629,33 @@ export default function AdminSettings() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Background Music Master Setting */}
+              <div className="flex items-center justify-between p-4 rounded-xl border bg-violet-500/5 border-violet-500/20">
+                <div className="space-y-0.5 pr-4">
+                  <div className="flex items-center gap-2">
+                    <Label htmlFor="allow_background_music" className="text-sm font-bold cursor-pointer text-foreground">
+                      Allow Ambient Background Music for Users
+                    </Label>
+                    <Badge variant="outline" className="text-[10px] bg-violet-500/10 text-violet-700 border-violet-500/30 font-bold">
+                      Site-Wide
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Enables or pauses ambient background soundtrack playback across the platform. Users control their personal audio volume in their User Settings.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  id="allow_background_music"
+                  checked={get("allow_background_music") !== "false"}
+                  onChange={(e) => {
+                    const val = e.target.checked ? "true" : "false";
+                    set("allow_background_music", val);
+                  }}
+                  className="h-5 w-5 accent-violet-600 cursor-pointer"
+                />
+              </div>
+
               <div className="flex items-center justify-between p-3 rounded-xl border bg-muted/40">
                 <div className="space-y-0.5">
                   <Label htmlFor="notification_sound_enabled" className="text-sm font-semibold cursor-pointer">

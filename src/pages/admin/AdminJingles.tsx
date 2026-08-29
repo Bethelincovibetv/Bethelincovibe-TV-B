@@ -29,6 +29,8 @@ export default function AdminJingles() {
   // Master Volume Limit (Global site ceiling)
   const [masterVolumeLimit, setMasterVolumeLimit] = useState<number>(0.5);
   const [savingMasterVolume, setSavingMasterVolume] = useState(false);
+  const [allowBackgroundMusic, setAllowBackgroundMusic] = useState<boolean>(true);
+  const [savingAllowMusic, setSavingAllowMusic] = useState(false);
 
   // Live Audition State
   const [playingJingleId, setPlayingJingleId] = useState<string | null>(null);
@@ -49,22 +51,34 @@ export default function AdminJingles() {
     },
   });
 
-  // Fetch master volume ceiling from site_settings
+  // Fetch master volume ceiling & allow_background_music from site_settings
   const { data: masterSetting, refetch: refetchMasterSetting } = useQuery({
     queryKey: ["site-setting-jingle-master-volume"],
     queryFn: async () => {
       const { data } = await supabase
         .from("site_settings")
-        .select("value")
-        .eq("key", "master_jingle_volume")
-        .maybeSingle();
-      return data?.value ? parseFloat(data.value) : 0.5;
+        .select("key, value")
+        .in("key", ["master_jingle_volume", "allow_background_music"]);
+      
+      const res = { masterVolume: 0.5, allowMusic: true };
+      data?.forEach((s) => {
+        if (s.key === "master_jingle_volume" && s.value) {
+          res.masterVolume = parseFloat(s.value);
+        }
+        if (s.key === "allow_background_music") {
+          res.allowMusic = s.value !== "false";
+        }
+      });
+      return res;
     },
   });
 
   useEffect(() => {
-    if (typeof masterSetting === "number" && !isNaN(masterSetting)) {
-      setMasterVolumeLimit(masterSetting);
+    if (masterSetting) {
+      if (typeof masterSetting.masterVolume === "number" && !isNaN(masterSetting.masterVolume)) {
+        setMasterVolumeLimit(masterSetting.masterVolume);
+      }
+      setAllowBackgroundMusic(masterSetting.allowMusic);
     }
   }, [masterSetting]);
 
@@ -77,6 +91,36 @@ export default function AdminJingles() {
       }
     };
   }, []);
+
+  // Toggle Global Allow Background Music
+  const handleToggleAllowMusic = async (enabled: boolean) => {
+    setAllowBackgroundMusic(enabled);
+    setSavingAllowMusic(true);
+    try {
+      const { data: existing } = await supabase
+        .from("site_settings")
+        .select("id")
+        .eq("key", "allow_background_music")
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("site_settings")
+          .update({ value: enabled ? "true" : "false" })
+          .eq("key", "allow_background_music");
+      } else {
+        await supabase
+          .from("site_settings")
+          .insert({ key: "allow_background_music", value: enabled ? "true" : "false" });
+      }
+      toast.success(enabled ? "Background music enabled site-wide" : "Background music paused site-wide");
+      refetchMasterSetting();
+    } catch (e: any) {
+      toast.error("Failed to update music setting: " + e.message);
+    } finally {
+      setSavingAllowMusic(false);
+    }
+  };
 
   // Save Master Volume Limit
   const handleSaveMasterVolume = async (newVal: number) => {
@@ -299,39 +343,63 @@ export default function AdminJingles() {
           </div>
         </CardHeader>
 
-        <CardContent className="p-4 sm:p-6 space-y-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
-            <div className="flex items-center gap-3 flex-1 bg-background/80 p-3 rounded-2xl border">
-              <VolumeX className="h-4 w-4 text-muted-foreground shrink-0" />
-              <Slider
-                min={0.05}
-                max={1.0}
-                step={0.05}
-                value={[masterVolumeLimit]}
-                onValueChange={(val) => handleSaveMasterVolume(val[0])}
-                className="flex-1"
-              />
-              <Volume2 className="h-4 w-4 text-violet-600 shrink-0" />
+        <CardContent className="p-4 sm:p-6 space-y-5">
+          {/* Master Enable/Disable Switch for Users */}
+          <div className="flex items-center justify-between p-4 rounded-2xl border bg-background/80 shadow-2xs">
+            <div className="space-y-0.5 pr-3">
+              <Label htmlFor="admin_allow_music" className="text-sm font-bold cursor-pointer flex items-center gap-2">
+                <Music className="h-4 w-4 text-violet-600" />
+                Allow Background Music for Users
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                When enabled, visitors and users can play ambient background tracks (controlled via their User Settings). When turned off, background music is disabled site-wide.
+              </p>
             </div>
+            <Switch
+              id="admin_allow_music"
+              disabled={savingAllowMusic}
+              checked={allowBackgroundMusic}
+              onCheckedChange={handleToggleAllowMusic}
+            />
+          </div>
 
-            {/* Quick Preset Buttons */}
-            <div className="grid grid-cols-5 gap-1.5 sm:flex sm:items-center shrink-0">
-              {[0.2, 0.4, 0.6, 0.8, 1.0].map((preset) => (
-                <Button
-                  key={preset}
-                  size="sm"
-                  variant={masterVolumeLimit === preset ? "default" : "outline"}
-                  className={cn(
-                    "h-9 sm:h-8 text-xs font-bold rounded-xl",
-                    masterVolumeLimit === preset
-                      ? "bg-violet-600 hover:bg-violet-700 text-white shadow-xs"
-                      : ""
-                  )}
-                  onClick={() => handleSaveMasterVolume(preset)}
-                >
-                  {Math.round(preset * 100)}%
-                </Button>
-              ))}
+          <div className="space-y-2">
+            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+              Safety Volume Ceiling
+            </Label>
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
+              <div className="flex items-center gap-3 flex-1 bg-background/80 p-3 rounded-2xl border">
+                <VolumeX className="h-4 w-4 text-muted-foreground shrink-0" />
+                <Slider
+                  min={0.05}
+                  max={1.0}
+                  step={0.05}
+                  value={[masterVolumeLimit]}
+                  onValueChange={(val) => handleSaveMasterVolume(val[0])}
+                  className="flex-1"
+                />
+                <Volume2 className="h-4 w-4 text-violet-600 shrink-0" />
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="grid grid-cols-5 gap-1.5 sm:flex sm:items-center shrink-0">
+                {[0.2, 0.4, 0.6, 0.8, 1.0].map((preset) => (
+                  <Button
+                    key={preset}
+                    size="sm"
+                    variant={masterVolumeLimit === preset ? "default" : "outline"}
+                    className={cn(
+                      "h-9 sm:h-8 text-xs font-bold rounded-xl",
+                      masterVolumeLimit === preset
+                        ? "bg-violet-600 hover:bg-violet-700 text-white shadow-xs"
+                        : ""
+                    )}
+                    onClick={() => handleSaveMasterVolume(preset)}
+                  >
+                    {Math.round(preset * 100)}%
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
 
