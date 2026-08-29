@@ -129,7 +129,7 @@ export default function UserVerification() {
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 space-y-8 animate-fade-in">
       <Helmet>
-        <title>Seller KYC &amp; Blue Tick Verification | Lagos Directory</title>
+        <title>Seller KYC &amp; Blue Tick Verification | Bethelincovibe TV</title>
       </Helmet>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">

@@ -141,7 +141,7 @@ export default function UserActivityPage() {
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 space-y-6 animate-fade-in">
       <Helmet>
-        <title>Live Activity &amp; Audit Logs | Lagos Directory</title>
+        <title>Live Activity &amp; Audit Logs | Bethelincovibe TV</title>
       </Helmet>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
