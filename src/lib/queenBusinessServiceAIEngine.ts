@@ -682,7 +682,7 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
     );
 
     try {
-      // 1. Render primary 1200x630 Display Banner
+      // 1. Render primary 1200x630 Display Banner with user authentic logo
       const rawDataUrl = await renderQueenBannerGraphic({
         businessName: bizName,
         category: currentCategory,
@@ -696,6 +696,7 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
         ctaText: generated.advert.ctaText,
         badgeText: generated.advert.badgeText,
         stockImageUrl: getCategoryStockImage(currentCategory),
+        logoUrl: business.logo_url || options.customLogoUrl || "",
         themeStyle: options.themeStyle || "royal_gold",
         highlights: generated.trustPillars.slice(0, 3),
       });

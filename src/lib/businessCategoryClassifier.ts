@@ -296,6 +296,14 @@ function classifyByHeuristic(
   currentCategoryId: string | null,
   dbCategories: Array<{ id: string; name: string; slug?: string }>
 ): CategoryClassificationResult {
+  // If user already has a valid category selected, check if it matches a preset or db category
+  const existingMatchedCat = dbCategories.find(
+    (c) =>
+      c.id === currentCategoryId ||
+      (currentCategoryName && c.name.toLowerCase() === currentCategoryName.toLowerCase()) ||
+      (currentCategoryName && c.slug && c.slug.toLowerCase() === currentCategoryName.toLowerCase())
+  );
+
   let highestScore = 0;
   let bestRule = CATEGORY_HEURISTIC_RULES[0];
   let matchedKeywords: string[] = [];
@@ -324,6 +332,24 @@ function classifyByHeuristic(
       bestRule = rule;
       matchedKeywords = matched;
     }
+  }
+
+  // If no strong keyword matches found, strictly preserve user's preferred category
+  if (highestScore <= 0 && (currentCategoryName || currentCategoryId)) {
+    const fallbackName = existingMatchedCat?.name || currentCategoryName || "General Business";
+    const fallbackSlug = existingMatchedCat?.slug || "general-business";
+    return {
+      assignedCategoryId: existingMatchedCat?.id || currentCategoryId,
+      assignedCategoryName: fallbackName,
+      assignedCategorySlug: fallbackSlug,
+      confidence: 90,
+      classificationReason: `Preserved user registered preferred category "${fallbackName}".`,
+      originalCategoryName: currentCategoryName,
+      originalCategoryId: currentCategoryId,
+      isCorrect: true,
+      status: "verified",
+      evidenceKeywords: [],
+    };
   }
 
   const confidence = Math.min(Math.max(Math.round((highestScore / 30) * 100), 60), 96);

@@ -12,10 +12,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2, ArrowLeft, Wand2 } from "lucide-react";
+import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2, ArrowLeft, Wand2, Crown } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
 import BusinessDefaultLogo from "@/components/directory/BusinessDefaultLogo";
 import AILogoGeneratorModal from "@/components/AILogoGeneratorModal";
+import QueenServiceConciergeModal from "@/components/admin/business/QueenServiceConciergeModal";
 
 export default function UserBusinesses() {
   const { user, loading } = useAuth();
@@ -24,6 +25,8 @@ export default function UserBusinesses() {
   const [busy, setBusy] = useState(true);
   const [logoModalOpen, setLogoModalOpen] = useState(false);
   const [activeLogoBiz, setActiveLogoBiz] = useState<any | null>(null);
+  const [queenModalOpen, setQueenModalOpen] = useState(false);
+  const [selectedQueenBiz, setSelectedQueenBiz] = useState<any | null>(null);
 
   const removeListing = async (id: string) => {
     await supabase.from("supplier_images").delete().eq("supplier_id", id);
@@ -197,6 +200,18 @@ export default function UserBusinesses() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
+                          setSelectedQueenBiz(b);
+                          setQueenModalOpen(true);
+                        }}
+                        className="rounded-xl font-bold border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20"
+                      >
+                        <Crown className="h-3.5 w-3.5 mr-1 text-purple-500" />
+                        Queen Concierge AI
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
                           setActiveLogoBiz(b);
                           setLogoModalOpen(true);
                         }}
@@ -256,6 +271,33 @@ export default function UserBusinesses() {
           category={activeLogoBiz.categories?.name || "Enterprise"}
           currentLogoUrl={activeLogoBiz.logo_url}
           onSelectLogo={handleApplyLogoToBiz}
+        />
+      )}
+
+      {selectedQueenBiz && (
+        <QueenServiceConciergeModal
+          open={queenModalOpen}
+          onOpenChange={(isOpen) => {
+            setQueenModalOpen(isOpen);
+            if (!isOpen) setSelectedQueenBiz(null);
+          }}
+          business={selectedQueenBiz}
+          onSuccess={(res) => {
+            setItems((prev) =>
+              prev.map((b) =>
+                b.id === res.businessId
+                  ? {
+                      ...b,
+                      tagline: res.updatedFields?.tagline || b.tagline,
+                      description: res.updatedFields?.description || b.description,
+                      services: res.updatedFields?.services || b.services,
+                      featured_until: res.featuredUntil || b.featured_until,
+                      verified_until: res.verifiedUntil || b.verified_until,
+                    }
+                  : b
+              )
+            );
+          }}
         />
       )}
     </>

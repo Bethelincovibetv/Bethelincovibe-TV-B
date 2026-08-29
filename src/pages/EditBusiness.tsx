@@ -19,7 +19,7 @@ import AIServiceDesignerDialog from "@/components/AIServiceDesignerDialog";
 import ServiceGraphicPickerModal from "@/components/ServiceGraphicPickerModal";
 import BusinessLocationPicker, { LocationData } from "@/components/maps/BusinessLocationPicker";
 import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
-import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
+import { PRESET_BUSINESS_CATEGORIES, resolveSafeCategoryUuid } from "@/lib/businessCategories";
 
 type Service = {
   title: string;
@@ -109,6 +109,8 @@ export default function EditBusiness() {
     e.preventDefault();
     setSaving(true);
     const cleaned = services.filter((s) => s.title.trim());
+    const safeCatId = resolveSafeCategoryUuid(form.category_id, cats);
+
     const { error } = await supabase.from("suppliers").update({
       name: form.name,
       description: form.description,
@@ -123,7 +125,7 @@ export default function EditBusiness() {
       logo_url: form.logo_url,
       cover_url: form.cover_url || null,
       cover_template: form.cover_template || null,
-      category_id: form.category_id || null,
+      category_id: safeCatId,
       social_links: socials,
       services: cleaned,
     }).eq("id", form.id);

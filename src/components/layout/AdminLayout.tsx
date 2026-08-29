@@ -146,7 +146,8 @@ export default function AdminLayout() {
     location.pathname === "/admin/ai" || 
     location.pathname.startsWith("/admin/ai") || 
     location.pathname.startsWith("/admin/platform-ai") || 
-    location.pathname.startsWith("/admin/executive-ai");
+    location.pathname.startsWith("/admin/executive-ai") ||
+    location.pathname.startsWith("/admin/executive");
 
   const currentLink = allLinks.find((l) =>
     l.end ? location.pathname === l.to : location.pathname.startsWith(l.to),

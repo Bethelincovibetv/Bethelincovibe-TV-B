@@ -143,3 +143,45 @@ export const MAJOR_CITIES_LOCATIONS = [
   { city: "Accra", state: "Greater Accra", country: "Ghana", lat: 5.6037, lng: -0.1870 },
   { city: "Dubai", state: "Dubai", country: "UAE", lat: 25.2048, lng: 55.2708 },
 ];
+
+export const isValidUuid = (val?: string | null): boolean => {
+  if (!val || typeof val !== "string") return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
+};
+
+export function resolveSafeCategoryUuid(
+  categoryIdOrSlug: string | undefined | null,
+  dbCategories: Array<{ id: string; slug?: string; name?: string }> = []
+): string | null {
+  if (!categoryIdOrSlug) return null;
+  const clean = String(categoryIdOrSlug).trim();
+
+  // If already a valid UUID
+  if (isValidUuid(clean)) return clean;
+
+  // Search in database categories by slug or name or id
+  const matched = dbCategories.find(
+    (c) =>
+      c.id === clean ||
+      (c.slug && c.slug.toLowerCase() === clean.toLowerCase()) ||
+      (c.name && c.name.toLowerCase() === clean.toLowerCase())
+  );
+
+  if (matched && isValidUuid(matched.id)) {
+    return matched.id;
+  }
+
+  // Check preset slug match
+  const preset = PRESET_BUSINESS_CATEGORIES.find(
+    (p) => p.id === clean || p.slug === clean || p.name.toLowerCase() === clean.toLowerCase()
+  );
+  if (preset) {
+    const dbMatch = dbCategories.find(
+      (c) => c.slug === preset.slug || c.name.toLowerCase() === preset.name.toLowerCase()
+    );
+    if (dbMatch && isValidUuid(dbMatch.id)) return dbMatch.id;
+  }
+
+  return null;
+}
+

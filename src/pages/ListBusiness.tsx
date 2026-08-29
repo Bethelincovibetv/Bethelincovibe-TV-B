@@ -18,6 +18,7 @@ import {
   getQueenServiceSettings,
   runQueenServiceAIAutomation,
 } from "@/lib/queenBusinessServiceAIEngine";
+import { resolveSafeCategoryUuid } from "@/lib/businessCategories";
 
 type Service = { title: string; description?: string; image_url?: string; link_url?: string };
 
@@ -117,12 +118,14 @@ export default function ListBusiness() {
     setSubmitting(true);
     const cleanedServices = services.filter((s) => s.title.trim());
     const cleanedSocials = Object.fromEntries(Object.entries(socials).filter(([, v]) => v && v.trim()));
+    const safeCatId = resolveSafeCategoryUuid(form.category_id, categories || []);
+
     const { data: insertedData, error } = await supabase
       .from("suppliers")
       .insert({
         name: form.name.trim(),
         slug: generateSlug(form.name),
-        category_id: form.category_id || null,
+        category_id: safeCatId,
         description: form.description || null,
         phone: form.phone || null,
         address: form.address || null,

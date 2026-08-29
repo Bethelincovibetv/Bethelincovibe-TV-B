@@ -15,6 +15,7 @@ export interface QueenGraphicOptions {
   ctaText?: string;
   badgeText?: string;
   stockImageUrl?: string;
+  logoUrl?: string;
   themeStyle?: "royal_gold" | "cyber_tech" | "emerald_luxury" | "sunset_vibrant" | "ocean_corporate";
   highlights?: string[];
   serviceTitle?: string;
@@ -214,13 +215,48 @@ export async function renderQueenBannerGraphic(
   ctx.fillText(badgeText, 68, badgeY + 4);
   ctx.restore();
 
-  // Category Tag (Right side)
+  // Category Tag & User Logo (Right side)
+  let logoImg: HTMLImageElement | null = null;
+  if (options.logoUrl) {
+    logoImg = await loadImageSafe(options.logoUrl);
+  }
+
+  if (logoImg) {
+    // Draw real authentic user logo in top right
+    ctx.save();
+    const logoX = width - 130;
+    const logoY = badgeY - 14;
+    const logoSize = 64;
+    
+    // Circular clipping with subtle 3D shadow & gold border
+    ctx.shadowColor = "rgba(0, 0, 0, 0.6)";
+    ctx.shadowBlur = 10;
+    ctx.fillStyle = "#1E293B";
+    ctx.beginPath();
+    ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2 - 2, 0, Math.PI * 2);
+    ctx.clip();
+    ctx.drawImage(logoImg, logoX + 2, logoY + 2, logoSize - 4, logoSize - 4);
+    ctx.restore();
+
+    ctx.strokeStyle = "#F59E0B";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(logoX + logoSize / 2, logoY + logoSize / 2, logoSize / 2, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
   ctx.save();
   ctx.font = "bold 12px 'Plus Jakarta Sans', sans-serif";
   const catText = `SECTOR: ${(options.category || "COMMERCIAL").toUpperCase()}`;
-  ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.75)";
   ctx.textAlign = "right";
-  ctx.fillText(catText, width - 60, badgeY + 4);
+  ctx.fillText(catText, logoImg ? width - 145 : width - 60, badgeY + 4);
   ctx.restore();
 
   // 4. Business Name (Large Display Typography)

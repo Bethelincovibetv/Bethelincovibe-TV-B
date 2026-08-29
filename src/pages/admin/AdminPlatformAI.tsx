@@ -1604,10 +1604,10 @@ Select a quick action chip above or type your exact directive!`;
 
               {/* Message Bubble with Thick, High-Contrast Readability */}
               <div
-                className={`max-w-[96%] sm:max-w-[90%] md:max-w-[85%] break-words overflow-hidden rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-3.5 text-sm sm:text-base leading-relaxed shadow-md transition-all ${
+                className={`max-w-[96%] sm:max-w-[90%] md:max-w-[85%] break-words overflow-hidden rounded-2xl sm:rounded-3xl px-4 py-3 sm:px-5 sm:py-3.5 text-base sm:text-[17px] md:text-lg font-bold sm:font-extrabold leading-relaxed shadow-md transition-all ${
                   m.role === "user"
-                    ? `${chatTemplate.userBubbleBg} ${chatTemplate.userTextColor} rounded-tr-none`
-                    : `${chatTemplate.aiBubbleBg} ${chatTemplate.aiTextColor} rounded-tl-none whitespace-pre-wrap tracking-normal`
+                    ? `${chatTemplate.userBubbleBg} ${chatTemplate.userTextColor} rounded-tr-none font-bold`
+                    : `${chatTemplate.aiBubbleBg} ${chatTemplate.aiTextColor} rounded-tl-none whitespace-pre-wrap tracking-normal font-extrabold text-foreground`
                 }`}
               >
                 {cleanRawAsterisks(m.content)}

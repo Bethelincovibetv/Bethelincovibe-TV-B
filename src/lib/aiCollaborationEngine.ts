@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
+import { getHealthyGeminiClient } from "@/lib/multiApiKeyManager";
 
 export interface StrategicDirective {
   id: string;
@@ -149,10 +150,16 @@ export const TRENDING_MARKET_INTELLIGENCE = [
 ];
 
 /**
- * Get configured Gemini Client or null
+ * Get configured Gemini Client with Multi-API Key Failover & Feature Routing
  */
-export async function getGeminiClient(): Promise<GoogleGenAI | null> {
+export async function getGeminiClient(featureKey?: string): Promise<GoogleGenAI | null> {
   try {
+    const result = await getHealthyGeminiClient(featureKey);
+    if (result?.client) {
+      return result.client;
+    }
+
+    // Direct fallback if pool is empty
     const { data: setting } = await supabase
       .from("site_settings")
       .select("value")

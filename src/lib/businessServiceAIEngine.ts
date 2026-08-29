@@ -67,10 +67,10 @@ RULES:
 3. Relevant to African/Global commerce standards.`;
 
   try {
-    const gemini = await getGeminiClient();
+    const gemini = await getGeminiClient("business_service_designer");
     if (gemini) {
       const response = await gemini.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           temperature: 0.7,
@@ -136,10 +136,10 @@ Return a STRICT JSON object matching this schema:
 Output valid JSON only.`;
 
   try {
-    const gemini = await getGeminiClient();
+    const gemini = await getGeminiClient("business_service_designer");
     if (gemini) {
       const response = await gemini.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-2.5-flash",
         contents: prompt,
         config: {
           temperature: 0.7,

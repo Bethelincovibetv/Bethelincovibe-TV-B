@@ -9,8 +9,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2, Key } from "lucide-react";
+import { Settings, Save, Megaphone, Wallet, BarChart3, CreditCard, Code2, Users, Sparkles, Bell, Volume2, Play, Upload, Music, Loader2, Key, Bot, Sliders, Cpu } from "lucide-react";
 import { NOTIFICATION_SOUND_PRESETS, previewNotificationSound, uploadNotificationAudio, setCachedSoundPreference, NotificationSoundPreset } from "@/lib/notificationSound";
+import MultiApiKeyManagerPanel from "@/components/admin/MultiApiKeyManagerPanel";
 
 const SOCIAL_KEYS = [
   "social_facebook","social_x","social_instagram","social_tiktok","social_youtube",
@@ -143,8 +144,11 @@ export default function AdminSettings() {
         <Button onClick={saveAll} size="sm" className="shrink-0"><Save className="h-4 w-4 mr-1" />Save</Button>
       </div>
 
-      <Tabs defaultValue="ads" className="w-full">
-        <TabsList className="grid grid-cols-3 sm:grid-cols-6 h-auto p-1 gap-1">
+      <Tabs defaultValue="ai_keys" className="w-full">
+        <TabsList className="grid grid-cols-3 sm:grid-cols-7 h-auto p-1 gap-1">
+          <TabsTrigger value="ai_keys" className="flex flex-col gap-1 py-2 text-[11px] font-black bg-primary/10 data-[state=active]:bg-primary data-[state=active]:text-white">
+            <Key className="h-4 w-4" />Multi-API &amp; AI
+          </TabsTrigger>
           <TabsTrigger value="ads" className="flex flex-col gap-1 py-2 text-[11px]"><Megaphone className="h-4 w-4" />Ads</TabsTrigger>
           <TabsTrigger value="rewards" className="flex flex-col gap-1 py-2 text-[11px]"><Wallet className="h-4 w-4" />Rewards</TabsTrigger>
           <TabsTrigger value="payments" className="flex flex-col gap-1 py-2 text-[11px]"><CreditCard className="h-4 w-4" />Payments</TabsTrigger>
@@ -152,6 +156,10 @@ export default function AdminSettings() {
           <TabsTrigger value="community" className="flex flex-col gap-1 py-2 text-[11px]"><Users className="h-4 w-4" />Social</TabsTrigger>
           <TabsTrigger value="notifications" className="flex flex-col gap-1 py-2 text-[11px]"><Volume2 className="h-4 w-4 text-primary" />Sounds</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="ai_keys" className="space-y-4 mt-4">
+          <MultiApiKeyManagerPanel />
+        </TabsContent>
 
         <TabsContent value="ads" className="space-y-4 mt-4">
           <Card>

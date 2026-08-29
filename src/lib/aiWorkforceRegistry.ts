@@ -1292,12 +1292,12 @@ Guidelines:
 3. Keep responses structured, elegant, and directly tailored to the entrepreneur's commercial goals.`;
 
   try {
-    const ai = await getGeminiClient();
+    const ai = await getGeminiClient(agent.id);
     if (ai) {
-      // First try standard gemini-3.7-flash
+      // First try standard gemini-2.5-flash
       try {
         const res = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+          model: "gemini-2.5-flash",
           contents: [
             { role: "user", parts: [{ text: `${systemInstructions}\n\nUser Question/Directive: "${userMessage}"` }] }
           ],

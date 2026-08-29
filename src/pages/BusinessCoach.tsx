@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { GoogleGenAI } from "@google/genai";
+import { getGeminiClient } from "@/lib/aiCollaborationEngine";
 import ListenButton from "@/components/ListenButton";
 import LiveVoiceButton from "@/components/coach/LiveVoiceButton";
 import VixoraCoachLiveDialog from "@/components/coach/VixoraCoachLiveDialog";
@@ -124,14 +125,13 @@ export default function BusinessCoach() {
       console.warn("Supabase business-coach edge function notice, using direct AI engine:", e);
     }
 
-    // 2. Direct Gemini AI Fallback Engine
+    // 2. Direct Gemini AI Fallback Engine with Multi-Key Pool Failover
     try {
-      const apiKey =
-        (import.meta as any).env?.VITE_GEMINI_API_KEY ||
-        (typeof process !== "undefined" ? (process as any).env?.GEMINI_API_KEY : "") ||
-        "AIzaSyAeCyBC9daZbvXNRtfLjxBWwpF3MwXJggk";
+      const ai = await getGeminiClient("coach_ai");
+      if (!ai) {
+        throw new Error("Coach AI service is currently unavailable or disabled by admin switch.");
+      }
 
-      const ai = new GoogleGenAI({ apiKey });
       const systemInstruction = `You are Coach Bethel Goodgift, the Chief AI Business Strategist at BTV & Bethelincovibe.
 You provide tactical, high-converting business advice, pricing models, marketing strategies, Nigerian & Global market insights, and step-by-step action plans.
 Business Name: ${ctx.business_name || "Enterprise"}
@@ -142,7 +142,7 @@ Goals: ${ctx.goals || "Scale Revenue & Customer Acquisition"}
 Tone: Authoritative, motivating, practical, and clear.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-2.5-flash",
         contents: [
           { role: "user", parts: [{ text: `${systemInstruction}\n\nUser Question: ${query}` }] },
         ],
