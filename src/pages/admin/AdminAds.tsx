@@ -129,7 +129,10 @@ export default function AdminAds() {
   };
 
   const PLACEMENTS = [
-    { key: "blog", label: "Blog" },
+    { key: "blog", label: "Blog Articles" },
+    { key: "dashboard", label: "Dashboard" },
+    { key: "shop", label: "Shop / Products" },
+    { key: "listings", label: "Business Directory" },
     { key: "home", label: "Homepage" },
     { key: "header", label: "Header" },
     { key: "footer", label: "Footer" },

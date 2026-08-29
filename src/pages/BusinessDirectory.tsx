@@ -18,6 +18,7 @@ import CategoryTile from "@/components/directory/CategoryTile";
 import DirectoryInteractiveMap from "@/components/maps/DirectoryInteractiveMap";
 import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import AdsterraAd from "@/components/AdsterraAd";
 import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
@@ -335,6 +336,9 @@ export default function BusinessDirectory() {
             </div>
           </section>
         )}
+
+        {/* Programmatic Sponsored Ad Banner */}
+        <ProgrammaticAdBanner placement="listings" format="banner" className="my-4" />
 
         <div className="mb-3 flex items-center justify-between">
           <h2 className="text-lg font-bold md:text-xl">

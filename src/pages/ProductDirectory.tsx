@@ -10,6 +10,7 @@ import { Search, LayoutGrid, List, Plus, Store, Sparkles, Package, Download, Ute
 import ProductCard from "@/components/directory/ProductCard";
 import ProductCategoryFilter3D from "@/components/directory/ProductCategoryFilter3D";
 import Breadcrumbs from "@/components/Breadcrumbs";
+import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
 import {
   PHYSICAL_PRODUCT_CATEGORIES,
@@ -265,6 +266,9 @@ export default function ProductDirectory() {
           <Section heading="New Arrivals" blurb="Freshly listed items on the Lagos marketplace." items={newArrivals} />
         </>
       )}
+
+      {/* Programmatic Sponsored Ad Banner */}
+      <ProgrammaticAdBanner placement="shop" format="banner" className="my-4" />
 
       {/* Main Directory List & Search Controls */}
       <div className="space-y-4">

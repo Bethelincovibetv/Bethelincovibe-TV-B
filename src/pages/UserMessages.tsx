@@ -851,17 +851,18 @@ export default function UserMessages() {
     toast.success(next ? "Chat sounds ON" : "Chat sounds MUTED");
   };
 
-  if (authLoading) {
+  if (authLoading || loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-[60vh] flex items-center justify-center flex-col gap-3">
+        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        <p className="text-xs text-muted-foreground font-medium">Loading encrypted messages & channels...</p>
       </div>
     );
   }
 
   if (!user) return <Navigate to="/login" replace />;
 
-  const activeRoom = rooms.find((r) => r.id === activeRoomId) || rooms[0];
+  const activeRoom = rooms.find((r) => r.id === activeRoomId) || rooms[0] || null;
 
   const filteredRooms = rooms.filter(
     (r) =>
@@ -1079,7 +1080,7 @@ export default function UserMessages() {
                         <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-emerald-600/20 to-teal-600/30 text-foreground flex items-center justify-center text-base shadow-xs border border-emerald-500/20">
                           {room.avatarEmoji || (
                             <span className="font-bold text-xs">
-                              {room.name.charAt(0).toUpperCase()}
+                              {(room.name || "C").charAt(0).toUpperCase()}
                             </span>
                           )}
                         </div>
@@ -1130,385 +1131,404 @@ export default function UserMessages() {
               mobileView === "list" ? "hidden md:flex" : "flex"
             }`}
           >
-            {/* Top WhatsApp Chat Header */}
-            {activeRoom && (
-              <div className="h-14 bg-card/95 backdrop-blur-md border-b border-border px-3 sm:px-4 flex items-center justify-between gap-2 shrink-0 z-20">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  {/* Mobile Back Button */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setMobileView("list")}
-                    className="md:hidden h-8 w-8 rounded-xl shrink-0 -ml-1"
-                  >
-                    <ArrowLeft className="w-4 h-4" />
-                  </Button>
-
-                  {/* Room Icon */}
-                  <div className="w-9 h-9 rounded-2xl bg-emerald-600/20 text-foreground flex items-center justify-center text-base shrink-0 border border-emerald-500/30 shadow-xs">
-                    {activeRoom.avatarEmoji || activeRoom.name.charAt(0).toUpperCase()}
-                  </div>
-
-                  {/* Room Name & Encryption Status */}
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="font-extrabold text-xs sm:text-sm text-foreground truncate">
-                        {activeRoom.name}
-                      </h3>
-                      {activeRoom.isEncrypted && (
-                        <button
-                          onClick={() => setE2eeModalOpen(true)}
-                          type="button"
-                          className="text-emerald-600 hover:text-emerald-700 transition-colors"
-                          title="Click to view encryption key certificate"
-                        >
-                          <Lock className="w-3 h-3 inline-block" />
-                        </button>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                      <span>Online · End-to-end encrypted</span>
-                    </p>
-                  </div>
+            {!activeRoom ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-muted/10">
+                <div className="w-16 h-16 rounded-3xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center mb-4 shadow-xs">
+                  <MessageCircle className="w-8 h-8" />
                 </div>
-
-                {/* Header Actions */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {activeRoom.phone && (
+                <h3 className="text-base font-extrabold text-foreground mb-1">Select a Conversation</h3>
+                <p className="text-xs text-muted-foreground max-w-sm leading-relaxed mb-4">
+                  Choose a conversation from the left sidebar or search verified merchants in the directory to start a secure end-to-end encrypted chat.
+                </p>
+                <Button
+                  onClick={() => setCreateRoomOpen(true)}
+                  className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs"
+                >
+                  <Plus className="w-4 h-4 mr-1.5" />
+                  Create New Room
+                </Button>
+              </div>
+            ) : (
+              <>
+                {/* Top WhatsApp Chat Header */}
+                <div className="h-14 bg-card/95 backdrop-blur-md border-b border-border px-3 sm:px-4 flex items-center justify-between gap-2 shrink-0 z-20">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Mobile Back Button */}
                     <Button
-                      asChild
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-xl text-emerald-600 hover:bg-emerald-500/10"
-                      title="WhatsApp Call"
+                      onClick={() => setMobileView("list")}
+                      className="md:hidden h-8 w-8 rounded-xl shrink-0 -ml-1"
                     >
-                      <a
-                        href={`https://wa.me/${activeRoom.phone.replace(/\D/g, "")}`}
-                        target="_blank"
-                        rel="noopener"
-                      >
-                        <MessageCircle className="w-4 h-4" />
-                      </a>
+                      <ArrowLeft className="w-4 h-4" />
                     </Button>
-                  )}
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleExportChat}
-                    className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
-                    title="Export Chat Transcript"
-                  >
-                    <Download className="w-4 h-4" />
-                  </Button>
-
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleClearChat}
-                    className="h-8 w-8 rounded-xl text-muted-foreground hover:text-destructive"
-                    title="Clear Chat History"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* WhatsApp Doodle Wallpaper Canvas */}
-            <div className="flex-1 relative overflow-hidden flex flex-col">
-              <WhatsAppDoodleBackground theme={wallpaperTheme} />
-
-              {/* Chat Messages Scroll Container */}
-              <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 relative z-10">
-                {/* E2EE WhatsApp Security Yellow Banner */}
-                <div className="mx-auto max-w-md p-2 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-center shadow-xs backdrop-blur-xs">
-                  <div className="flex items-center justify-center gap-1.5 text-[11px] font-extrabold mb-0.5">
-                    <Lock className="w-3.5 h-3.5 text-amber-600" />
-                    <span>End-to-End Encrypted</span>
-                  </div>
-                  <p className="text-[10px] text-amber-800/90 dark:text-amber-300 leading-tight">
-                    Messages and voice notes in this room are end-to-end encrypted with SHA-256 client cryptography.
-                  </p>
-                </div>
-
-                {/* Messages List */}
-                {messages.map((msg) => {
-                  if (msg.type === "system") {
-                    return (
-                      <div key={msg.id} className="text-center my-2">
-                        <span className="inline-block px-3 py-1 rounded-full text-[10px] font-medium bg-card/80 text-muted-foreground border border-border/60 shadow-xs">
-                          {msg.message}
-                        </span>
-                      </div>
-                    );
-                  }
-
-                  const isOut = msg.is_outgoing;
-
-                  return (
-                    <div
-                      key={msg.id}
-                      className={`flex flex-col group relative ${
-                        isOut ? "items-end" : "items-start"
-                      }`}
-                    >
-                      {/* Message Bubble */}
-                      <div
-                        className={`relative max-w-[85%] sm:max-w-[72%] rounded-2xl p-2.5 sm:p-3 shadow-md transition-shadow ${
-                          isOut
-                            ? "bg-[#d9fdd3] dark:bg-[#005c4b] text-foreground rounded-tr-xs border border-emerald-500/20"
-                            : "bg-card dark:bg-[#202c33] text-foreground rounded-tl-xs border border-border"
-                        }`}
-                      >
-                        {/* Sender Name in Group/Community Chats */}
-                        {!isOut && (
-                          <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mb-1">
-                            {msg.sender_name}
-                          </p>
-                        )}
-
-                        {/* Quoted Reply Target (WhatsApp Style) */}
-                        {msg.reply_to && (
-                          <div className="mb-1.5 p-2 rounded-xl bg-black/5 dark:bg-white/10 border-l-4 border-emerald-600 text-xs">
-                            <span className="font-bold text-[10px] text-emerald-700 dark:text-emerald-300 block">
-                              {msg.reply_to.sender_name}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground line-clamp-1">
-                              {msg.reply_to.message}
-                            </span>
-                          </div>
-                        )}
-
-                        {/* Content based on type */}
-                        {msg.type === "voice_note" && msg.media_url ? (
-                          <VoiceNotePlayer
-                            audioUrl={msg.media_url}
-                            duration={msg.media_duration}
-                            isOutgoing={isOut}
-                            senderName={msg.sender_name}
-                          />
-                        ) : msg.type === "image" && msg.media_url ? (
-                          <div className="space-y-1.5">
-                            <img
-                              src={msg.media_url}
-                              alt="Attachment"
-                              className="rounded-xl max-h-60 w-full object-cover border border-black/10"
-                            />
-                            {msg.message && (
-                              <p className="text-xs leading-relaxed">{msg.message}</p>
-                            )}
-                          </div>
-                        ) : msg.type === "file" && msg.media_url ? (
-                          <div className="flex items-center gap-2.5 p-2 rounded-xl bg-background/50 border border-border/80">
-                            <FileText className="w-6 h-6 text-primary shrink-0" />
-                            <div className="min-w-0 flex-1">
-                              <p className="text-xs font-bold truncate">{msg.message}</p>
-                              <a
-                                href={msg.media_url}
-                                download
-                                className="text-[10px] text-primary hover:underline font-semibold"
-                              >
-                                Download Attachment
-                              </a>
-                            </div>
-                          </div>
-                        ) : (
-                          <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">
-                            {msg.message}
-                          </p>
-                        )}
-
-                        {/* Timestamp, Info Button & WhatsApp Double Blue Ticks */}
-                        <div className="flex items-center justify-end gap-1.5 mt-1 text-[10px] text-muted-foreground/80 font-medium">
-                          <span>{format(new Date(msg.created_at), "HH:mm")}</span>
-                          {isOut && (
-                            <button
-                              type="button"
-                              onClick={() => setInfoMessage(msg)}
-                              title="Click to view message delivery & read receipts"
-                              className="text-emerald-600 dark:text-emerald-400 hover:scale-110 transition-transform"
-                            >
-                              <CheckCheck className="w-3.5 h-3.5 inline stroke-[2.5]" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Reaction Badges (Click to see WHO reacted, WhatsApp Style) */}
-                        {msg.reactions && Object.keys(msg.reactions).length > 0 && (
-                          <div className="flex flex-wrap gap-1 -mb-3.5 mt-1">
-                            {Object.values(msg.reactions).map((rx) => (
-                              <button
-                                key={rx.emoji}
-                                onClick={() => setReactionDetailsMessage(msg)}
-                                type="button"
-                                title="Click to see who reacted"
-                                className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border shadow-xs text-xs hover:scale-105 transition-transform active:scale-95 cursor-pointer"
-                              >
-                                <span>{rx.emoji}</span>
-                                {rx.count > 1 && (
-                                  <span className="text-[10px] font-bold text-muted-foreground">
-                                    {rx.count}
-                                  </span>
-                                )}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Quick Hover Actions (Reply, React, Message Info) */}
-                      <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 absolute -top-3 right-2 z-20 bg-card/90 backdrop-blur-xs border border-border rounded-full p-0.5 shadow-sm">
-                        <button
-                          onClick={() => setReplyingTo(msg)}
-                          type="button"
-                          className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                          title="Reply to message"
-                        >
-                          <Reply className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            setActiveReactionMessageId(
-                              activeReactionMessageId === msg.id ? null : msg.id
-                            )
-                          }
-                          type="button"
-                          className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                          title="React with Emoji"
-                        >
-                          <Smile className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setInfoMessage(msg)}
-                          type="button"
-                          className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                          title="Message Info / Viewers"
-                        >
-                          <Info className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-
-                      {/* Reaction Popover Bar */}
-                      {activeReactionMessageId === msg.id && (
-                        <div className="absolute -top-10 z-30">
-                          <EmojiReactionsMenu
-                            onSelectReaction={(emoji) => handleAddReaction(msg.id, emoji)}
-                            onClose={() => setActiveReactionMessageId(null)}
-                          />
-                        </div>
-                      )}
+                    {/* Room Icon */}
+                    <div className="w-9 h-9 rounded-2xl bg-emerald-600/20 text-foreground flex items-center justify-center text-base shrink-0 border border-emerald-500/30 shadow-xs">
+                      {activeRoom.avatarEmoji || ((activeRoom.name || "C").charAt(0).toUpperCase())}
                     </div>
-                  );
-                })}
 
-                <div ref={messagesEndRef} />
-              </div>
-
-              {/* Replying Banner (WhatsApp Style) */}
-              {replyingTo && (
-                <div className="p-2 bg-muted/90 border-t border-border flex items-center justify-between gap-2 text-xs relative z-20">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Reply className="w-4 h-4 text-emerald-600 shrink-0" />
+                    {/* Room Name & Encryption Status */}
                     <div className="min-w-0">
-                      <p className="font-bold text-emerald-700 dark:text-emerald-400 text-[11px] truncate">
-                        Replying to {replyingTo.sender_name}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {replyingTo.message || replyingTo.type}
+                      <div className="flex items-center gap-1.5">
+                        <h3 className="font-extrabold text-xs sm:text-sm text-foreground truncate">
+                          {activeRoom.name}
+                        </h3>
+                        {activeRoom.isEncrypted && (
+                          <button
+                            onClick={() => setE2eeModalOpen(true)}
+                            type="button"
+                            className="text-emerald-600 hover:text-emerald-700 transition-colors"
+                            title="Click to view encryption key certificate"
+                          >
+                            <Lock className="w-3 h-3 inline-block" />
+                          </button>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-muted-foreground truncate flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        <span>Online · End-to-end encrypted</span>
                       </p>
                     </div>
                   </div>
-                  <button
-                    onClick={() => setReplyingTo(null)}
-                    className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
 
-              {/* Bottom WhatsApp Input Bar with Mentions */}
-              <div className="p-2 sm:p-3 bg-card border-t border-border relative z-20">
-                {mentionQuery !== null && (
-                  <div className="absolute bottom-full left-2 right-2 mb-1 z-30">
-                    <MentionSuggestions
-                      query={mentionQuery}
-                      room={activeRoom ? {
-                        id: activeRoom.id,
-                        name: activeRoom.name,
-                        participants: Object.keys(activeRoom.participantNames || {}),
-                        participantNames: activeRoom.participantNames || {},
-                        createdAt: new Date(),
-                      } : null}
-                      currentUserId={currentUserId}
-                      onSelectMention={handleSelectMention}
-                    />
-                  </div>
-                )}
-
-                {isRecordingVoice ? (
-                  <VoiceNoteRecorder
-                    onSend={handleSendVoiceNote}
-                    onCancel={() => setIsRecordingVoice(false)}
-                  />
-                ) : (
-                  <form onSubmit={handleSendMessage} className="flex items-center gap-1.5 sm:gap-2">
-                    {/* Attach File Button */}
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                      title="Attach photo or document"
-                    >
-                      <Paperclip className="w-5 h-5" />
-                    </button>
-
-                    {/* @all Tag Quick Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleSelectMention("@all ")}
-                      className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-emerald-600 transition-colors shrink-0 hidden sm:flex"
-                      title="Tag Everyone (@all)"
-                    >
-                      <AtSign className="w-5 h-5" />
-                    </button>
-
-                    {/* Textarea / Input Bar */}
-                    <Input
-                      ref={messageInputRef}
-                      placeholder={`Message ${activeRoom.name}... (Type @ for mentions)`}
-                      value={messageText}
-                      onChange={(e) => setMessageText(e.target.value)}
-                      className="h-10 rounded-2xl bg-muted/50 border-border/80 text-xs sm:text-sm px-3.5 flex-1"
-                    />
-
-                    {/* If typing, show Send button; otherwise show Voice Record Mic */}
-                    {messageText.trim() ? (
+                  {/* Header Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {activeRoom.phone && (
                       <Button
-                        type="submit"
+                        asChild
+                        variant="ghost"
                         size="icon"
-                        className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-md transition-transform active:scale-95"
-                        title="Send Message"
+                        className="h-8 w-8 rounded-xl text-emerald-600 hover:bg-emerald-500/10"
+                        title="WhatsApp Call"
                       >
-                        <Send className="w-4 h-4 ml-0.5" />
-                      </Button>
-                    ) : (
-                      <Button
-                        type="button"
-                        onClick={() => setIsRecordingVoice(true)}
-                        size="icon"
-                        className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-md transition-transform active:scale-95"
-                        title="Record Voice Note"
-                      >
-                        <Mic className="w-4 h-4" />
+                        <a
+                          href={`https://wa.me/${activeRoom.phone.replace(/\D/g, "")}`}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          <MessageCircle className="w-4 h-4" />
+                        </a>
                       </Button>
                     )}
-                  </form>
-                )}
-              </div>
-            </div>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleExportChat}
+                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                      title="Export Chat Transcript"
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleClearChat}
+                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-destructive"
+                      title="Clear Chat History"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                {/* WhatsApp Doodle Wallpaper Canvas */}
+                <div className="flex-1 relative overflow-hidden flex flex-col">
+                  <WhatsAppDoodleBackground theme={wallpaperTheme} />
+
+                  {/* Chat Messages Scroll Container */}
+                  <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 relative z-10">
+                    {/* E2EE WhatsApp Security Yellow Banner */}
+                    <div className="mx-auto max-w-md p-2 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-center shadow-xs backdrop-blur-xs">
+                      <div className="flex items-center justify-center gap-1.5 text-[11px] font-extrabold mb-0.5">
+                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                        <span>End-to-End Encrypted</span>
+                      </div>
+                      <p className="text-[10px] text-amber-800/90 dark:text-amber-300 leading-tight">
+                        Messages and voice notes in this room are end-to-end encrypted with SHA-256 client cryptography.
+                      </p>
+                    </div>
+
+                    {/* Messages List */}
+                    {messages.map((msg) => {
+                      if (msg.type === "system") {
+                        return (
+                          <div key={msg.id} className="text-center my-2">
+                            <span className="inline-block px-3 py-1 rounded-full text-[10px] font-medium bg-card/80 text-muted-foreground border border-border/60 shadow-xs">
+                              {msg.message}
+                            </span>
+                          </div>
+                        );
+                      }
+
+                      const isOut = msg.is_outgoing;
+
+                      return (
+                        <div
+                          key={msg.id}
+                          className={`flex flex-col group relative ${
+                            isOut ? "items-end" : "items-start"
+                          }`}
+                        >
+                          {/* Message Bubble */}
+                          <div
+                            className={`relative max-w-[85%] sm:max-w-[72%] rounded-2xl p-2.5 sm:p-3 shadow-md transition-shadow ${
+                              isOut
+                                ? "bg-[#d9fdd3] dark:bg-[#005c4b] text-foreground rounded-tr-xs border border-emerald-500/20"
+                                : "bg-card dark:bg-[#202c33] text-foreground rounded-tl-xs border border-border"
+                            }`}
+                          >
+                            {/* Sender Name in Group/Community Chats */}
+                            {!isOut && (
+                              <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 mb-1">
+                                {msg.sender_name}
+                              </p>
+                            )}
+
+                            {/* Quoted Reply Target (WhatsApp Style) */}
+                            {msg.reply_to && (
+                              <div className="mb-1.5 p-2 rounded-xl bg-black/5 dark:bg-white/10 border-l-4 border-emerald-600 text-xs">
+                                <span className="font-bold text-[10px] text-emerald-700 dark:text-emerald-300 block">
+                                  {msg.reply_to.sender_name}
+                                </span>
+                                <span className="text-[11px] text-muted-foreground line-clamp-1">
+                                  {msg.reply_to.message}
+                                </span>
+                              </div>
+                            )}
+
+                            {/* Content based on type */}
+                            {msg.type === "voice_note" && msg.media_url ? (
+                              <VoiceNotePlayer
+                                audioUrl={msg.media_url}
+                                duration={msg.media_duration}
+                                isOutgoing={isOut}
+                                senderName={msg.sender_name}
+                              />
+                            ) : msg.type === "image" && msg.media_url ? (
+                              <div className="space-y-1.5">
+                                <img
+                                  src={msg.media_url}
+                                  alt="Attachment"
+                                  className="rounded-xl max-h-60 w-full object-cover border border-black/10"
+                                />
+                                {msg.message && (
+                                  <p className="text-xs leading-relaxed">{msg.message}</p>
+                                )}
+                              </div>
+                            ) : msg.type === "file" && msg.media_url ? (
+                              <div className="flex items-center gap-2.5 p-2 rounded-xl bg-background/50 border border-border/80">
+                                <FileText className="w-6 h-6 text-primary shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-xs font-bold truncate">{msg.message}</p>
+                                  <a
+                                    href={msg.media_url}
+                                    download
+                                    className="text-[10px] text-primary hover:underline font-semibold"
+                                  >
+                                    Download Attachment
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">
+                                {msg.message}
+                              </p>
+                            )}
+
+                            {/* Timestamp, Info Button & WhatsApp Double Blue Ticks */}
+                            <div className="flex items-center justify-end gap-1.5 mt-1 text-[10px] text-muted-foreground/80 font-medium">
+                              <span>{format(new Date(msg.created_at), "HH:mm")}</span>
+                              {isOut && (
+                                <button
+                                  type="button"
+                                  onClick={() => setInfoMessage(msg)}
+                                  title="Click to view message delivery & read receipts"
+                                  className="text-emerald-600 dark:text-emerald-400 hover:scale-110 transition-transform"
+                                >
+                                  <CheckCheck className="w-3.5 h-3.5 inline stroke-[2.5]" />
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Reaction Badges (Click to see WHO reacted, WhatsApp Style) */}
+                            {msg.reactions && Object.keys(msg.reactions).length > 0 && (
+                              <div className="flex flex-wrap gap-1 -mb-3.5 mt-1">
+                                {Object.values(msg.reactions).map((rx) => (
+                                  <button
+                                    key={rx.emoji}
+                                    onClick={() => setReactionDetailsMessage(msg)}
+                                    type="button"
+                                    title="Click to see who reacted"
+                                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-card border border-border shadow-xs text-xs hover:scale-105 transition-transform active:scale-95 cursor-pointer"
+                                  >
+                                    <span>{rx.emoji}</span>
+                                    {rx.count > 1 && (
+                                      <span className="text-[10px] font-bold text-muted-foreground">
+                                        {rx.count}
+                                      </span>
+                                    )}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quick Hover Actions (Reply, React, Message Info) */}
+                          <div className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 absolute -top-3 right-2 z-20 bg-card/90 backdrop-blur-xs border border-border rounded-full p-0.5 shadow-sm">
+                            <button
+                              onClick={() => setReplyingTo(msg)}
+                              type="button"
+                              className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="Reply to message"
+                            >
+                              <Reply className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                setActiveReactionMessageId(
+                                  activeReactionMessageId === msg.id ? null : msg.id
+                                )
+                              }
+                              type="button"
+                              className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="React with Emoji"
+                            >
+                              <Smile className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={() => setInfoMessage(msg)}
+                              type="button"
+                              className="p-1 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                              title="Message Info / Viewers"
+                            >
+                              <Info className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          {/* Reaction Popover Bar */}
+                          {activeReactionMessageId === msg.id && (
+                            <div className="absolute -top-10 z-30">
+                              <EmojiReactionsMenu
+                                onSelectReaction={(emoji) => handleAddReaction(msg.id, emoji)}
+                                onClose={() => setActiveReactionMessageId(null)}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+
+                    <div ref={messagesEndRef} />
+                  </div>
+
+                  {/* Replying Banner (WhatsApp Style) */}
+                  {replyingTo && (
+                    <div className="p-2 bg-muted/90 border-t border-border flex items-center justify-between gap-2 text-xs relative z-20">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Reply className="w-4 h-4 text-emerald-600 shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-emerald-700 dark:text-emerald-400 text-[11px] truncate">
+                            Replying to {replyingTo.sender_name}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            {replyingTo.message || replyingTo.type}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setReplyingTo(null)}
+                        className="p-1 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Bottom WhatsApp Input Bar with Mentions */}
+                  <div className="p-2 sm:p-3 bg-card border-t border-border relative z-20">
+                    {mentionQuery !== null && (
+                      <div className="absolute bottom-full left-2 right-2 mb-1 z-30">
+                        <MentionSuggestions
+                          query={mentionQuery}
+                          room={activeRoom ? {
+                            id: activeRoom.id,
+                            name: activeRoom.name,
+                            participants: Object.keys(activeRoom.participantNames || {}),
+                            participantNames: activeRoom.participantNames || {},
+                            createdAt: new Date(),
+                          } : null}
+                          currentUserId={currentUserId}
+                          onSelectMention={handleSelectMention}
+                        />
+                      </div>
+                    )}
+
+                    {isRecordingVoice ? (
+                      <VoiceNoteRecorder
+                        onSend={handleSendVoiceNote}
+                        onCancel={() => setIsRecordingVoice(false)}
+                      />
+                    ) : (
+                      <form onSubmit={handleSendMessage} className="flex items-center gap-1.5 sm:gap-2">
+                        {/* Attach File Button */}
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                          title="Attach photo or document"
+                        >
+                          <Paperclip className="w-5 h-5" />
+                        </button>
+
+                        {/* @all Tag Quick Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleSelectMention("@all ")}
+                          className="p-2 rounded-full hover:bg-muted text-muted-foreground hover:text-emerald-600 transition-colors shrink-0 hidden sm:flex"
+                          title="Tag Everyone (@all)"
+                        >
+                          <AtSign className="w-5 h-5" />
+                        </button>
+
+                        {/* Textarea / Input Bar */}
+                        <Input
+                          ref={messageInputRef}
+                          placeholder={activeRoom ? `Message ${activeRoom.name}... (Type @ for mentions)` : "Type a message..."}
+                          value={messageText}
+                          onChange={(e) => setMessageText(e.target.value)}
+                          className="h-10 rounded-2xl bg-muted/50 border-border/80 text-xs sm:text-sm px-3.5 flex-1"
+                        />
+
+                        {/* If typing, show Send button; otherwise show Voice Record Mic */}
+                        {messageText.trim() ? (
+                          <Button
+                            type="submit"
+                            size="icon"
+                            className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-md transition-transform active:scale-95"
+                            title="Send Message"
+                          >
+                            <Send className="w-4 h-4 ml-0.5" />
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            onClick={() => setIsRecordingVoice(true)}
+                            size="icon"
+                            className="w-10 h-10 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-md transition-transform active:scale-95"
+                            title="Record Voice Note"
+                          >
+                            <Mic className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </form>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       </div>

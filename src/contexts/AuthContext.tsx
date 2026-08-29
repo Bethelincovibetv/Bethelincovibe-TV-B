@@ -28,7 +28,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (
       normalized === "bethelincovibetv@gmail.com" ||
       normalized === "bethelgoodgift3@gmail.com" ||
-      normalized === "goodgiftdigital@gmail.com"
+      normalized === "goodgiftdigital@gmail.com" ||
+      normalized === "bethelchukwunyere1@gmail.com"
     ) {
       setIsAdmin(true);
       setRoleChecked(true);

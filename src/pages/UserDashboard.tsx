@@ -15,6 +15,7 @@ import {
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
+import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -316,6 +317,9 @@ export default function UserDashboard() {
             </Link>
           ))}
         </div>
+
+        {/* Programmatic Sponsored Ad Banner */}
+        <ProgrammaticAdBanner placement="dashboard" format="banner" className="my-2" />
 
         {/* Recent Activity Feed */}
         <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden">

@@ -708,7 +708,20 @@ export default function UnifiedProductManager({
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, product_type: "physical", condition: "new" }))}
+                      onClick={() =>
+                        setForm((f) => {
+                          const isCurrentlyDigital = f.product_type === "digital";
+                          const nextCatSlug = isCurrentlyDigital ? "food-groceries" : f.category_slug;
+                          const nextCatId = resolveSafeProductCategoryUuid(nextCatSlug, dbCategories || []);
+                          return {
+                            ...f,
+                            product_type: "physical",
+                            condition: f.condition === "digital" ? "new" : f.condition || "new",
+                            category_slug: nextCatSlug,
+                            category_id: nextCatId || "",
+                          };
+                        })
+                      }
                       className={`p-4 rounded-2xl border-2 text-left transition-all flex items-start gap-3.5 ${
                         form.product_type === "physical"
                           ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
@@ -728,7 +741,21 @@ export default function UnifiedProductManager({
 
                     <button
                       type="button"
-                      onClick={() => setForm((f) => ({ ...f, product_type: "digital", condition: "digital", stock: "999" }))}
+                      onClick={() =>
+                        setForm((f) => {
+                          const isCurrentlyPhysical = f.product_type === "physical";
+                          const nextCatSlug = isCurrentlyPhysical ? "software-apps" : f.category_slug;
+                          const nextCatId = resolveSafeProductCategoryUuid(nextCatSlug, dbCategories || []);
+                          return {
+                            ...f,
+                            product_type: "digital",
+                            condition: "digital",
+                            stock: "999",
+                            category_slug: nextCatSlug,
+                            category_id: nextCatId || "",
+                          };
+                        })
+                      }
                       className={`p-4 rounded-2xl border-2 text-left transition-all flex items-start gap-3.5 ${
                         form.product_type === "digital"
                           ? "border-primary bg-primary/10 shadow-md ring-2 ring-primary/20"
