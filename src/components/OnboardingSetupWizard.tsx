@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import confetti from "canvas-confetti";
 import { playNotificationAudio } from "@/lib/notificationSound";
 import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
+import { syncCanonicalBusinessAndProfile } from "@/lib/businessSync";
 import {
   Sparkles, CheckCircle2, User, Building2, Briefcase, ArrowRight, ArrowLeft,
   Rocket, MessageSquare, ExternalLink, ShieldCheck, Upload, Compass, Store, Lightbulb,
@@ -186,56 +187,31 @@ export default function OnboardingSetupWizard({
     setSaving(true);
     try {
       if (bizName.trim()) {
-        const slug = bizName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") + "-" + Math.floor(Math.random() * 1000);
-        
         // Find category ID if exists
         const matchedCategory = PRESET_BUSINESS_CATEGORIES.find(
           (c) => c.name.toLowerCase() === bizCategory.toLowerCase() || c.slug.toLowerCase() === bizCategory.toLowerCase()
         );
 
-        // Check if user already has an existing business record (Source of Truth)
-        const { data: existingSupplier } = await supabase
-          .from("suppliers")
-          .select("id, name, slug")
-          .eq("submitted_by", user.id)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (existingSupplier?.id) {
-          const { error: updateErr } = await supabase
-            .from("suppliers")
-            .update({
-              name: bizName.trim(),
-              description: bio || `${bizName} business in ${bizLocation}`,
-              phone: whatsapp || profile?.whatsapp || null,
-              whatsapp_number: whatsapp || profile?.whatsapp || null,
-              address: bizLocation,
-              logo_url: avatarUrl || profile?.avatar_url || null,
-            })
-            .eq("id", existingSupplier.id);
-
-          if (!updateErr) {
-            toast.success("Business profile synchronized & updated on the directory!");
-          }
-        } else {
-          const { error: insertErr } = await supabase.from("suppliers").insert({
-            name: bizName.trim(),
-            slug,
-            description: bio || `${bizName} business in ${bizLocation}`,
-            phone: whatsapp || profile?.whatsapp || null,
-            whatsapp_number: whatsapp || profile?.whatsapp || null,
+        // Sync canonical business and profile
+        const syncResult = await syncCanonicalBusinessAndProfile({
+          userId: user.id,
+          name: bizName.trim(),
+          bioOrDescription: bio || `${bizName} business in ${bizLocation}`,
+          phoneOrWhatsapp: whatsapp || profile?.whatsapp || undefined,
+          logoOrAvatarUrl: avatarUrl || profile?.avatar_url || undefined,
+          coverTemplate: "tech",
+          categoryId: matchedCategory?.id || null,
+          location: {
             address: bizLocation,
-            logo_url: avatarUrl || profile?.avatar_url || null,
-            cover_template: "tech",
-            submitted_by: user.id,
-            status: "approved",
-            active: true,
-          });
+          },
+          services: bizService.trim()
+            ? [{ title: bizService.trim(), description: `${bizName || displayName} service offering` }]
+            : undefined,
+          isPublic: true,
+        });
 
-          if (!insertErr) {
-            toast.success("Business profile activated & live on the directory!");
-          }
+        if (!syncResult.error) {
+          toast.success("Business profile synchronized & live on the directory!");
         }
       }
 

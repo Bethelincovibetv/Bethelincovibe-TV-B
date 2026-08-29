@@ -19,6 +19,7 @@ import {
   runQueenServiceAIAutomation,
 } from "@/lib/queenBusinessServiceAIEngine";
 import { resolveSafeCategoryUuid } from "@/lib/businessCategories";
+import { syncCanonicalBusinessAndProfile } from "@/lib/businessSync";
 
 type Service = { title: string; description?: string; image_url?: string; link_url?: string };
 
@@ -120,45 +121,48 @@ export default function ListBusiness() {
     const cleanedSocials = Object.fromEntries(Object.entries(socials).filter(([, v]) => v && v.trim()));
     const safeCatId = resolveSafeCategoryUuid(form.category_id, categories || []);
 
-    const { data: insertedData, error } = await supabase
-      .from("suppliers")
-      .insert({
-        name: form.name.trim(),
-        slug: generateSlug(form.name),
-        category_id: safeCatId,
-        description: form.description || null,
-        phone: form.phone || null,
-        address: form.address || null,
-        website: form.website || null,
-        logo_url: form.logo_url || null,
-        cover_url: form.cover_url || null,
-        cover_template: form.cover_url ? null : (form.cover_template || null),
-        submitted_by: user.id,
-        status: "pending",
-        active: false,
-        featured: false,
-        social_links: {
-          ...cleanedSocials,
-          is_early_access: true,
-        },
-        services: cleanedServices,
-      })
-      .select("*")
-      .single();
+    const syncResult = await syncCanonicalBusinessAndProfile({
+      userId: user.id,
+      name: form.name.trim(),
+      bioOrDescription: form.description || undefined,
+      phoneOrWhatsapp: form.phone || undefined,
+      website: form.website || undefined,
+      logoOrAvatarUrl: form.logo_url || undefined,
+      coverUrl: form.cover_url || undefined,
+      coverTemplate: form.cover_url ? undefined : (form.cover_template || "purple"),
+      categoryId: safeCatId,
+      location: {
+        address: form.address || "",
+      },
+      services: cleanedServices,
+      socialLinks: {
+        ...cleanedSocials,
+        is_early_access: true,
+      },
+      isPublic: true,
+      categoriesList: categories || [],
+    });
 
-    if (error) {
+    if (syncResult.error) {
       setSubmitting(false);
-      toast.error(error.message);
+      toast.error(syncResult.error.message || "Failed to list business");
       return;
     }
+
+    // Fetch synced supplier record
+    const { data: updatedSupplier } = await supabase
+      .from("suppliers")
+      .select("*")
+      .eq("id", syncResult.supplierId!)
+      .maybeSingle();
 
     // Check if auto-run Queen setup is active
     try {
       const qSettings = await getQueenServiceSettings();
-      if (qSettings.autoRunOnNewBusinessRegistration && insertedData) {
+      if (qSettings.autoRunOnNewBusinessRegistration && updatedSupplier) {
         toast.info("👑 Queen AI Agent is creating your graphic banners, AI catalog, and VIP verification...");
         // Run full Queen setup
-        await runQueenServiceAIAutomation(insertedData, {
+        await runQueenServiceAIAutomation(updatedSupplier, {
           featuredDurationDays: qSettings.defaultFeaturedDays,
           verificationDays: qSettings.defaultVerificationDays,
           advertPlacement: qSettings.defaultAdPlacement,
@@ -170,11 +174,11 @@ export default function ListBusiness() {
         });
         toast.success("👑 Queen Service VIP Setup Complete! Your listing, graphic banner, and live advert are now active.");
       } else {
-        toast.success("Listing submitted! An admin will review it shortly.");
+        toast.success("Listing saved! Your business identity is active and synchronized.");
       }
     } catch (autoErr: any) {
       console.warn("Auto Queen service notice:", autoErr);
-      toast.success("Listing submitted successfully!");
+      toast.success("Listing saved & synchronized successfully!");
     }
 
     setSubmitting(false);

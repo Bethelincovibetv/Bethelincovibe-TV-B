@@ -60,6 +60,195 @@ export const ALL_PRODUCT_CATEGORIES = [
   ...DIGITAL_PRODUCT_CATEGORIES,
 ];
 
+export const PRODUCT_CATEGORY_MAP: Record<
+  string,
+  {
+    name: string;
+    slug: string;
+    type: ProductType;
+    dbFallbackSlug: string;
+    description: string;
+    badge: string;
+  }
+> = {
+  "software-apps": {
+    name: "Software, Apps & Automation Bots",
+    slug: "software-apps",
+    type: "digital",
+    dbFallbackSlug: "technology",
+    description: "Web tools, desktop apps, WhatsApp automation bots, WordPress plugins & CRM scripts",
+    badge: "Bots & Apps",
+  },
+  "source-code-scripts": {
+    name: "Source Code & Developer Scripts",
+    slug: "source-code-scripts",
+    type: "digital",
+    dbFallbackSlug: "technology",
+    description: "Full stack web templates, React/Next.js codebases, mobile app source codes & scripts",
+    badge: "Code & APIs",
+  },
+  "ebooks-guides": {
+    name: "E-books & Sourcing Guides",
+    slug: "ebooks-guides",
+    type: "digital",
+    dbFallbackSlug: "education-training",
+    description: "PDF blueprints, business playbooks, China/Turkey sourcing manuals & guides",
+    badge: "PDF Manuals",
+  },
+  "courses-masterclasses": {
+    name: "Online Courses & Masterclasses",
+    slug: "courses-masterclasses",
+    type: "digital",
+    dbFallbackSlug: "education-training",
+    description: "Online video masterclasses, recorded bootcamps, workshops & training modules",
+    badge: "Video Training",
+  },
+  "templates-spreadsheets": {
+    name: "Templates & Spreadsheets",
+    slug: "templates-spreadsheets",
+    type: "digital",
+    dbFallbackSlug: "digital-services",
+    description: "Financial models, Notion dashboards, Canva design kits, Excel trackers & resume kits",
+    badge: "Notion & Excel",
+  },
+  "graphics-design-assets": {
+    name: "Graphics & Design Assets",
+    slug: "graphics-design-assets",
+    type: "digital",
+    dbFallbackSlug: "digital-services",
+    description: "UI design kits, 3D icons, vector illustrations, mockups & design templates",
+    badge: "Design Assets",
+  },
+  "logos-branding": {
+    name: "Logos & Brand Identity Kits",
+    slug: "logos-branding",
+    type: "digital",
+    dbFallbackSlug: "digital-services",
+    description: "Vector logos, brand style guides, stationery packs & business identity bundles",
+    badge: "Brand Identity",
+  },
+  "digital-planners-printables": {
+    name: "Digital Planners & Printables",
+    slug: "digital-planners-printables",
+    type: "digital",
+    dbFallbackSlug: "digital-services",
+    description: "GoodNotes / iPad planners, daily organizers, printable art, checklists & journals",
+    badge: "Printables",
+  },
+  "stock-photos-presets": {
+    name: "Stock Photos, Fonts & Presets",
+    slug: "stock-photos-presets",
+    type: "digital",
+    dbFallbackSlug: "digital-services",
+    description: "High-resolution photography, Lightroom color presets, typography fonts & overlays",
+    badge: "Stock & Presets",
+  },
+  "audio-music-jingles": {
+    name: "Audio Files, Beats & Jingles",
+    slug: "audio-music-jingles",
+    type: "digital",
+    dbFallbackSlug: "events-entertainment",
+    description: "Commercial radio jingles, Afrobeat beats, royalty-free background audio & voiceovers",
+    badge: "Audio & Jingles",
+  },
+  "business-contracts-legal": {
+    name: "Business Contracts & Legal Kits",
+    slug: "business-contracts-legal",
+    type: "digital",
+    dbFallbackSlug: "professional-services",
+    description: "Verified Nigerian business contract agreements, NDAs, employee agreements & invoices",
+    badge: "Legal Templates",
+  },
+  "other-digital": {
+    name: "Other Digital Products",
+    slug: "other-digital",
+    type: "digital",
+    dbFallbackSlug: "digital-services",
+    description: "Miscellaneous digital assets, licensed digital content & downloadable downloads",
+    badge: "Digital Goods",
+  },
+  "food-groceries": {
+    name: "Food & Groceries",
+    slug: "food-groceries",
+    type: "physical",
+    dbFallbackSlug: "food-restaurants",
+    description: "Packaged foods, fresh farm produce, raw spices, beverages, snacks & pantry staples",
+    badge: "Fresh & Packaged",
+  },
+  "fashion-apparel": {
+    name: "Fashion & Apparel",
+    slug: "fashion-apparel",
+    type: "physical",
+    dbFallbackSlug: "fashion-clothing",
+    description: "Clothing, shoes, bags, wristwatches, jewelry & tailored native wear",
+    badge: "Clothing & Wear",
+  },
+  "phones-tablets": {
+    name: "Phones & Tablets",
+    slug: "phones-tablets",
+    type: "physical",
+    dbFallbackSlug: "technology",
+    description: "Smartphones, iPads, tablets, smartwatches, chargers & phone accessories",
+    badge: "Gadgets & Gear",
+  },
+  "electronics-appliances": {
+    name: "Electronics & Appliances",
+    slug: "electronics-appliances",
+    type: "physical",
+    dbFallbackSlug: "technology",
+    description: "Laptops, TVs, home audio, power banks, blenders, refrigerators & inverters",
+    badge: "Appliances & TVs",
+  },
+  "health-beauty": {
+    name: "Health & Beauty",
+    slug: "health-beauty",
+    type: "physical",
+    dbFallbackSlug: "beauty-salon",
+    description: "Skincare, haircare, perfumes, organic oils, makeup & wellness products",
+    badge: "Cosmetics & Care",
+  },
+  "home-living": {
+    name: "Home, Furniture & Kitchen",
+    slug: "home-living",
+    type: "physical",
+    dbFallbackSlug: "retail-shopping",
+    description: "Home decor, living room furniture, cookware, beddings & lighting",
+    badge: "Interior & Kitchen",
+  },
+  "automotive-parts": {
+    name: "Automotive & Spare Parts",
+    slug: "automotive-parts",
+    type: "physical",
+    dbFallbackSlug: "automobile",
+    description: "Car accessories, engine parts, car care, tyres & tracking devices",
+    badge: "Auto & Parts",
+  },
+  "baby-kids": {
+    name: "Baby, Kids & Toys",
+    slug: "baby-kids",
+    type: "physical",
+    dbFallbackSlug: "retail-shopping",
+    description: "Children clothing, educational toys, strollers & baby feeding essentials",
+    badge: "Toys & Strollers",
+  },
+  "agro-industrial": {
+    name: "Agro, Tools & Industrial",
+    slug: "agro-industrial",
+    type: "physical",
+    dbFallbackSlug: "agriculture",
+    description: "Agricultural machinery, seeds, industrial supplies, generators & hardware tools",
+    badge: "Equipment & Agro",
+  },
+  "other-physical": {
+    name: "Other Physical Merchandise",
+    slug: "other-physical",
+    type: "physical",
+    dbFallbackSlug: "retail-shopping",
+    description: "Other physical merchandise and custom physical products",
+    badge: "General Goods",
+  },
+};
+
 export function isValidUuid(val?: string | null): boolean {
   if (!val || typeof val !== "string") return false;
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val.trim());
@@ -67,8 +256,8 @@ export function isValidUuid(val?: string | null): boolean {
 
 /**
  * Safely resolves a category UUID for database insertion.
- * Ensures we NEVER pass non-UUID strings into Postgres category_id columns, preventing 22P02 invalid input syntax errors.
- * Strictly guarantees that a chosen category (e.g. Software) is NOT arbitrarily reassigned to an unrelated category (e.g. Agriculture).
+ * Guarantees that selected category maps deterministically to the proper DB category UUID.
+ * Strictly guarantees that non-agro categories NEVER fall back to Agriculture.
  */
 export function resolveSafeProductCategoryUuid(
   categoryIdOrSlug: string | undefined | null,
@@ -77,42 +266,62 @@ export function resolveSafeProductCategoryUuid(
   if (!categoryIdOrSlug) return null;
   const clean = String(categoryIdOrSlug).trim();
 
-  // 1. If already a valid UUID
+  // 1. If already a valid UUID, return it
   if (isValidUuid(clean)) return clean;
 
-  // 2. Search in database categories by slug or name
+  // 2. Direct match in DB categories by slug or name
   const directMatch = dbCategories.find(
     (c) =>
       c.id === clean ||
       (c.slug && c.slug.toLowerCase() === clean.toLowerCase()) ||
       (c.name && c.name.toLowerCase() === clean.toLowerCase())
   );
-
   if (directMatch && isValidUuid(directMatch.id)) {
     return directMatch.id;
   }
 
-  // 3. Match against ALL_PRODUCT_CATEGORIES presets
-  const preset = ALL_PRODUCT_CATEGORIES.find(
-    (p) => p.id === clean || p.slug === clean || p.name.toLowerCase() === clean.toLowerCase()
-  );
+  // 3. Match against canonical PRODUCT_CATEGORY_MAP presets
+  const preset =
+    PRODUCT_CATEGORY_MAP[clean] ||
+    ALL_PRODUCT_CATEGORIES.find(
+      (p) => p.slug === clean || p.id === clean || p.name.toLowerCase() === clean.toLowerCase()
+    );
 
   if (preset) {
-    const presetMatch = dbCategories.find(
+    const targetDbSlug = (preset as any).dbFallbackSlug || preset.slug;
+
+    // Find the mapped category in dbCategories
+    const matchedDbCat = dbCategories.find(
       (c) =>
-        (c.slug && c.slug.toLowerCase() === preset.slug.toLowerCase()) ||
-        (c.name && c.name.toLowerCase() === preset.name.toLowerCase())
+        (c.slug && c.slug.toLowerCase() === targetDbSlug.toLowerCase()) ||
+        (c.name && c.name.toLowerCase().includes(targetDbSlug.toLowerCase()))
     );
-    if (presetMatch && isValidUuid(presetMatch.id)) return presetMatch.id;
+    if (matchedDbCat && isValidUuid(matchedDbCat.id)) {
+      return matchedDbCat.id;
+    }
+
+    // Secondary fallback based on type (NEVER Agriculture)
+    if (preset.type === "digital") {
+      const techOrDigital = dbCategories.find(
+        (c) => c.slug === "technology" || c.slug === "digital-services" || c.slug === "education-training"
+      );
+      if (techOrDigital && isValidUuid(techOrDigital.id)) return techOrDigital.id;
+    } else if (clean === "agro-industrial") {
+      const agroCat = dbCategories.find((c) => c.slug === "agriculture");
+      if (agroCat && isValidUuid(agroCat.id)) return agroCat.id;
+    } else {
+      const retailOrService = dbCategories.find(
+        (c) => c.slug === "retail-shopping" || c.slug === "fashion-clothing" || c.slug === "food-restaurants"
+      );
+      if (retailOrService && isValidUuid(retailOrService.id)) return retailOrService.id;
+    }
   }
 
-  // DO NOT fall back to arbitrary first category. Return null so the caller can create/seed it precisely.
   return null;
 }
 
 /**
- * Resolves or automatically registers a product category in the database,
- * guaranteeing the returned UUID accurately maps to the exact category slug/name.
+ * Resolves or automatically registers a product category in the database.
  */
 export async function resolveOrCreateProductCategoryUuid(
   categoryIdOrSlug: string | undefined | null,
@@ -121,51 +330,192 @@ export async function resolveOrCreateProductCategoryUuid(
   if (!categoryIdOrSlug) return null;
   const clean = String(categoryIdOrSlug).trim();
 
-  // 1. Check synchronous resolution first
+  // Check safe synchronous resolution first
   const existingUuid = resolveSafeProductCategoryUuid(clean, dbCategories);
   if (existingUuid) return existingUuid;
 
-  // 2. Check if clean string is in presets
-  const preset = ALL_PRODUCT_CATEGORIES.find(
-    (p) => p.id === clean || p.slug === clean || p.name.toLowerCase() === clean.toLowerCase()
-  );
+  return null;
+}
 
-  const targetSlug = preset ? preset.slug : clean.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-  const targetName = preset ? preset.name : clean;
-
-  try {
-    // Check if category exists in DB by slug
-    const { data: dbCat } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("slug", targetSlug)
-      .maybeSingle();
-
-    if (dbCat && isValidUuid(dbCat.id)) {
-      return dbCat.id;
-    }
-
-    // Insert new category row into categories table
-    const { data: inserted, error: insErr } = await supabase
-      .from("categories")
-      .insert({
-        name: targetName,
-        slug: targetSlug,
-        type: "product",
-        icon: preset?.icon || "Package",
-        description: preset?.description || `${targetName} on Bethelincovibe Marketplace`,
-      })
-      .select("id")
-      .single();
-
-    if (!insErr && inserted?.id && isValidUuid(inserted.id)) {
-      return inserted.id;
-    }
-  } catch (err) {
-    console.warn("Could not auto-seed category:", err);
+/**
+ * Single, platform-wide canonical source of truth for resolving any product's category display.
+ * Guarantees that digital products always display digital categories (Software, Ebooks, Templates, etc.),
+ * physical products display physical categories, and never incorrectly shows Agriculture or No Category.
+ */
+export function getProductCategoryInfo(
+  product: any,
+  _dbCategories?: Array<{ id: string; slug?: string; name?: string }>
+): {
+  name: string;
+  slug: string;
+  type: ProductType;
+  badge: string;
+  color?: string;
+  image3D?: string;
+} {
+  if (!product) {
+    return {
+      name: "Marketplace Product",
+      slug: "other-physical",
+      type: "physical",
+      badge: "Marketplace",
+    };
   }
 
-  return null;
+  const isDigital =
+    product.product_type === "digital" ||
+    product.condition === "digital" ||
+    String(product.delivery_method || "").toLowerCase().includes("file") ||
+    String(product.delivery_method || "").toLowerCase().includes("link");
+
+  // 1. Direct check on product.category_slug or preset ID
+  const directSlug = product.category_slug || product.category_id;
+  if (directSlug && PRODUCT_CATEGORY_MAP[directSlug]) {
+    const item = PRODUCT_CATEGORY_MAP[directSlug];
+    const preset = ALL_PRODUCT_CATEGORIES.find((p) => p.slug === item.slug);
+    return {
+      name: item.name,
+      slug: item.slug,
+      type: item.type,
+      badge: item.badge,
+      color: preset?.color,
+      image3D: preset?.image3D,
+    };
+  }
+
+  // 2. Check if product.categories (joined from DB) matches a preset
+  const dbCatName = product.categories?.name || "";
+  const dbCatSlug = (product.categories?.slug || "").toLowerCase();
+
+  const presetByJoin = ALL_PRODUCT_CATEGORIES.find(
+    (p) =>
+      p.slug.toLowerCase() === dbCatSlug ||
+      p.name.toLowerCase() === dbCatName.toLowerCase() ||
+      p.id.toLowerCase() === dbCatSlug
+  );
+  if (presetByJoin) {
+    return {
+      name: presetByJoin.name,
+      slug: presetByJoin.slug,
+      type: presetByJoin.type,
+      badge: presetByJoin.badge || presetByJoin.name,
+      color: presetByJoin.color,
+      image3D: presetByJoin.image3D,
+    };
+  }
+
+  // 3. Match by name or title keywords if digital or physical
+  const pName = (product.name || "").toLowerCase();
+  const pDesc = (product.description || "").toLowerCase();
+
+  if (isDigital) {
+    if (
+      pName.includes("software") ||
+      pName.includes("bot") ||
+      pName.includes("app") ||
+      pName.includes("crm") ||
+      pName.includes("viral") ||
+      pDesc.includes("software") ||
+      pDesc.includes("automation")
+    ) {
+      const p = PRODUCT_CATEGORY_MAP["software-apps"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("code") || pName.includes("script") || pName.includes("api") || pDesc.includes("source code")) {
+      const p = PRODUCT_CATEGORY_MAP["source-code-scripts"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("ebook") || pName.includes("guide") || pName.includes("playbook") || pName.includes("pdf") || pDesc.includes("ebook")) {
+      const p = PRODUCT_CATEGORY_MAP["ebooks-guides"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("course") || pName.includes("masterclass") || pName.includes("training") || pName.includes("bootcamp")) {
+      const p = PRODUCT_CATEGORY_MAP["courses-masterclasses"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("template") || pName.includes("spreadsheet") || pName.includes("notion") || pName.includes("excel")) {
+      const p = PRODUCT_CATEGORY_MAP["templates-spreadsheets"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("graphic") || pName.includes("design") || pName.includes("icon") || pName.includes("mockup")) {
+      const p = PRODUCT_CATEGORY_MAP["graphics-design-assets"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("logo") || pName.includes("branding") || pName.includes("brand kit")) {
+      const p = PRODUCT_CATEGORY_MAP["logos-branding"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("planner") || pName.includes("printable") || pName.includes("journal")) {
+      const p = PRODUCT_CATEGORY_MAP["digital-planners-printables"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("photo") || pName.includes("preset") || pName.includes("font")) {
+      const p = PRODUCT_CATEGORY_MAP["stock-photos-presets"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("audio") || pName.includes("music") || pName.includes("beat") || pName.includes("jingle")) {
+      const p = PRODUCT_CATEGORY_MAP["audio-music-jingles"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (pName.includes("contract") || pName.includes("legal") || pName.includes("nda") || pName.includes("agreement")) {
+      const p = PRODUCT_CATEGORY_MAP["business-contracts-legal"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+
+    if (dbCatSlug === "technology") {
+      const p = PRODUCT_CATEGORY_MAP["software-apps"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+    if (dbCatSlug === "education-training") {
+      const p = PRODUCT_CATEGORY_MAP["ebooks-guides"];
+      return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+    }
+
+    const p = PRODUCT_CATEGORY_MAP["other-digital"];
+    return { name: p.name, slug: p.slug, type: "digital", badge: p.badge };
+  }
+
+  // Physical matching
+  if (dbCatSlug === "fashion-clothing" || pName.includes("cloth") || pName.includes("wear") || pName.includes("shoe") || pName.includes("jean")) {
+    const p = PRODUCT_CATEGORY_MAP["fashion-apparel"];
+    return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
+  }
+  if (dbCatSlug === "food-restaurants" || pName.includes("food") || pName.includes("spice") || pName.includes("grocery")) {
+    const p = PRODUCT_CATEGORY_MAP["food-groceries"];
+    return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
+  }
+  if (pName.includes("phone") || pName.includes("tablet") || pName.includes("iphone") || pName.includes("samsung")) {
+    const p = PRODUCT_CATEGORY_MAP["phones-tablets"];
+    return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
+  }
+  if (dbCatSlug === "technology" || pName.includes("laptop") || pName.includes("tv") || pName.includes("appliance")) {
+    const p = PRODUCT_CATEGORY_MAP["electronics-appliances"];
+    return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
+  }
+  if (dbCatSlug === "beauty-salon" || dbCatSlug === "health-pharmacy" || pName.includes("skin") || pName.includes("hair") || pName.includes("cream")) {
+    const p = PRODUCT_CATEGORY_MAP["health-beauty"];
+    return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
+  }
+  if (dbCatSlug === "automobile" || pName.includes("car") || pName.includes("auto") || pName.includes("tyre")) {
+    const p = PRODUCT_CATEGORY_MAP["automotive-parts"];
+    return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
+  }
+  if (dbCatSlug === "agriculture" || pName.includes("farm") || pName.includes("agro") || pName.includes("machinery")) {
+    const p = PRODUCT_CATEGORY_MAP["agro-industrial"];
+    return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
+  }
+
+  if (product.categories?.name && product.categories.name !== "Agriculture") {
+    return {
+      name: product.categories.name,
+      slug: product.categories.slug || "other-physical",
+      type: "physical",
+      badge: product.categories.name,
+    };
+  }
+
+  const p = PRODUCT_CATEGORY_MAP["other-physical"];
+  return { name: p.name, slug: p.slug, type: "physical", badge: p.badge };
 }
 
 /**

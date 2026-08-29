@@ -28,6 +28,7 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { recordPageView } from "@/lib/analyticsTracker";
 import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
+import { getProductCategoryInfo } from "@/lib/productAIEngine";
 import { toast } from "sonner";
 import { copyToClipboard } from "@/lib/clipboard";
 
@@ -182,14 +183,8 @@ export default function ProductDetail() {
     )
   );
 
-  const isDigital =
-    product.product_type === "digital" ||
-    product.condition === "digital" ||
-    product.categories?.slug?.includes("digital") ||
-    product.categories?.slug?.includes("course") ||
-    product.categories?.slug?.includes("ebook") ||
-    product.categories?.slug?.includes("template") ||
-    product.categories?.slug?.includes("software");
+  const catInfo = getProductCategoryInfo(product);
+  const isDigital = catInfo.type === "digital";
 
   const imgs: string[] = [product.cover_image, ...(Array.isArray(product.images) ? product.images : [])].filter(Boolean);
   const allowDirectCalls = (seller?.social_links as any)?.allow_direct_calls !== false;
@@ -238,7 +233,7 @@ export default function ProductDetail() {
           name: product.name,
           description: pageDesc,
           image: imgs,
-          category: product.categories?.name,
+          category: catInfo.name,
           offers: {
             "@type": "Offer",
             price: product.price || 0,
@@ -343,11 +338,9 @@ export default function ProductDetail() {
                         <Badge className="bg-emerald-600 text-white font-black text-xs shadow-md border-0 gap-1">
                           <Zap className="h-3 w-3 fill-current" /> Instant Download
                         </Badge>
-                        {product.categories && (
-                          <Badge className="bg-background/90 text-foreground font-bold backdrop-blur text-xs border">
-                            {product.categories.name}
-                          </Badge>
-                        )}
+                        <Badge className="bg-background/90 text-foreground font-bold backdrop-blur text-xs border">
+                          {catInfo.name}
+                        </Badge>
                       </div>
 
                       <div className="absolute top-3 right-3 flex items-center gap-1.5">
@@ -809,11 +802,9 @@ export default function ProductDetail() {
 
                     {/* Badges Overlay */}
                     <div className="absolute top-2.5 left-2.5 flex flex-wrap gap-1 max-w-[80%]">
-                      {product.categories && (
-                        <Badge className="bg-background/90 text-foreground font-semibold backdrop-blur shadow-xs border text-[10px] sm:text-xs">
-                          {product.categories.name}
-                        </Badge>
-                      )}
+                      <Badge className="bg-background/90 text-foreground font-semibold backdrop-blur shadow-xs border text-[10px] sm:text-xs">
+                        {catInfo.name}
+                      </Badge>
                       {product.featured && (
                         <Badge className="bg-amber-500 text-white font-bold gap-1 shadow-xs text-[10px] sm:text-xs">
                           <Sparkles className="h-3 w-3" /> Featured Offer

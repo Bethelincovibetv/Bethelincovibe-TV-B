@@ -27,11 +27,13 @@ import {
   PHYSICAL_PRODUCT_CATEGORIES,
   DIGITAL_PRODUCT_CATEGORIES,
   ALL_PRODUCT_CATEGORIES,
+  PRODUCT_CATEGORY_MAP,
   ProductType,
   generateProductDescriptionAI,
   resolveSafeProductCategoryUuid,
   resolveOrCreateProductCategoryUuid,
   ensureAllProductCategoriesSeeded,
+  getProductCategoryInfo,
   isValidUuid,
 } from "@/lib/productAIEngine";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -270,18 +272,15 @@ export default function UnifiedProductManager({
 
   // Handle Edit Action
   const startEditProduct = (p: any) => {
-    const isDigital = p.product_type === "digital" || p.condition === "digital";
     setIsEditing(true);
     setEditingProductId(p.id);
 
-    // Find category slug or preset
-    const matchedCategory = dbCategories?.find((c) => c.id === p.category_id);
-    let catSlug = matchedCategory?.slug;
-    if (!catSlug) {
-      const matchedPreset = ALL_PRODUCT_CATEGORIES.find((preset) => preset.id === p.category_id || preset.slug === p.category_id);
-      catSlug = matchedPreset?.slug || (isDigital ? "software-apps" : "food-groceries");
-    }
-    const safeCatId = isValidUuid(p.category_id) ? p.category_id : (matchedCategory?.id || "");
+    const catInfo = getProductCategoryInfo(p, dbCategories);
+    const catSlug = catInfo.slug;
+    const isDigital = catInfo.type === "digital" || p.product_type === "digital" || p.condition === "digital";
+    const safeCatId = isValidUuid(p.category_id)
+      ? p.category_id
+      : resolveSafeProductCategoryUuid(catSlug, dbCategories || []) || "";
 
     setForm({
       id: p.id,
@@ -1268,7 +1267,7 @@ export default function UnifiedProductManager({
                           <div>
                             <div className="flex items-center justify-between gap-1">
                               <p className="text-[11px] font-bold text-muted-foreground truncate">
-                                {p.categories?.name || "General"}
+                                {getProductCategoryInfo(p, dbCategories).name}
                               </p>
                               <span className="text-sm font-black text-primary">
                                 ₦{Number(p.price || 0).toLocaleString()}

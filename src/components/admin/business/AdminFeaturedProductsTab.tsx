@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { getProductCategoryInfo } from "@/lib/productAIEngine";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -426,7 +427,7 @@ export default function AdminFeaturedProductsTab() {
                           <strong className="text-foreground/90">
                             {seller?.display_name || seller?.username || seller?.email || "Unknown"}
                           </strong>{" "}
-                          · Category: {p.categories?.name || "General"}
+                          · Category: {getProductCategoryInfo(p).name}
                         </p>
 
                         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">

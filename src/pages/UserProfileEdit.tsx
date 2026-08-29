@@ -50,6 +50,7 @@ import VerifiedBadge, { VerifiedPillBadge } from "@/components/VerifiedBadge";
 import BusinessLocationPicker, { LocationData } from "@/components/maps/BusinessLocationPicker";
 import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
 import { PRESET_BUSINESS_CATEGORIES, MAJOR_CITIES_LOCATIONS, resolveSafeCategoryUuid } from "@/lib/businessCategories";
+import { syncCanonicalBusinessAndProfile } from "@/lib/businessSync";
 
 // Production-safe Vite static asset imports (resolves cleanly on Vercel)
 import bgTech from "@/assets/images/bg_tech_innovation_1787551368560.jpg";
@@ -364,75 +365,34 @@ export default function UserProfileEdit() {
         is_public: profile.is_public !== false,
       };
 
-      const { error } = await supabase
-        .from("profiles")
-        .upsert(payload, { onConflict: "user_id" });
-      if (error) throw error;
+      // Synchronize canonical business identity and directory presence (suppliers table)
+      const syncResult = await syncCanonicalBusinessAndProfile({
+        userId: user.id,
+        name: profile.display_name || username || "Verified Business",
+        username: username || undefined,
+        bioOrDescription: profile.bio || undefined,
+        phoneOrWhatsapp: profile.whatsapp || undefined,
+        website: profile.social_links?.website || undefined,
+        logoOrAvatarUrl: profile.avatar_url || undefined,
+        coverUrl: profile.background_url || undefined,
+        coverTemplate: profile.background_template || "tech",
+        categoryId: safeCatId,
+        location: {
+          country: location.country || "Nigeria",
+          state: location.state || "Lagos State",
+          city: location.city || "Lagos",
+          address: location.address || "",
+          latitude: location.latitude ?? 6.5244,
+          longitude: location.longitude ?? 3.3792,
+        },
+        services,
+        socialLinks: updatedSocialLinks,
+        isPublic: profile.is_public !== false,
+        categoriesList: dbCategories,
+      });
 
-      // Automatically sync business directory presence in `suppliers` table
-      if (profile.display_name || username) {
-        try {
-          const { data: existingBiz } = await supabase
-            .from("suppliers")
-            .select("id, slug")
-            .eq("submitted_by", user.id)
-            .maybeSingle();
-
-          const bizSlug =
-            username ||
-            (profile.display_name
-              ? profile.display_name
-                  .toLowerCase()
-                  .replace(/[^a-z0-9]+/g, "-")
-                  .replace(/^-|-$/g, "") +
-                "-" +
-                user.id.slice(0, 5)
-              : user.id.slice(0, 8));
-
-          const bizPayload: any = {
-            name: profile.display_name || username || "Verified Business",
-            slug: existingBiz?.slug || bizSlug,
-            category_id: safeCatId,
-            description: profile.bio || null,
-            logo_url: profile.avatar_url || null,
-            cover_url: profile.background_url || null,
-            cover_template: profile.background_template || "tech",
-            phone: profile.whatsapp || null,
-            website: profile.social_links?.website || null,
-            social_links: updatedSocialLinks,
-            services: services,
-            country: location.country || "Nigeria",
-            state: location.state || "Lagos State",
-            city: location.city || "Lagos",
-            address: location.address || null,
-            latitude: location.latitude ?? 6.5244,
-            longitude: location.longitude ?? 3.3792,
-            submitted_by: user.id,
-            active: profile.is_public !== false,
-            status: "approved",
-          };
-
-          if (existingBiz?.id) {
-            await supabase.from("suppliers").update(bizPayload).eq("id", existingBiz.id);
-            setUserSupplierId(existingBiz.id);
-          } else {
-            const { data: newBiz, error: insertErr } = await supabase
-              .from("suppliers")
-              .insert(bizPayload)
-              .select("id")
-              .maybeSingle();
-            if (insertErr) {
-              // Retry with safe random slug if slug collision
-              bizPayload.slug = `${bizSlug}-${Math.random().toString(36).slice(2, 6)}`;
-              const { data: retryBiz } = await supabase.from("suppliers").insert(bizPayload).select("id").maybeSingle();
-              if (retryBiz?.id) setUserSupplierId(retryBiz.id);
-            } else if (newBiz?.id) {
-              setUserSupplierId(newBiz.id);
-            }
-          }
-        } catch (bizSyncErr) {
-          console.warn("Suppliers sync notice:", bizSyncErr);
-        }
+      if (syncResult.supplierId) {
+        setUserSupplierId(syncResult.supplierId);
       }
 
       // Record congratulations notification

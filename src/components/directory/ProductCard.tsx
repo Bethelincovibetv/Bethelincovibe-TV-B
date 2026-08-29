@@ -1,8 +1,9 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, ShoppingBag, Sparkles, Package, Download, CheckCircle2, ShieldCheck, ArrowRight, MessageCircle } from "lucide-react";
+import { MapPin, ShoppingBag, Sparkles, Package, Download, CheckCircle2, ShieldCheck, ArrowRight } from "lucide-react";
 import digitalGoods3D from "@/assets/images/digital_goods_3d_1787915095364.jpg";
 import physicalGoods3D from "@/assets/images/physical_goods_3d_1787915108745.jpg";
+import { getProductCategoryInfo } from "@/lib/productAIEngine";
 
 export type DirectoryProduct = {
   id: string;
@@ -11,6 +12,7 @@ export type DirectoryProduct = {
   description?: string | null;
   price?: number | null;
   currency?: string | null;
+  product_type?: string | null;
   condition?: string | null;
   stock?: number | null;
   location?: string | null;
@@ -37,23 +39,8 @@ export default function ProductCard({
   const hero = p.cover_image || imgs[0] || null;
   const to = `/products/${p.slug || p.id}`;
 
-  const isDigital =
-    (p as any).product_type === "digital" ||
-    p.condition === "digital" ||
-    p.categories?.slug?.includes("ebook") ||
-    p.categories?.slug?.includes("course") ||
-    p.categories?.slug?.includes("software") ||
-    p.categories?.slug?.includes("template") ||
-    p.categories?.slug?.includes("script") ||
-    p.categories?.slug?.includes("code") ||
-    p.categories?.slug?.includes("graphic") ||
-    p.categories?.slug?.includes("audio") ||
-    p.categories?.slug?.includes("video") ||
-    p.name?.toLowerCase().includes("ebook") ||
-    p.name?.toLowerCase().includes("course") ||
-    p.name?.toLowerCase().includes("software") ||
-    p.name?.toLowerCase().includes("bot") ||
-    p.name?.toLowerCase().includes("download");
+  const catInfo = getProductCategoryInfo(p);
+  const isDigital = catInfo.type === "digital";
 
   const media = (
     <>
@@ -109,11 +96,9 @@ export default function ProductCard({
           <div className="min-w-0 flex-1 flex flex-col justify-between space-y-2">
             <div>
               <div className="flex items-center gap-2">
-                {p.categories && (
-                  <span className="text-xs font-black uppercase tracking-wider text-primary">
-                    {p.categories.name}
-                  </span>
-                )}
+                <span className="text-xs font-black uppercase tracking-wider text-primary">
+                  {catInfo.name}
+                </span>
                 <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
                   <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Verified Seller
                 </span>
@@ -159,11 +144,9 @@ export default function ProductCard({
         {/* 3D Media Aspect */}
         <div className="relative aspect-square overflow-hidden bg-muted">
           {media}
-          {p.categories && (
-            <span className="absolute bottom-2.5 left-2.5 rounded-xl bg-background/95 px-2.5 py-1 text-[11px] font-black text-foreground backdrop-blur-md shadow-md border border-border/60">
-              {p.categories.name}
-            </span>
-          )}
+          <span className="absolute bottom-2.5 left-2.5 rounded-xl bg-background/95 px-2.5 py-1 text-[11px] font-black text-foreground backdrop-blur-md shadow-md border border-border/60">
+            {catInfo.name}
+          </span>
         </div>
 
         {/* Content Body */}

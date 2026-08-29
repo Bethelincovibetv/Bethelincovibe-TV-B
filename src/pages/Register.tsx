@@ -9,6 +9,7 @@ import { Eye, EyeOff, Building2, MapPin, Sparkles, Compass, ShieldCheck } from "
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
+import { syncCanonicalBusinessAndProfile } from "@/lib/businessSync";
 import { NIGERIAN_STATES, getStateByName, getStateCoordinates } from "@/lib/nigerianStates";
 import VoiceGuideHelper from "@/components/common/VoiceGuideHelper";
 import { toast } from "sonner";
@@ -126,23 +127,29 @@ export default function Register() {
           },
         }).eq("user_id", signedInUser.id);
 
-        // Initialize directory presence with pre-selected Nigerian State
-        const bizSlug = finalUsername || displayName.toLowerCase().replace(/[^a-z0-9]+/g, "-");
-        await supabase.from("suppliers").upsert({
+        // Initialize canonical directory presence and profile with selected Nigerian State & Category
+        await syncCanonicalBusinessAndProfile({
+          userId: signedInUser.id,
           name: displayName || "My Business",
-          slug: bizSlug,
-          category_id: matchedDbCat?.id || null,
-          cover_template: categorySlug,
-          country: "Nigeria",
-          state: selectedStateName,
-          city: selectedCityName,
-          address: `${selectedCityName}, ${selectedStateName} State, Nigeria`,
-          latitude: coords.lat,
-          longitude: coords.lng,
-          submitted_by: signedInUser.id,
-          user_id: signedInUser.id,
-          status: "published",
-        } as any);
+          username: finalUsername,
+          coverTemplate: categorySlug,
+          categoryId: matchedDbCat?.id || null,
+          location: {
+            country: "Nigeria",
+            state: selectedStateName,
+            city: selectedCityName,
+            address: `${selectedCityName}, ${selectedStateName} State, Nigeria`,
+            latitude: coords.lat,
+            longitude: coords.lng,
+          },
+          socialLinks: {
+            category_slug: categorySlug,
+            category_name: catName,
+            category_id: matchedDbCat?.id || null,
+          },
+          isPublic: true,
+          categoriesList: dbCategories,
+        });
 
         toast.success(`Welcome ${displayName}! Your store is registered in ${selectedStateName} State.`);
         navigate(`/u/${finalUsername}`);

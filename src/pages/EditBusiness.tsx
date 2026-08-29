@@ -20,6 +20,7 @@ import ServiceGraphicPickerModal from "@/components/ServiceGraphicPickerModal";
 import BusinessLocationPicker, { LocationData } from "@/components/maps/BusinessLocationPicker";
 import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
 import { PRESET_BUSINESS_CATEGORIES, resolveSafeCategoryUuid } from "@/lib/businessCategories";
+import { syncCanonicalBusinessAndProfile } from "@/lib/businessSync";
 
 type Service = {
   title: string;
@@ -107,31 +108,42 @@ export default function EditBusiness() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     setSaving(true);
     const cleaned = services.filter((s) => s.title.trim());
     const safeCatId = resolveSafeCategoryUuid(form.category_id, cats);
 
-    const { error } = await supabase.from("suppliers").update({
+    const syncResult = await syncCanonicalBusinessAndProfile({
+      userId: user.id,
       name: form.name,
-      description: form.description,
-      phone: form.phone,
-      address: form.address,
-      country: form.country || "Nigeria",
-      state: form.state || "Lagos State",
-      city: form.city || "Lagos",
-      latitude: typeof form.latitude === "number" ? form.latitude : (form.latitude ? parseFloat(form.latitude) : null),
-      longitude: typeof form.longitude === "number" ? form.longitude : (form.longitude ? parseFloat(form.longitude) : null),
+      bioOrDescription: form.description,
+      phoneOrWhatsapp: form.phone,
       website: form.website,
-      logo_url: form.logo_url,
-      cover_url: form.cover_url || null,
-      cover_template: form.cover_template || null,
-      category_id: safeCatId,
-      social_links: socials,
+      logoOrAvatarUrl: form.logo_url,
+      coverUrl: form.cover_url || undefined,
+      coverTemplate: form.cover_template || undefined,
+      categoryId: safeCatId,
+      location: {
+        country: form.country || socials?.location?.country || "Nigeria",
+        state: form.state || socials?.location?.state || "Lagos State",
+        city: form.city || socials?.location?.city || "Lagos",
+        address: form.address || "",
+        latitude: typeof form.latitude === "number" ? form.latitude : (form.latitude ? parseFloat(form.latitude) : 6.5244),
+        longitude: typeof form.longitude === "number" ? form.longitude : (form.longitude ? parseFloat(form.longitude) : 3.3792),
+      },
       services: cleaned,
-    }).eq("id", form.id);
+      socialLinks: socials,
+      isPublic: true,
+      categoriesList: cats,
+    });
+
     setSaving(false);
-    if (error) toast.error(error.message);
-    else { toast.success("Business details saved!"); navigate("/dashboard/businesses"); }
+    if (syncResult.error) {
+      toast.error(syncResult.error.message || "Failed to save business details");
+    } else {
+      toast.success("Business details saved & synchronized!");
+      navigate("/dashboard/businesses");
+    }
   };
 
   const currentLocationData: LocationData = {
