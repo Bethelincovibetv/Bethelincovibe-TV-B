@@ -166,7 +166,7 @@ export default function UserProfileEdit() {
       supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
       supabase
         .from("suppliers")
-        .select("id, category_id, address, city, state, country, latitude, longitude, cover_template, phone, website")
+        .select("id, category_id, address, cover_template, phone, website, social_links, services, logo_url, cover_url")
         .eq("submitted_by", user.id)
         .maybeSingle(),
     ]);
@@ -184,24 +184,30 @@ export default function UserProfileEdit() {
 
       // Populate location from profile or supplier
       const profileLoc = socialLinks.location;
+      const supLoc = supData?.social_links?.location;
       if (profileLoc && typeof profileLoc === "object") {
         setLocation({
-          country: profileLoc.country || supData?.country || "Nigeria",
-          state: profileLoc.state || supData?.state || "Lagos State",
-          city: profileLoc.city || supData?.city || "Lagos",
-          address: profileLoc.address || supData?.address || "",
-          latitude: typeof profileLoc.latitude === "number" ? profileLoc.latitude : (typeof supData?.latitude === "number" ? supData.latitude : 6.5244),
-          longitude: typeof profileLoc.longitude === "number" ? profileLoc.longitude : (typeof supData?.longitude === "number" ? supData.longitude : 3.3792),
+          country: profileLoc.country || supLoc?.country || "Nigeria",
+          state: profileLoc.state || supLoc?.state || "Lagos State",
+          city: profileLoc.city || supLoc?.city || "Lagos",
+          address: profileLoc.address || supLoc?.address || supData?.address || "",
+          latitude: typeof profileLoc.latitude === "number" ? profileLoc.latitude : (typeof supLoc?.latitude === "number" ? supLoc.latitude : 6.5244),
+          longitude: typeof profileLoc.longitude === "number" ? profileLoc.longitude : (typeof supLoc?.longitude === "number" ? supLoc.longitude : 3.3792),
         });
-      } else if (supData) {
+      } else if (supLoc && typeof supLoc === "object") {
         setLocation({
-          country: supData.country || "Nigeria",
-          state: supData.state || "Lagos State",
-          city: supData.city || "Lagos",
-          address: supData.address || "",
-          latitude: typeof supData.latitude === "number" ? supData.latitude : 6.5244,
-          longitude: typeof supData.longitude === "number" ? supData.longitude : 3.3792,
+          country: supLoc.country || "Nigeria",
+          state: supLoc.state || "Lagos State",
+          city: supLoc.city || "Lagos",
+          address: supLoc.address || supData?.address || "",
+          latitude: typeof supLoc.latitude === "number" ? supLoc.latitude : 6.5244,
+          longitude: typeof supLoc.longitude === "number" ? supLoc.longitude : 3.3792,
         });
+      } else if (supData?.address) {
+        setLocation((prev) => ({
+          ...prev,
+          address: supData.address,
+        }));
       }
     }
 
@@ -268,7 +274,8 @@ export default function UserProfileEdit() {
       .from("guest-submissions")
       .upload(path, file, { upsert: true });
     if (error) {
-      toast.error(error.message);
+      console.error("Service image upload error:", error);
+      toast.error("Unable to upload image. Please try again with a JPG or PNG file.");
       return;
     }
     const { data } = supabase.storage.from("guest-submissions").getPublicUrl(path);
@@ -288,9 +295,10 @@ export default function UserProfileEdit() {
       if (error) throw error;
       const { data } = supabase.storage.from("guest-submissions").getPublicUrl(path);
       updateField("avatar_url", data.publicUrl);
-      toast.success("Profile photo uploaded!");
+      toast.success("Profile photo uploaded successfully!");
     } catch (err: any) {
-      toast.error(err.message);
+      console.error("Avatar upload error:", err);
+      toast.error("Unable to upload profile photo. Please try again.");
     } finally {
       setUploading(false);
     }
@@ -309,9 +317,10 @@ export default function UserProfileEdit() {
       if (error) throw error;
       const { data } = supabase.storage.from("guest-submissions").getPublicUrl(path);
       updateField("background_url", data.publicUrl);
-      toast.success("Custom website cover uploaded!");
+      toast.success("Custom website cover uploaded successfully!");
     } catch (err: any) {
-      toast.error(err.message);
+      console.error("Cover upload error:", err);
+      toast.error("Unable to upload website cover. Please try again.");
     } finally {
       setUploadingCover(false);
     }
@@ -391,6 +400,12 @@ export default function UserProfileEdit() {
         categoriesList: dbCategories,
       });
 
+      if (syncResult.error) {
+        console.error("Profile save sync error:", syncResult.error);
+        toast.error("Unable to save changes. We couldn't save your profile right now. Please try again.");
+        return;
+      }
+
       if (syncResult.supplierId) {
         setUserSupplierId(syncResult.supplierId);
       }
@@ -415,9 +430,10 @@ export default function UserProfileEdit() {
         playNotificationAudio("bethel_vibe");
       } catch {}
 
-      toast.success("Public Profile & Business Directory presence saved!");
+      toast.success("Profile saved successfully! 🎉 Your business information has been updated.");
     } catch (err: any) {
-      toast.error(err.message);
+      console.error("Save profile error:", err);
+      toast.error("Unable to save changes. We couldn't save your profile right now. Please try again.");
     } finally {
       setSaving(false);
     }

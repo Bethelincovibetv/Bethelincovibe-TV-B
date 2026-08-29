@@ -145,7 +145,8 @@ export default function ListBusiness() {
 
     if (syncResult.error) {
       setSubmitting(false);
-      toast.error(syncResult.error.message || "Failed to list business");
+      console.error("List business error:", syncResult.error);
+      toast.error("Unable to list business right now. Please try again.");
       return;
     }
 

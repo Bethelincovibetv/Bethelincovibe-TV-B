@@ -139,9 +139,10 @@ export default function EditBusiness() {
 
     setSaving(false);
     if (syncResult.error) {
-      toast.error(syncResult.error.message || "Failed to save business details");
+      console.error("Save business error:", syncResult.error);
+      toast.error("Unable to save changes. We couldn't save your profile right now. Please try again.");
     } else {
-      toast.success("Business details saved & synchronized!");
+      toast.success("Profile saved successfully! 🎉 Your business information has been updated.");
       navigate("/dashboard/businesses");
     }
   };

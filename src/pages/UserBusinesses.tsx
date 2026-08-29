@@ -31,9 +31,13 @@ export default function UserBusinesses() {
   const removeListing = async (id: string) => {
     await supabase.from("supplier_images").delete().eq("supplier_id", id);
     const { error } = await supabase.from("suppliers").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      console.error("Delete listing error:", error);
+      toast.error("Unable to delete listing right now. Please try again.");
+      return;
+    }
     setItems((prev) => prev.filter((b) => b.id !== id));
-    toast.success("Listing deleted");
+    toast.success("Listing deleted successfully");
   };
 
   const handleApplyLogoToBiz = async (logoUrl: string) => {
@@ -43,7 +47,8 @@ export default function UserBusinesses() {
       .update({ logo_url: logoUrl })
       .eq("id", activeLogoBiz.id);
     if (error) {
-      toast.error("Failed to update logo: " + error.message);
+      console.error("Logo update error:", error);
+      toast.error("Unable to update business logo. Please try again.");
       return;
     }
     setItems((prev) =>
