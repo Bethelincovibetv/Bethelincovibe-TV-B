@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -14,6 +13,8 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { Loader2, Building2, Plus, Trash2, ImagePlus, Crown } from "lucide-react";
 import PhoneInput from "@/components/PhoneInput";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 import {
   getQueenServiceSettings,
   runQueenServiceAIAutomation,
@@ -192,11 +193,13 @@ export default function ListBusiness() {
 
   return (
     <>
-      <Helmet>
-        <title>List Your Business | Lagos Business Directory</title>
-        <meta name="description" content="List your Lagos business in our business directory. Free submission, reviewed by our team." />
-        <link rel="canonical" href="/businesses/list" />
-      </Helmet>
+      <SEO
+        title={`List Your Business — Lagos Business Directory | ${SITE_NAME}`}
+        description="List your Lagos business in our verified business directory. Get discovered by thousands of customers with instant WhatsApp inquiries."
+        url="/businesses/list"
+        type="website"
+        image={PAGE_OG_IMAGES.listBusiness()}
+      />
       <div className="container mx-auto px-4 py-8 max-w-3xl">
         <div className="mb-6 flex items-start gap-3">
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">

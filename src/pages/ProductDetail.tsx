@@ -28,7 +28,8 @@ import FavoriteButton from "@/components/FavoriteButton";
 import VerifiedBadge from "@/components/VerifiedBadge";
 import { useAuth } from "@/contexts/AuthContext";
 import { recordPageView } from "@/lib/analyticsTracker";
-import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
+import { absUrl, ogImageUrl, resolveEntityOgImage, SITE_NAME, truncate } from "@/lib/seo";
+import SEO from "@/components/SEO";
 import { getProductCategoryInfo } from "@/lib/productAIEngine";
 import { toast } from "sonner";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -216,24 +217,27 @@ export default function ProductDetail() {
     .map((p: string) => p.trim())
     .filter(Boolean);
 
+  const ogImageResolved = resolveEntityOgImage({
+    primaryImage: imgs[0],
+    title: product.name,
+    subtitle: `${formattedPriceStr} • ${pageDesc}`,
+    badge: isDigital ? "Digital Product" : "Marketplace",
+  });
+
   return (
     <div className="min-h-screen bg-muted/20 pb-28 sm:pb-20 w-full max-w-full overflow-x-hidden">
-      <Helmet>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDesc} />
-        <link rel="canonical" href={canonicalUrl} />
-        <meta property="og:title" content={product.name} />
-        <meta property="og:description" content={pageDesc} />
-        <meta property="og:type" content="product" />
-        <meta property="og:url" content={canonicalUrl} />
-        <meta property="og:image" content={imgs[0] || ogImageUrl({ title: product.name, subtitle: pageDesc, badge: isDigital ? "Digital Product" : "Product" })} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <script type="application/ld+json">{JSON.stringify({
+      <SEO
+        title={pageTitle}
+        description={pageDesc}
+        url={`/products/${product.slug || product.id}`}
+        type="product"
+        image={ogImageResolved}
+        jsonLd={{
           "@context": "https://schema.org",
           "@type": "Product",
           name: product.name,
           description: pageDesc,
-          image: imgs,
+          image: [ogImageResolved],
           category: catInfo.name,
           offers: {
             "@type": "Offer",
@@ -242,8 +246,8 @@ export default function ProductDetail() {
             availability: (product.stock ?? 1) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
             url: canonicalUrl,
           },
-        })}</script>
-      </Helmet>
+        }}
+      />
 
       {/* Top Banner Notice */}
       {isDigital ? (

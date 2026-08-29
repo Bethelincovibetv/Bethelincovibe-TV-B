@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Helmet } from "react-helmet-async";
 import { Calculator, Sparkles, TrendingUp, Wallet, Target, Loader2, Coins, ArrowRight, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +12,8 @@ import { Link } from "react-router-dom";
 import { GoogleGenAI } from "@google/genai";
 import { toast } from "sonner";
 import { getPlatformPricing, FeaturePricing } from "@/lib/platformPricing";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 interface Metrics {
   runwayMonths: string;
@@ -186,10 +187,13 @@ Keep tone encouraging, practical, and highly tactical for the Nigerian & emergin
 
   return (
     <>
-      <Helmet>
-        <title>AI Startup Calculator | Bethelincovibe TV</title>
-        <meta name="description" content="Free AI-powered startup business calculator for Nigerian entrepreneurs. Calculate runway, ROI, break-even and get smart business advice." />
-      </Helmet>
+      <SEO
+        title={`AI Startup Calculator & Financial Runway Estimator | ${SITE_NAME}`}
+        description="Calculate startup runway, ROI, breakeven projections, and monthly net profit with smart AI recommendations tailored for Nigerian businesses."
+        url="/calculator"
+        type="website"
+        image={PAGE_OG_IMAGES.calculator()}
+      />
 
       <div className="container mx-auto px-4 py-8 max-w-5xl space-y-8">
         <div className="text-center mb-4">

@@ -20,6 +20,8 @@ import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
 import AdsterraAd from "@/components/AdsterraAd";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME, absUrl } from "@/lib/seo";
 
 import catStarting3D from "@/assets/images/forum_cat_starting_1787550425478.jpg";
 import catMarketing3D from "@/assets/images/forum_cat_marketing_1787550438860.jpg";
@@ -169,12 +171,33 @@ export default function Forum() {
 
   const popular = useMemo(() => [...posts].sort((a, b) => b.likes_count - a.likes_count).slice(0, 3), [posts]);
 
+  const matchedCat = FORUM_CATEGORIES.find((c) => c.key === selectedCategory);
+  const forumTitle = matchedCat
+    ? `${matchedCat.label} — Community Forum | ${SITE_NAME}`
+    : search.trim()
+    ? `Forum Discussions: "${search}" | ${SITE_NAME}`
+    : `Community Forum & Entrepreneur Network | ${SITE_NAME}`;
+
+  const forumDesc = matchedCat
+    ? `Join the discussion on ${matchedCat.label}. ${matchedCat.desc} with verified Lagos entrepreneurs.`
+    : "Ask questions, share ideas, showcase your startup, and connect with Lagos entrepreneurs and business founders.";
+
   return (
     <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8 pb-32 space-y-6 sm:space-y-8">
-      <Helmet>
-        <title>Community Forum | Bethelincovibe TV</title>
-        <meta name="description" content="Ask questions, share ideas and connect with Lagos entrepreneurs." />
-      </Helmet>
+      <SEO
+        title={forumTitle}
+        description={forumDesc}
+        url="/forum"
+        type="website"
+        image={PAGE_OG_IMAGES.forum()}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "DiscussionForumPosting",
+          name: forumTitle,
+          description: forumDesc,
+          url: absUrl("/forum"),
+        }}
+      />
 
       <AdsterraAd slot="forum" />
 

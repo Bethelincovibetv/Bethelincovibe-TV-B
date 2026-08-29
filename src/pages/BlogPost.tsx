@@ -6,7 +6,8 @@ import { ArrowLeft, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
-import { Helmet } from "react-helmet-async";
+import SEO from "@/components/SEO";
+import { resolveEntityOgImage, absUrl, SITE_NAME } from "@/lib/seo";
 import { recordPageView } from "@/lib/analyticsTracker";
 import BlogComments from "@/components/BlogComments";
 import BlogShareButtons from "@/components/BlogShareButtons";
@@ -56,67 +57,44 @@ export default function BlogPost() {
     </div>
   );
 
-  const postUrl = `${window.location.origin}/blog/${post.slug}`;
+  const postUrl = `/blog/${post.slug}`;
   const postDescription = post.excerpt || post.title;
-  const postImage = post.featured_image || "";
+  const ogImage = resolveEntityOgImage({
+    primaryImage: post.featured_image,
+    title: post.title,
+    subtitle: post.excerpt || "Business playbook & startup guide",
+    badge: (post.categories as any)?.name || "Playbook",
+  });
 
   const articleSchema = {
     "@context": "https://schema.org",
     "@type": "Article",
     headline: post.title,
     description: postDescription,
-    image: postImage ? [postImage] : undefined,
+    image: [ogImage],
     datePublished: post.published_at,
     dateModified: post.updated_at,
     author: { "@type": "Organization", name: "Bethelincovibe TV" },
     publisher: {
       "@type": "Organization",
       name: "Bethelincovibe TV",
-      logo: { "@type": "ImageObject", url: `${window.location.origin}/logo.png` },
+      logo: { "@type": "ImageObject", url: "https://bethelincovibetv.com/logo.png" },
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
-  };
-  const breadcrumbSchema = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: window.location.origin },
-      { "@type": "ListItem", position: 2, name: "Blog", item: `${window.location.origin}/blog` },
-      { "@type": "ListItem", position: 3, name: post.title, item: postUrl },
-    ],
+    mainEntityOfPage: { "@type": "WebPage", "@id": absUrl(postUrl) },
   };
 
   return (
     <>
-      <Helmet>
-        <title>{post.title} - Bethelincovibe TV</title>
-        <meta name="description" content={postDescription} />
-
-        {/* Open Graph */}
-        <meta property="og:type" content="article" />
-        <meta property="og:url" content={postUrl} />
-        <meta property="og:title" content={post.title} />
-        <meta property="og:description" content={postDescription} />
-        {postImage && <meta property="og:image" content={postImage} />}
-        {postImage && <meta property="og:image:width" content="1200" />}
-        {postImage && <meta property="og:image:height" content="630" />}
-
-        {/* Twitter Card */}
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={post.title} />
-        <meta name="twitter:description" content={postDescription} />
-        {postImage && <meta name="twitter:image" content={postImage} />}
-
-        {/* Pinterest */}
-        {postImage && <meta property="pin:media" content={postImage} />}
-
-        <link rel="canonical" href={postUrl} />
-        <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
-        {post.published_at && <meta property="article:published_time" content={post.published_at} />}
-        {post.updated_at && <meta property="article:modified_time" content={post.updated_at} />}
-        <script type="application/ld+json">{JSON.stringify(articleSchema)}</script>
-        <script type="application/ld+json">{JSON.stringify(breadcrumbSchema)}</script>
-      </Helmet>
+      <SEO
+        title={`${post.title} - Bethelincovibe TV`}
+        description={postDescription}
+        url={postUrl}
+        type="article"
+        image={ogImage}
+        articlePublishedTime={post.published_at}
+        articleModifiedTime={post.updated_at}
+        jsonLd={articleSchema}
+      />
 
       <ReadingProgress />
 

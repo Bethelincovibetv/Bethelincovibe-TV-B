@@ -5,6 +5,8 @@ import VixoraStudioApp from "@/vixora/App";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Sparkles, Clapperboard } from "lucide-react";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function VideoCreator() {
   const [searchParams] = useSearchParams();
@@ -13,6 +15,13 @@ export default function VideoCreator() {
 
   return (
     <div className="min-h-screen bg-background pb-12">
+      <SEO
+        title={`AI Video Studio & Commercial Reels Creator | ${SITE_NAME}`}
+        description="Generate high-converting marketing reels, promotional TikTok/Instagram short videos, voiceovers and motion animations with AI."
+        url="/video-creator"
+        type="website"
+        image={PAGE_OG_IMAGES.video()}
+      />
       <div className="container mx-auto px-4 pt-4 max-w-7xl space-y-4">
         <div className="flex items-center justify-between gap-4 pb-3 border-b">
           <div className="flex items-center gap-2">

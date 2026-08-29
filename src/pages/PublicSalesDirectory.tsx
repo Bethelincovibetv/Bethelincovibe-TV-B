@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -8,6 +7,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Search, Sparkles, Eye, ArrowUpDown } from "lucide-react";
 import AdsterraAd from "@/components/AdsterraAd";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 type Sort = "newest" | "popular" | "price_asc" | "price_desc";
 
@@ -59,15 +60,13 @@ export default function PublicSalesDirectory() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-primary/5 to-background pb-12">
-      <Helmet>
-        <title>Marketplace — Sales Pages | Bethelincovibe TV</title>
-        <meta name="description" content="Discover products and services from Nigerian entrepreneurs on Bethelincovibe TV." />
-        <link rel="canonical" href="/sales" />
-        <meta property="og:title" content="Marketplace — Sales Pages | Bethelincovibe TV" />
-        <meta property="og:description" content="Discover products and services from Nigerian entrepreneurs." />
-        <meta property="og:url" content="/sales" />
-        <meta property="og:type" content="website" />
-      </Helmet>
+      <SEO
+        title={`Marketplace — Verified Sales Pages | ${SITE_NAME}`}
+        description="Discover top products, instant digital downloads, and professional services from verified Nigerian entrepreneurs."
+        url="/sales"
+        type="website"
+        image={PAGE_OG_IMAGES.salesDirectory()}
+      />
 
       <div className="container max-w-6xl mx-auto px-4 py-6 space-y-5">
         <div>

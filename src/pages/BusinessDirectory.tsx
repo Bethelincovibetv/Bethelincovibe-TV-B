@@ -21,7 +21,8 @@ import Breadcrumbs from "@/components/Breadcrumbs";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import AdsterraAd from "@/components/AdsterraAd";
 import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
-import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
+import { absUrl, ogImageUrl, PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
+import SEO from "@/components/SEO";
 
 type Sort = "recommended" | "newest" | "az" | "za";
 type ViewMode = "grid" | "list" | "map";
@@ -183,23 +184,20 @@ export default function BusinessDirectory() {
 
   const clearFilters = () => { setSearch(""); setSearchParams({}); };
 
+  const ogImage = activeCategory
+    ? PAGE_OG_IMAGES.businessCategory(activeCategory.name)
+    : PAGE_OG_IMAGES.businesses();
+
   return (
     <>
-      <Helmet>
-        <title>{title}</title>
-        <meta name="description" content={description} />
-        <link rel="canonical" href={canonical} />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content={SITE_NAME} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:url" content={canonical} />
-        <meta property="og:image" content={ogImageUrl({ title: activeCategory?.name ?? "Lagos Business Directory", subtitle: description, badge: "Directory" })} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={title} />
-        <meta name="twitter:description" content={description} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      </Helmet>
+      <SEO
+        title={title}
+        description={description}
+        url={categorySlug ? `/businesses?category=${categorySlug}` : "/businesses"}
+        type="website"
+        image={ogImage}
+        jsonLd={jsonLd}
+      />
 
       <div className="container mx-auto px-4 py-4 md:py-8">
         <Breadcrumbs

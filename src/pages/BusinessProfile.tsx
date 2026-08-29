@@ -22,7 +22,8 @@ import VerifiedBadge from "@/components/VerifiedBadge";
 import BusinessMapView from "@/components/maps/BusinessMapView";
 import GoogleMapsProvider from "@/components/maps/GoogleMapsProvider";
 import BusinessDefaultLogo from "@/components/directory/BusinessDefaultLogo";
-import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
+import { absUrl, ogImageUrl, resolveEntityOgImage, SITE_NAME } from "@/lib/seo";
+import SEO from "@/components/SEO";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
 
@@ -150,11 +151,11 @@ export default function BusinessProfile() {
 
   const canonical = absUrl(`/businesses/${biz.slug}`);
   const heroImage = biz.cover_url || biz.logo_url || images[0]?.image_url;
-  const ogImage = ogImageUrl({
+  const ogImage = resolveEntityOgImage({
+    primaryImage: heroImage,
     title: biz.name,
     subtitle: biz.categories?.name ? `${biz.categories.name} · Lagos` : "Lagos business",
-    image: heroImage,
-    badge: "Verified Listing",
+    badge: "Verified Business",
   });
 
   const jsonLd = {
@@ -187,25 +188,14 @@ export default function BusinessProfile() {
 
   return (
     <>
-      <Helmet>
-        <title>{seoTitle}</title>
-        <meta name="description" content={seoDesc} />
-        <meta name="robots" content="index, follow, max-image-preview:large" />
-        <meta property="og:site_name" content={SITE_NAME} />
-        <meta property="og:title" content={biz.name} />
-        <meta property="og:description" content={seoDesc} />
-        <meta property="og:type" content="business.business" />
-        <meta property="og:url" content={canonical} />
-        <meta property="og:image" content={ogImage} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={biz.name} />
-        <meta name="twitter:description" content={seoDesc} />
-        <meta name="twitter:image" content={ogImage} />
-        <link rel="canonical" href={canonical} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      </Helmet>
+      <SEO
+        title={seoTitle}
+        description={seoDesc}
+        url={`/businesses/${biz.slug}`}
+        type="business.business"
+        image={ogImage}
+        jsonLd={jsonLd}
+      />
 
       <div className="min-h-screen bg-gradient-to-b from-background to-muted/30 pb-32 md:pb-12">
         {/* Hero / Cover */}

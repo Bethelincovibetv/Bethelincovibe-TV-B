@@ -11,7 +11,8 @@ import BusinessCard from "@/components/directory/BusinessCard";
 import CategoryTile from "@/components/directory/CategoryTile";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
-import { absUrl, ogImageUrl, SITE_NAME, truncate } from "@/lib/seo";
+import { absUrl, ogImageUrl, PAGE_OG_IMAGES, SITE_NAME, truncate } from "@/lib/seo";
+import SEO from "@/components/SEO";
 
 export default function BusinessCategory() {
   const { slug } = useParams<{ slug: string }>();
@@ -130,12 +131,7 @@ export default function BusinessCategory() {
     `Find trusted ${lower} businesses in Lagos. Compare verified listings, browse photos and services, then call, WhatsApp or message owners directly on ${SITE_NAME}.`
   );
   const canonical = absUrl(`/businesses/category/${slug}`);
-  const ogImage = ogImageUrl({
-    title: `${category.name} in Lagos`,
-    subtitle: `${count} verified business${count === 1 ? "" : "es"}`,
-    image: (businesses?.[0] as any)?.cover_url || (businesses?.[0] as any)?.logo_url || undefined,
-    badge: "Business Directory",
-  });
+  const ogImage = PAGE_OG_IMAGES.businessCategory(category.name);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -159,25 +155,14 @@ export default function BusinessCategory() {
 
   return (
     <>
-      <Helmet>
-        <title>{`${title} | ${SITE_NAME}`}</title>
-        <meta name="description" content={description} />
-        <meta name="robots" content="index, follow, max-image-preview:large" />
-        <link rel="canonical" href={canonical} />
-        <meta property="og:type" content="website" />
-        <meta property="og:site_name" content={SITE_NAME} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={description} />
-        <meta property="og:url" content={canonical} />
-        <meta property="og:image" content={ogImage} />
-        <meta property="og:image:width" content="1200" />
-        <meta property="og:image:height" content="630" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content={title} />
-        <meta name="twitter:description" content={description} />
-        <meta name="twitter:image" content={ogImage} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      </Helmet>
+      <SEO
+        title={`${title} | ${SITE_NAME}`}
+        description={description}
+        url={`/businesses/category/${slug}`}
+        type="website"
+        image={ogImage}
+        jsonLd={jsonLd}
+      />
 
       <div className="container mx-auto max-w-6xl px-4 py-4 md:py-8">
         <Breadcrumbs

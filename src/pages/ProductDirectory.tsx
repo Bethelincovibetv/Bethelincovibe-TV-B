@@ -1,7 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -11,7 +10,8 @@ import ProductCard from "@/components/directory/ProductCard";
 import ProductCategoryFilter3D from "@/components/directory/ProductCategoryFilter3D";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
-import { absUrl, ogImageUrl, SITE_NAME } from "@/lib/seo";
+import { absUrl, ogImageUrl, PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
+import SEO from "@/components/SEO";
 import {
   PHYSICAL_PRODUCT_CATEGORIES,
   DIGITAL_PRODUCT_CATEGORIES,
@@ -121,8 +121,31 @@ export default function ProductDirectory() {
   const trending = [...all].sort((a, b) => (b.views_count || 0) - (a.views_count || 0)).filter((p) => (p.views_count || 0) > 0).slice(0, 4);
   const newArrivals = all.slice(0, 4);
 
-  const title = `Products for Sale in Lagos — Marketplace | ${SITE_NAME}`;
-  const desc = "Browse physical food, goods and instant digital products from verified Lagos sellers. Compare prices, check condition and contact sellers directly on WhatsApp.";
+  // Dynamic metadata based on filters
+  const currentCategoryObj = ALL_PRODUCT_CATEGORIES.find((c) => c.slug === cat);
+  const currentCategoryName = currentCategoryObj ? currentCategoryObj.name : cat !== "all" ? cat.replace(/-/g, " ") : "";
+
+  const title = currentCategoryName
+    ? `${currentCategoryName} Products in Lagos — Marketplace | ${SITE_NAME}`
+    : productType === "digital"
+    ? `Instant Digital Products & Toolkits in Lagos | ${SITE_NAME}`
+    : productType === "physical"
+    ? `Physical Goods, Supplies & Food in Lagos | ${SITE_NAME}`
+    : q.trim()
+    ? `"${q}" in Lagos Marketplace | ${SITE_NAME}`
+    : `Products for Sale in Lagos — Marketplace | ${SITE_NAME}`;
+
+  const desc = currentCategoryName
+    ? `Browse verified ${currentCategoryName} items for sale in Lagos. Direct seller WhatsApp contact and secure ordering on ${SITE_NAME}.`
+    : productType === "digital"
+    ? `Download verified digital templates, courses, financial models, and eBooks from Nigerian creators.`
+    : "Browse physical food, goods and instant digital products from verified Lagos sellers. Compare prices, check condition and contact sellers directly on WhatsApp.";
+
+  const dynamicOgImage = currentCategoryName
+    ? PAGE_OG_IMAGES.productCategory(currentCategoryName)
+    : PAGE_OG_IMAGES.products();
+
+  const currentPath = cat !== "all" ? `/products?cat=${cat}` : productType !== "all" ? `/products?type=${productType}` : "/products";
 
   const Section = ({ heading, blurb, items }: { heading: string; blurb: string; items: any[] }) =>
     items.length === 0 ? null : (
@@ -141,24 +164,20 @@ export default function ProductDirectory() {
 
   return (
     <div className="container mx-auto px-4 py-6 space-y-6">
-      <Helmet>
-        <title>{title}</title>
-        <meta name="description" content={desc} />
-        <link rel="canonical" href={absUrl("/products")} />
-        <meta property="og:title" content={title} />
-        <meta property="og:description" content={desc} />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content={absUrl("/products")} />
-        <meta property="og:image" content={ogImageUrl({ title: "Marketplace", subtitle: desc, badge: "Products" })} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <script type="application/ld+json">{JSON.stringify({
+      <SEO
+        title={title}
+        description={desc}
+        url={currentPath}
+        type="website"
+        image={dynamicOgImage}
+        jsonLd={{
           "@context": "https://schema.org",
           "@type": "CollectionPage",
-          name: "Marketplace",
+          name: currentCategoryName ? `${currentCategoryName} - Marketplace` : "Marketplace",
           description: desc,
-          url: absUrl("/products"),
-        })}</script>
-      </Helmet>
+          url: absUrl(currentPath),
+        }}
+      />
 
       <Breadcrumbs items={[{ label: "Products" }]} />
 

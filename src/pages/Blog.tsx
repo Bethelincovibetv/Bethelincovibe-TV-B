@@ -12,6 +12,8 @@ import { Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
 import FavoriteButton from "@/components/FavoriteButton";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME, absUrl } from "@/lib/seo";
 
 export default function Blog() {
   const { categorySlug } = useParams();
@@ -49,8 +51,37 @@ export default function Blog() {
   const currentCategory = categories?.find((c: any) => c.slug === categorySlug);
   const currentCategoryTheme = currentCategory ? getCategoryTheme(currentCategory.name) : null;
 
+  const pageTitle = currentCategory
+    ? `${currentCategory.name} — Playbooks & Guides | ${SITE_NAME}`
+    : search.trim()
+    ? `Articles matching "${search}" | ${SITE_NAME}`
+    : `Business Playbooks & Startup Guides | ${SITE_NAME}`;
+
+  const pageDesc = currentCategory?.description ||
+    "Practical guides, funding tips, sourcing playbooks, and growth stories for Nigerian and global entrepreneurs.";
+
+  const pageOg = currentCategory
+    ? PAGE_OG_IMAGES.blogCategory(currentCategory.name)
+    : PAGE_OG_IMAGES.blog();
+
+  const currentPath = categorySlug ? `/blog/category/${categorySlug}` : "/blog";
+
   return (
     <>
+      <SEO
+        title={pageTitle}
+        description={pageDesc}
+        url={currentPath}
+        type="website"
+        image={pageOg}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "CollectionPage",
+          name: currentCategory?.name || "Business Blog",
+          description: pageDesc,
+          url: absUrl(currentPath),
+        }}
+      />
       <PageHero
         image={heroBlog}
         eyebrow="Bethelincovibe TV"

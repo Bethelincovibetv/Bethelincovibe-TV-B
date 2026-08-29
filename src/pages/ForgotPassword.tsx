@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
@@ -24,6 +26,13 @@ export default function ForgotPassword() {
 
   return (
     <div className="container mx-auto px-4 py-16 flex justify-center">
+      <SEO
+        title={`Reset Your Password | ${SITE_NAME}`}
+        description="Reset your account password to securely access your business directory and marketplace listings."
+        url="/forgot-password"
+        type="website"
+        image={PAGE_OG_IMAGES.home()}
+      />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle>Reset Password</CardTitle>

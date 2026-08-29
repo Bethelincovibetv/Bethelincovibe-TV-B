@@ -7,6 +7,8 @@ import LogoCreatorStudio from "@/components/graphic-designer/LogoCreatorStudio";
 import MyDesignsGallery from "@/components/graphic-designer/MyDesignsGallery";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function GraphicDesignerPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -58,6 +60,13 @@ export default function GraphicDesignerPage() {
 
   return (
     <div className="min-h-screen bg-background pb-16">
+      <SEO
+        title={`AI Graphic Designer & Logo Studio | ${SITE_NAME}`}
+        description="Autonomous brand design studio. Create commercial promo flyers, vector logos, and social banners in seconds with AI."
+        url="/graphic-designer"
+        type="website"
+        image={PAGE_OG_IMAGES.graphics()}
+      />
       <div className="container mx-auto px-4 pt-4 max-w-7xl space-y-6">
         {/* Main Header & Tab Navigation Bar */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b">

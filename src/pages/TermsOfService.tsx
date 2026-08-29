@@ -1,17 +1,17 @@
-import { Helmet } from "react-helmet-async";
 import LegalPageLayout from "@/components/LegalPageLayout";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function TermsOfService() {
   return (
     <>
-      <Helmet>
-        <title>Terms of Service - Bethelincovibe TV | Business Growth Ecosystem</title>
-        <meta
-          name="description"
-          content="Terms of Service for Bethelincovibe TV. Read the terms and conditions governing the use of our AI-powered business growth ecosystem, verified directory, marketplace, and marketing tools."
-        />
-        <link rel="canonical" href="https://bethelincovibetv.com/terms-of-service" />
-      </Helmet>
+      <SEO
+        title={`Terms of Service | ${SITE_NAME}`}
+        description="Terms of Service for Bethelincovibe TV. Read the terms and conditions governing the use of our verified directory, marketplace, and marketing tools."
+        url="/terms-of-service"
+        type="website"
+        image={PAGE_OG_IMAGES.home()}
+      />
       <LegalPageLayout
         title="Terms of Service"
         subtitle="Governing terms for Bethelincovibe TV's AI-powered business growth ecosystem"

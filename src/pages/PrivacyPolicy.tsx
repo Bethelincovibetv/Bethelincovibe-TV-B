@@ -1,17 +1,17 @@
-import { Helmet } from "react-helmet-async";
 import LegalPageLayout from "@/components/LegalPageLayout";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function PrivacyPolicy() {
   return (
     <>
-      <Helmet>
-        <title>Privacy Policy - Bethelincovibe TV | Business Growth Ecosystem</title>
-        <meta
-          name="description"
-          content="Privacy Policy for Bethelincovibe TV. Learn how our AI-powered business growth ecosystem collects, uses, and safeguards your business and personal information."
-        />
-        <link rel="canonical" href="https://bethelincovibetv.com/privacy-policy" />
-      </Helmet>
+      <SEO
+        title={`Privacy Policy | ${SITE_NAME}`}
+        description="Privacy Policy for Bethelincovibe TV. Learn how our business growth ecosystem collects, uses, and safeguards your business and personal information."
+        url="/privacy-policy"
+        type="website"
+        image={PAGE_OG_IMAGES.home()}
+      />
       <LegalPageLayout
         title="Privacy Policy"
         subtitle="How we collect, use, and protect your information in the Bethelincovibe TV ecosystem"

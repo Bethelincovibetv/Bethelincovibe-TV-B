@@ -1,10 +1,11 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import UnifiedProductManager from "@/components/directory/UnifiedProductManager";
 import { Loader2 } from "lucide-react";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function ListProduct() {
   const { user, loading: authLoading } = useAuth();
@@ -26,13 +27,13 @@ export default function ListProduct() {
 
   return (
     <div className="min-h-screen bg-muted/20 pb-20">
-      <Helmet>
-        <title>List &amp; Sell Products | Bethelincovibe Marketplace</title>
-        <meta
-          name="description"
-          content="List your physical merchandise or instant digital download products on Bethelincovibe with AI copywriting assistance and direct buyer checkout."
-        />
-      </Helmet>
+      <SEO
+        title={`List & Sell Products — Marketplace | ${SITE_NAME}`}
+        description="List your physical merchandise or instant digital download products on Bethelincovibe with AI copywriting assistance and direct buyer checkout."
+        url="/products/list"
+        type="website"
+        image={PAGE_OG_IMAGES.listProduct()}
+      />
 
       <div className="container mx-auto max-w-6xl px-3 sm:px-4 py-4 sm:py-6 space-y-4">
         <div className="overflow-x-auto pb-1">

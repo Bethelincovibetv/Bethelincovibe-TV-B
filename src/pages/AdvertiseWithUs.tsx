@@ -1,9 +1,10 @@
 import { Link } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Megaphone, TrendingUp, Users, Globe, Search, Sparkles, ArrowRight, CheckCircle2, Image as ImageIcon, MousePointerClick, BarChart3, Zap } from "lucide-react";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function AdvertiseWithUs() {
   const { user } = useAuth();
@@ -20,10 +21,13 @@ export default function AdvertiseWithUs() {
 
   return (
     <div className="min-h-screen">
-      <Helmet>
-        <title>Advertise With Us | Bethelincovibe TV</title>
-        <meta name="description" content="Get your business featured on Bethelincovibe TV. AI-powered SEO blog posts, targeted Lagos audience, lasting visibility." />
-      </Helmet>
+      <SEO
+        title={`Advertise With Us — Reach Lagos & Global Entrepreneurs | ${SITE_NAME}`}
+        description="Get your business featured on Bethelincovibe TV. AI-powered SEO blog posts, targeted Lagos audience, lasting directory visibility and banner campaigns."
+        url="/advertise"
+        type="website"
+        image={PAGE_OG_IMAGES.advertise()}
+      />
 
       {/* Hero */}
       <section className="bg-gradient-to-br from-primary via-primary/90 to-primary/70 text-primary-foreground py-12 sm:py-20 px-4">

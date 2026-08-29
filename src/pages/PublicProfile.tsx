@@ -48,6 +48,8 @@ import QRCodeDialog from "@/components/QRCodeDialog";
 import VerifiedBadge, { VerifiedPillBadge } from "@/components/VerifiedBadge";
 import { waLink as buildWaLink } from "@/lib/phone";
 import { copyToClipboard } from "@/lib/clipboard";
+import { resolveEntityOgImage, absUrl } from "@/lib/seo";
+import SEO from "@/components/SEO";
 import { extractYouTubeVideoId } from "@/pages/UserProfileEdit";
 
 // Production-safe Vite asset imports for Vercel
@@ -290,17 +292,25 @@ export default function PublicProfile() {
     { id: "contact", label: "Contact & Inquiry", icon: Mail, count: null },
   ];
 
+  const profileOgImage = resolveEntityOgImage({
+    primaryImage: canonicalLogo || resolvedBgImage,
+    title: fullName,
+    subtitle: profile.bio || "Official Profile & Business Hub",
+    badge: isVerified ? "Verified Professional" : "Professional Profile",
+  });
+
+  const profileUrl = profile.username ? `/p/${profile.username}` : `/u/${profile.id || id}`;
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950 pb-28 md:pb-16">
-      <Helmet>
-        <title>{fullName} - Official Website | Bethelincovibe TV</title>
-        <meta name="description" content={seoDesc} />
-        <meta property="og:title" content={`${fullName} - Official Business Profile`} />
-        <meta property="og:description" content={seoDesc} />
-        {profile.avatar_url && <meta property="og:image" content={profile.avatar_url} />}
-        <link rel="canonical" href={typeof window !== "undefined" ? window.location.href : ""} />
-        <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
-      </Helmet>
+      <SEO
+        title={`${fullName} - Official Website | Bethelincovibe TV`}
+        description={seoDesc}
+        url={profileUrl}
+        type="profile"
+        image={profileOgImage}
+        jsonLd={jsonLd}
+      />
 
       {/* Top Website Brand Banner / Hero Cover */}
       <div

@@ -1,17 +1,17 @@
-import { Helmet } from "react-helmet-async";
 import LegalPageLayout from "@/components/LegalPageLayout";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function Disclaimer() {
   return (
     <>
-      <Helmet>
-        <title>Disclaimer - Bethelincovibe TV | Business Growth Ecosystem</title>
-        <meta
-          name="description"
-          content="Disclaimer for Bethelincovibe TV. Important disclosures regarding our AI business tools, marketplace listings, directory information, and educational startup guides."
-        />
-        <link rel="canonical" href="https://bethelincovibetv.com/disclaimer" />
-      </Helmet>
+      <SEO
+        title={`Disclaimer | ${SITE_NAME}`}
+        description="Disclaimer for Bethelincovibe TV. Important disclosures regarding our AI business tools, marketplace listings, directory information, and educational startup guides."
+        url="/disclaimer"
+        type="website"
+        image={PAGE_OG_IMAGES.home()}
+      />
       <LegalPageLayout
         title="Disclaimer"
         subtitle="Important information regarding our AI tools, marketplace, directory, and startup guides"

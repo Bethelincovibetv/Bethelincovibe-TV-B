@@ -14,7 +14,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Link, Navigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 import AdsterraAd from "@/components/AdsterraAd";
 import CoursePlayerModal from "@/components/learn/CoursePlayerModal";
 import GeminiLiveDialog from "@/components/coach/GeminiLiveDialog";
@@ -170,7 +171,13 @@ export default function Learn() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 pb-16">
-      <Helmet><title>Learning Hub & Masterclasses | Bethelincovibe TV</title></Helmet>
+      <SEO
+        title={`Learning Hub & Entrepreneur Masterclasses | ${SITE_NAME}`}
+        description="Accelerate your revenue with expert masterclasses, video tutorials, AI flashcards, and verified completion certificates."
+        url="/learn"
+        type="website"
+        image={PAGE_OG_IMAGES.learn()}
+      />
 
       {/* Top Header Banner */}
       <div className="relative bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 text-white border-b border-border/40 shadow-xl overflow-hidden mb-6">

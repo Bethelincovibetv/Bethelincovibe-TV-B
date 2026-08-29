@@ -10,7 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Helmet } from "react-helmet-async";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES } from "@/lib/seo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import AmazonProductGrid from "@/components/AmazonProductGrid";
@@ -73,19 +74,25 @@ export default function Index() {
 
   return (
     <>
-      <Helmet>
-        <title>Bethelincovibe TV - Lagos Business Growth Engine & Marketplace</title>
-        <meta
-          name="description"
-          content="The ultimate growth engine for Lagos entrepreneurs: verified business directory, marketplace products for sale, startup playbooks, and digital marketing tools."
-        />
-        <link rel="canonical" href="https://bethelincovibetv.com/" />
-        <meta property="og:title" content="Bethelincovibe TV | Business Growth Engine & Marketplace" />
-        <meta
-          property="og:description"
-          content="Discover businesses, shop verified products, read startup guides, and scale your business with Bethelincovibe TV."
-        />
-      </Helmet>
+      <SEO
+        title="Bethelincovibe TV - Lagos Business Growth Engine & Marketplace"
+        description="The ultimate growth engine for Lagos entrepreneurs: verified business directory, marketplace products for sale, startup playbooks, and digital marketing tools."
+        image={PAGE_OG_IMAGES.home()}
+        url="/"
+        type="website"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "name": "Bethelincovibe TV",
+          "url": "https://bethelincovibetv.com",
+          "description": "The ultimate growth engine for Lagos entrepreneurs: verified business directory, marketplace products for sale, startup playbooks, and digital marketing tools.",
+          "potentialAction": {
+            "@type": "SearchAction",
+            "target": "https://bethelincovibetv.com/businesses?q={search_term_string}",
+            "query-input": "required name=search_term_string"
+          }
+        }}
+      />
 
       {/* 1. Hero Slider */}
       {flags.hero_slider && <HeroSlider />}

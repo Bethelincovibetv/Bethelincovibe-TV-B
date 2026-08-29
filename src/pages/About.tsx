@@ -1,4 +1,5 @@
-import { Helmet } from "react-helmet-async";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES } from "@/lib/seo";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -170,43 +171,26 @@ export default function About() {
 
   return (
     <>
-      <Helmet>
-        <title>About Us | Bethelincovibe TV - AI-Powered Business Growth Ecosystem</title>
-        <meta
-          name="description"
-          content="Bethelincovibe TV is an AI-powered business growth ecosystem and entrepreneur community empowering businesses to discover, learn, promote, connect, sell, and grow."
-        />
-        <link rel="canonical" href="https://bethelincovibetv.com/about" />
-        <meta property="og:title" content="About Bethelincovibe TV | Business Growth Ecosystem" />
-        <meta
-          property="og:description"
-          content="Discover our mission, vision, marketplace, verified business directory, startup playbooks, and AI growth tools."
-        />
-        <meta property="og:type" content="website" />
-        <meta property="og:url" content="https://bethelincovibetv.com/about" />
-        <meta property="og:image" content="/logo.png" />
-        <meta name="twitter:card" content="summary_large_image" />
-        <meta name="twitter:title" content="About Bethelincovibe TV" />
-        <meta
-          name="twitter:description"
-          content="Empowering entrepreneurs and small businesses with visibility, marketplace selling, startup guides, and AI growth tools."
-        />
-        <script type="application/ld+json">
-          {JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "Organization",
-            "name": "Bethelincovibe TV",
-            "url": "https://bethelincovibetv.com",
-            "logo": "https://bethelincovibetv.com/logo.png",
-            "description": "AI-powered business growth ecosystem and entrepreneur community empowering small businesses to discover, learn, promote, connect, sell, and grow.",
-            "address": {
-              "@type": "PostalAddress",
-              "addressLocality": "Lagos",
-              "addressCountry": "NG"
-            }
-          })}
-        </script>
-      </Helmet>
+      <SEO
+        title="About Us | Bethelincovibe TV - AI-Powered Business Growth Ecosystem"
+        description="Bethelincovibe TV is an AI-powered business growth ecosystem and entrepreneur community empowering businesses to discover, learn, promote, connect, sell, and grow."
+        image={PAGE_OG_IMAGES.about()}
+        url="/about"
+        type="website"
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "name": "Bethelincovibe TV",
+          "url": "https://bethelincovibetv.com",
+          "logo": "https://bethelincovibetv.com/logo.png",
+          "description": "AI-powered business growth ecosystem and entrepreneur community empowering small businesses to discover, learn, promote, connect, sell, and grow.",
+          "address": {
+            "@type": "PostalAddress",
+            "addressLocality": "Lagos",
+            "addressCountry": "NG"
+          }
+        }}
+      />
 
       {/* 1. HERO SECTION */}
       <PageHero

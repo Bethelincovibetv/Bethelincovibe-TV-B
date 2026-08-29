@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Heart, MessageSquare, ArrowLeft, Trash2, Send } from "lucide-react";
 import { toast } from "sonner";
 import { formatDistanceToNow } from "date-fns";
+import SEO from "@/components/SEO";
+import { resolveEntityOgImage, absUrl, SITE_NAME } from "@/lib/seo";
 import { FORUM_CATEGORIES } from "./Forum";
 import { ForumFormattedContent } from "@/components/forum/ForumLinkPreview";
 import { ForumReactions } from "@/components/forum/ForumReactions";
@@ -116,12 +118,34 @@ export default function ForumPost() {
   const author = authors[post.user_id];
   const authorName = author?.display_name || author?.username || "Anonymous";
 
+  const ogImage = resolveEntityOgImage({
+    primaryImage: author?.avatar_url || author?.business?.logo_url,
+    title: post.title,
+    subtitle: `${post.content.slice(0, 120)}...`,
+    badge: cat?.label || "Forum Discussion",
+  });
+
+  const postDesc = post.content.slice(0, 160);
+
   return (
     <div className="container max-w-3xl py-4 pb-24 space-y-5">
-      <Helmet>
-        <title>{post.title} | Community Forum</title>
-        <meta name="description" content={post.content.slice(0, 150)} />
-      </Helmet>
+      <SEO
+        title={`${post.title} — Forum | ${SITE_NAME}`}
+        description={postDesc}
+        url={`/forum/${post.id}`}
+        type="article"
+        image={ogImage}
+        articlePublishedTime={post.created_at}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "DiscussionForumPosting",
+          headline: post.title,
+          articleBody: post.content,
+          author: { "@type": "Person", name: authorName },
+          datePublished: post.created_at,
+          url: absUrl(`/forum/${post.id}`),
+        }}
+      />
 
       <Button variant="ghost" size="sm" onClick={() => navigate("/forum")} className="mb-2">
         <ArrowLeft className="h-4 w-4 mr-1" /> Back to Forum

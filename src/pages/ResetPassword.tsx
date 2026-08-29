@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function ResetPassword() {
   const [password, setPassword] = useState("");
@@ -25,6 +27,13 @@ export default function ResetPassword() {
 
   return (
     <div className="container mx-auto px-4 py-16 flex justify-center">
+      <SEO
+        title={`Set New Password | ${SITE_NAME}`}
+        description="Set a new secure password for your Bethelincovibe account."
+        url="/reset-password"
+        type="website"
+        image={PAGE_OG_IMAGES.home()}
+      />
       <Card className="w-full max-w-md shadow-xl rounded-3xl border-border/80">
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-2xl font-black">Set New Password</CardTitle>

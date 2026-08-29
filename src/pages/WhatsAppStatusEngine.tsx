@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from "react";
-import { Helmet } from "react-helmet-async";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -512,13 +513,13 @@ export default function WhatsAppStatusEngine() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl pb-28">
-      <Helmet>
-        <title>WhatsApp Status Engine — Mutual Growth & Status Monetization | Bethelincovibe TV</title>
-        <meta
-          name="description"
-          content="Grow your verified WhatsApp business network with mutual Google Contacts exchange and monetize your WhatsApp status with paid advertiser slots in Lagos."
-        />
-      </Helmet>
+      <SEO
+        title={`WhatsApp Status Engine — Mutual Network & Status Monetization | ${SITE_NAME}`}
+        description="Grow your verified WhatsApp business network with mutual Google Contacts exchange and monetize your WhatsApp status with paid advertiser slots in Lagos."
+        url="/whatsapp-engine"
+        type="website"
+        image={PAGE_OG_IMAGES.whatsappEngine()}
+      />
 
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-700 p-6 sm:p-8 text-white shadow-xl mb-8">

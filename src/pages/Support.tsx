@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,6 +14,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 import { WORKFORCE_HEADSHOTS } from "@/lib/aiWorkforceRegistry";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 const FAQS = [
   {
@@ -74,14 +75,13 @@ export default function Support() {
 
   return (
     <>
-      <Helmet>
-        <title>Support &amp; Help Center - Bethelincovibe TV</title>
-        <meta
-          name="description"
-          content="Bethelincovibe TV Support & Help Center. Get 24/7 AI-assisted merchant onboarding, dispute resolution, business verification, and direct customer care in Lagos, Nigeria."
-        />
-        <link rel="canonical" href="https://bethelincovibetv.com/support" />
-      </Helmet>
+      <SEO
+        title={`Support & Help Center — 24/7 Merchant Care | ${SITE_NAME}`}
+        description="Bethelincovibe TV Support & Help Center. Get 24/7 AI-assisted merchant onboarding, dispute resolution, business verification, and direct customer care in Lagos, Nigeria."
+        url="/support"
+        type="website"
+        image={PAGE_OG_IMAGES.support()}
+      />
 
       <div className="min-h-screen bg-background pb-16">
         {/* Top Hero Banner */}

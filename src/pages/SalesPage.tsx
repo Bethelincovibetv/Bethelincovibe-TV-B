@@ -9,6 +9,8 @@ import {
 import SalesPageTemplate from "@/components/sales-templates/SalesPageTemplate";
 import LeadCaptureModal from "@/components/sales-templates/LeadCaptureModal";
 import { waLink as buildWaLink } from "@/lib/phone";
+import SEO from "@/components/SEO";
+import { resolveEntityOgImage, absUrl } from "@/lib/seo";
 
 function useCountdown(target?: string | null) {
   const [now, setNow] = useState(Date.now());
@@ -130,17 +132,39 @@ export default function SalesPage() {
     else if (phoneLink) window.location.href = phoneLink;
   };
 
+  const pageOgImage = resolveEntityOgImage({
+    primaryImage: page.product_image_url || gallery[0],
+    title: page.product_name,
+    subtitle: `${formattedPrice} • ${page.subheadline || page.headline || "Special Offer"}`,
+    badge: "Verified Offer",
+  });
+
+  const pageTitle = page.seo_title || page.headline || page.product_name;
+  const pageDescription = page.seo_description || page.subheadline || page.product_name;
+
   return (
     <>
-      <Helmet>
-        <title>{page.seo_title || page.headline || page.product_name}</title>
-        <meta name="description" content={page.seo_description || page.subheadline || ""} />
-        <meta property="og:title" content={page.seo_title || page.headline || page.product_name} />
-        <meta property="og:description" content={page.seo_description || page.subheadline || ""} />
-        {page.product_image_url && <meta property="og:image" content={page.product_image_url} />}
-        <meta property="og:type" content="product" />
-        <meta name="twitter:card" content="summary_large_image" />
-      </Helmet>
+      <SEO
+        title={pageTitle}
+        description={pageDescription}
+        url={`/s/${page.slug}`}
+        type="product"
+        image={pageOgImage}
+        jsonLd={{
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: page.product_name,
+          description: pageDescription,
+          image: [pageOgImage],
+          offers: {
+            "@type": "Offer",
+            price: page.price,
+            priceCurrency: page.currency || "NGN",
+            availability: "https://schema.org/InStock",
+          },
+          url: absUrl(`/s/${page.slug}`),
+        }}
+      />
 
       <div className="pb-24">
         <SalesPageTemplate

@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 interface GuideStep {
   step: number;
@@ -653,13 +655,13 @@ export default function HowToGuide() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-muted/10 to-background pb-16">
-      <Helmet>
-        <title>Master How-To Guide & Feature Handbook | Bethelincovibe TV</title>
-        <meta
-          name="description"
-          content="Interactive, step-by-step master guides with Problem -> Action -> Result blueprints for every feature, tool, and upcoming capability on Bethelincovibe TV."
-        />
-      </Helmet>
+      <SEO
+        title={`Master How-To Guide & Feature Handbook | ${SITE_NAME}`}
+        description="Interactive, step-by-step master guides with Problem -> Action -> Result blueprints for every feature, tool, and growth capability on Bethelincovibe TV."
+        url="/how-to-use"
+        type="website"
+        image={PAGE_OG_IMAGES.howToGuide()}
+      />
 
       {/* Hero Header with 3D Gloss Banner */}
       <div className="relative overflow-hidden bg-gradient-to-br from-neutral-900 via-primary/95 to-neutral-950 text-white pt-10 pb-16 px-4 sm:px-6 shadow-2xl rounded-b-[2.5rem] border-b border-primary/20">

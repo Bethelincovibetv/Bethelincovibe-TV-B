@@ -13,6 +13,8 @@ import { syncCanonicalBusinessAndProfile } from "@/lib/businessSync";
 import { NIGERIAN_STATES, getStateByName, getStateCoordinates } from "@/lib/nigerianStates";
 import VoiceGuideHelper from "@/components/common/VoiceGuideHelper";
 import { toast } from "sonner";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function Register() {
   const [email, setEmail] = useState("");
@@ -164,6 +166,13 @@ export default function Register() {
 
   return (
     <div className="flex min-h-[calc(100vh-4rem)] items-center justify-center p-3 sm:p-4 my-4 sm:my-8">
+      <SEO
+        title={`Create Free Account — Join Bethelincovibe Ecosystem | ${SITE_NAME}`}
+        description="Join thousands of Nigerian businesses and entrepreneurs. List your services, showcase products, create AI sales funnels, and grow your revenue."
+        url="/register"
+        type="website"
+        image={PAGE_OG_IMAGES.home()}
+      />
       <Card className="w-full max-w-lg border-2 shadow-2xl rounded-3xl overflow-hidden bg-card">
         {/* Header with audio helper */}
         <CardHeader className="text-center space-y-1 bg-muted/40 p-4 sm:p-6 border-b">

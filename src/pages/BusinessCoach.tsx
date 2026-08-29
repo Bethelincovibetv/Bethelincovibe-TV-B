@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
-import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +20,8 @@ import ListenButton from "@/components/ListenButton";
 import LiveVoiceButton from "@/components/coach/LiveVoiceButton";
 import VixoraCoachLiveDialog from "@/components/coach/VixoraCoachLiveDialog";
 import VixoraAICoachToday from "@/components/coach/VixoraAICoachToday";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 import coachAvatarImg from "@/assets/images/ai_business_coach_1787551806148.jpg";
 import { copyToClipboard } from "@/lib/clipboard";
@@ -197,7 +198,13 @@ Tone: Authoritative, motivating, practical, and clear.`;
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20 pb-12">
-      <Helmet><title>AI Business Coach | Bethelincovibe TV</title></Helmet>
+      <SEO
+        title={`AI Business Coach & Strategy Advisor | ${SITE_NAME}`}
+        description="Get personalized strategy, marketing tactics, CAC guidance, and actionable growth playbooks with your 24/7 AI Business Coach."
+        url="/coach"
+        type="website"
+        image={PAGE_OG_IMAGES.coach()}
+      />
 
       {/* Header Banner */}
       <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-indigo-950 text-white border-b border-border/40 shadow-xl px-4 py-5 mb-6">

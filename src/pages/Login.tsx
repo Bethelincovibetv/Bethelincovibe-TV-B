@@ -8,6 +8,8 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import SEO from "@/components/SEO";
+import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -46,6 +48,13 @@ export default function Login() {
 
   return (
     <div className="container mx-auto px-4 py-16 flex justify-center">
+      <SEO
+        title={`Sign In — Access Your Entrepreneur Dashboard | ${SITE_NAME}`}
+        description="Sign in to your Bethelincovibe TV account. Manage your verified business directory listings, marketplace products, wallet, and sales pages."
+        url="/login"
+        type="website"
+        image={PAGE_OG_IMAGES.home()}
+      />
       <Card className="w-full max-w-md shadow-xl border-border/80 rounded-3xl">
         <CardHeader className="text-center pb-4">
           <img src="/logo.png" alt="Bethelincovibe TV" className="h-12 w-12 mx-auto mb-2 rounded-xl shadow-md" />
