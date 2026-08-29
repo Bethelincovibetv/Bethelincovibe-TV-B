@@ -242,6 +242,9 @@ export default function BusinessProfile() {
                       src={biz.logo_url}
                       alt={biz.name}
                       className="w-full h-full object-contain p-1.5 bg-card"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLElement).style.display = "none";
+                      }}
                     />
                   ) : (
                     <BusinessDefaultLogo name={biz.name} category={biz.categories?.name} size="lg" shape="rounded-2xl" className="w-full h-full" />

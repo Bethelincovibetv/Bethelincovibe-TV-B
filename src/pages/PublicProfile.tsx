@@ -197,6 +197,7 @@ export default function PublicProfile() {
   const waClean = (buildWaLink(profile.whatsapp) || "")
     .replace("https://wa.me/", "")
     .split("?")[0];
+  const canonicalLogo = profile.avatar_url || businesses[0]?.logo_url || null;
   const isOwner = user && profile.user_id === user.id;
 
   // Verification status
@@ -385,14 +386,17 @@ export default function PublicProfile() {
                 {/* Logo / Avatar */}
                 <div className="relative inline-block mx-auto">
                   <div className="h-28 w-28 rounded-3xl bg-muted overflow-hidden flex items-center justify-center text-3xl font-black text-primary ring-4 ring-card shadow-2xl mx-auto">
-                    {profile.avatar_url ? (
+                    {canonicalLogo ? (
                       <img
-                        src={profile.avatar_url}
+                        src={canonicalLogo}
                         alt={fullName}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLElement).style.display = "none";
+                        }}
                       />
                     ) : (
-                      (profile.display_name?.[0] || profile.username?.[0] || "B").toUpperCase()
+                      (profile.display_name?.[0] || profile.username?.[0] || fullName?.[0] || "★").toUpperCase()
                     )}
                   </div>
                 </div>

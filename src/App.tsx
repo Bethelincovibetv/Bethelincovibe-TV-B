@@ -203,8 +203,10 @@ const App = () => (
               <Route path="/verification" element={<UserVerification />} />
               <Route path="/activity" element={<UserActivityPage />} />
               <Route path="/dashboard/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
+              <Route path="/wallet" element={<FeatureGate feature="wallet"><UserWallet /></FeatureGate>} />
               <Route path="/dashboard/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/dashboard/wallet/receipt/:id" element={<TransactionReceipt />} />
+              <Route path="/wallet/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />

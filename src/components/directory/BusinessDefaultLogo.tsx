@@ -16,11 +16,14 @@ export default function BusinessDefaultLogo({
   size = "md",
   shape = "rounded-2xl",
 }: BusinessDefaultLogoProps) {
-  const initials = useMemo(() => extractInitials(name || "Bethelincovibe"), [name]);
+  const initials = useMemo(() => {
+    if (!name || !name.trim()) return "★";
+    return extractInitials(name);
+  }, [name]);
 
   // Deterministic palette pick based on name char codes
   const palette = useMemo(() => {
-    const sum = (name || "B")
+    const sum = (name || "Business")
       .split("")
       .reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return LOGO_PALETTES[sum % LOGO_PALETTES.length];

@@ -1,4 +1,5 @@
 import { useParams, Link } from "react-router-dom";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ArrowLeft, Calendar } from "lucide-react";
@@ -6,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 import { Helmet } from "react-helmet-async";
+import { recordPageView } from "@/lib/analyticsTracker";
 import BlogComments from "@/components/BlogComments";
 import BlogShareButtons from "@/components/BlogShareButtons";
 import FavoriteButton from "@/components/FavoriteButton";
@@ -33,6 +35,17 @@ export default function BlogPost() {
       return data;
     },
   });
+
+  useEffect(() => {
+    if (post) {
+      recordPageView({
+        path: `/blog/${post.slug}`,
+        title: post.title,
+        featureType: "blog",
+        entityId: post.id,
+      });
+    }
+  }, [post?.id, post?.slug, post?.title]);
 
   if (isLoading) return <div className="container mx-auto px-4 py-8"><div className="animate-pulse space-y-4"><div className="h-8 bg-muted rounded w-3/4" /><div className="h-64 bg-muted rounded" /></div></div>;
 

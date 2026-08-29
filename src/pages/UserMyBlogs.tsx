@@ -56,6 +56,7 @@ import {
 } from "recharts";
 import { format } from "date-fns";
 import { toast } from "sonner";
+import { getStoredAnalyticsEvents } from "@/lib/analyticsTracker";
 
 const DEFAULT_COST = 1000;
 
@@ -188,34 +189,61 @@ export default function UserMyBlogs({ defaultTab = "my-blogs" }: UserMyBlogsProp
       // Hydrate linked blog_posts
       const postIds = (subs || []).map((s: any) => s.generated_post_id).filter(Boolean);
       const postsMap = new Map<string, any>();
+      const commentsMap = new Map<string, number>();
 
       if (postIds.length > 0) {
-        const { data: posts } = await supabase
-          .from("blog_posts")
-          .select("id, title, slug, published, published_at, featured_image")
-          .in("id", postIds);
+        const [{ data: posts }, { data: comments }] = await Promise.all([
+          supabase
+            .from("blog_posts")
+            .select("id, title, slug, published, published_at, featured_image")
+            .in("id", postIds),
+          supabase
+            .from("blog_comments")
+            .select("id, post_id")
+            .in("post_id", postIds),
+        ]);
 
         (posts || []).forEach((p: any) => postsMap.set(p.id, p));
+        (comments || []).forEach((c: any) => {
+          commentsMap.set(c.post_id, (commentsMap.get(c.post_id) || 0) + 1);
+        });
       }
 
-      // Merge metrics
+      const storedEvents = getStoredAnalyticsEvents();
+
+      // Merge real metrics with zero mock or synthetic formulas
       const merged: BlogSubmissionItem[] = (subs || []).map((s: any) => {
         const linkedPost = s.generated_post_id ? postsMap.get(s.generated_post_id) : null;
-        
-        const seed = s.id.charCodeAt(0) + s.id.charCodeAt(s.id.length - 1);
-        const daysOld = Math.max(1, Math.floor((Date.now() - new Date(s.created_at).getTime()) / (1000 * 60 * 60 * 24)));
-        const isLive = s.status === "published" || s.status === "approved";
-        
-        const baseViews = isLive ? Math.floor(daysOld * (14 + (seed % 15))) + 28 : 0;
-        const baseInquiries = isLive ? Math.max(1, Math.floor(baseViews * 0.08)) : 0;
-        const baseShares = isLive ? Math.max(0, Math.floor(baseViews * 0.04)) : 0;
+        const isPostPublished = Boolean(linkedPost?.published);
+        const isDeleted = s.status === "deleted" || Boolean(s.deleted_at);
+
+        // Derive true live status
+        let effectiveStatus = s.status;
+        if (isDeleted) {
+          effectiveStatus = "deleted";
+        } else if (isPostPublished || s.status === "published" || s.status === "approved") {
+          effectiveStatus = "published";
+        }
+
+        // Count real recorded page views for this post
+        const realViews = storedEvents.filter((ev) => {
+          if (!s.generated_post_id && !linkedPost?.slug) return false;
+          return (
+            ev.entityId === s.generated_post_id ||
+            (linkedPost?.slug && ev.path === `/blog/${linkedPost.slug}`)
+          );
+        }).length;
+
+        // Count real inquiries/comments
+        const realInquiries = s.generated_post_id ? (commentsMap.get(s.generated_post_id) || 0) : 0;
 
         return {
           ...s,
+          status: effectiveStatus,
           blog_post: linkedPost,
-          views_count: baseViews,
-          inquiries_count: baseInquiries,
-          shares_count: baseShares,
+          views_count: realViews,
+          inquiries_count: realInquiries,
+          shares_count: 0,
         };
       });
 
@@ -1567,53 +1595,75 @@ export default function UserMyBlogs({ defaultTab = "my-blogs" }: UserMyBlogsProp
             </DialogDescription>
           </DialogHeader>
 
-          {selectedBlogForStats && (
-            <div className="space-y-4 pt-2 text-xs">
-              <div className="grid grid-cols-3 gap-2.5">
-                <div className="p-3 rounded-2xl bg-muted/40 border border-border/80 text-center">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase">Reads</p>
-                  <p className="text-lg font-black text-foreground">{selectedBlogForStats.views_count}</p>
-                </div>
-                <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
-                  <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">Leads</p>
-                  <p className="text-lg font-black text-emerald-600">{selectedBlogForStats.inquiries_count}</p>
-                </div>
-                <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-center">
-                  <p className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase">CTR</p>
-                  <p className="text-lg font-black text-purple-600">
-                    {selectedBlogForStats.views_count && selectedBlogForStats.views_count > 0
-                      ? (((selectedBlogForStats.inquiries_count || 0) / selectedBlogForStats.views_count) * 100).toFixed(1)
-                      : 0}
-                    %
-                  </p>
-                </div>
-              </div>
+          {selectedBlogForStats && (() => {
+            const events = getStoredAnalyticsEvents().filter((ev) => {
+              const pid = selectedBlogForStats.generated_post_id;
+              const pslug = selectedBlogForStats.blog_post?.slug;
+              return (pid && ev.entityId === pid) || (pslug && ev.path === `/blog/${pslug}`);
+            });
+            const totalReads = events.length;
+            const mobileCount = events.filter((e) => e.device === "mobile").length;
+            const desktopCount = events.filter((e) => e.device === "desktop").length;
+            const directOrFeed = events.filter((e) => !e.referrer || e.referrer.includes(window.location.host)).length;
+            const externalSearch = events.length - directOrFeed;
 
-              <div className="space-y-2">
-                <p className="font-bold text-foreground">Traffic Channels</p>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-muted/30">
-                    <span className="flex items-center gap-2">
-                      <Globe className="h-3.5 w-3.5 text-primary" /> Google &amp; Organic Search
-                    </span>
-                    <span className="font-bold">54%</span>
+            return (
+              <div className="space-y-4 pt-2 text-xs">
+                <div className="grid grid-cols-3 gap-2.5">
+                  <div className="p-3 rounded-2xl bg-muted/40 border border-border/80 text-center">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Real Reads</p>
+                    <p className="text-lg font-black text-foreground">{totalReads}</p>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-muted/30">
-                    <span className="flex items-center gap-2">
-                      <MessageCircle className="h-3.5 w-3.5 text-emerald-600" /> WhatsApp &amp; Social Shares
-                    </span>
-                    <span className="font-bold">32%</span>
+                  <div className="p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-center">
+                    <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-300 uppercase">Comments / Inquiries</p>
+                    <p className="text-lg font-black text-emerald-600">{selectedBlogForStats.inquiries_count}</p>
                   </div>
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-muted/30">
-                    <span className="flex items-center gap-2">
-                      <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Bethelincovibe Feed
-                    </span>
-                    <span className="font-bold">14%</span>
+                  <div className="p-3 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-center">
+                    <p className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase">Status</p>
+                    <p className="text-sm font-black text-purple-600 capitalize mt-1">
+                      {selectedBlogForStats.status}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="font-bold text-foreground">Real Traffic Sources</p>
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-muted/30">
+                      <span className="flex items-center gap-2">
+                        <Globe className="h-3.5 w-3.5 text-primary" /> External &amp; Search Engines
+                      </span>
+                      <span className="font-bold">{externalSearch} reads</span>
+                    </div>
+                    <div className="flex items-center justify-between p-2 rounded-xl bg-muted/30">
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5 text-amber-500" /> Platform Feed &amp; Direct Links
+                      </span>
+                      <span className="font-bold">{directOrFeed} reads</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <p className="font-bold text-foreground">Device Breakdown</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="p-2.5 rounded-xl bg-muted/30 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5 text-primary" /> Mobile
+                      </span>
+                      <span className="font-bold">{mobileCount}</span>
+                    </div>
+                    <div className="p-2.5 rounded-xl bg-muted/30 flex items-center justify-between">
+                      <span className="flex items-center gap-1.5">
+                        <Globe className="h-3.5 w-3.5 text-indigo-500" /> Desktop
+                      </span>
+                      <span className="font-bold">{desktopCount}</span>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <DialogFooter className="pt-2">
             <Button
