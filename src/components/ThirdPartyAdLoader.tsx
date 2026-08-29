@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocation } from "react-router-dom";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
+import { useAuth } from "@/contexts/AuthContext";
 
 const CACHE_KEY = "thirdparty_ads_cache_v1";
 
@@ -45,15 +46,16 @@ function injectHtml(html: string, target: HTMLElement, marker: string) {
 export default function ThirdPartyAdLoader() {
   const location = useLocation();
   const { flags } = useFeatureFlags();
+  const { isAdmin } = useAuth();
 
   // Exclude ad scripts inside the admin backend management pages to prevent layout collisions
   const isExcludedRoute = location.pathname.startsWith("/admin");
   const featureDisabled = flags.advertise === false;
 
   // Synchronously inject the last-known verification/head snippets from
-  // localStorage before React Query fetches — UNLESS ads are disabled.
+  // localStorage before React Query fetches — UNLESS ads are disabled or user is admin.
   useLayoutEffect(() => {
-    if (featureDisabled || isExcludedRoute) {
+    if (featureDisabled || isExcludedRoute || isAdmin) {
       document.querySelectorAll('[data-thirdparty-ad]').forEach((n) => n.remove());
       return;
     }
@@ -63,7 +65,7 @@ export default function ThirdPartyAdLoader() {
       if (cached.ads_provider_monetag !== "false" && cached.monetag_head) injectHtml(cached.monetag_head, document.head, "monetag-head");
       if (cached.ads_provider_startio !== "false" && cached.startio_head) injectHtml(cached.startio_head, document.head, "startio-head");
     } catch {}
-  }, [featureDisabled, isExcludedRoute]);
+  }, [featureDisabled, isExcludedRoute, isAdmin]);
 
   const { data: settings } = useQuery({
     queryKey: ["site-settings-thirdparty-ads"],
