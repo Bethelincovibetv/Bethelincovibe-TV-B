@@ -10,6 +10,20 @@ export interface ProgrammaticAdBannerProps {
   format?: "banner" | "card" | "compact" | "feed" | "flyer" | "billboard";
 }
 
+const PLACEMENT_ALIASES: Record<string, string[]> = {
+  shop: ["shop", "marketplace", "products", "store", "all"],
+  marketplace: ["marketplace", "shop", "products", "store", "all"],
+  products: ["products", "shop", "marketplace", "store", "all"],
+  blog: ["blog", "article", "in_article", "editorial", "all"],
+  dashboard: ["dashboard", "user_dashboard", "all"],
+  listings: ["listings", "services", "businesses", "directory", "all"],
+  services: ["services", "listings", "businesses", "directory", "all"],
+  home: ["home", "homepage", "all"],
+  header: ["header", "all"],
+  footer: ["footer", "all"],
+  sidebar: ["sidebar", "all"],
+};
+
 export default function ProgrammaticAdBanner({
   placement = "dashboard",
   className = "",
@@ -27,15 +41,18 @@ export default function ProgrammaticAdBanner({
     async function fetchProgrammaticAd() {
       try {
         setLoading(true);
+        const targetPlacement = (placement || "dashboard").toLowerCase().trim();
+        const candidateKeys = PLACEMENT_ALIASES[targetPlacement] || [targetPlacement, "all"];
 
-        // 1. Fetch site ad controls
+        // 1. Fetch site ad controls & placement toggles
+        const placementSettingKeys = candidateKeys.map((k) => `ad_placement_${k}_enabled`);
         const { data: settings } = await supabase
           .from("site_settings")
           .select("key, value")
           .in("key", [
             "ads_global_enabled",
             "ads_provider_native",
-            `ad_placement_${placement}_enabled`,
+            ...placementSettingKeys,
             "ad_watermark_text",
             "ad_watermark_url",
           ]);
@@ -45,12 +62,13 @@ export default function ProgrammaticAdBanner({
           settingsMap[s.key] = s.value || "";
         });
 
-        // If master switches disabled or placement specifically toggled off by admin
-        if (
-          settingsMap.ads_global_enabled === "false" ||
-          settingsMap.ads_provider_native === "false" ||
-          settingsMap[`ad_placement_${placement}_enabled`] === "false"
-        ) {
+        // If master switches disabled or any relevant placement switch is explicitly turned off
+        const isMasterDisabled = settingsMap.ads_global_enabled === "false" || settingsMap.ads_provider_native === "false";
+        const isPlacementDisabled = candidateKeys.some(
+          (k) => settingsMap[`ad_placement_${k}_enabled`] === "false"
+        );
+
+        if (isMasterDisabled || isPlacementDisabled) {
           if (isMounted) setAd(null);
           return;
         }
@@ -62,24 +80,28 @@ export default function ProgrammaticAdBanner({
 
         let candidateAd: any = null;
 
-        // Strategy A: Security Definer RPC serve_random_ad
-        // Bypasses table RLS so guests and all registered users receive active public ads
-        try {
-          const { data: rpcAd, error: rpcErr } = await supabase.rpc("serve_random_ad", {
-            _placement: placement,
-          });
+        // Strategy A: Security Definer RPC serve_random_ad with alias candidate loop
+        // Bypasses table RLS so guests, normal users, and admins all receive public active ads
+        for (const candidateKey of candidateKeys) {
+          if (candidateAd) break;
+          try {
+            const { data: rpcAd, error: rpcErr } = await supabase.rpc("serve_random_ad", {
+              _placement: candidateKey,
+            });
 
-          if (!rpcErr && rpcAd) {
-            const item = Array.isArray(rpcAd) ? rpcAd[0] : rpcAd;
-            if (item && item.id && item.image_url) {
-              candidateAd = item;
+            if (!rpcErr && rpcAd) {
+              const item = Array.isArray(rpcAd) ? rpcAd[0] : rpcAd;
+              if (item && item.id && item.image_url) {
+                candidateAd = item;
+                break;
+              }
             }
+          } catch {
+            // continue checking candidate keys
           }
-        } catch {
-          // Continue to fallback strategies
         }
 
-        // Strategy B: If RPC didn't return an item (or for placement alias matching), try direct query
+        // Strategy B: If RPC didn't return an item, fallback to direct query (for admin or authorized context)
         if (!candidateAd) {
           try {
             const { data: directAds } = await supabase
@@ -90,28 +112,16 @@ export default function ProgrammaticAdBanner({
             if (directAds && directAds.length > 0) {
               const now = Date.now();
               const validAds = directAds.filter((a: any) => {
-                // Status validation
+                // Status validation: active or approved only
                 if (a.status !== "active" && a.status !== "approved") return false;
-                // Date restrictions
+                // Expiry and date restrictions
                 if (a.starts_at && new Date(a.starts_at).getTime() > now) return false;
                 if (a.ends_at && new Date(a.ends_at).getTime() < now) return false;
 
-                // Placement check with alias support
+                // Placement check against candidate aliases
                 if (!a.placement || a.placement === "all") return true;
                 const places = a.placement.toLowerCase().split(",").map((p: string) => p.trim());
-                const targetPlacement = placement.toLowerCase();
-
-                const aliases: Record<string, string[]> = {
-                  shop: ["shop", "marketplace", "products", "store"],
-                  marketplace: ["shop", "marketplace", "products", "store"],
-                  blog: ["blog", "article", "in_article", "editorial"],
-                  dashboard: ["dashboard", "user_dashboard"],
-                  listings: ["listings", "services", "businesses", "directory"],
-                  services: ["listings", "services", "businesses", "directory"],
-                };
-
-                const allowedAliases = aliases[targetPlacement] || [targetPlacement];
-                return places.some((p: string) => allowedAliases.includes(p) || p === "all");
+                return places.some((p: string) => candidateKeys.includes(p) || p === "all");
               });
 
               if (validAds.length > 0) {
@@ -141,7 +151,7 @@ export default function ProgrammaticAdBanner({
                 headers["Authorization"] = `Bearer ${anonKey}`;
               }
               const res = await fetch(
-                `${supabaseUrl}/functions/v1/ad-server?placement=${encodeURIComponent(placement)}&page=${encodeURIComponent(
+                `${supabaseUrl}/functions/v1/ad-server?placement=${encodeURIComponent(targetPlacement)}&page=${encodeURIComponent(
                   window.location.pathname
                 )}`,
                 { headers }
