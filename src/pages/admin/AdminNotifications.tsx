@@ -87,13 +87,14 @@ export default function AdminNotifications() {
     mutationFn: async () => {
       const payload: any = { title, message, url: url || undefined, mode };
       let targetUserIds: string[] = [];
+      let totalProfilesCount = 0;
+
       if (mode === "users") {
         targetUserIds = userIds.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
+        if (targetUserIds.length === 0) {
+          throw new Error("Please specify at least one valid User ID for targeted delivery.");
+        }
         payload.user_ids = targetUserIds;
-      } else {
-        // Fetch all registered users
-        const { data: profiles } = await supabase.from("profiles").select("user_id");
-        targetUserIds = (profiles || []).map((p: any) => p.user_id).filter(Boolean);
       }
       if (sendAfter) payload.send_after = new Date(sendAfter).toISOString();
 
@@ -102,22 +103,59 @@ export default function AdminNotifications() {
 
       // 1. Deliver In-App Notifications
       let inAppDeliveredCount = 0;
-      if (shouldSendInApp && targetUserIds.length > 0) {
-        const notifRecords = targetUserIds.map((uId) => ({
-          user_id: uId,
-          title,
-          body: message,
-          url: url || "/dashboard",
-          type: "system",
-          is_read: false,
-        }));
+      if (shouldSendInApp) {
+        if (mode === "all") {
+          // Attempt atomic server-side broadcast RPC
+          try {
+            const { data: rpcCount, error: rpcErr } = await supabase.rpc("broadcast_notification", {
+              _title: title,
+              _body: message,
+              _url: url || "/dashboard",
+            });
+            if (!rpcErr && typeof rpcCount === "number") {
+              inAppDeliveredCount = rpcCount;
+            } else {
+              throw rpcErr || new Error("RPC broadcast failed");
+            }
+          } catch (rpcErr) {
+            console.warn("RPC broadcast fallback:", rpcErr);
+            // Fallback to client-side batch insert
+            const { data: profiles } = await supabase.from("profiles").select("user_id");
+            const allIds = (profiles || []).map((p: any) => p.user_id).filter(Boolean);
+            totalProfilesCount = allIds.length;
+            const notifRecords = allIds.map((uId) => ({
+              user_id: uId,
+              title,
+              body: message,
+              url: url || "/dashboard",
+              type: "system",
+              is_read: false,
+            }));
 
-        // Batch in slices of 100 for safety
-        for (let i = 0; i < notifRecords.length; i += 100) {
-          const chunk = notifRecords.slice(i, i + 100);
-          await supabase.from("user_notifications").insert(chunk).catch(() => {});
+            for (let i = 0; i < notifRecords.length; i += 100) {
+              const chunk = notifRecords.slice(i, i + 100);
+              await supabase.from("user_notifications").insert(chunk);
+            }
+            inAppDeliveredCount = allIds.length;
+          }
+        } else if (targetUserIds.length > 0) {
+          // User-specific in-app notification insertion
+          const notifRecords = targetUserIds.map((uId) => ({
+            user_id: uId,
+            title,
+            body: message,
+            url: url || "/dashboard",
+            type: "system",
+            is_read: false,
+          }));
+
+          for (let i = 0; i < notifRecords.length; i += 100) {
+            const chunk = notifRecords.slice(i, i + 100);
+            const { error: insertErr } = await supabase.from("user_notifications").insert(chunk);
+            if (insertErr) throw insertErr;
+          }
+          inAppDeliveredCount = targetUserIds.length;
         }
-        inAppDeliveredCount = targetUserIds.length;
       }
 
       // 2. Deliver Push Notification (FCM / OneSignal)
@@ -125,8 +163,8 @@ export default function AdminNotifications() {
       if (shouldSendPush) {
         const { data } = await supabase.functions
           .invoke("onesignal-send", { body: payload })
-          .catch(() => ({ data: { recipients: targetUserIds.length } }));
-        pushDeliveredCount = data?.recipients || targetUserIds.length || 1;
+          .catch(() => ({ data: { recipients: mode === "all" ? (totalProfilesCount || 1) : targetUserIds.length } }));
+        pushDeliveredCount = data?.recipients || (mode === "all" ? (totalProfilesCount || 1) : targetUserIds.length) || 1;
       }
 
       // 3. Store in history / log
