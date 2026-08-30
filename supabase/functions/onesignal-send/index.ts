@@ -29,7 +29,6 @@ serve(async (req) => {
       return json({ error: "title and message required" }, 400);
     }
 
-    // Load OneSignal config + branding from site_settings
     const { data: settingsRows } = await sb
       .from("site_settings")
       .select("key,value")
@@ -47,8 +46,6 @@ serve(async (req) => {
     const absoluteUrl = (() => {
       if (!url) return undefined;
       if (/^https?:\/\//i.test(url)) return url;
-      // Best-effort: turn /path into absolute URL using the request origin (Lovable preview)
-      // OneSignal accepts relative paths but absolute is more reliable on the SW.
       return url;
     })();
 
@@ -62,7 +59,7 @@ serve(async (req) => {
       large_icon: icon,
       web_url: absoluteUrl,
       url: absoluteUrl,
-      ttl: 259200, // 3 days
+      ttl: 259200,
     };
 
     if (mode === "all") {
@@ -78,18 +75,11 @@ serve(async (req) => {
       const userIds: string[] = (body.user_ids || []).map(String).filter(Boolean);
       if (!userIds.length) return json({ sent: 0, note: "No user IDs supplied" });
 
-      // Primary: target via external_id alias (set via OneSignal.login on the client)
+      // IMPORTANT: user-targeted sends use only the OneSignal external_id alias.
+      // Do not mix in FCM tokens or profile fields as OneSignal subscription IDs.
+      // OneSignal.login(user.id) associates every subscription for that user with this alias.
       payload.include_aliases = { external_id: userIds };
       payload.target_channel = "push";
-
-      // Fallback subscription IDs for users who subscribed before external_id linking
-      const { data: profs } = await sb
-        .from("profiles")
-        .select("onesignal_player_id")
-        .in("user_id", userIds)
-        .not("onesignal_player_id", "is", null);
-      const subIds = (profs || []).map((p: any) => p.onesignal_player_id).filter(Boolean);
-      if (subIds.length) payload.include_subscription_ids = subIds;
     } else {
       return json({ error: "invalid mode" }, 400);
     }
@@ -106,7 +96,6 @@ serve(async (req) => {
     });
     const osData = await osRes.json().catch(() => ({}));
 
-    // Log to push_notifications table
     const authHeader = req.headers.get("Authorization");
     let sentBy: string | null = null;
     if (authHeader) {
