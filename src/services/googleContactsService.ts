@@ -71,7 +71,8 @@ export function setCustomGoogleClientId(clientId: string): void {
   }
 }
 
-export const REQUIRED_SCOPES = "https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/contacts.other.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
+export const REQUIRED_SCOPES =
+  "https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/contacts.other.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
 
 /**
  * Ensures that Google Identity Services (GSI) SDK is loaded on demand
@@ -161,11 +162,14 @@ export function clearGoogleSession(): void {
  * Request real Google OAuth 2.0 Consent for Google Contacts
  */
 export async function requestGoogleContactsConsent(customClientId?: string): Promise<GoogleAccountSession> {
-  const isLoaded = await ensureGoogleGsiLoaded();
-  if (!isLoaded || !window.google?.accounts?.oauth2) {
-    throw new Error(
-      "Google Identity Services SDK could not be loaded. Please ensure popups are allowed or use Universal 1-Click Sync!"
-    );
+  // Ensure GSI script is loaded
+  if (!window.google?.accounts?.oauth2) {
+    const isLoaded = await ensureGoogleGsiLoaded();
+    if (!isLoaded || !window.google?.accounts?.oauth2) {
+      throw new Error(
+        "Google Identity Services SDK could not be loaded. Please ensure popups/scripts are enabled or use Universal 1-Click Sync!"
+      );
+    }
   }
 
   const clientId = customClientId || getEffectiveGoogleClientId();
@@ -178,18 +182,28 @@ export async function requestGoogleContactsConsent(customClientId?: string): Pro
       const client = window.google!.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: REQUIRED_SCOPES,
-        prompt: "consent", // Force explicit user consent dialog
+        prompt: "", // Use default prompt behavior to allow smooth sign-in
         callback: async (response: GoogleTokenResponse) => {
           if (response.error) {
             const errDesc = response.error_description || response.error;
+            const errLower = errDesc.toLowerCase();
+
+            if (errLower.includes("origin_mismatch") || errLower.includes("origin")) {
+              return reject(
+                new Error(
+                  `Google OAuth Origin Error: The current domain (${window.location.origin}) must be added to Authorized JavaScript Origins in your Google Cloud Console for Client ID: ${clientId}.`
+                )
+              );
+            }
+
             if (
-              errDesc.toLowerCase().includes("access_denied") ||
-              errDesc.toLowerCase().includes("blocked") ||
-              errDesc.toLowerCase().includes("testing")
+              errLower.includes("access_denied") ||
+              errLower.includes("blocked") ||
+              errLower.includes("testing")
             ) {
               return reject(
                 new Error(
-                  `Google OAuth Notice: OAuth authorization was cancelled or requires verified project credentials. Universal 1-Click Sync is active with zero restrictions!`
+                  `Google OAuth Notice: Project is currently in testing mode or access was cancelled. Universal 1-Click Sync is active to save contacts instantly!`
                 )
               );
             }
@@ -226,8 +240,12 @@ export async function requestGoogleContactsConsent(customClientId?: string): Pro
           resolve(session);
         },
         error_callback: (err: any) => {
-          const msg = err?.message || "Google OAuth popup was closed or blocked.";
-          reject(new Error(`${msg} Tip: You can connect instantly using Universal 1-Click Sync!`));
+          const msg = err?.message || err?.type || "Google OAuth popup was closed or blocked.";
+          if (typeof msg === "string" && msg.includes("popup_closed")) {
+            reject(new Error("Google sign-in popup was closed. Click again when ready, or use Universal 1-Click Sync!"));
+          } else {
+            reject(new Error(`${msg}. Tip: Universal 1-Click Sync is available with zero restrictions!`));
+          }
         },
       });
 

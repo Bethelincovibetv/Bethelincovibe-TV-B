@@ -1598,19 +1598,58 @@ export default function WhatsAppStatusEngine() {
         </DialogContent>
       </Dialog>
 
-      {/* CUSTOM GOOGLE CLIENT ID DIALOG */}
+      {/* CUSTOM GOOGLE CLIENT ID & CONSOLE CONFIG DIALOG */}
       <Dialog open={googleConfigOpen} onOpenChange={setGoogleConfigOpen}>
-        <DialogContent className="rounded-3xl max-w-md">
+        <DialogContent className="rounded-3xl max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-base font-black flex items-center gap-2">
-              <Settings className="h-5 w-5 text-indigo-600" /> Google OAuth Configuration
+              <Settings className="h-5 w-5 text-indigo-600" /> Google Console & OAuth Settings
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Configure or override the Google Cloud Client ID used for Contacts API
+              Configure and test Google Contacts OAuth for <strong>https://bethelincovibetv.com.ng</strong>
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2 text-xs">
+            {/* Live Connection Status */}
+            <div className="p-3 rounded-2xl bg-muted/50 border flex items-center justify-between">
+              <div>
+                <p className="font-extrabold text-foreground text-xs">Active Session Status</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {googleSession ? (
+                    <span className="text-emerald-600 font-bold flex items-center gap-1 mt-0.5">
+                      <CheckCircle2 className="h-3.5 w-3.5" /> Connected as {googleSession.userEmail || "Google Account"}
+                    </span>
+                  ) : (
+                    <span className="text-amber-600 font-medium flex items-center gap-1 mt-0.5">
+                      <AlertCircle className="h-3.5 w-3.5" /> Not currently authenticated
+                    </span>
+                  )}
+                </p>
+              </div>
+              {googleSession ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleDisconnectGoogle}
+                  className="rounded-xl text-xs font-bold h-8 text-red-600 border-red-200 hover:bg-red-50"
+                >
+                  <LogOut className="h-3.5 w-3.5 mr-1" /> Disconnect
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={async () => {
+                    await handleConnectGoogle();
+                  }}
+                  disabled={connectingGoogle}
+                  className="rounded-xl text-xs font-bold h-8 bg-emerald-600 hover:bg-emerald-700 text-white"
+                >
+                  {connectingGoogle ? "Connecting..." : "Connect Now"}
+                </Button>
+              )}
+            </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs font-bold">Google OAuth Client ID</Label>
               <Input
@@ -1620,19 +1659,67 @@ export default function WhatsAppStatusEngine() {
                 className="h-9 text-xs rounded-xl font-mono text-[11px]"
               />
               <p className="text-[10px] text-muted-foreground">
-                Leave empty to use the system default, or paste your own Google Cloud Web Client ID.
+                Override with your verified Web Client ID from Google Cloud Console, or leave default.
               </p>
             </div>
 
-            <div className="p-3 rounded-xl bg-muted/40 border text-[11px] text-muted-foreground space-y-1">
-              <p className="font-bold text-foreground">Authorized JavaScript Origins needed in Google Cloud Console:</p>
-              <code className="block bg-background p-1.5 rounded-lg text-[10px] font-mono select-all overflow-x-auto">
-                {window.location.origin}
-              </code>
+            {/* Google Cloud Console URLs with Copy Buttons */}
+            <div className="p-3.5 rounded-2xl bg-slate-900 text-white space-y-2.5">
+              <div className="flex items-center justify-between">
+                <p className="font-extrabold text-[11px] uppercase tracking-wider text-emerald-400">
+                  Google Cloud Console Settings
+                </p>
+                <span className="text-[9px] text-slate-400 font-mono">APIs &amp; Services &gt; Credentials</span>
+              </div>
+
+              <div className="space-y-2">
+                <div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-300 font-semibold mb-1">
+                    <span>1. Authorized JavaScript Origins:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://bethelincovibetv.com.ng");
+                        toast.success("Copied https://bethelincovibetv.com.ng to clipboard!");
+                      }}
+                      className="text-emerald-400 hover:underline flex items-center gap-1 font-bold"
+                    >
+                      <Copy className="h-3 w-3" /> Copy Domain
+                    </button>
+                  </div>
+                  <div className="bg-black/50 p-2 rounded-xl text-[10px] font-mono text-emerald-300 space-y-1 select-all">
+                    <div>https://bethelincovibetv.com.ng</div>
+                    <div>https://www.bethelincovibetv.com.ng</div>
+                    {typeof window !== "undefined" && !window.location.origin.includes("bethelincovibetv.com.ng") && (
+                      <div className="text-slate-400">{window.location.origin}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center text-[10px] text-slate-300 font-semibold mb-1">
+                    <span>2. Authorized Redirect URIs:</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText("https://bethelincovibetv.com.ng/whatsapp-engine");
+                        toast.success("Copied Redirect URI to clipboard!");
+                      }}
+                      className="text-emerald-400 hover:underline flex items-center gap-1 font-bold"
+                    >
+                      <Copy className="h-3 w-3" /> Copy URI
+                    </button>
+                  </div>
+                  <div className="bg-black/50 p-2 rounded-xl text-[10px] font-mono text-emerald-300 space-y-1 select-all">
+                    <div>https://bethelincovibetv.com.ng/whatsapp-engine</div>
+                    <div>https://www.bethelincovibetv.com.ng/whatsapp-engine</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2 sm:gap-0 flex-wrap">
             <Button
               variant="outline"
               size="sm"
