@@ -9,12 +9,17 @@ if (typeof window !== "undefined") {
     const s = (str || "").toLowerCase();
     return (
       s.includes("failed to fetch") ||
+      s.includes("fetch failed") ||
       s.includes("network_error") ||
       s.includes("network error") ||
       s.includes("load failed") ||
       s.includes("onesignal") ||
       s.includes("google") ||
       s.includes("ggd") ||
+      s.includes("ad_network") ||
+      s.includes("adsterra") ||
+      s.includes("monetag") ||
+      s.includes("startio") ||
       s.includes("aborted") ||
       s.includes("loading chunk") ||
       s.includes("dynamically imported module") ||
@@ -24,6 +29,7 @@ if (typeof window !== "undefined") {
     );
   };
 
+  // Intercept unhandled promise rejections
   const origUnhandledRejection = window.onunhandledrejection;
   window.onunhandledrejection = function (event: PromiseRejectionEvent) {
     const reason = event?.reason;
@@ -37,6 +43,7 @@ if (typeof window !== "undefined") {
     }
   };
 
+  // Intercept global runtime errors
   const origOnError = window.onerror;
   window.onerror = function (eventOrMessage, source, lineno, colno, error, ...args: any[]) {
     const msg = (
@@ -60,7 +67,7 @@ if (typeof window !== "undefined") {
       event.preventDefault?.();
       event.stopPropagation?.();
     }
-  });
+  }, true);
 
   window.addEventListener("error", (event) => {
     const msg = (event.message || event.error?.message || "").toLowerCase();
@@ -68,7 +75,7 @@ if (typeof window !== "undefined") {
       event.preventDefault?.();
       event.stopPropagation?.();
     }
-  });
+  }, true);
 }
 
 createRoot(document.getElementById("root")!).render(

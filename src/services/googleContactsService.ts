@@ -71,7 +71,42 @@ export function setCustomGoogleClientId(clientId: string): void {
   }
 }
 
-export const REQUIRED_SCOPES = "https://www.googleapis.com/auth/contacts";
+export const REQUIRED_SCOPES = "https://www.googleapis.com/auth/contacts https://www.googleapis.com/auth/contacts.other.readonly https://www.googleapis.com/auth/userinfo.profile https://www.googleapis.com/auth/userinfo.email";
+
+/**
+ * Ensures that Google Identity Services (GSI) SDK is loaded on demand
+ */
+export async function ensureGoogleGsiLoaded(): Promise<boolean> {
+  if (typeof window !== "undefined" && window.google?.accounts?.oauth2) {
+    return true;
+  }
+
+  return new Promise((resolve) => {
+    if (typeof document === "undefined") return resolve(false);
+
+    let script = document.querySelector('script[src="https://accounts.google.com/gsi/client"]') as HTMLScriptElement | null;
+    if (!script) {
+      script = document.createElement("script");
+      script.src = "https://accounts.google.com/gsi/client";
+      script.async = true;
+      script.defer = true;
+      document.head.appendChild(script);
+    }
+
+    let attempts = 0;
+    const maxAttempts = 30; // 3 seconds timeout
+    const interval = setInterval(() => {
+      attempts++;
+      if (window.google?.accounts?.oauth2) {
+        clearInterval(interval);
+        resolve(true);
+      } else if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        resolve(false);
+      }
+    }, 100);
+  });
+}
 
 /**
  * Get active stored Google Contacts session if still valid
@@ -112,7 +147,9 @@ export function clearGoogleSession(): void {
   const session = getStoredGoogleSession();
   if (session?.accessToken && window.google?.accounts?.oauth2?.revoke) {
     try {
-      window.google.accounts.oauth2.revoke(session.accessToken);
+      window.google.accounts.oauth2.revoke(session.accessToken, () => {
+        console.log("Google session revoked successfully");
+      });
     } catch (e) {
       console.warn("Could not revoke token via Google API", e);
     }
@@ -123,41 +160,40 @@ export function clearGoogleSession(): void {
 /**
  * Request real Google OAuth 2.0 Consent for Google Contacts
  */
-export function requestGoogleContactsConsent(customClientId?: string): Promise<GoogleAccountSession> {
+export async function requestGoogleContactsConsent(customClientId?: string): Promise<GoogleAccountSession> {
+  const isLoaded = await ensureGoogleGsiLoaded();
+  if (!isLoaded || !window.google?.accounts?.oauth2) {
+    throw new Error(
+      "Google Identity Services SDK could not be loaded. Please ensure popups are allowed or use Universal 1-Click Sync!"
+    );
+  }
+
+  const clientId = customClientId || getEffectiveGoogleClientId();
+  if (!clientId) {
+    throw new Error("Google OAuth Client ID is missing. Please configure a valid Client ID or use Universal 1-Click Sync.");
+  }
+
   return new Promise((resolve, reject) => {
-    if (!window.google?.accounts?.oauth2) {
-      return reject(
-        new Error(
-          "Google Identity Services SDK is still loading or blocked. You can use Universal 1-Click Sync which works for 100% of accounts without Google sign-in!"
-        )
-      );
-    }
-
-    const clientId = customClientId || getEffectiveGoogleClientId();
-    if (!clientId) {
-      return reject(
-        new Error("Google OAuth Client ID is missing. Please configure a valid Client ID or use Universal 1-Click Sync.")
-      );
-    }
-
     try {
-      const client = window.google.accounts.oauth2.initTokenClient({
+      const client = window.google!.accounts.oauth2.initTokenClient({
         client_id: clientId,
         scope: REQUIRED_SCOPES,
         prompt: "consent", // Force explicit user consent dialog
         callback: async (response: GoogleTokenResponse) => {
           if (response.error) {
             const errDesc = response.error_description || response.error;
-            if (errDesc.toLowerCase().includes("access_denied") || errDesc.toLowerCase().includes("blocked") || errDesc.toLowerCase().includes("testing")) {
+            if (
+              errDesc.toLowerCase().includes("access_denied") ||
+              errDesc.toLowerCase().includes("blocked") ||
+              errDesc.toLowerCase().includes("testing")
+            ) {
               return reject(
                 new Error(
-                  `Google OAuth Notice: This Google Cloud project is in testing mode. You can either use Universal 1-Click Sync (works for everyone with zero restrictions) or configure a verified Google Client ID in settings.`
+                  `Google OAuth Notice: OAuth authorization was cancelled or requires verified project credentials. Universal 1-Click Sync is active with zero restrictions!`
                 )
               );
             }
-            return reject(
-              new Error(errDesc || "Google authorization failed")
-            );
+            return reject(new Error(errDesc || "Google authorization failed"));
           }
           if (!response.access_token) {
             return reject(new Error("No access token returned by Google OAuth."));
@@ -171,7 +207,7 @@ export function requestGoogleContactsConsent(customClientId?: string): Promise<G
             grantedAt: new Date().toISOString(),
           };
 
-          // Optionally fetch user email for display
+          // Fetch user profile info
           try {
             const userRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
               headers: { Authorization: `Bearer ${response.access_token}` },
