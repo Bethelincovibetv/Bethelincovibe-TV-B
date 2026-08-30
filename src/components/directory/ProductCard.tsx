@@ -89,7 +89,7 @@ export default function ProductCard({
   if (view === "list") {
     return (
       <Link to={to} className="group block">
-        <article className="relative flex flex-col sm:flex-row gap-4 rounded-3xl border-2 border-border/80 bg-card p-4 transition-all duration-300 hover:border-primary/60 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.995]">
+        <article className="relative flex flex-col sm:flex-row gap-4 rounded-3xl border border-border/80 bg-card p-4 transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.995]">
           <div className="relative h-44 sm:h-36 sm:w-36 shrink-0 overflow-hidden rounded-2xl bg-muted border border-border/50 shadow-inner">
             {media}
           </div>
@@ -128,7 +128,7 @@ export default function ProductCard({
                 </div>
               </div>
 
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground shadow-md transition-transform group-hover:scale-105">
+              <span className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
                 <ShoppingBag className="h-3.5 w-3.5" /> View Details
               </span>
             </div>
@@ -140,17 +140,17 @@ export default function ProductCard({
 
   return (
     <Link to={to} className="group block h-full">
-      <article className="relative flex h-full flex-col overflow-hidden rounded-3xl border-2 border-border/80 bg-card transition-all duration-300 hover:border-primary/60 hover:-translate-y-1.5 hover:shadow-2xl active:scale-[0.99]">
+      <article className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-card transition-all duration-300 hover:border-primary/50 hover:-translate-y-1 hover:shadow-xl active:scale-[0.99]">
         {/* 3D Media Aspect */}
         <div className="relative aspect-square overflow-hidden bg-muted">
           {media}
-          <span className="absolute bottom-2.5 left-2.5 rounded-xl bg-background/95 px-2.5 py-1 text-[11px] font-black text-foreground backdrop-blur-md shadow-md border border-border/60">
+          <span className="absolute bottom-2.5 left-2.5 rounded-xl bg-background/90 px-2.5 py-1 text-[11px] font-black text-foreground backdrop-blur-md shadow-xs border border-border/60">
             {catInfo.name}
           </span>
         </div>
 
         {/* Content Body */}
-        <div className="flex flex-1 flex-col justify-between p-4 space-y-3 bg-gradient-to-b from-card to-card/70">
+        <div className="flex flex-1 flex-col justify-between p-4 space-y-3 bg-gradient-to-b from-card to-card/80">
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-[11px]">
               <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
@@ -180,7 +180,7 @@ export default function ProductCard({
               )}
             </div>
 
-            <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-primary-foreground shadow-md transition-all group-hover:bg-primary/90 group-hover:shadow-lg">
+            <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-primary-foreground shadow-xs transition-all group-hover:bg-primary/90 group-hover:shadow-md">
               <ShoppingBag className="h-3.5 w-3.5" /> View Listing <ArrowRight className="h-3 w-3 ml-0.5 transition-transform group-hover:translate-x-1" />
             </span>
           </div>

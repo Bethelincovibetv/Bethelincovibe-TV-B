@@ -27,12 +27,14 @@ export default function BlogPost() {
   const { data: post, isLoading } = useQuery({
     queryKey: ["blog-post", slug],
     queryFn: async () => {
+      const decodedSlug = slug ? decodeURIComponent(slug).trim() : "";
+      const isUuid = /^[0-9a-f-]{36}$/i.test(decodedSlug);
       const { data } = await supabase
         .from("blog_posts")
         .select("*, categories(name, slug)")
-        .eq("slug", slug)
+        .eq(isUuid ? "id" : "slug", decodedSlug)
         .eq("published", true)
-        .single();
+        .maybeSingle();
       return data;
     },
   });

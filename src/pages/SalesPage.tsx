@@ -61,21 +61,38 @@ export default function SalesPage() {
   useEffect(() => {
     if (!slug) return;
     (async () => {
+      const decodedSlug = slug ? decodeURIComponent(slug).trim() : "";
+      const isUuid = /^[0-9a-f-]{36}$/i.test(decodedSlug);
+
+      let foundPage: any = null;
+
       const [{ data }, { data: setting }] = await Promise.all([
-        supabase.from("sales_pages").select("*").eq("slug", slug).maybeSingle(),
+        supabase.from("sales_pages").select("*").eq(isUuid ? "id" : "slug", decodedSlug).maybeSingle(),
         supabase.from("site_settings").select("value").eq("key", "leads_enabled_global").maybeSingle(),
       ]);
-      if (!data) { setNotFound(true); return; }
-      setPage(data);
+
+      if (data) {
+        foundPage = data;
+      } else if (!isUuid) {
+        const { data: ilikeData } = await supabase
+          .from("sales_pages")
+          .select("*")
+          .ilike("slug", decodedSlug)
+          .maybeSingle();
+        if (ilikeData) foundPage = ilikeData;
+      }
+
+      if (!foundPage) { setNotFound(true); return; }
+      setPage(foundPage);
       setGlobalLeads(setting?.value !== "false");
       await supabase.from("sales_page_events").insert({
-        sales_page_id: data.id,
+        sales_page_id: foundPage.id,
         type: "view",
         referrer: document.referrer,
         device: detectDevice(),
         source: detectSource(),
       });
-      await supabase.from("sales_pages").update({ views_count: (data.views_count || 0) + 1 }).eq("id", data.id);
+      await supabase.from("sales_pages").update({ views_count: (foundPage.views_count || 0) + 1 }).eq("id", foundPage.id);
     })();
   }, [slug]);
 
@@ -105,7 +122,27 @@ export default function SalesPage() {
     } catch { return ""; }
   }, [page]);
 
-  if (notFound) return <div className="min-h-screen flex items-center justify-center"><p>Page not found.</p></div>;
+  if (notFound) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-4 text-center bg-background">
+        <div className="max-w-md w-full bg-card p-8 rounded-3xl border border-border shadow-xl space-y-4">
+          <div className="h-16 w-16 bg-muted rounded-2xl flex items-center justify-center mx-auto text-muted-foreground">
+            <Sparkles className="h-8 w-8" />
+          </div>
+          <h1 className="text-2xl font-black text-foreground">Sales Page Not Found</h1>
+          <p className="text-sm text-muted-foreground">This promotional sales page is no longer active or the link has changed.</p>
+          <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+            <Button asChild className="font-bold">
+              <Link to="/sales">Explore Sales Offers</Link>
+            </Button>
+            <Button asChild variant="outline">
+              <Link to="/">Go to Homepage</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!page) return <div className="min-h-screen flex items-center justify-center"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" /></div>;
 
   const track = async (type: string) => {

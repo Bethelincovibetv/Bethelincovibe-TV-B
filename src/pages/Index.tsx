@@ -122,28 +122,28 @@ export default function Index() {
             <div className="flex flex-wrap items-center justify-center gap-2 pt-1 pb-2">
               {flags.businesses && (
                 <Link to="/businesses">
-                  <Badge variant="outline" className="hover:bg-primary/10 transition-colors py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-semibold">
+                  <Badge variant="outline" className="glass-pill py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-bold text-foreground">
                     <Store className="h-3.5 w-3.5 text-primary" /> Discover Businesses
                   </Badge>
                 </Link>
               )}
               {flags.products && (
                 <Link to="/products">
-                  <Badge variant="outline" className="hover:bg-primary/10 transition-colors py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-semibold">
+                  <Badge variant="outline" className="glass-pill py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-bold text-foreground">
                     <ShoppingBag className="h-3.5 w-3.5 text-primary" /> Explore Products
                   </Badge>
                 </Link>
               )}
               {flags.blog && (
                 <Link to="/blog/category/startup-guides">
-                  <Badge variant="outline" className="hover:bg-primary/10 transition-colors py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-semibold">
+                  <Badge variant="outline" className="glass-pill py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-bold text-foreground">
                     <BookOpen className="h-3.5 w-3.5 text-primary" /> Startup Guides
                   </Badge>
                 </Link>
               )}
               {flags.business_listing && (
                 <Link to="/businesses/list">
-                  <Badge variant="outline" className="hover:bg-primary/10 transition-colors py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-semibold">
+                  <Badge variant="outline" className="glass-pill py-1.5 px-3 rounded-xl gap-1.5 cursor-pointer text-xs font-bold text-foreground">
                     <Megaphone className="h-3.5 w-3.5 text-primary" /> List Your Business
                   </Badge>
                 </Link>

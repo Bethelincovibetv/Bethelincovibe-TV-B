@@ -171,7 +171,7 @@ export default function Forum() {
 
   const popular = useMemo(() => [...posts].sort((a, b) => b.likes_count - a.likes_count).slice(0, 3), [posts]);
 
-  const matchedCat = FORUM_CATEGORIES.find((c) => c.key === selectedCategory);
+  const matchedCat = FORUM_CATEGORIES.find((c) => c.key === cat);
   const forumTitle = matchedCat
     ? `${matchedCat.label} — Community Forum | ${SITE_NAME}`
     : search.trim()

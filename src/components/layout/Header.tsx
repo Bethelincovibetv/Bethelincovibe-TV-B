@@ -29,11 +29,11 @@ export default function Header() {
   const navLinks = allNavLinks.filter((l) => !l.feature || (flags as any)[l.feature]);
 
   return (
-    <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 glass-nav transition-all">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <Link to="/" className="flex items-center gap-2">
-          <img src="/logo.png" alt="Bethelincovibe TV" className="h-10 w-10 rounded-lg object-contain" />
-          <span className="text-lg font-bold text-primary hidden sm:inline">Bethelincovibe TV</span>
+        <Link to="/" className="flex items-center gap-2.5 transition-transform hover:scale-105 active:scale-95 duration-200">
+          <img src="/logo.png" alt="Bethelincovibe TV" className="h-10 w-10 rounded-xl object-contain shadow-2xs" />
+          <span className="text-lg font-extrabold text-primary hidden sm:inline tracking-tight">Bethelincovibe TV</span>
         </Link>
 
         {/* Desktop nav */}
@@ -46,8 +46,8 @@ export default function Header() {
                 to={l.to}
                 className={`px-3 py-2 text-sm font-bold rounded-xl transition-all duration-200 flex items-center gap-2 ${
                   isActive
-                    ? "bg-primary/10 text-primary border border-primary/20 shadow-xs"
-                    : "text-foreground/80 hover:bg-secondary hover:text-foreground"
+                    ? "bg-primary/10 text-primary border border-primary/25 shadow-xs"
+                    : "text-foreground/85 hover:bg-secondary/80 hover:text-foreground active:scale-95"
                 }`}
               >
                 <span className={`p-1 rounded-lg bg-gradient-to-br from-primary to-accent text-white shadow-[0_2px_6px_-1px_rgba(0,0,0,0.25)] ring-1 ring-white/20 ${isActive ? "scale-105" : "opacity-90"}`}>
@@ -86,10 +86,10 @@ export default function Header() {
         </div>
 
         {/* Mobile language + toggle */}
-        <div className="flex items-center gap-1 lg:hidden">
+        <div className="flex items-center gap-1.5 lg:hidden">
           {user && <NotificationBell />}
           <LanguageSwitcher />
-          <Button variant="ghost" size="icon" onClick={() => setOpen(!open)} aria-label="Toggle menu">
+          <Button variant="ghost" size="icon" onClick={() => setOpen(!open)} aria-label="Toggle menu" className="rounded-xl">
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </Button>
         </div>
@@ -97,7 +97,7 @@ export default function Header() {
 
       {/* Mobile nav drawer */}
       {open && (
-        <div className="lg:hidden border-t bg-background/98 backdrop-blur-xl shadow-2xl">
+        <div className="lg:hidden border-t border-border/80 glass-panel shadow-2xl animate-in slide-in-from-top-2 duration-200">
           <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
             {navLinks.map((l) => {
               const isActive = location.pathname === l.to;

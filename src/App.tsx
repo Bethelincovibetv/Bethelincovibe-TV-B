@@ -318,6 +318,7 @@ const App = () => (
 
             {/* Standalone public sales pages (no layout chrome) */}
             <Route path="/sales/:slug" element={<SalesPage />} />
+            <Route path="/s/:slug" element={<SalesPage />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

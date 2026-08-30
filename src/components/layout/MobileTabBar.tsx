@@ -74,7 +74,7 @@ export default function MobileTabBar() {
       style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 0.5rem)" }}
       aria-label="Primary"
     >
-      <div className="rounded-3xl border border-border/80 bg-background/90 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.18)]">
+      <div className="rounded-3xl border border-border/80 glass-surface shadow-[0_12px_40px_rgba(0,0,0,0.18)] ring-1 ring-white/10">
         <div
           className="grid px-1.5 py-2"
           style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}

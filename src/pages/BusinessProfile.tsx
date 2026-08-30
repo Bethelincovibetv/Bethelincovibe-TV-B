@@ -53,29 +53,45 @@ export default function BusinessProfile() {
       setRelated([]);
       setProducts([]);
       setOwnerProfile(null);
+      
+      const decodedSlug = slug ? decodeURIComponent(slug).trim() : "";
+      const isUuid = /^[0-9a-f-]{36}$/i.test(decodedSlug);
+
+      let foundBiz: any = null;
+
       const { data } = await supabase
         .from("suppliers")
         .select("*, categories(name, slug)")
-        .eq("slug", slug!)
-        .eq("active", true)
-        .eq("status", "approved")
+        .eq(isUuid ? "id" : "slug", decodedSlug)
         .maybeSingle();
-      setBiz(data);
-      if (data?.id) {
+
+      if (data) {
+        foundBiz = data;
+      } else if (!isUuid) {
+        const { data: ilikeData } = await supabase
+          .from("suppliers")
+          .select("*, categories(name, slug)")
+          .ilike("slug", decodedSlug)
+          .maybeSingle();
+        if (ilikeData) foundBiz = ilikeData;
+      }
+
+      setBiz(foundBiz);
+      if (foundBiz?.id) {
         const { data: imgs } = await supabase
           .from("supplier_images")
           .select("*")
-          .eq("supplier_id", data.id)
+          .eq("supplier_id", foundBiz.id)
           .order("display_order");
         setImages(imgs ?? []);
-        track(data.id, "view");
+        track(foundBiz.id, "view");
 
         // Fetch products submitted by business owner
-        if (data.submitted_by) {
+        if (foundBiz.submitted_by) {
           const { data: prods } = await supabase
             .from("directory_products")
             .select("*, categories(name, slug)")
-            .eq("user_id", data.submitted_by)
+            .eq("user_id", foundBiz.submitted_by)
             .eq("active", true)
             .order("featured", { ascending: false })
             .order("created_at", { ascending: false })
@@ -85,19 +101,19 @@ export default function BusinessProfile() {
           const { data: prof } = await supabase
             .from("profiles")
             .select("username, display_name, avatar_url, bio, phone, whatsapp, email")
-            .eq("user_id", data.submitted_by)
+            .eq("user_id", foundBiz.submitted_by)
             .maybeSingle();
           setOwnerProfile(prof);
         }
 
-        if (data.category_id) {
+        if (foundBiz.category_id) {
           const { data: rel } = await supabase
             .from("suppliers")
             .select("*, categories(name, slug)")
             .eq("active", true)
             .eq("status", "approved")
-            .eq("category_id", data.category_id)
-            .neq("id", data.id)
+            .eq("category_id", foundBiz.category_id)
+            .neq("id", foundBiz.id)
             .order("boosted_until", { ascending: false, nullsFirst: false })
             .limit(6);
           setRelated(rel ?? []);

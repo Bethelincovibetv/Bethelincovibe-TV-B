@@ -211,8 +211,9 @@ export default function UserDashboard() {
       <Helmet><title>My Dashboard | Bethelincovibe TV</title></Helmet>
 
       {/* Mobile-app style header */}
-      <div className="bg-gradient-to-br from-primary via-purple-700 to-indigo-900 text-white px-4 py-5 sm:py-8 rounded-b-3xl shadow-xl">
-        <div className="container mx-auto max-w-5xl">
+      <div className="relative overflow-hidden bg-gradient-to-br from-primary via-purple-700 to-indigo-900 text-white px-4 py-5 sm:py-8 rounded-b-3xl shadow-xl">
+        <span aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-1/2 bg-gradient-to-b from-white/15 to-transparent" />
+        <div className="container mx-auto max-w-5xl relative z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="min-w-0 flex-1 flex items-center justify-between">
               <div>
@@ -224,7 +225,7 @@ export default function UserDashboard() {
               </div>
 
               {profile?.username && (
-                <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 text-xs h-8 px-2.5 md:hidden shrink-0">
+                <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 text-xs h-8 px-2.5 md:hidden shrink-0 backdrop-blur-xs">
                   <Link to={`/u/${profile.username}`} target="_blank">
                     <ExternalLink className="h-3.5 w-3.5 mr-1" /> View Site
                   </Link>
@@ -239,14 +240,14 @@ export default function UserDashboard() {
                   title={`${displayName}'s Public Site QR Code`}
                   subtitle="Print on business cards, flyers & banners for customer scanning"
                   trigger={
-                    <Button size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
+                    <Button size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3 backdrop-blur-xs shadow-2xs">
                       <QrCode className="h-4 w-4 sm:mr-1 text-emerald-300" />
                       <span className="hidden sm:inline">My </span>QR Code
                     </Button>
                   }
                 />
               )}
-              <Button size="sm" variant="secondary" onClick={() => setWizardOpen(true)} className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
+              <Button size="sm" variant="secondary" onClick={() => setWizardOpen(true)} className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3 backdrop-blur-xs shadow-2xs">
                 <Wand2 className="h-4 w-4 sm:mr-1 text-amber-300" />
                 <span className="hidden sm:inline">Setup </span>Wizard
               </Button>
@@ -258,7 +259,7 @@ export default function UserDashboard() {
                   </Link>
                 </Button>
               )}
-              <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3">
+              <Button asChild size="sm" variant="secondary" className="bg-white/20 hover:bg-white/30 text-white font-bold border-0 shrink-0 text-xs h-9 px-2.5 sm:px-3 backdrop-blur-xs shadow-2xs">
                 <Link to="/dashboard/profile-edit">
                   <Settings className="h-4 w-4 sm:mr-1" />
                   <span>Edit Profile</span>
@@ -268,13 +269,13 @@ export default function UserDashboard() {
           </div>
 
           {/* Wallet card */}
-          <Card className="mt-5 bg-card/95 text-card-foreground shadow-xl border-border/60">
+          <Card className="mt-5 glass-card-elevated text-card-foreground shadow-2xl border-white/20 bg-card/95 backdrop-blur-xl">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
                 <p className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5"><Wallet className="h-3.5 w-3.5 text-primary" />Wallet Balance</p>
                 <p className="text-2xl font-black text-foreground">₦{balance.toLocaleString()}</p>
               </div>
-              <Button asChild size="sm" className="rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90">
+              <Button asChild size="sm" className="rounded-xl font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
                 <Link to="/dashboard/wallet"><Plus className="h-4 w-4 mr-1" />Top Up</Link>
               </Button>
             </CardContent>
@@ -305,7 +306,7 @@ export default function UserDashboard() {
             <Link
               key={t.to}
               to={t.to}
-              className="group flex flex-col items-center justify-center gap-2.5 rounded-2xl border border-border/80 bg-card p-3.5 text-center shadow-xs hover:shadow-xl hover:border-primary/50 transition-all duration-300 active:scale-95"
+              className="group flex flex-col items-center justify-center gap-2.5 rounded-2xl border border-border/80 glass-card p-3.5 text-center shadow-xs hover:shadow-xl hover:border-primary/50 transition-all duration-300 active:scale-95"
             >
               {/* 3D Elevated Icon Badge */}
               <div className={`h-12 w-12 rounded-2xl bg-gradient-to-br ${t.color} flex items-center justify-center text-white shadow-[0_6px_16px_-3px_rgba(0,0,0,0.32),inset_0_1.5px_0_rgba(255,255,255,0.45)] ring-2 ring-white/20 transition-transform group-hover:scale-110 duration-300`}>
@@ -322,8 +323,8 @@ export default function UserDashboard() {
         <ProgrammaticAdBanner placement="dashboard" format="banner" className="my-2" />
 
         {/* Recent Activity Feed */}
-        <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden">
-          <CardHeader className="flex-row items-center justify-between bg-muted/30 pb-3 border-b">
+        <Card className="border-border/80 glass-card shadow-md rounded-3xl overflow-hidden">
+          <CardHeader className="flex-row items-center justify-between bg-muted/30 pb-3 border-b border-border/60">
             <CardTitle className="text-base font-extrabold flex items-center gap-2">
               <div className="p-2 rounded-xl bg-primary/10 text-primary">
                 <Activity className="h-4 w-4" />
@@ -383,7 +384,7 @@ export default function UserDashboard() {
         {/* Stats row */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Link to="/dashboard/favorites" className="block">
-            <Card className="hover:border-primary/40 transition-colors h-full">
+            <Card className="glass-card hover:border-primary/50 transition-all h-full">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Saved Posts</p>
                 <p className="text-2xl font-bold">{favCount}</p>
@@ -391,7 +392,7 @@ export default function UserDashboard() {
             </Card>
           </Link>
           <Link to="/dashboard/my-blogs" className="block">
-            <Card className="hover:border-primary/40 transition-colors h-full">
+            <Card className="glass-card hover:border-primary/50 transition-all h-full">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Blog Submissions</p>
                 <p className="text-2xl font-bold text-primary">{submissions.length}</p>
@@ -399,7 +400,7 @@ export default function UserDashboard() {
             </Card>
           </Link>
           <Link to="/dashboard/profile-edit" className="col-span-2 sm:col-span-1 block">
-            <Card className="hover:border-primary/40 transition-colors h-full">
+            <Card className="glass-card hover:border-primary/50 transition-all h-full">
               <CardContent className="p-4">
                 <p className="text-xs text-muted-foreground">Profile Status</p>
                 <p className="text-sm font-semibold mt-1">

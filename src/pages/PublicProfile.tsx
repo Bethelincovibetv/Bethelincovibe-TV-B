@@ -113,25 +113,44 @@ export default function PublicProfile() {
 
   useEffect(() => {
     (async () => {
-      let q = supabase.from("profiles").select("*").eq("is_public", true).maybeSingle();
-      if (username === "me") {
+      setLoading(true);
+      const decodedUser = username ? decodeURIComponent(username).trim() : "";
+      const isUuid = /^[0-9a-f-]{36}$/i.test(decodedUser);
+
+      let foundProfile: any = null;
+
+      if (decodedUser === "me") {
         if (!user) {
           setLoading(false);
           return;
         }
-        q = supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+        const { data } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
+        foundProfile = data;
+      } else if (isUuid) {
+        const { data } = await supabase.from("profiles").select("*").eq("user_id", decodedUser).maybeSingle();
+        foundProfile = data;
       } else {
-        q = supabase
+        const { data } = await supabase
           .from("profiles")
           .select("*")
-          .eq("username", username!)
-          .eq("is_public", true)
+          .eq("username", decodedUser)
           .maybeSingle();
-      }
-      const { data } = await q;
-      setProfile(data);
 
-      if (data?.user_id) {
+        if (data) {
+          foundProfile = data;
+        } else {
+          const { data: ilikeData } = await supabase
+            .from("profiles")
+            .select("*")
+            .ilike("username", decodedUser)
+            .maybeSingle();
+          foundProfile = ilikeData;
+        }
+      }
+
+      setProfile(foundProfile);
+
+      if (foundProfile?.user_id) {
         // Fetch Sales Pages
         const { data: sp } = await supabase
           .from("sales_pages")
