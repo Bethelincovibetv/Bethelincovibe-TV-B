@@ -62,8 +62,7 @@ export function resolveEntityOgImage(opts: {
   });
 }
 
-/** Pre-configured OG Image generators for every major section of the application */
-export const PAGE_OG_IMAGES = {
+const BASE_PAGE_OG_IMAGES = {
   home: () =>
     ogImageUrl({
       title: "Bethelincovibe TV — Lagos Premier Business & Supplier Hub",
@@ -94,6 +93,12 @@ export const PAGE_OG_IMAGES = {
       subtitle: count ? `${count} verified business listings ready to connect.` : `Discover top-rated ${categoryName} services and suppliers.`,
       badge: "Business Directory",
     }),
+  listBusiness: () =>
+    ogImageUrl({
+      title: "Register Your Business on Bethelincovibe TV",
+      subtitle: "Get verified, receive direct WhatsApp inquiries, and scale your Lagos business visibility.",
+      badge: "List Business",
+    }),
   products: () =>
     ogImageUrl({
       title: "Products & Marketplace | Bethelincovibe TV",
@@ -105,6 +110,12 @@ export const PAGE_OG_IMAGES = {
       title: `${categoryName} — Lagos Marketplace`,
       subtitle: `Find the best verified deals and verified sellers in ${categoryName}.`,
       badge: "Product Category",
+    }),
+  listProduct: () =>
+    ogImageUrl({
+      title: "List a Product on Lagos Marketplace",
+      subtitle: "Sell physical inventory, wholesale packages, or digital creator downloads with zero commissions.",
+      badge: "Sell Products",
     }),
   salesDirectory: () =>
     ogImageUrl({
@@ -142,17 +153,53 @@ export const PAGE_OG_IMAGES = {
       subtitle: "Calculate startup costs, monthly break-even margins, and ROI before investing.",
       badge: "Free Business Tools",
     }),
+  calculator: () =>
+    ogImageUrl({
+      title: "AI Startup Financial Feasibility & Runway Calculator",
+      subtitle: "Free AI-powered financial model for Nigerian entrepreneurs: runway, break-even, and margin estimates.",
+      badge: "AI Startup Tool",
+    }),
   startupCalculator: () =>
     ogImageUrl({
       title: "AI Startup Financial Feasibility & Runway Calculator",
       subtitle: "Free AI-powered financial model for Nigerian entrepreneurs: runway, break-even, and margin estimates.",
       badge: "AI Startup Tool",
     }),
+  video: () =>
+    ogImageUrl({
+      title: "AI Video Studio & Commercial Reels Creator | Vixora AI",
+      subtitle: "Turn text into high-converting viral marketing videos with AI voiceovers, captions, and canvas editing.",
+      badge: "Vixora AI Studio",
+    }),
   videoCreator: () =>
     ogImageUrl({
       title: "AI Video Creator & Studio Engine | Vixora AI",
       subtitle: "Turn text into high-converting viral marketing videos with AI voiceovers, captions, and canvas editing.",
       badge: "Vixora AI Studio",
+    }),
+  graphics: () =>
+    ogImageUrl({
+      title: "AI Graphic Designer & Brand Studio",
+      subtitle: "Generate professional flyers, social banners, logos, and promotional graphics in seconds.",
+      badge: "AI Graphics Studio",
+    }),
+  graphicDesigner: () =>
+    ogImageUrl({
+      title: "AI Graphic Designer & Brand Studio",
+      subtitle: "Generate professional flyers, social banners, logos, and promotional graphics in seconds.",
+      badge: "AI Graphics Studio",
+    }),
+  whatsappEngine: () =>
+    ogImageUrl({
+      title: "WhatsApp Status Marketing & Lead Engine",
+      subtitle: "Automate and optimize high-converting daily WhatsApp status stories for your Lagos business.",
+      badge: "WhatsApp Growth",
+    }),
+  whatsappStatusEngine: () =>
+    ogImageUrl({
+      title: "WhatsApp Status Marketing & Lead Engine",
+      subtitle: "Automate and optimize high-converting daily WhatsApp status stories for your Lagos business.",
+      badge: "WhatsApp Growth",
     }),
   advertise: () =>
     ogImageUrl({
@@ -178,7 +225,19 @@ export const PAGE_OG_IMAGES = {
       subtitle: "Get assistance with business listings, marketplace orders, wallet payouts, and account features.",
       badge: "Customer Support",
     }),
+  contact: () =>
+    ogImageUrl({
+      title: "Contact Bethelincovibe TV Team",
+      subtitle: "Have questions, partnership inquiries, or need support? Reach our Lagos support team.",
+      badge: "Contact Us",
+    }),
   howTo: () =>
+    ogImageUrl({
+      title: "How-To Guides & Platform Walkthroughs | Bethelincovibe TV",
+      subtitle: "Step-by-step tutorials to list your business, launch sales funnels, and scale on Bethelincovibe TV.",
+      badge: "Platform Guide",
+    }),
+  howToGuide: () =>
     ogImageUrl({
       title: "How-To Guides & Platform Walkthroughs | Bethelincovibe TV",
       subtitle: "Step-by-step tutorials to list your business, launch sales funnels, and scale on Bethelincovibe TV.",
@@ -203,6 +262,27 @@ export const PAGE_OG_IMAGES = {
       badge: "Disclaimer",
     }),
 };
+
+/**
+ * Pre-configured OG Image generators with a protective proxy fallback so no undefined
+ * method access can crash a route.
+ */
+export const PAGE_OG_IMAGES: Record<string, any> = new Proxy(BASE_PAGE_OG_IMAGES as Record<string, any>, {
+  get(target, prop: string) {
+    if (prop in target) {
+      return target[prop];
+    }
+    // Fallback function generator for any unknown key
+    return (...args: any[]) => {
+      const firstArg = typeof args[0] === "string" ? args[0] : "";
+      return ogImageUrl({
+        title: firstArg ? `${firstArg} | ${SITE_NAME}` : SITE_NAME,
+        subtitle: DEFAULT_DESCRIPTION,
+        badge: "Bethelincovibe TV",
+      });
+    };
+  },
+});
 
 export function truncate(text: string | null | undefined, max = 155) {
   const t = (text || "").replace(/\s+/g, " ").trim();

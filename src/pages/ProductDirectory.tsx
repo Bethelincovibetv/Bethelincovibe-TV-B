@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Search, LayoutGrid, List, Plus, Store, Sparkles, Package, ShieldCheck } from "lucide-react";
 import ProductCard from "@/components/directory/ProductCard";
 import ProductCategoryFilter3D from "@/components/directory/ProductCategoryFilter3D";
+import FeaturedProductSlider from "@/components/directory/FeaturedProductSlider";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import { absUrl, PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
@@ -141,12 +142,48 @@ export default function ProductDirectory() {
 
   const all = (products || []) as any[];
   const showcase = !q.trim() && cat === "all" && productType === "all";
-  const featured = all.filter((p) => p.featured).slice(0, 4);
-  const trending = [...all]
-    .sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
-    .filter((p) => (p.views_count || 0) > 0)
-    .slice(0, 4);
-  const newArrivals = all.slice(0, 4);
+
+  // Strictly deduplicated collections for featured spotlight & showcase
+  const featured = useMemo(() => {
+    const raw = all.filter((p) => p.featured);
+    const seen = new Set<string>();
+    const unique: any[] = [];
+    for (const item of raw) {
+      if (item && item.id && !seen.has(item.id)) {
+        seen.add(item.id);
+        unique.push(item);
+      }
+    }
+    // If fewer than 3 explicitly featured items, supplement with top-viewed items uniquely
+    if (unique.length < 3) {
+      const popular = [...all].sort((a, b) => (b.views_count || 0) - (a.views_count || 0));
+      for (const item of popular) {
+        if (item && item.id && !seen.has(item.id)) {
+          seen.add(item.id);
+          unique.push(item);
+          if (unique.length >= 6) break;
+        }
+      }
+    }
+    return unique;
+  }, [all]);
+
+  const featuredIds = useMemo(() => new Set(featured.map((p) => p.id)), [featured]);
+
+  const trending = useMemo(() => {
+    return [...all]
+      .filter((p) => !featuredIds.has(p.id) && (p.views_count || 0) > 0)
+      .sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
+      .slice(0, 4);
+  }, [all, featuredIds]);
+
+  const trendingIds = useMemo(() => new Set(trending.map((p) => p.id)), [trending]);
+
+  const newArrivals = useMemo(() => {
+    return all
+      .filter((p) => !featuredIds.has(p.id) && !trendingIds.has(p.id))
+      .slice(0, 4);
+  }, [all, featuredIds, trendingIds]);
 
   // Dynamic metadata based on filters
   const currentCategoryObj = ALL_PRODUCT_CATEGORIES.find((c) => c.slug === cat);
@@ -320,9 +357,30 @@ export default function ProductDirectory() {
         totalCount={list.length}
       />
 
+      {/* Featured Products Spotlight Slider (No Duplicates) */}
+      {!isLoading && featured.length > 0 && (
+        <FeaturedProductSlider
+          products={featured}
+          title={
+            cat !== "all" && currentCategoryName
+              ? `Featured in ${currentCategoryName}`
+              : productType === "digital"
+              ? "Featured Digital Toolkits & Creators"
+              : productType === "physical"
+              ? "Featured Physical Goods & Food"
+              : "Featured Marketplace Spotlight"
+          }
+          subtitle={
+            cat !== "all" && currentCategoryName
+              ? `Top-rated verified items and exclusive deals in ${currentCategoryName}`
+              : "Handpicked verified goods, top-rated products & exclusive digital toolkits"
+          }
+          className="my-2"
+        />
+      )}
+
       {showcase && !isLoading && (
         <>
-          <Section heading="Featured Products" blurb="Verified listings from top boosted sellers." items={featured} />
           <Section heading="Trending Now" blurb="What shoppers are viewing this week." items={trending} />
           <Section heading="New Arrivals" blurb="Freshly listed items on the Lagos marketplace." items={newArrivals} />
         </>
