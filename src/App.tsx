@@ -170,17 +170,36 @@ const App = () => (
               <Route path="/blog" element={<FeatureGate feature="blog"><Blog /></FeatureGate>} />
               <Route path="/blog/category/:categorySlug" element={<FeatureGate feature="blog"><Blog /></FeatureGate>} />
               <Route path="/blog/:slug" element={<FeatureGate feature="blog"><BlogPost /></FeatureGate>} />
+              <Route path="/posts" element={<Navigate to="/blog" replace />} />
+              <Route path="/posts/:slug" element={<FeatureGate feature="blog"><BlogPost /></FeatureGate>} />
+              <Route path="/playbooks" element={<Navigate to="/blog" replace />} />
+              <Route path="/playbooks/:slug" element={<FeatureGate feature="blog"><BlogPost /></FeatureGate>} />
+              <Route path="/guides" element={<Navigate to="/blog" replace />} />
+
               <Route path="/businesses" element={<FeatureGate feature="businesses"><BusinessDirectory /></FeatureGate>} />
               <Route path="/businesses/category/:slug" element={<FeatureGate feature="businesses"><BusinessCategory /></FeatureGate>} />
               <Route path="/businesses/list" element={<FeatureGate feature="business_listing"><ListBusiness /></FeatureGate>} />
               <Route path="/businesses/:slug" element={<FeatureGate feature="businesses"><BusinessProfile /></FeatureGate>} />
-              {/* Product marketplace */}
+              
+              {/* Product marketplace & category routes */}
               <Route path="/products" element={<FeatureGate feature="products"><ProductDirectory /></FeatureGate>} />
+              <Route path="/products/category/:categorySlug" element={<FeatureGate feature="products"><ProductDirectory /></FeatureGate>} />
               <Route path="/products/list" element={<FeatureGate feature="products"><ListProduct /></FeatureGate>} />
               <Route path="/products/:slug" element={<FeatureGate feature="products"><ProductDetail /></FeatureGate>} />
-              {/* Legacy redirects */}
+              <Route path="/marketplace" element={<FeatureGate feature="products"><ProductDirectory /></FeatureGate>} />
+              <Route path="/marketplace/category/:categorySlug" element={<FeatureGate feature="products"><ProductDirectory /></FeatureGate>} />
+              <Route path="/marketplace/list" element={<FeatureGate feature="products"><ListProduct /></FeatureGate>} />
+              <Route path="/marketplace/:slug" element={<FeatureGate feature="products"><ProductDetail /></FeatureGate>} />
+              <Route path="/shop" element={<FeatureGate feature="products"><ProductDirectory /></FeatureGate>} />
+              <Route path="/shop/category/:categorySlug" element={<FeatureGate feature="products"><ProductDirectory /></FeatureGate>} />
+              <Route path="/shop/:slug" element={<FeatureGate feature="products"><ProductDetail /></FeatureGate>} />
+
+              {/* Legacy business aliases */}
               <Route path="/directory" element={<Navigate to="/businesses" replace />} />
+              <Route path="/directory/category/:slug" element={<FeatureGate feature="businesses"><BusinessCategory /></FeatureGate>} />
+              <Route path="/directory/:slug" element={<FeatureGate feature="businesses"><BusinessProfile /></FeatureGate>} />
               <Route path="/suppliers" element={<Navigate to="/businesses" replace />} />
+              <Route path="/suppliers/category/:slug" element={<FeatureGate feature="businesses"><BusinessCategory /></FeatureGate>} />
               <Route path="/suppliers/submit" element={<Navigate to="/businesses/list" replace />} />
               <Route path="/suppliers/:slug" element={<FeatureGate feature="businesses"><BusinessProfile /></FeatureGate>} />
               <Route path="/tools/startup-calculator" element={<FeatureGate feature="tools"><StartupCalculator /></FeatureGate>} />
@@ -268,7 +287,11 @@ const App = () => (
               <Route path="/disclaimer" element={<Disclaimer />} />
               <Route path="/learn" element={<FeatureGate feature="learn"><Learn /></FeatureGate>} />
               <Route path="/forum" element={<FeatureGate feature="forum"><Forum /></FeatureGate>} />
+              <Route path="/forum/category/:category" element={<FeatureGate feature="forum"><Forum /></FeatureGate>} />
               <Route path="/forum/:id" element={<FeatureGate feature="forum"><ForumPost /></FeatureGate>} />
+              <Route path="/community" element={<FeatureGate feature="forum"><Forum /></FeatureGate>} />
+              <Route path="/community/category/:category" element={<FeatureGate feature="forum"><Forum /></FeatureGate>} />
+              <Route path="/community/:id" element={<FeatureGate feature="forum"><ForumPost /></FeatureGate>} />
               <Route path="/sales" element={<FeatureGate feature="sales_pages"><PublicSalesDirectory /></FeatureGate>} />
             </Route>
 

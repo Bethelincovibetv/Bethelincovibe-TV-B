@@ -33,6 +33,7 @@ import SEO from "@/components/SEO";
 import { getProductCategoryInfo } from "@/lib/productAIEngine";
 import { toast } from "sonner";
 import { copyToClipboard } from "@/lib/clipboard";
+import BrandedLoader from "@/components/BrandedLoader";
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -155,24 +156,37 @@ export default function ProductDetail() {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-        <p className="text-xs font-semibold text-muted-foreground">Loading sales page details...</p>
+      <div className="container mx-auto px-4 py-16">
+        <BrandedLoader
+          message="Loading product details..."
+          submessage="Connecting to verified merchant catalog"
+        />
       </div>
     );
   }
 
   if (!product) {
     return (
-      <div className="container mx-auto px-4 py-20 text-center max-w-lg">
-        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
+      <div className="container mx-auto px-4 py-20 text-center max-w-lg space-y-5">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-muted border border-border/80 text-muted-foreground">
           <Package className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold">Product Not Found</h2>
-        <p className="mt-1 text-sm text-muted-foreground">This item may have been removed or is no longer available.</p>
-        <Button asChild className="mt-6 font-bold">
-          <Link to="/products">Browse Marketplace</Link>
-        </Button>
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-bold">Product Not Found</h2>
+          <p className="text-sm text-muted-foreground">
+            This item may have been unlisted, sold out, or moved to a different link.
+          </p>
+        </div>
+        <div className="flex justify-center gap-3 pt-2">
+          <Button asChild variant="outline" className="rounded-xl font-bold">
+            <Link to="/products">
+              <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to Marketplace
+            </Link>
+          </Button>
+          <Button asChild className="rounded-xl font-bold">
+            <Link to="/">Return Home</Link>
+          </Button>
+        </div>
       </div>
     );
   }

@@ -51,6 +51,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { resolveEntityOgImage, absUrl } from "@/lib/seo";
 import SEO from "@/components/SEO";
 import { extractYouTubeVideoId } from "@/pages/UserProfileEdit";
+import BrandedLoader from "@/components/BrandedLoader";
 
 // Production-safe Vite asset imports for Vercel
 import bgTech from "@/assets/images/bg_tech_innovation_1787551368560.jpg";
@@ -157,7 +158,7 @@ export default function PublicProfile() {
           .select(
             "id, slug, product_name, headline, subheadline, price, currency, product_image_url, views_count, created_at"
           )
-          .eq("user_id", data.user_id)
+          .eq("user_id", foundProfile.user_id)
           .eq("active", true)
           .order("created_at", { ascending: false });
         setSalesPages(sp || []);
@@ -166,7 +167,7 @@ export default function PublicProfile() {
         const { data: prod } = await supabase
           .from("directory_products")
           .select("*, categories(name, slug)")
-          .eq("user_id", data.user_id)
+          .eq("user_id", foundProfile.user_id)
           .eq("active", true)
           .order("created_at", { ascending: false });
         setProducts(prod || []);
@@ -175,7 +176,7 @@ export default function PublicProfile() {
         const { data: supp } = await supabase
           .from("suppliers")
           .select("*, categories(name)")
-          .eq("submitted_by", data.user_id)
+          .eq("submitted_by", foundProfile.user_id)
           .order("created_at", { ascending: false });
         setBusinesses(supp || []);
       }
@@ -186,25 +187,35 @@ export default function PublicProfile() {
   if (username === "me" && !user && !loading) return <Navigate to="/login" replace />;
   if (loading) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+      <div className="container mx-auto px-4 py-16">
+        <BrandedLoader
+          message="Loading profile & catalog..."
+          submessage="Connecting to verified business storefront"
+        />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="container mx-auto py-16 text-center space-y-4">
-        <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+      <div className="container mx-auto max-w-md py-20 px-4 text-center space-y-5">
+        <div className="h-16 w-16 rounded-3xl bg-muted border border-border/80 flex items-center justify-center mx-auto text-muted-foreground">
           <User className="h-8 w-8" />
         </div>
-        <h2 className="text-xl font-bold">Profile Not Found</h2>
-        <p className="text-sm text-muted-foreground">
-          This user website or business profile does not exist or is private.
-        </p>
-        <Button asChild size="sm">
-          <Link to="/">Return to Home</Link>
-        </Button>
+        <div className="space-y-1.5">
+          <h2 className="text-xl font-bold">Profile Not Found</h2>
+          <p className="text-sm text-muted-foreground">
+            This merchant profile or business store does not exist or may be private.
+          </p>
+        </div>
+        <div className="flex justify-center gap-3 pt-2">
+          <Button asChild variant="outline" className="rounded-xl font-bold">
+            <Link to="/businesses">Browse Directory</Link>
+          </Button>
+          <Button asChild className="rounded-xl font-bold">
+            <Link to="/">Return to Home</Link>
+          </Button>
+        </div>
       </div>
     );
   }

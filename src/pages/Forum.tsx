@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -22,6 +22,7 @@ import AdsterraAd from "@/components/AdsterraAd";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 import SEO from "@/components/SEO";
 import { PAGE_OG_IMAGES, SITE_NAME, absUrl } from "@/lib/seo";
+import BrandedLoader from "@/components/BrandedLoader";
 
 import catStarting3D from "@/assets/images/forum_cat_starting_1787550425478.jpg";
 import catMarketing3D from "@/assets/images/forum_cat_marketing_1787550438860.jpg";
@@ -100,16 +101,22 @@ type Post = {
 export default function Forum() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { category: routeCategory } = useParams<{ category?: string }>();
   const [params, setParams] = useSearchParams();
   const tab = (params.get("tab") as "all" | "question" | "discussion") || "all";
-  const cat = params.get("cat") || "all";
+  const cat = routeCategory || params.get("cat") || "all";
   const q = params.get("q") || "";
   const sort = (params.get("sort") as "recent" | "popular") || "recent";
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ kind: "question" as "question" | "discussion", category: "general", title: "", content: "" });
+  const [form, setForm] = useState({
+    kind: "question" as "question" | "discussion",
+    category: routeCategory && FORUM_CATEGORIES.some((c) => c.key === routeCategory) ? routeCategory : "general",
+    title: "",
+    content: "",
+  });
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState(q);
 
@@ -500,9 +507,11 @@ export default function Forum() {
       {/* Main Post Feed */}
       <div className="space-y-3">
         {loading ? (
-          <div className="p-12 text-center space-y-3 card-bg rounded-2xl border border-border/60">
-            <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto" />
-            <p className="text-xs font-semibold text-muted-foreground">Fetching community posts...</p>
+          <div className="py-12">
+            <BrandedLoader
+              message="Loading community discussions..."
+              submessage="Fetching peer insights & threads"
+            />
           </div>
         ) : posts.length === 0 ? (
           <Card className="border-border/80 rounded-2xl p-12 text-center bg-card">

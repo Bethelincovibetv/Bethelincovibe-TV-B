@@ -2,7 +2,7 @@ import { useParams, Link } from "react-router-dom";
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ArrowLeft, Calendar } from "lucide-react";
+import { ArrowLeft, Calendar, BookOpen, Sparkles, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -20,6 +20,7 @@ import AmazonProductGrid from "@/components/AmazonProductGrid";
 import ReadingProgress from "@/components/blog/ReadingProgress";
 import ArticleUtilityBar from "@/components/blog/ArticleUtilityBar";
 import PostNavigation from "@/components/blog/PostNavigation";
+import BrandedLoader from "@/components/BrandedLoader";
 
 export default function BlogPost() {
   const { slug } = useParams();
@@ -27,15 +28,29 @@ export default function BlogPost() {
   const { data: post, isLoading } = useQuery({
     queryKey: ["blog-post", slug],
     queryFn: async () => {
-      const decodedSlug = slug ? decodeURIComponent(slug).trim() : "";
+      if (!slug) return null;
+      const decodedSlug = decodeURIComponent(slug).trim();
       const isUuid = /^[0-9a-f-]{36}$/i.test(decodedSlug);
-      const { data } = await supabase
+
+      // 1. Try exact match by slug or id
+      const { data, error } = await supabase
         .from("blog_posts")
         .select("*, categories(name, slug)")
         .eq(isUuid ? "id" : "slug", decodedSlug)
         .eq("published", true)
         .maybeSingle();
-      return data;
+
+      if (data) return data;
+
+      // 2. Fallback to case-insensitive match by slug
+      const { data: ilikeData } = await supabase
+        .from("blog_posts")
+        .select("*, categories(name, slug)")
+        .ilike("slug", decodedSlug)
+        .eq("published", true)
+        .maybeSingle();
+
+      return ilikeData ?? null;
     },
   });
 
@@ -50,14 +65,46 @@ export default function BlogPost() {
     }
   }, [post?.id, post?.slug, post?.title]);
 
-  if (isLoading) return <div className="container mx-auto px-4 py-8"><div className="animate-pulse space-y-4"><div className="h-8 bg-muted rounded w-3/4" /><div className="h-64 bg-muted rounded" /></div></div>;
+  if (isLoading) {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <BrandedLoader
+          message="Loading article..."
+          submessage="Fetching the latest insights, case studies & guides"
+        />
+      </div>
+    );
+  }
 
-  if (!post) return (
-    <div className="container mx-auto px-4 py-16 text-center">
-      <p className="text-lg text-muted-foreground">Article not found</p>
-      <Button asChild className="mt-4"><Link to="/blog">Back to Blog</Link></Button>
-    </div>
-  );
+  if (!post) {
+    return (
+      <div className="container mx-auto max-w-xl px-4 py-20 text-center space-y-6">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-primary/10 text-primary border border-primary/20">
+          <BookOpen className="h-8 w-8" />
+        </div>
+        <div className="space-y-2">
+          <h1 className="text-2xl font-black tracking-tight text-foreground">
+            Article Not Found
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            The article you're looking for might have been unpublished or moved to a different link.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+          <Button variant="outline" asChild className="rounded-xl font-bold">
+            <Link to="/blog">
+              <ArrowLeft className="mr-1.5 h-4 w-4" /> Browse All Articles
+            </Link>
+          </Button>
+          <Button asChild className="rounded-xl font-bold">
+            <Link to="/">
+              <Home className="mr-1.5 h-4 w-4" /> Return Home
+            </Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const postUrl = `/blog/${post.slug}`;
   const postDescription = post.excerpt || post.title;
@@ -102,7 +149,9 @@ export default function BlogPost() {
 
       <article className="container mx-auto max-w-[46rem] px-4 py-8 md:py-12">
         <Button variant="ghost" size="sm" asChild className="mb-6 print:hidden">
-          <Link to="/blog"><ArrowLeft className="h-4 w-4 mr-1" />Back to Blog</Link>
+          <Link to="/blog">
+            <ArrowLeft className="h-4 w-4 mr-1" /> Back to Blog
+          </Link>
         </Button>
 
         {post.featured_image && (
@@ -118,23 +167,36 @@ export default function BlogPost() {
         <div className="flex items-center gap-2 mb-4 flex-wrap">
           {post.categories && (
             <Link to={`/blog/category/${post.categories.slug}`}>
-              <Badge>{post.categories.name}</Badge>
+              <Badge variant="secondary" className="hover:bg-primary/20">
+                {post.categories.name}
+              </Badge>
             </Link>
           )}
           {post.published_at && (
             <span className="text-sm text-muted-foreground flex items-center gap-1">
-              <Calendar className="h-3 w-3" />{format(new Date(post.published_at), "MMM d, yyyy")}
+              <Calendar className="h-3 w-3" />
+              {format(new Date(post.published_at), "MMM d, yyyy")}
             </span>
           )}
         </div>
 
         <div className="flex items-start justify-between gap-3 mb-5 min-w-0">
-          <h1 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight tracking-tight break-words min-w-0">{post.title}</h1>
-          <FavoriteButton postId={post.id} showText={false} size="default" variant="outline" className="shrink-0 mt-1" />
+          <h1 className="text-2xl sm:text-3xl md:text-5xl font-black leading-tight tracking-tight break-words min-w-0">
+            {post.title}
+          </h1>
+          <FavoriteButton
+            postId={post.id}
+            showText={false}
+            size="default"
+            variant="outline"
+            className="shrink-0 mt-1"
+          />
         </div>
 
         {post.excerpt && (
-          <p className="mb-6 text-base sm:text-lg md:text-xl leading-relaxed text-muted-foreground break-words min-w-0">{post.excerpt}</p>
+          <p className="mb-6 text-base sm:text-lg md:text-xl leading-relaxed text-muted-foreground break-words min-w-0">
+            {post.excerpt}
+          </p>
         )}
 
         <ArticleUtilityBar html={post.content || ""} url={postUrl} postId={post.id} />
@@ -158,9 +220,8 @@ export default function BlogPost() {
         url={postUrl}
         title={post.title}
         description={postDescription}
-        image={postImage}
+        image={post.featured_image || ogImage}
       />
-
     </>
   );
 }

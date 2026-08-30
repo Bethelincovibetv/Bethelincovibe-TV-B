@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useState } from "react";
-import { Search, Sparkles, LayoutGrid, ArrowRight } from "lucide-react";
+import { Search, Sparkles, LayoutGrid, ArrowRight, BookOpen } from "lucide-react";
 import PageHero from "@/components/PageHero";
 import heroBlog from "@/assets/hero-blog.jpg";
 import { Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
@@ -14,6 +14,7 @@ import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import SEO from "@/components/SEO";
 import { PAGE_OG_IMAGES, SITE_NAME, absUrl } from "@/lib/seo";
+import BrandedLoader from "@/components/BrandedLoader";
 
 export default function Blog() {
   const { categorySlug } = useParams();
@@ -22,7 +23,7 @@ export default function Blog() {
   const { data: categories } = useQuery({
     queryKey: ["blog-categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("*").eq("type", "blog");
+      const { data } = await supabase.from("categories").select("*").eq("type", "blog").order("name");
       return data ?? [];
     },
   });
@@ -37,11 +38,28 @@ export default function Blog() {
         .order("published_at", { ascending: false });
 
       if (categorySlug) {
-        const { data: cat } = await supabase.from("categories").select("id").eq("slug", categorySlug).single();
-        if (cat) query = query.eq("category_id", cat.id);
+        const decodedSlug = decodeURIComponent(categorySlug).trim();
+        const { data: cat } = await supabase
+          .from("categories")
+          .select("id")
+          .eq("slug", decodedSlug)
+          .maybeSingle();
+
+        if (cat?.id) {
+          query = query.eq("category_id", cat.id);
+        } else {
+          const { data: ilikeCat } = await supabase
+            .from("categories")
+            .select("id")
+            .ilike("slug", decodedSlug)
+            .maybeSingle();
+          if (ilikeCat?.id) {
+            query = query.eq("category_id", ilikeCat.id);
+          }
+        }
       }
 
-      if (search) query = query.ilike("title", `%${search}%`);
+      if (search.trim()) query = query.ilike("title", `%${search.trim()}%`);
 
       const { data } = await query;
       return data ?? [];
@@ -178,16 +196,11 @@ export default function Blog() {
         <ProgrammaticAdBanner placement="blog" format="banner" className="mb-8" />
 
         {isLoading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[1, 2, 3].map((i) => (
-              <Card key={i} className="animate-pulse rounded-2xl overflow-hidden">
-                <div className="h-48 bg-muted" />
-                <CardHeader className="p-4 sm:p-5">
-                  <div className="h-4 bg-muted rounded w-1/3 mb-2" />
-                  <div className="h-5 bg-muted rounded w-3/4" />
-                </CardHeader>
-              </Card>
-            ))}
+          <div className="py-16">
+            <BrandedLoader
+              message="Loading business playbooks..."
+              submessage="Fetching verified market intelligence & guides"
+            />
           </div>
         ) : posts && posts.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

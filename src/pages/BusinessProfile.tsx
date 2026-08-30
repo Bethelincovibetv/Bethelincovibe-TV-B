@@ -26,6 +26,7 @@ import { absUrl, ogImageUrl, resolveEntityOgImage, SITE_NAME } from "@/lib/seo";
 import SEO from "@/components/SEO";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
+import BrandedLoader from "@/components/BrandedLoader";
 
 type Biz = any;
 
@@ -125,22 +126,37 @@ export default function BusinessProfile() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-6 max-w-4xl">
-        <Skeleton className="h-44 w-full rounded-2xl mb-4" />
-        <Skeleton className="h-8 w-2/3 mb-2" />
-        <Skeleton className="h-4 w-full mb-1" />
-        <Skeleton className="h-4 w-5/6" />
+      <div className="container mx-auto px-4 py-16 max-w-4xl">
+        <BrandedLoader
+          message="Loading business profile..."
+          submessage="Connecting to verified merchant storefront"
+        />
       </div>
     );
   }
 
   if (!biz) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <Building2 className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-        <h1 className="text-xl font-semibold">Business not found</h1>
-        <p className="text-sm text-muted-foreground mt-1">It may have been removed or is awaiting approval.</p>
-        <Button asChild className="mt-4"><Link to="/businesses">Back to directory</Link></Button>
+      <div className="container mx-auto max-w-md px-4 py-20 text-center space-y-5">
+        <div className="h-16 w-16 rounded-3xl bg-muted border border-border/80 flex items-center justify-center mx-auto text-muted-foreground">
+          <Building2 className="h-8 w-8" />
+        </div>
+        <div className="space-y-1.5">
+          <h1 className="text-xl font-bold text-foreground">Business Not Found</h1>
+          <p className="text-sm text-muted-foreground">
+            This business may have been unlisted, moved, or is awaiting verification.
+          </p>
+        </div>
+        <div className="flex justify-center gap-3 pt-2">
+          <Button asChild variant="outline" className="rounded-xl font-bold">
+            <Link to="/businesses">
+              <ChevronLeft className="mr-1.5 h-4 w-4" /> Back to Directory
+            </Link>
+          </Button>
+          <Button asChild className="rounded-xl font-bold">
+            <Link to="/">Return Home</Link>
+          </Button>
+        </div>
       </div>
     );
   }

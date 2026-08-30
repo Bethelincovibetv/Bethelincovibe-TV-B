@@ -16,6 +16,7 @@ import { FORUM_CATEGORIES } from "./Forum";
 import { ForumFormattedContent } from "@/components/forum/ForumLinkPreview";
 import { ForumReactions } from "@/components/forum/ForumReactions";
 import { ForumAuthorBadge, AuthorProfileData } from "@/components/forum/ForumAuthorBadge";
+import BrandedLoader from "@/components/BrandedLoader";
 
 const SUCCESS_SOUND = "data:audio/wav;base64,UklGRpYBAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YXIBAACAgYKChIWGiIqLjY6QkpOVl5manJ6gpKWmqKqsr7Gys7W3uLm6vL2/wMHCxMXGyMnKy8zNz9DR0tPU1dbX2Nrb3N3e3+Hi4+Tl5ufo6err7O3u7/Hy8/T19vf4+frJxL68t7Krp6KdmZSPi4eDfntyTycRBhEnT3uDh4uPlJmdoqersbq+wcTKzM3O0NHS1NXX2dvc3eHi5OXm6Ojp6+vt7e7v8PHy8/T19vf4+fr7+/z9/v7+///++AYAfHt6eXh3dnZ1c3JxcG9ubWxramppaWhoZ2dnZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZmZm";
 
@@ -111,8 +112,42 @@ export default function ForumPost() {
     navigate("/forum");
   };
 
-  if (loading) return <div className="container py-10 text-center text-muted-foreground">Loading...</div>;
-  if (!post) return <div className="container py-10 text-center">Post not found. <Link to="/forum" className="text-primary underline">Back to forum</Link></div>;
+  if (loading) {
+    return (
+      <div className="container mx-auto px-4 py-16 max-w-3xl">
+        <BrandedLoader
+          message="Loading discussion..."
+          submessage="Connecting to community thread & replies"
+        />
+      </div>
+    );
+  }
+
+  if (!post) {
+    return (
+      <div className="container mx-auto max-w-md px-4 py-20 text-center space-y-5">
+        <div className="h-16 w-16 rounded-3xl bg-muted border border-border/80 flex items-center justify-center mx-auto text-muted-foreground">
+          <MessageSquare className="h-8 w-8" />
+        </div>
+        <div className="space-y-1.5">
+          <h1 className="text-xl font-bold text-foreground">Discussion Not Found</h1>
+          <p className="text-sm text-muted-foreground">
+            This thread may have been deleted or moved to a different category.
+          </p>
+        </div>
+        <div className="flex justify-center gap-3 pt-2">
+          <Button asChild variant="outline" className="rounded-xl font-bold">
+            <Link to="/forum">
+              <ArrowLeft className="mr-1.5 h-4 w-4" /> Back to Forum
+            </Link>
+          </Button>
+          <Button asChild className="rounded-xl font-bold">
+            <Link to="/">Return Home</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const cat = FORUM_CATEGORIES.find((c) => c.key === post.category);
   const author = authors[post.user_id];

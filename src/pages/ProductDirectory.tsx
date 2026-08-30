@@ -1,16 +1,16 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, LayoutGrid, List, Plus, Store, Sparkles, Package, Download, UtensilsCrossed, Check, ShieldCheck } from "lucide-react";
+import { Search, LayoutGrid, List, Plus, Store, Sparkles, Package, ShieldCheck } from "lucide-react";
 import ProductCard from "@/components/directory/ProductCard";
 import ProductCategoryFilter3D from "@/components/directory/ProductCategoryFilter3D";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
-import { absUrl, ogImageUrl, PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
+import { absUrl, PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 import SEO from "@/components/SEO";
 import {
   PHYSICAL_PRODUCT_CATEGORIES,
@@ -20,34 +20,56 @@ import {
   getProductCategoryInfo,
 } from "@/lib/productAIEngine";
 import marketplaceHero3D from "@/assets/images/marketplace_hero_3d_1787915121385.jpg";
+import BrandedLoader from "@/components/BrandedLoader";
 
 export default function ProductDirectory() {
+  const { categorySlug } = useParams<{ categorySlug?: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const urlQuery = searchParams.get("q") || "";
   const urlType = searchParams.get("type") as "all" | ProductType | null;
-  const urlCat = searchParams.get("cat") || "all";
+  const initialCat = categorySlug || searchParams.get("cat") || "all";
 
   const [q, setQ] = useState(urlQuery);
-  const [productType, setProductType] = useState<"all" | ProductType>(
-    urlType === "physical" || urlType === "digital" ? urlType : "all"
-  );
-  const [cat, setCat] = useState(urlCat);
+  const [cat, setCat] = useState(initialCat);
+
+  // Determine initial product type based on category if present
+  const [productType, setProductType] = useState<"all" | ProductType>(() => {
+    if (urlType === "physical" || urlType === "digital") return urlType;
+    if (categorySlug) {
+      if (DIGITAL_PRODUCT_CATEGORIES.some((c) => c.slug === categorySlug)) return "digital";
+      if (PHYSICAL_PRODUCT_CATEGORIES.some((c) => c.slug === categorySlug)) return "physical";
+    }
+    return "all";
+  });
+
   const [sort, setSort] = useState("newest");
   const [view, setView] = useState<"grid" | "list">("grid");
 
-  // Keep state synchronized if URL search parameters change
+  // Keep state synchronized if URL search parameters or route params change
   useEffect(() => {
     if (urlQuery && urlQuery !== q) setQ(urlQuery);
     if (urlType && (urlType === "physical" || urlType === "digital" || urlType === "all")) {
       setProductType(urlType);
     }
-    if (urlCat && urlCat !== cat) setCat(urlCat);
-  }, [urlQuery, urlType, urlCat]);
+    const currentTargetCat = categorySlug || searchParams.get("cat") || "all";
+    if (currentTargetCat !== cat) {
+      setCat(currentTargetCat);
+      if (DIGITAL_PRODUCT_CATEGORIES.some((c) => c.slug === currentTargetCat)) {
+        setProductType("digital");
+      } else if (PHYSICAL_PRODUCT_CATEGORIES.some((c) => c.slug === currentTargetCat)) {
+        setProductType("physical");
+      }
+    }
+  }, [categorySlug, urlQuery, urlType, searchParams]);
 
   const { data: dbCategories } = useQuery({
     queryKey: ["product-categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id,name,slug").in("type", ["product", "business"]).order("name");
+      const { data } = await supabase
+        .from("categories")
+        .select("id,name,slug")
+        .in("type", ["product", "business"])
+        .order("name");
       return data ?? [];
     },
   });
@@ -105,7 +127,9 @@ export default function ProductDirectory() {
       const needle = q.toLowerCase();
       rows = rows.filter((p) => {
         const info = getProductCategoryInfo(p);
-        return `${p.name} ${p.description || ""} ${p.location || ""} ${info.name}`.toLowerCase().includes(needle);
+        return `${p.name} ${p.description || ""} ${p.location || ""} ${info.name}`
+          .toLowerCase()
+          .includes(needle);
       });
     }
 
@@ -118,12 +142,19 @@ export default function ProductDirectory() {
   const all = (products || []) as any[];
   const showcase = !q.trim() && cat === "all" && productType === "all";
   const featured = all.filter((p) => p.featured).slice(0, 4);
-  const trending = [...all].sort((a, b) => (b.views_count || 0) - (a.views_count || 0)).filter((p) => (p.views_count || 0) > 0).slice(0, 4);
+  const trending = [...all]
+    .sort((a, b) => (b.views_count || 0) - (a.views_count || 0))
+    .filter((p) => (p.views_count || 0) > 0)
+    .slice(0, 4);
   const newArrivals = all.slice(0, 4);
 
   // Dynamic metadata based on filters
   const currentCategoryObj = ALL_PRODUCT_CATEGORIES.find((c) => c.slug === cat);
-  const currentCategoryName = currentCategoryObj ? currentCategoryObj.name : cat !== "all" ? cat.replace(/-/g, " ") : "";
+  const currentCategoryName = currentCategoryObj
+    ? currentCategoryObj.name
+    : cat !== "all"
+    ? cat.replace(/-/g, " ")
+    : "";
 
   const title = currentCategoryName
     ? `${currentCategoryName} Products in Lagos — Marketplace | ${SITE_NAME}`
@@ -145,7 +176,19 @@ export default function ProductDirectory() {
     ? PAGE_OG_IMAGES.productCategory(currentCategoryName)
     : PAGE_OG_IMAGES.products();
 
-  const currentPath = cat !== "all" ? `/products?cat=${cat}` : productType !== "all" ? `/products?type=${productType}` : "/products";
+  const currentPath =
+    categorySlug
+      ? `/products/category/${categorySlug}`
+      : cat !== "all"
+      ? `/products?cat=${cat}`
+      : productType !== "all"
+      ? `/products?type=${productType}`
+      : "/products";
+
+  const breadcrumbItems =
+    cat !== "all" && currentCategoryName
+      ? [{ label: "Marketplace", href: "/products" }, { label: currentCategoryName }]
+      : [{ label: "Marketplace" }];
 
   const Section = ({ heading, blurb, items }: { heading: string; blurb: string; items: any[] }) =>
     items.length === 0 ? null : (
@@ -157,7 +200,9 @@ export default function ProductDirectory() {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {items.map((p: any) => <ProductCard key={`${heading}-${p.id}`} product={p} />)}
+          {items.map((p: any) => (
+            <ProductCard key={`${heading}-${p.id}`} product={p} />
+          ))}
         </div>
       </section>
     );
@@ -179,7 +224,7 @@ export default function ProductDirectory() {
         }}
       />
 
-      <Breadcrumbs items={[{ label: "Products" }]} />
+      <Breadcrumbs items={breadcrumbItems} />
 
       {/* 3D Hero Section */}
       <section className="relative mt-2 overflow-hidden rounded-3xl border-2 border-primary/20 bg-gradient-to-br from-primary/20 via-background to-accent/15 p-6 shadow-xl sm:p-10">
@@ -189,10 +234,24 @@ export default function ProductDirectory() {
               <Sparkles className="h-4 w-4" /> Lagos Verified 3D Marketplace
             </span>
             <h1 className="text-3xl font-black leading-tight tracking-tight sm:text-5xl text-foreground">
-              Buy physical goods, food &amp; <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">digital products</span>
+              {currentCategoryName ? (
+                <>
+                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    {currentCategoryName}
+                  </span>
+                </>
+              ) : (
+                <>
+                  Buy physical goods, food &amp;{" "}
+                  <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                    digital products
+                  </span>
+                </>
+              )}
             </h1>
             <p className="text-base sm:text-lg font-medium text-muted-foreground leading-relaxed">
-              Verified Lagos suppliers, food sellers, wholesalers, and creator digital downloads. Direct WhatsApp contact with zero middleman commissions.
+              {currentCategoryObj?.description ||
+                "Verified Lagos suppliers, food sellers, wholesalers, and creator digital downloads. Direct WhatsApp contact with zero middleman commissions."}
             </p>
 
             <div className="relative mt-4 max-w-lg">
@@ -208,12 +267,21 @@ export default function ProductDirectory() {
 
             {/* Action buttons */}
             <div className="pt-2 flex flex-wrap gap-2.5">
-              <Button asChild size="default" className="rounded-2xl font-black text-sm px-5 bg-primary text-primary-foreground shadow-md hover:bg-primary/90">
+              <Button
+                asChild
+                size="default"
+                className="rounded-2xl font-black text-sm px-5 bg-primary text-primary-foreground shadow-md hover:bg-primary/90"
+              >
                 <Link to="/products/list">
                   <Plus className="mr-1.5 h-4 w-4" /> Sell a Product (Physical or Digital)
                 </Link>
               </Button>
-              <Button asChild size="default" variant="outline" className="rounded-2xl font-bold text-sm px-4 border-border/80 bg-background/90 text-foreground hover:bg-muted shadow-xs">
+              <Button
+                asChild
+                size="default"
+                variant="outline"
+                className="rounded-2xl font-bold text-sm px-4 border-border/80 bg-background/90 text-foreground hover:bg-muted shadow-xs"
+              >
                 <Link to="/businesses">
                   <Store className="mr-1.5 h-4 w-4 text-primary" /> Browse Service Directory
                 </Link>
@@ -224,8 +292,8 @@ export default function ProductDirectory() {
           <div className="hidden lg:col-span-5 lg:block">
             <div className="relative overflow-hidden rounded-3xl border-2 border-primary/30 shadow-2xl bg-card">
               <img
-                src={marketplaceHero3D}
-                alt="Marketplace 3D"
+                src={currentCategoryObj?.image3D || marketplaceHero3D}
+                alt={currentCategoryName || "Marketplace 3D"}
                 className="h-64 w-full object-cover"
                 referrerPolicy="no-referrer"
               />
@@ -274,7 +342,7 @@ export default function ProductDirectory() {
                   : productType === "physical"
                   ? "All Physical & Food Products"
                   : "All Marketplace Listings"
-                : `${activeCategories.find((c) => c.slug === cat)?.name || "Filtered Products"}`}
+                : `${activeCategories.find((c) => c.slug === cat)?.name || currentCategoryName || "Filtered Products"}`}
             </h2>
             <p className="text-xs sm:text-sm font-medium text-muted-foreground">
               Showing {list.length} available items
@@ -289,7 +357,9 @@ export default function ProductDirectory() {
               <SelectContent>
                 <SelectItem value="all">All categories</SelectItem>
                 {activeCategories.map((c) => (
-                  <SelectItem key={c.id} value={c.slug}>{c.name}</SelectItem>
+                  <SelectItem key={c.id} value={c.slug}>
+                    {c.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -319,10 +389,11 @@ export default function ProductDirectory() {
         </div>
 
         {isLoading ? (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="h-64 animate-pulse rounded-2xl bg-muted" />
-            ))}
+          <div className="py-12">
+            <BrandedLoader
+              message="Loading marketplace products..."
+              submessage="Fetching verified items & wholesale deals"
+            />
           </div>
         ) : list.length === 0 ? (
           <div className="rounded-3xl border border-dashed border-border/90 py-16 text-center space-y-3 bg-card/50">
@@ -341,15 +412,18 @@ export default function ProductDirectory() {
           </div>
         ) : view === "grid" ? (
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
-            {list.map((p: any) => <ProductCard key={p.id} product={p} />)}
+            {list.map((p: any) => (
+              <ProductCard key={p.id} product={p} />
+            ))}
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {list.map((p: any) => <ProductCard key={p.id} product={p} view="list" />)}
+            {list.map((p: any) => (
+              <ProductCard key={p.id} product={p} view="list" />
+            ))}
           </div>
         )}
       </div>
     </div>
   );
 }
-

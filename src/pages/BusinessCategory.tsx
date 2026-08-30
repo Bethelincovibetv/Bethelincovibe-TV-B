@@ -1,18 +1,17 @@
 import { Link, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Helmet } from "react-helmet-async";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Building2, Plus, BookOpen } from "lucide-react";
 import { getCategoryIcon, Category3DVisual, getCategoryTheme } from "@/lib/categoryIcons";
 import BusinessCard from "@/components/directory/BusinessCard";
 import CategoryTile from "@/components/directory/CategoryTile";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
-import { absUrl, ogImageUrl, PAGE_OG_IMAGES, SITE_NAME, truncate } from "@/lib/seo";
+import { absUrl, PAGE_OG_IMAGES, SITE_NAME, truncate } from "@/lib/seo";
 import SEO from "@/components/SEO";
+import BrandedLoader from "@/components/BrandedLoader";
 
 export default function BusinessCategory() {
   const { slug } = useParams<{ slug: string }>();
@@ -20,9 +19,25 @@ export default function BusinessCategory() {
   const { data: category, isLoading: catLoading } = useQuery({
     queryKey: ["business-category", slug],
     queryFn: async () => {
+      if (!slug) return null;
+      const decodedSlug = decodeURIComponent(slug).trim();
       const { data } = await supabase
-        .from("categories").select("*").eq("type", "business").eq("slug", slug!).maybeSingle();
-      return data;
+        .from("categories")
+        .select("*")
+        .eq("type", "business")
+        .eq("slug", decodedSlug)
+        .maybeSingle();
+
+      if (data) return data;
+
+      const { data: ilikeData } = await supabase
+        .from("categories")
+        .select("*")
+        .eq("type", "business")
+        .ilike("slug", decodedSlug)
+        .maybeSingle();
+
+      return ilikeData ?? null;
     },
     enabled: !!slug,
   });
@@ -48,9 +63,15 @@ export default function BusinessCategory() {
   const { data: imagesMap } = useQuery({
     queryKey: ["business-category-images", bizIds],
     queryFn: async () => {
-      const { data } = await supabase.from("supplier_images").select("*").in("supplier_id", bizIds).order("display_order");
+      const { data } = await supabase
+        .from("supplier_images")
+        .select("*")
+        .in("supplier_id", bizIds)
+        .order("display_order");
       const map: Record<string, any[]> = {};
-      data?.forEach((img: any) => { (map[img.supplier_id] ||= []).push(img); });
+      data?.forEach((img: any) => {
+        (map[img.supplier_id] ||= []).push(img);
+      });
       return map;
     },
     enabled: bizIds.length > 0,
@@ -59,7 +80,11 @@ export default function BusinessCategory() {
   const { data: siblings } = useQuery({
     queryKey: ["business-sibling-categories"],
     queryFn: async () => {
-      const { data } = await supabase.from("categories").select("id,name,slug").eq("type", "business").order("name");
+      const { data } = await supabase
+        .from("categories")
+        .select("id,name,slug")
+        .eq("type", "business")
+        .order("name");
       return data ?? [];
     },
     staleTime: 300_000,
@@ -69,14 +94,20 @@ export default function BusinessCategory() {
     queryKey: ["business-category-posts", slug, category?.name],
     queryFn: async () => {
       const { data: blogCat } = await supabase
-        .from("categories").select("id").eq("type", "blog").eq("slug", slug!).maybeSingle();
+        .from("categories")
+        .select("id")
+        .eq("type", "blog")
+        .eq("slug", slug!)
+        .maybeSingle();
 
       if (blogCat) {
         const { data } = await supabase
           .from("blog_posts")
           .select("id,title,slug,excerpt,featured_image,published_at,views_count")
-          .eq("published", true).eq("category_id", blogCat.id)
-          .order("published_at", { ascending: false }).limit(6);
+          .eq("published", true)
+          .eq("category_id", blogCat.id)
+          .order("published_at", { ascending: false })
+          .limit(6);
         if (data && data.length > 0) return data;
       }
       if (category?.name) {
@@ -84,8 +115,10 @@ export default function BusinessCategory() {
         const { data } = await supabase
           .from("blog_posts")
           .select("id,title,slug,excerpt,featured_image,published_at,views_count")
-          .eq("published", true).ilike("title", `%${keyword}%`)
-          .order("published_at", { ascending: false }).limit(6);
+          .eq("published", true)
+          .ilike("title", `%${keyword}%`)
+          .order("published_at", { ascending: false })
+          .limit(6);
         if (data && data.length > 0) return data;
       }
 
@@ -104,20 +137,37 @@ export default function BusinessCategory() {
 
   if (catLoading) {
     return (
-      <div className="container mx-auto max-w-6xl px-4 py-8">
-        <Skeleton className="mb-4 h-40 w-full rounded-3xl" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3].map((i) => <Skeleton key={i} className="h-64 rounded-2xl" />)}
-        </div>
+      <div className="container mx-auto max-w-6xl px-4 py-16">
+        <BrandedLoader
+          message="Loading business category..."
+          submessage="Discovering verified Lagos suppliers and service providers"
+        />
       </div>
     );
   }
 
   if (!category) {
     return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <h1 className="text-lg font-medium">Category not found</h1>
-        <Button asChild className="mt-4"><Link to="/businesses">Back to directory</Link></Button>
+      <div className="container mx-auto max-w-md px-4 py-20 text-center space-y-5">
+        <div className="h-16 w-16 rounded-3xl bg-muted border border-border/80 flex items-center justify-center mx-auto text-muted-foreground">
+          <Building2 className="h-8 w-8" />
+        </div>
+        <div className="space-y-1.5">
+          <h1 className="text-xl font-bold text-foreground">Category Not Found</h1>
+          <p className="text-sm text-muted-foreground">
+            The business category you are looking for does not exist or has been modified.
+          </p>
+        </div>
+        <div className="flex justify-center gap-3 pt-2">
+          <Button asChild variant="outline" className="rounded-xl font-bold">
+            <Link to="/businesses">
+              <ArrowLeft className="mr-1.5 h-4 w-4" /> Browse Directory
+            </Link>
+          </Button>
+          <Button asChild className="rounded-xl font-bold">
+            <Link to="/">Return Home</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -128,7 +178,7 @@ export default function BusinessCategory() {
   const title = `${category.name} Businesses in Lagos${count ? ` — ${count} Verified Listings` : ""}`;
   const description = truncate(
     category.description ||
-    `Find trusted ${lower} businesses in Lagos. Compare verified listings, browse photos and services, then call, WhatsApp or message owners directly on ${SITE_NAME}.`
+      `Find trusted ${lower} businesses in Lagos. Compare verified listings, browse photos and services, then call, WhatsApp or message owners directly on ${SITE_NAME}.`
   );
   const canonical = absUrl(`/businesses/category/${slug}`);
   const ogImage = PAGE_OG_IMAGES.businessCategory(category.name);
@@ -139,22 +189,15 @@ export default function BusinessCategory() {
     name: title,
     description,
     url: canonical,
-    isPartOf: { "@type": "WebSite", name: SITE_NAME, url: absUrl("/") },
-    about: { "@type": "Thing", name: category.name },
-    mainEntity: {
-      "@type": "ItemList",
-      numberOfItems: count,
-      itemListElement: (businesses ?? []).slice(0, 25).map((s: any, i: number) => ({
-        "@type": "ListItem",
-        position: i + 1,
-        url: absUrl(`/businesses/${s.slug}`),
-        name: s.name,
-      })),
-    },
   };
 
+  const breadcrumbs = [
+    { label: "Businesses", href: "/businesses" },
+    { label: category.name },
+  ];
+
   return (
-    <>
+    <div className="container mx-auto max-w-6xl px-4 py-6 space-y-8">
       <SEO
         title={`${title} | ${SITE_NAME}`}
         description={description}
@@ -164,124 +207,131 @@ export default function BusinessCategory() {
         jsonLd={jsonLd}
       />
 
-      <div className="container mx-auto max-w-6xl px-4 py-4 md:py-8">
-        <Breadcrumbs
-          className="mb-3"
-          items={[{ label: "Businesses", href: "/businesses" }, { label: category.name }]}
-        />
+      <Breadcrumbs items={breadcrumbs} />
 
-        <Link to="/businesses" className="mb-4 inline-flex items-center text-sm text-muted-foreground hover:text-primary">
-          <ArrowLeft className="mr-1 h-4 w-4" /> All categories
-        </Link>
-
-        <header className="relative mb-6 overflow-hidden rounded-3xl bg-gradient-to-br from-primary via-primary/90 to-accent p-6 text-primary-foreground shadow-[0_18px_40px_-24px_hsl(var(--primary)/0.9)] md:p-10">
-          <div className="relative z-10 max-w-3xl">
-            <div className="mb-4 inline-flex items-center justify-center">
-              <Category3DVisual name={category.name} size="lg" />
+      <section className="relative overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-primary/15 via-background to-accent/15 p-6 shadow-md sm:p-8">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+          <div className="space-y-2.5 max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/20 border border-primary/30 text-primary text-xs font-bold uppercase tracking-wider">
+              <Icon className="h-3.5 w-3.5" />
+              <span>{category.name}</span>
             </div>
-            <h1 className="mb-2 text-2xl font-extrabold leading-tight md:text-4xl">{title}</h1>
-            <p className="mb-5 text-sm opacity-90 md:text-base">{description}</p>
-            <Button asChild size="lg" variant="secondary" className="shadow-lg">
-              <Link to="/businesses/list"><Plus className="mr-1.5 h-4 w-4" />List Your Business Here</Link>
+            <h1 className="text-2xl sm:text-4xl font-black tracking-tight text-foreground">
+              {category.name} in Lagos
+            </h1>
+            <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+              {description}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2.5 shrink-0">
+            <Button asChild size="default" className="rounded-2xl font-bold shadow-md">
+              <Link to="/businesses/list">
+                <Plus className="mr-1.5 h-4 w-4" /> List Your Business
+              </Link>
+            </Button>
+            <Button asChild variant="outline" className="rounded-2xl font-bold">
+              <Link to="/businesses">
+                <ArrowLeft className="mr-1.5 h-4 w-4" /> All Categories
+              </Link>
             </Button>
           </div>
-          <Icon className="absolute -bottom-6 -right-6 h-44 w-44 opacity-10" aria-hidden="true" />
-        </header>
+        </div>
+      </section>
 
-        <section className="mb-10" aria-labelledby="cat-listings">
-          <h2 id="cat-listings" className="mb-4 flex items-center gap-2 text-xl font-bold">
-            <Building2 className="h-5 w-5 text-primary" />
-            {category.name} businesses
+      <ProgrammaticAdBanner placement="directory" format="banner" />
+
+      {/* Business Listings */}
+      <section className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl sm:text-2xl font-black text-foreground">
+            Verified {category.name} Listings ({count})
           </h2>
-          {bizLoading ? (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {[1, 2, 3].map((i) => <Skeleton key={i} className="h-64 rounded-2xl" />)}
+        </div>
+
+        {bizLoading ? (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-64 animate-pulse rounded-2xl bg-muted" />
+            ))}
+          </div>
+        ) : count === 0 ? (
+          <div className="rounded-3xl border border-dashed border-border/90 py-16 text-center space-y-3 bg-card/50">
+            <div className="h-12 w-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+              <Building2 className="h-6 w-6" />
             </div>
-          ) : count > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {businesses!.map((s: any) => (
-                <BusinessCard key={s.id} business={s} images={imagesMap?.[s.id] ?? []} />
+            <h3 className="text-lg font-black text-foreground">No businesses listed in this category yet</h3>
+            <p className="text-sm font-medium text-muted-foreground max-w-md mx-auto">
+              Be the first to list your {category.name} business and start receiving verified customer leads!
+            </p>
+            <Button asChild className="rounded-2xl font-black text-sm px-6 shadow-md">
+              <Link to="/businesses/list">
+                <Plus className="mr-1.5 h-4 w-4" /> Register Business
+              </Link>
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {businesses?.map((b: any) => (
+              <BusinessCard key={b.id} supplier={b} images={imagesMap?.[b.id] ?? []} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Sibling Categories */}
+      {siblings && siblings.length > 0 && (
+        <section className="space-y-4 pt-6 border-t border-border/70">
+          <h3 className="text-lg font-black text-foreground">Explore Other Business Categories</h3>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+            {siblings
+              .filter((s: any) => s.slug !== slug)
+              .slice(0, 12)
+              .map((s: any) => (
+                <CategoryTile key={s.id} name={s.name} slug={s.slug} />
               ))}
-            </div>
-          ) : (
-            <Card className="p-6 text-center text-muted-foreground">
-              <p className="font-medium">No businesses listed yet in {category.name}.</p>
-              <p className="mt-1 text-sm">Be the first to claim this category.</p>
-              <Button asChild className="mt-4"><Link to="/businesses/list"><Plus className="mr-1.5 h-4 w-4" />List Your Business Here</Link></Button>
-            </Card>
-          )}
-
-          {/* Public Native Services & Listings Advertisement Placement */}
-          <ProgrammaticAdBanner placement="listings" format="banner" className="mt-8" />
-        </section>
-
-        {/* SEO body copy */}
-        <section className="mb-10 rounded-2xl border bg-card p-5 md:p-7">
-          <h2 className="mb-3 text-lg font-bold">About {lower} businesses in Lagos</h2>
-          <div className="space-y-3 text-sm leading-relaxed text-muted-foreground">
-            <p>
-              Lagos is Nigeria's busiest commercial hub, and the {lower} sector is one of its fastest-moving markets.
-              This page lists {count > 0 ? `${count} verified ` : ""}{lower} businesses you can contact directly — no
-              middlemen, no sign-up required to browse.
-            </p>
-            <p>
-              Every listing on {SITE_NAME} shows real photos, services offered, opening location and direct contact
-              options such as phone, WhatsApp and website, so you can compare providers before you commit.
-            </p>
-            <p>
-              Run a {lower} business yourself? <Link to="/businesses/list" className="font-medium text-primary underline">Create your free listing</Link>{" "}
-              to appear on this page, or <Link to="/advertise" className="font-medium text-primary underline">boost it</Link> to
-              stay at the top of the category.
-            </p>
           </div>
         </section>
+      )}
 
-        {!!posts?.length && (
-          <section className="mb-10" aria-labelledby="cat-articles">
-            <h2 id="cat-articles" className="mb-4 flex items-center gap-2 text-xl font-bold">
-              <BookOpen className="h-5 w-5 text-primary" />
-              {category.name} guides & articles
-            </h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {posts.map((p: any) => (
-                <Link key={p.id} to={`/blog/${p.slug}`} className="group">
-                  <Card className="h-full overflow-hidden transition-all hover:-translate-y-1 hover:shadow-lg">
-                    {p.featured_image && (
-                      <div className="aspect-[16/9] overflow-hidden bg-muted">
-                        <img src={p.featured_image} alt={p.title} loading="lazy" className="h-full w-full object-cover transition-transform group-hover:scale-105" />
-                      </div>
+      {/* Related Playbooks / Articles */}
+      {posts && posts.length > 0 && (
+        <section className="space-y-4 pt-6 border-t border-border/70">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-black text-foreground flex items-center gap-2">
+              <BookOpen className="h-5 w-5 text-primary" /> Growth Guides for {category.name}
+            </h3>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/blog">All Guides</Link>
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {posts.map((p: any) => (
+              <Link key={p.id} to={`/blog/${p.slug}`} className="group block">
+                <Card className="h-full border border-border/80 hover:border-primary/40 bg-card hover:bg-muted/40 transition-all rounded-2xl overflow-hidden shadow-xs">
+                  {p.featured_image && (
+                    <div className="h-36 w-full overflow-hidden bg-muted">
+                      <img
+                        src={p.featured_image}
+                        alt={p.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      />
+                    </div>
+                  )}
+                  <CardContent className="p-4 space-y-1.5">
+                    <h4 className="text-sm font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                      {p.title}
+                    </h4>
+                    {p.excerpt && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">{p.excerpt}</p>
                     )}
-                    <CardContent className="p-4">
-                      <h3 className="line-clamp-2 font-semibold leading-tight group-hover:text-primary">{p.title}</h3>
-                      {p.excerpt && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{p.excerpt}</p>}
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Internal linking to sibling categories */}
-        {!!siblings?.length && (
-          <section className="mb-10" aria-labelledby="other-cats">
-            <h2 id="other-cats" className="mb-3 text-lg font-bold">Explore other categories</h2>
-            <div className="grid grid-cols-3 gap-2.5 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-              {siblings.filter((c: any) => c.slug !== slug).slice(0, 16).map((c: any) => (
-                <CategoryTile key={c.id} name={c.name} slug={c.slug} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        <div className="rounded-2xl bg-gradient-to-br from-primary to-accent p-6 text-center text-primary-foreground md:p-8">
-          <h2 className="mb-2 text-xl font-bold md:text-2xl">Own a {lower} business?</h2>
-          <p className="mb-4 text-sm opacity-90 md:text-base">Get discovered by thousands of Lagos customers — list your business in minutes.</p>
-          <Button asChild size="lg" variant="secondary" className="shadow-lg">
-            <Link to="/businesses/list"><Plus className="mr-1.5 h-4 w-4" />List Your Business Here</Link>
-          </Button>
-        </div>
-      </div>
-    </>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+    </div>
   );
 }
