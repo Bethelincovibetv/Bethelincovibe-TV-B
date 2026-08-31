@@ -289,6 +289,55 @@ export async function getMyCommunities(promoterId: string): Promise<WhatsAppComm
 }
 
 /**
+ * Fetch a single WhatsApp community by ID
+ */
+export async function getCommunityById(communityId: string): Promise<WhatsAppCommunity | null> {
+  if (!communityId) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("whatsapp_communities")
+      .select(`
+        *,
+        category:categories(id, name, slug)
+      `)
+      .eq("id", communityId)
+      .maybeSingle();
+
+    if (error) {
+      if (isSchemaMissingError(error)) {
+        return getLocalCommunityById(communityId);
+      }
+      return getLocalCommunityById(communityId);
+    }
+
+    if (data) {
+      return data as unknown as WhatsAppCommunity;
+    }
+
+    return getLocalCommunityById(communityId);
+  } catch (err) {
+    return getLocalCommunityById(communityId);
+  }
+}
+
+function getLocalCommunityById(id: string): WhatsAppCommunity | null {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(COMMUNITY_STORAGE_KEY_PREFIX)) {
+        const list: WhatsAppCommunity[] = JSON.parse(localStorage.getItem(key) || "[]");
+        const found = list.find((c) => c.id === id);
+        if (found) return found;
+      }
+    }
+  } catch (e) {
+    // ignore
+  }
+  return null;
+}
+
+/**
  * Create a new WhatsApp community submission
  */
 export async function createCommunity(params: {

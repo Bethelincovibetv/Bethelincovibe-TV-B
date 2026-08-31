@@ -236,6 +236,16 @@ export default function PromoterProfilePage() {
                 <Package className="w-3.5 h-3.5 mr-1.5" /> Packages
               </Button>
               <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs font-medium rounded-lg"
+              >
+                <Link to="/dashboard/promoter-orders">
+                  <Clock className="w-3.5 h-3.5 mr-1.5" /> Orders
+                </Link>
+              </Button>
+              <Button
                 type="button"
                 variant={activeTab === "profile" ? "default" : "ghost"}
                 size="sm"

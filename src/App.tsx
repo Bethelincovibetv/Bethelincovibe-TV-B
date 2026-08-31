@@ -118,6 +118,12 @@ import GraphicDesignerPage from "./pages/GraphicDesignerPage";
 import AdminPricingManagement from "./pages/admin/AdminPricingManagement";
 import PromoterProfilePage from "./pages/PromoterProfilePage";
 import AdminCommunityVerification from "./pages/admin/AdminCommunityVerification";
+import BusinessPromotionMarketplace from "./pages/BusinessPromotionMarketplace";
+import PromoterMarketplaceProfile from "./pages/PromoterMarketplaceProfile";
+import BusinessPromotionOrders from "./pages/BusinessPromotionOrders";
+import BusinessPromotionOrderDetail from "./pages/BusinessPromotionOrderDetail";
+import PromoterPromotionOrders from "./pages/PromoterPromotionOrders";
+import PromoterPromotionOrderDetail from "./pages/PromoterPromotionOrderDetail";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -233,6 +239,20 @@ const App = () => (
               <Route path="/dashboard/promoter-profile" element={<PromoterProfilePage />} />
               <Route path="/dashboard/promoter" element={<PromoterProfilePage />} />
               <Route path="/promoter/profile" element={<PromoterProfilePage />} />
+              
+              {/* Step 5: Business Promotion Marketplace & Discovery */}
+              <Route path="/promoters" element={<BusinessPromotionMarketplace />} />
+              <Route path="/promoters/:id" element={<PromoterMarketplaceProfile />} />
+              <Route path="/promotions/marketplace" element={<BusinessPromotionMarketplace />} />
+              <Route path="/promotion-marketplace" element={<BusinessPromotionMarketplace />} />
+
+              {/* Step 6: Promotion Orders / Booking Foundation */}
+              <Route path="/dashboard/promotion-orders" element={<BusinessPromotionOrders />} />
+              <Route path="/dashboard/promotion-orders/:id" element={<BusinessPromotionOrderDetail />} />
+              <Route path="/dashboard/business-orders" element={<BusinessPromotionOrders />} />
+              <Route path="/dashboard/promoter-orders" element={<PromoterPromotionOrders />} />
+              <Route path="/dashboard/promoter-orders/:id" element={<PromoterPromotionOrderDetail />} />
+
               <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
