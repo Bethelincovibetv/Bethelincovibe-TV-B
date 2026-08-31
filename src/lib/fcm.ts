@@ -101,10 +101,7 @@ export async function requestAndSaveFcmToken(userId?: string): Promise<{ token: 
   }
 }
 
-/**
- * Save the FCM token only in push_subscriptions.
- * OneSignal player IDs and FCM tokens are deliberately kept separate.
- */
+/** Save the FCM token only in push_subscriptions. */
 export async function saveFcmTokenToBackend(userId: string, token: string) {
   try {
     const deviceLabel = getDeviceLabel();
@@ -219,6 +216,9 @@ export async function sendFcmNotificationToUser(params: {
     const category = params.type || "system";
     if (category in prefs && !(prefs as any)[category]) return;
 
+    // Push delivery is handled exclusively by the server/OneSignal target.
+    // Do NOT also create a local browser notification here: doing both causes
+    // the same event to appear twice on the current user's device.
     await supabase.functions.invoke("onesignal-send", {
       body: {
         title: params.title,
@@ -228,19 +228,15 @@ export async function sendFcmNotificationToUser(params: {
         user_ids: [params.userId],
       },
     }).catch(() => {});
-
-    triggerDirectBrowserNotification({
-      title: params.title,
-      body: params.body,
-      url: params.url || "/dashboard",
-      icon: params.icon || "/logo.png",
-      image: params.image,
-    });
   } catch (err) {
     console.warn("Failed sending FCM notification:", err);
   }
 }
 
+/**
+ * Manual/local browser notification helper. This is intentionally not called
+ * by sendFcmNotificationToUser; it remains available for explicit UI use only.
+ */
 export function triggerDirectBrowserNotification(options: {
   title: string;
   body: string;
