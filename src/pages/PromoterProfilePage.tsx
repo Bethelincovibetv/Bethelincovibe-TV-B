@@ -39,6 +39,8 @@ import {
   PromoterProfile,
 } from "@/services/promoterService";
 import PromoterCommunitiesSection from "@/components/promoter/PromoterCommunitiesSection";
+import PromoterPackagesSection from "@/components/promoter/PromoterPackagesSection";
+import { Package } from "lucide-react";
 
 export default function PromoterProfilePage() {
   const { user, loading: authLoading } = useAuth();
@@ -49,10 +51,12 @@ export default function PromoterProfilePage() {
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<PromoterProfile | null>(null);
 
-  // Active Tab: "audiences" | "profile" | "preview"
+  // Active Tab: "audiences" | "packages" | "profile" | "preview"
   const activeTabParam = searchParams.get("tab");
-  const [activeTab, setActiveTab] = useState<"audiences" | "profile" | "preview">(
-    activeTabParam === "profile" || activeTabParam === "preview" ? activeTabParam : "audiences"
+  const [activeTab, setActiveTab] = useState<"audiences" | "packages" | "profile" | "preview">(
+    activeTabParam === "packages" || activeTabParam === "profile" || activeTabParam === "preview"
+      ? activeTabParam
+      : "audiences"
   );
 
   // Form states
@@ -107,7 +111,7 @@ export default function PromoterProfilePage() {
     );
   };
 
-  const handleTabChange = (tab: "audiences" | "profile" | "preview") => {
+  const handleTabChange = (tab: "audiences" | "packages" | "profile" | "preview") => {
     setActiveTab(tab);
     setSearchParams({ tab });
   };
@@ -208,7 +212,7 @@ export default function PromoterProfilePage() {
 
           {/* Tab Switcher */}
           {profile && (
-            <div className="flex items-center bg-muted/80 p-1 rounded-xl border self-start sm:self-center gap-1">
+            <div className="flex items-center bg-muted/80 p-1 rounded-xl border self-start sm:self-center gap-1 overflow-x-auto max-w-full">
               <Button
                 type="button"
                 variant={activeTab === "audiences" ? "default" : "ghost"}
@@ -219,6 +223,17 @@ export default function PromoterProfilePage() {
                 onClick={() => handleTabChange("audiences")}
               >
                 <Users className="w-3.5 h-3.5 mr-1.5" /> Audiences
+              </Button>
+              <Button
+                type="button"
+                variant={activeTab === "packages" ? "default" : "ghost"}
+                size="sm"
+                className={`h-8 text-xs font-medium rounded-lg ${
+                  activeTab === "packages" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""
+                }`}
+                onClick={() => handleTabChange("packages")}
+              >
+                <Package className="w-3.5 h-3.5 mr-1.5" /> Packages
               </Button>
               <Button
                 type="button"
@@ -390,6 +405,20 @@ export default function PromoterProfilePage() {
             transition={{ duration: 0.2 }}
           >
             <PromoterCommunitiesSection promoterId={profile.id} />
+          </motion.div>
+        )}
+
+        {/* Tab: Promotion Packages Section */}
+        {profile && activeTab === "packages" && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <PromoterPackagesSection
+              promoterId={profile.id}
+              onNavigateToAudiences={() => handleTabChange("audiences")}
+            />
           </motion.div>
         )}
 
