@@ -1,7 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type CommunityType = "group" | "channel" | "status_audience";
-export type VerificationStatus = "submitted" | "under_review" | "verified" | "rejected";
+export type VerificationStatus = "submitted" | "under_review" | "verified" | "rejected" | "suspended";
 
 export interface WhatsAppCommunity {
   id: string;

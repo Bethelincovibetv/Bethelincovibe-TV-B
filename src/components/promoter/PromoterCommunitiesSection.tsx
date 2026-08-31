@@ -117,7 +117,7 @@ export default function PromoterCommunitiesSection({ promoterId }: PromoterCommu
         );
       case "under_review":
         return (
-          <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 flex items-center gap-1 font-semibold text-xs px-2.5 py-0.5">
+          <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 flex items-center gap-1 font-semibold text-xs px-2.5 py-0.5 animate-pulse">
             <FileSearch className="w-3.5 h-3.5" /> Under Review
           </Badge>
         );
@@ -127,11 +127,17 @@ export default function PromoterCommunitiesSection({ promoterId }: PromoterCommu
             <AlertTriangle className="w-3.5 h-3.5" /> Rejected
           </Badge>
         );
+      case "suspended":
+        return (
+          <Badge className="bg-zinc-500/20 text-zinc-700 dark:text-zinc-300 border-zinc-500/30 flex items-center gap-1 font-semibold text-xs px-2.5 py-0.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> Suspended
+          </Badge>
+        );
       case "submitted":
       default:
         return (
           <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 flex items-center gap-1 font-semibold text-xs px-2.5 py-0.5">
-            <Clock className="w-3.5 h-3.5" /> Submitted
+            <Clock className="w-3.5 h-3.5" /> Not Yet Reviewed
           </Badge>
         );
     }
@@ -225,6 +231,8 @@ export default function PromoterCommunitiesSection({ promoterId }: PromoterCommu
                       ? "bg-blue-500"
                       : comm.verification_status === "rejected"
                       ? "bg-rose-500"
+                      : comm.verification_status === "suspended"
+                      ? "bg-zinc-500"
                       : "bg-amber-500"
                   }`}
                 />
@@ -295,6 +303,19 @@ export default function PromoterCommunitiesSection({ promoterId }: PromoterCommu
                         <span>Rejection Reason:</span>
                       </div>
                       <p className="text-[11px] leading-relaxed">{comm.rejection_reason}</p>
+                    </div>
+                  )}
+
+                  {/* Suspended notice if suspended */}
+                  {comm.verification_status === "suspended" && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                        <span>Audience Suspended:</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed">
+                        This audience has been temporarily suspended from public discovery by administration. Please contact support if you believe this is in error.
+                      </p>
                     </div>
                   )}
 

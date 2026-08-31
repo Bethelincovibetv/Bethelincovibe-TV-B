@@ -45,14 +45,14 @@ export default function AdminDashboard() {
   ];
 
   const quickActions = [
+    { label: "Communities", icon: ShieldCheck, link: "/admin/community-verification", tone: "bg-emerald-500/10 text-emerald-600" },
     { label: "New Post", icon: FileText, link: "/admin/posts", tone: "bg-primary/10 text-primary" },
     { label: "AI Blogger", icon: Bot, link: "/admin/ai-blogger", tone: "bg-fuchsia-500/10 text-fuchsia-600" },
     { label: "Business Blogs", icon: Sparkles, link: "/admin/guest-blogs", tone: "bg-amber-500/10 text-amber-600" },
     { label: "TV Videos", icon: Tv, link: "/admin/videos", tone: "bg-blue-500/10 text-blue-600" },
     { label: "Slides", icon: ImageIcon, link: "/admin/slides", tone: "bg-cyan-500/10 text-cyan-600" },
     { label: "Ads", icon: Megaphone, link: "/admin/ads", tone: "bg-rose-500/10 text-rose-600" },
-    { label: "Sales Pages", icon: Rocket, link: "/admin/sales-pages", tone: "bg-emerald-500/10 text-emerald-600" },
-    { label: "Notify", icon: Bell, link: "/admin/notifications", tone: "bg-orange-500/10 text-orange-600" },
+    { label: "Sales Pages", icon: Rocket, link: "/admin/sales-pages", tone: "bg-indigo-500/10 text-indigo-600" },
   ];
 
   const manageLinks = [

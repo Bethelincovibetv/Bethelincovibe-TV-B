@@ -117,6 +117,7 @@ import Referral from "./pages/Referral";
 import GraphicDesignerPage from "./pages/GraphicDesignerPage";
 import AdminPricingManagement from "./pages/admin/AdminPricingManagement";
 import PromoterProfilePage from "./pages/PromoterProfilePage";
+import AdminCommunityVerification from "./pages/admin/AdminCommunityVerification";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -318,6 +319,9 @@ const App = () => (
               <Route path="video-creator" element={<VideoCreator />} />
               <Route path="slides" element={<AdminSlides />} />
               <Route path="users" element={<AdminUsers />} />
+              <Route path="community-verification" element={<AdminCommunityVerification />} />
+              <Route path="communities" element={<AdminCommunityVerification />} />
+              <Route path="promoter-verification" element={<AdminCommunityVerification />} />
               <Route path="whatsapp-engine" element={<AdminWhatsAppEngine />} />
               <Route path="contacts" element={<AdminContacts />} />
               <Route path="settings" element={<AdminSettings />} />

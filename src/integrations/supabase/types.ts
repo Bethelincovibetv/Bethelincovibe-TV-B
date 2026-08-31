@@ -1575,6 +1575,41 @@ export type Database = {
           }
         ]
       }
+      community_verifications: {
+        Row: {
+          action: string
+          admin_id: string
+          community_id: string
+          created_at: string
+          id: string
+          verification_notes: string | null
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          community_id: string
+          created_at?: string
+          id?: string
+          verification_notes?: string | null
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          community_id?: string
+          created_at?: string
+          id?: string
+          verification_notes?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "community_verifications_community_id_fkey"
+            columns: ["community_id"]
+            isOneToOne: false
+            referencedRelation: "whatsapp_communities"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       push_notifications: {
         Row: {
           body: string

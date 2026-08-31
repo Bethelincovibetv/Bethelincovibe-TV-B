@@ -27,6 +27,7 @@ const allLinks = [
   { to: "/admin/jingles", label: "Background Jingles", icon: Music, group: "Content", feature: null },
 
   { to: "/admin/businesses", label: "Business Hub", icon: Building2, group: "Directory", feature: "businesses" },
+  { to: "/admin/community-verification", label: "WhatsApp Communities", icon: ShieldCheck, group: "Directory", feature: null },
   { to: "/admin/verification", label: "Verification (Blue Tick)", icon: ShieldCheck, group: "Directory", feature: "businesses" },
   { to: "/admin/featured", label: "Featured Promos", icon: Sparkles, group: "Directory", feature: "businesses" },
   { to: "/admin/featured-products", label: "Marketplace Products", icon: Package, group: "Directory", feature: "businesses" },
