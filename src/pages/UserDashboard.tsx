@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Wallet, Heart, Building2, Sparkles, User as UserIcon, Settings, Plus, Mail,
-  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, MessageCircle, QrCode, Film, Gift
+  Calculator, FileText, CreditCard, ShoppingBag, ChevronRight, ExternalLink, Megaphone, Briefcase, Package, MousePointerClick, GraduationCap, Rocket, MessageSquare, Bell, ShieldCheck, Wand2, Activity, ArrowRight, MessageCircle, QrCode, Film, Gift, Smartphone
 } from "lucide-react";
 
 import ProfileCompletionCard from "@/components/ProfileCompletionCard";
@@ -174,6 +174,7 @@ export default function UserDashboard() {
 
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
+    { to: "/dashboard/promoter/profile", label: "Promoter Hub", icon: Smartphone, color: "from-emerald-600 via-teal-600 to-green-600", show: true },
     { to: "/dashboard/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-green-600", show: flags.whatsapp_engine },
     { to: "/u/me", label: "My Profile", icon: UserIcon, color: "from-purple-500 to-pink-500", show: true },
     { to: "/referral", label: "Refer & Earn", icon: Gift, color: "from-amber-500 via-rose-500 to-purple-600", show: true },

@@ -116,6 +116,7 @@ import AdminWhatsAppEngine from "./pages/admin/AdminWhatsAppEngine";
 import Referral from "./pages/Referral";
 import GraphicDesignerPage from "./pages/GraphicDesignerPage";
 import AdminPricingManagement from "./pages/admin/AdminPricingManagement";
+import PromoterProfilePage from "./pages/PromoterProfilePage";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -227,6 +228,10 @@ const App = () => (
               <Route path="/dashboard/wallet/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/wallet/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/receipt/:id" element={<TransactionReceipt />} />
+              <Route path="/dashboard/promoter/profile" element={<PromoterProfilePage />} />
+              <Route path="/dashboard/promoter-profile" element={<PromoterProfilePage />} />
+              <Route path="/dashboard/promoter" element={<PromoterProfilePage />} />
+              <Route path="/promoter/profile" element={<PromoterProfilePage />} />
               <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />

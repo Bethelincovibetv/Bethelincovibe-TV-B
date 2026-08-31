@@ -1458,6 +1458,123 @@ export type Database = {
         }
         Relationships: []
       }
+      promoter_profiles: {
+        Row: {
+          bio: string | null
+          created_at: string
+          display_name: string
+          id: string
+          is_verified: boolean
+          niche: string[] | null
+          phone_whatsapp: string
+          rating: number
+          status: string
+          total_completed_orders: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bio?: string | null
+          created_at?: string
+          display_name: string
+          id?: string
+          is_verified?: boolean
+          niche?: string[] | null
+          phone_whatsapp: string
+          rating?: number
+          status?: string
+          total_completed_orders?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bio?: string | null
+          created_at?: string
+          display_name?: string
+          id?: string
+          is_verified?: boolean
+          niche?: string[] | null
+          phone_whatsapp?: string
+          rating?: number
+          status?: string
+          total_completed_orders?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      whatsapp_communities: {
+        Row: {
+          active_daily_views: number
+          category_id: string | null
+          community_type: string
+          country_primary: string
+          created_at: string
+          demographics_summary: string | null
+          id: string
+          is_published: boolean
+          member_count: number
+          name: string
+          proof_screenshot_url: string
+          promoter_id: string
+          rejection_reason: string | null
+          updated_at: string
+          verification_status: string
+          verified_at: string | null
+        }
+        Insert: {
+          active_daily_views?: number
+          category_id?: string | null
+          community_type: string
+          country_primary?: string
+          created_at?: string
+          demographics_summary?: string | null
+          id?: string
+          is_published?: boolean
+          member_count: number
+          name: string
+          proof_screenshot_url: string
+          promoter_id: string
+          rejection_reason?: string | null
+          updated_at?: string
+          verification_status?: string
+          verified_at?: string | null
+        }
+        Update: {
+          active_daily_views?: number
+          category_id?: string | null
+          community_type?: string
+          country_primary?: string
+          created_at?: string
+          demographics_summary?: string | null
+          id?: string
+          is_published?: boolean
+          member_count?: number
+          name?: string
+          proof_screenshot_url?: string
+          promoter_id?: string
+          rejection_reason?: string | null
+          updated_at?: string
+          verification_status?: string
+          verified_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_communities_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "whatsapp_communities_promoter_id_fkey"
+            columns: ["promoter_id"]
+            isOneToOne: false
+            referencedRelation: "promoter_profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       push_notifications: {
         Row: {
           body: string
