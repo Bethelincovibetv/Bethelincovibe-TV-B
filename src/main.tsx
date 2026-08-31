@@ -1,6 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
+import "./purpleTextContrast.css";
 import ErrorBoundary from "./components/ErrorBoundary";
 
 // Gracefully handle benign third-party or network rejections without crashing React
@@ -8,73 +9,37 @@ if (typeof window !== "undefined") {
   const isBenignError = (str: string) => {
     const s = (str || "").toLowerCase();
     return (
-      s.includes("failed to fetch") ||
-      s.includes("fetch failed") ||
-      s.includes("network_error") ||
-      s.includes("network error") ||
-      s.includes("load failed") ||
-      s.includes("onesignal") ||
-      s.includes("google") ||
-      s.includes("ggd") ||
-      s.includes("ad_network") ||
-      s.includes("adsterra") ||
-      s.includes("monetag") ||
-      s.includes("startio") ||
-      s.includes("aborted") ||
-      s.includes("loading chunk") ||
-      s.includes("dynamically imported module") ||
-      s.includes("permission_denied") ||
-      s.includes("caller does not have permission") ||
+      s.includes("failed to fetch") || s.includes("fetch failed") || s.includes("network_error") ||
+      s.includes("network error") || s.includes("load failed") || s.includes("onesignal") ||
+      s.includes("google") || s.includes("ggd") || s.includes("ad_network") || s.includes("adsterra") ||
+      s.includes("monetag") || s.includes("startio") || s.includes("aborted") ||
+      s.includes("loading chunk") || s.includes("dynamically imported module") ||
+      s.includes("permission_denied") || s.includes("caller does not have permission") ||
       s.includes("specialist agent query error")
     );
   };
-
-  // Intercept unhandled promise rejections
   const origUnhandledRejection = window.onunhandledrejection;
   window.onunhandledrejection = function (event: PromiseRejectionEvent) {
     const reason = event?.reason;
     const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();
-    if (isBenignError(msg)) {
-      event?.preventDefault?.();
-      return true;
-    }
-    if (typeof origUnhandledRejection === "function") {
-      return (origUnhandledRejection as any).call(window, event);
-    }
+    if (isBenignError(msg)) { event?.preventDefault?.(); return true; }
+    if (typeof origUnhandledRejection === "function") return (origUnhandledRejection as any).call(window, event);
   };
-
-  // Intercept global runtime errors
   const origOnError = window.onerror;
   window.onerror = function (eventOrMessage, source, lineno, colno, error, ...args: any[]) {
-    const msg = (
-      typeof eventOrMessage === "string"
-        ? eventOrMessage
-        : (eventOrMessage as any)?.message || error?.message || ""
-    ).toLowerCase();
-    if (isBenignError(msg)) {
-      return true;
-    }
-    if (typeof origOnError === "function") {
-      return (origOnError as any).call(window, eventOrMessage, source, lineno, colno, error, ...args);
-    }
+    const msg = (typeof eventOrMessage === "string" ? eventOrMessage : (eventOrMessage as any)?.message || error?.message || "").toLowerCase();
+    if (isBenignError(msg)) return true;
+    if (typeof origOnError === "function") return (origOnError as any).call(window, eventOrMessage, source, lineno, colno, error, ...args);
     return false;
   };
-
   window.addEventListener("unhandledrejection", (event) => {
     const reason = event.reason;
     const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();
-    if (isBenignError(msg)) {
-      event.preventDefault?.();
-      event.stopPropagation?.();
-    }
+    if (isBenignError(msg)) { event.preventDefault?.(); event.stopPropagation?.(); }
   }, true);
-
   window.addEventListener("error", (event) => {
     const msg = (event.message || event.error?.message || "").toLowerCase();
-    if (isBenignError(msg)) {
-      event.preventDefault?.();
-      event.stopPropagation?.();
-    }
+    if (isBenignError(msg)) { event.preventDefault?.(); event.stopPropagation?.(); }
   }, true);
 }
 
@@ -83,5 +48,3 @@ createRoot(document.getElementById("root")!).render(
     <App />
   </ErrorBoundary>
 );
-
-
