@@ -113,6 +113,38 @@ function saveLocalCommunities(promoterId: string, items: WhatsAppCommunity[]): v
 }
 
 /**
+ * Evaluates whether a community can be edited by its promoter
+ */
+export function canEditCommunity(
+  community: {
+    verification_status?: CommunityVerificationStatus | string;
+    is_published?: boolean;
+  },
+  isAdmin = false
+): { allowed: boolean; reason?: string } {
+  if (isAdmin) {
+    return { allowed: true };
+  }
+
+  if (community.verification_status === "verified" && community.is_published) {
+    return {
+      allowed: false,
+      reason:
+        "This audience is verified and cannot be edited directly. Contact an administrator if important information needs to be changed.",
+    };
+  }
+
+  if (community.verification_status === "suspended") {
+    return {
+      allowed: false,
+      reason: "This audience has been suspended and cannot be edited.",
+    };
+  }
+
+  return { allowed: true };
+}
+
+/**
  * Validates community creation/update parameters
  */
 export function validateCommunityInput(params: {
@@ -367,6 +399,7 @@ export async function updateCommunity(params: {
   countryPrimary?: string;
   demographicsSummary?: string | null;
   proofScreenshotUrl?: string;
+  isAdmin?: boolean;
 }): Promise<WhatsAppCommunity> {
   const validation = validateCommunityInput({
     name: params.name,
@@ -377,6 +410,21 @@ export async function updateCommunity(params: {
 
   if (!validation.isValid) {
     throw new Error(validation.error);
+  }
+
+  // Check local store first if present to fail fast on verified communities
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(COMMUNITY_STORAGE_KEY_PREFIX)) {
+      const list: WhatsAppCommunity[] = JSON.parse(localStorage.getItem(key) || "[]");
+      const existing = list.find((c) => c.id === params.communityId);
+      if (existing) {
+        const check = canEditCommunity(existing, params.isAdmin);
+        if (!check.allowed) {
+          throw new Error(check.reason || "Forbidden: Verified communities cannot be edited.");
+        }
+      }
+    }
   }
 
   const updatePayload: Record<string, any> = {
@@ -416,11 +464,26 @@ export async function updateCommunity(params: {
             const list: WhatsAppCommunity[] = JSON.parse(localStorage.getItem(key) || "[]");
             const idx = list.findIndex((c) => c.id === params.communityId);
             if (idx >= 0) {
+              const existingItem = list[idx];
+              const check = canEditCommunity(existingItem, params.isAdmin);
+              if (!check.allowed) {
+                throw new Error(check.reason || "Forbidden: Verified communities cannot be edited.");
+              }
+
+              // Status preservation: rejected stays rejected; unverified stays submitted/under_review; never auto-verifies
+              const preservedStatus =
+                existingItem.verification_status === "rejected"
+                  ? "rejected"
+                  : existingItem.verification_status || "submitted";
+
               const updatedItem: WhatsAppCommunity = {
-                ...list[idx],
+                ...existingItem,
                 ...updatePayload,
+                verification_status: preservedStatus,
+                is_published: false,
+                verified_at: null,
                 updated_at: now,
-                category: matchedCategory || list[idx].category,
+                category: matchedCategory || existingItem.category,
               };
               list[idx] = updatedItem;
               localStorage.setItem(key, JSON.stringify(list));
@@ -441,11 +504,25 @@ export async function updateCommunity(params: {
           const list: WhatsAppCommunity[] = JSON.parse(localStorage.getItem(key) || "[]");
           const idx = list.findIndex((c) => c.id === params.communityId);
           if (idx >= 0) {
+            const existingItem = list[idx];
+            const check = canEditCommunity(existingItem, params.isAdmin);
+            if (!check.allowed) {
+              throw new Error(check.reason || "Forbidden: Verified communities cannot be edited.");
+            }
+
+            const preservedStatus =
+              existingItem.verification_status === "rejected"
+                ? "rejected"
+                : existingItem.verification_status || "submitted";
+
             const updatedItem: WhatsAppCommunity = {
-              ...list[idx],
+              ...existingItem,
               ...updatePayload,
+              verification_status: preservedStatus,
+              is_published: false,
+              verified_at: null,
               updated_at: now,
-              category: matchedCategory || list[idx].category,
+              category: matchedCategory || existingItem.category,
             };
             list[idx] = updatedItem;
             localStorage.setItem(key, JSON.stringify(list));

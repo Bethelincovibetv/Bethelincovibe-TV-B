@@ -32,6 +32,7 @@ import {
   updateCommunity,
   uploadCommunityProofScreenshot,
   getCommunityCategories,
+  canEditCommunity,
 } from "@/services/communityService";
 
 interface CommunitySubmissionModalProps {
@@ -74,6 +75,13 @@ export default function CommunitySubmissionModal({
     if (isOpen) {
       loadCategories();
       if (communityToEdit) {
+        const editCheck = canEditCommunity(communityToEdit);
+        if (!editCheck.allowed) {
+          toast.error(editCheck.reason || "This audience is verified and cannot be edited.");
+          onClose();
+          return;
+        }
+
         setName(communityToEdit.name);
         setCommunityType(communityToEdit.community_type);
         setCategoryId(communityToEdit.category_id || "");
@@ -229,6 +237,18 @@ export default function CommunitySubmissionModal({
             List your WhatsApp Group, Channel, or Status audience to receive paid promotion bookings from businesses.
           </DialogDescription>
         </DialogHeader>
+
+        {communityToEdit?.verification_status === "rejected" && (
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-xs text-rose-800 dark:text-rose-300 space-y-1 mt-2">
+            <p className="font-semibold flex items-center gap-1.5">
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+              <span>Updating Rejected Submission</span>
+            </p>
+            <p className="text-[11px] leading-relaxed">
+              You are modifying a previously rejected audience. Your updates will be saved, and the community will remain unpublished until re-reviewed by an administrator.
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-5 pt-2">
           {/* Community Type Selection Cards */}

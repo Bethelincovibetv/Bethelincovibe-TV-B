@@ -5,6 +5,7 @@ import {
   getMyCommunities,
   deleteCommunity,
   COMMUNITY_TYPES,
+  canEditCommunity,
 } from "@/services/communityService";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ import {
   Radio,
   Image as ImageIcon,
   CheckCircle2,
+  Lock,
 } from "lucide-react";
 import CommunitySubmissionModal from "./CommunitySubmissionModal";
 
@@ -73,6 +75,11 @@ export default function PromoterCommunitiesSection({ promoterId }: PromoterCommu
   };
 
   const handleOpenEditModal = (community: WhatsAppCommunity) => {
+    const editCheck = canEditCommunity(community);
+    if (!editCheck.allowed) {
+      toast.error(editCheck.reason || "This audience is verified and cannot be edited directly.");
+      return;
+    }
     setCommunityToEdit(community);
     setIsModalOpen(true);
   };
@@ -306,6 +313,19 @@ export default function PromoterCommunitiesSection({ promoterId }: PromoterCommu
                     </div>
                   )}
 
+                  {/* Verified & Published Locked notice */}
+                  {comm.verification_status === "verified" && (
+                    <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-900 dark:text-emerald-200 text-xs space-y-1">
+                      <div className="flex items-center gap-1.5 font-semibold">
+                        <Lock className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                        <span>Verified Community</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-emerald-800/90 dark:text-emerald-300/90">
+                        This audience is verified and cannot be edited directly. Contact an administrator if important information needs to be changed.
+                      </p>
+                    </div>
+                  )}
+
                   {/* Suspended notice if suspended */}
                   {comm.verification_status === "suspended" && (
                     <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs space-y-1">
@@ -338,15 +358,22 @@ export default function PromoterCommunitiesSection({ promoterId }: PromoterCommu
                         </Button>
                       )}
 
-                      {/* Edit button */}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleOpenEditModal(comm)}
-                        className="h-8 px-2.5 text-xs gap-1"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" /> Edit
-                      </Button>
+                      {/* Edit or Locked status */}
+                      {comm.verification_status === "verified" ? (
+                        <div className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-muted/60 text-muted-foreground text-[11px] font-medium border border-border/50 select-none">
+                          <Lock className="w-3 h-3 text-muted-foreground" />
+                          <span>Locked</span>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleOpenEditModal(comm)}
+                          className="h-8 px-2.5 text-xs gap-1"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" /> Edit
+                        </Button>
+                      )}
 
                       {/* Delete button (for non-verified or rejected) */}
                       {comm.verification_status !== "verified" && (
