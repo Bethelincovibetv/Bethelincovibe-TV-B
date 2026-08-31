@@ -168,6 +168,45 @@ export function validateAndNormalizeWhatsAppNumber(rawPhone: string): {
 }
 
 /**
+ * Fetch a promoter profile by promoter profile ID (with fallback to local storage)
+ */
+export async function getPromoterProfileById(profileId: string): Promise<PromoterProfile | null> {
+  if (!profileId) return null;
+
+  try {
+    const { data, error } = await supabase
+      .from("promoter_profiles")
+      .select("*")
+      .eq("id", profileId)
+      .maybeSingle();
+
+    if (error) {
+      if (isSchemaMissingError(error)) {
+        return getLocalPromoterProfileById(profileId);
+      }
+      return getLocalPromoterProfileById(profileId);
+    }
+
+    if (data) {
+      const profile = data as PromoterProfile;
+      saveLocalPromoterProfile(profile);
+      return profile;
+    }
+
+    return getLocalPromoterProfileById(profileId);
+  } catch (err: any) {
+    return getLocalPromoterProfileById(profileId);
+  }
+}
+
+/**
+ * Fetch a promoter profile by Supabase user ID
+ */
+export async function getPromoterProfileByUserId(userId: string): Promise<PromoterProfile | null> {
+  return getMyPromoterProfile(userId);
+}
+
+/**
  * Fetch the current user's promoter profile
  */
 export async function getMyPromoterProfile(userId: string): Promise<PromoterProfile | null> {
