@@ -93,8 +93,9 @@ export default function PromoterProfilePage() {
         setActiveTab("profile");
       }
     } catch (err: any) {
-      console.error("Error loading promoter profile:", err);
-      toast.error("Failed to load promoter profile details.");
+      console.warn("Notice: Initializing promoter profile state:", err?.message);
+      setDisplayName(user.user_metadata?.display_name || user.email?.split("@")[0] || "");
+      setActiveTab("profile");
     } finally {
       setLoading(false);
     }
