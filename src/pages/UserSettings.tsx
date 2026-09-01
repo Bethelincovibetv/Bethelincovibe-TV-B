@@ -47,6 +47,14 @@ import {
   setCachedSoundPreference,
   NotificationSoundPreset,
 } from "@/lib/notificationSound";
+import {
+  getRecommenderUserPrefs,
+  saveRecommenderUserPrefs,
+  clearUserRecommenderData,
+  getUserInterestProfile,
+  RecommenderUserPrefs,
+} from "@/lib/aiBusinessRecommenderEngine";
+import aiMatchAvatar from "@/assets/images/ai_match_avatar_1788303151852.jpg";
 
 export default function UserSettings() {
   const { user, loading, isAdmin } = useAuth();
@@ -84,6 +92,23 @@ export default function UserSettings() {
 
   // Notification sound preset
   const [soundPreset, setSoundPreset] = useState<NotificationSoundPreset>("bethel_vibe");
+
+  // AI Recommender Preferences & Local Profile
+  const [recommenderPrefs, setRecommenderPrefs] = useState<RecommenderUserPrefs>(getRecommenderUserPrefs());
+  const [interestProfile, setInterestProfile] = useState(getUserInterestProfile());
+
+  const handleUpdateRecommenderPrefs = (updates: Partial<RecommenderUserPrefs>) => {
+    const updated = { ...recommenderPrefs, ...updates };
+    setRecommenderPrefs(updated);
+    saveRecommenderUserPrefs(updates);
+    toast.success("AI Recommendation preferences saved!");
+  };
+
+  const handleClearInterestProfile = () => {
+    clearUserRecommenderData();
+    setInterestProfile(getUserInterestProfile());
+    toast.success("Your behavioral interest profile has been cleared!");
+  };
 
   // Load User Data & Platform Audio Settings
   useEffect(() => {
@@ -355,13 +380,21 @@ export default function UserSettings() {
       <div className="container mx-auto max-w-5xl px-4 py-6">
         <Tabs value={activeTabParam} onValueChange={handleTabChange} className="space-y-6">
           {/* Responsive Navigation Tab List */}
-          <TabsList className="grid grid-cols-2 sm:grid-cols-4 h-auto p-1.5 gap-1.5 bg-card/80 border rounded-2xl shadow-xs">
+          <TabsList className="grid grid-cols-2 sm:grid-cols-5 h-auto p-1.5 gap-1.5 bg-card/80 border rounded-2xl shadow-xs">
             <TabsTrigger
               value="audio"
               className="flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-bold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white shadow-xs transition-all"
             >
               <Music className="h-4 w-4" />
               <span>Music & Audio</span>
+            </TabsTrigger>
+
+            <TabsTrigger
+              value="ai_match"
+              className="flex items-center justify-center gap-2 py-2.5 text-xs sm:text-sm font-bold rounded-xl data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-indigo-600 data-[state=active]:text-white shadow-xs transition-all"
+            >
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              <span>AI Recommender</span>
             </TabsTrigger>
 
             <TabsTrigger
@@ -857,6 +890,129 @@ export default function UserSettings() {
                       Verification Center
                     </Link>
                   </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* ================= TAB: AI RECOMMENDER & MATCH PREFERENCES ================= */}
+          <TabsContent value="ai_match" className="space-y-6 animate-fade-in focus:outline-hidden">
+            <Card className="border shadow-xs rounded-3xl overflow-hidden">
+              <div className="bg-gradient-to-r from-violet-600 via-purple-600 to-indigo-700 text-white p-5 sm:p-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="relative shrink-0">
+                      <div className="absolute -inset-0.5 bg-amber-400 rounded-full blur-xs opacity-75 animate-pulse" />
+                      <img
+                        src={aiMatchAvatar}
+                        alt="Maya AI Specialist"
+                        className="relative h-13 w-13 rounded-full object-cover border-2 border-white shadow-md"
+                      />
+                      <span className="absolute bottom-0 right-0 h-3.5 w-3.5 bg-emerald-400 border-2 border-slate-900 rounded-full" />
+                    </div>
+                    <div>
+                      <h3 className="text-base sm:text-lg font-black flex items-center gap-2">
+                        <Sparkles className="h-5 w-5 text-amber-300 fill-amber-300" />
+                        AI Business Recommender &amp; Match Assistant
+                      </h3>
+                      <p className="text-xs text-white/80 font-medium">
+                        Personalised smart matching powered by Maya, your AI match specialist.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <CardContent className="p-5 sm:p-6 space-y-6">
+                {/* User Toggles */}
+                <div className="space-y-4 divide-y">
+                  <div className="flex items-center justify-between pt-1">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-bold">Personalised Business Recommendations</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Allow the platform to match you with relevant verified businesses based on your browsing journey.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={recommenderPrefs.enabled}
+                      onCheckedChange={(checked) => handleUpdateRecommenderPrefs({ enabled: checked })}
+                    />
+                  </div>
+
+                  <div className="flex items-center justify-between pt-4">
+                    <div className="space-y-0.5">
+                      <Label className="text-sm font-bold">3D Assistant Character Widget (Maya)</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Show the interactive floating match specialist widget in the bottom corner of your screen.
+                      </p>
+                    </div>
+                    <Switch
+                      checked={recommenderPrefs.show_avatar}
+                      onCheckedChange={(checked) => handleUpdateRecommenderPrefs({ show_avatar: checked })}
+                    />
+                  </div>
+                </div>
+
+                {/* Inferred Interest Profile Transparency Box */}
+                <div className="p-4 sm:p-5 rounded-2xl bg-muted/40 border space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b pb-3">
+                    <div>
+                      <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-1.5">
+                        <Sparkles className="h-4 w-4 text-violet-500" />
+                        Your Dynamic In-Platform Interest Profile
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        Derived entirely from permitted on-site searches and category exploration. Never shared externally.
+                      </p>
+                    </div>
+                    <Badge className="bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30 font-extrabold text-[10px] self-start sm:self-auto">
+                      Intent Confidence: {interestProfile.confidence}%
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-muted-foreground">Inferred Focus:</span>
+                      <span className="text-xs font-black text-foreground">"{interestProfile.recentIntent}"</span>
+                    </div>
+
+                    <div>
+                      <span className="text-[11px] font-bold text-muted-foreground block mb-1.5">
+                        Primary Interest Clusters:
+                      </span>
+                      {interestProfile.primaryInterests.length > 0 ? (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {interestProfile.primaryInterests.map((cat, i) => (
+                            <Badge
+                              key={i}
+                              variant="secondary"
+                              className="text-xs font-bold px-2.5 py-1 bg-background border"
+                            >
+                              {cat.categoryName} <span className="opacity-60 ml-1">({cat.weightPct}%)</span>
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-muted-foreground italic">
+                          No browsing history yet. As you search the directory or view products, your profile will adapt automatically!
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <span className="text-[11px] text-muted-foreground">
+                      Total Activity Signals Logged: {interestProfile.totalSignalsCount}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleClearInterestProfile}
+                      className="text-xs font-bold h-8 rounded-xl text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/20 border-rose-200"
+                    >
+                      Clear &amp; Reset Interest History
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

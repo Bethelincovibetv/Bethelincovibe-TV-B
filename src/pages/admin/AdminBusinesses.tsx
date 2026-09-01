@@ -15,6 +15,7 @@ import AdminFeaturedProductsTab from "@/components/admin/business/AdminFeaturedP
 import AdminBusinessVideosTab from "@/components/admin/business/AdminBusinessVideosTab";
 import AdminBusinessAISettingsTab from "@/components/admin/business/AdminBusinessAISettingsTab";
 import AdminBusinessTransactionsTab from "@/components/admin/business/AdminBusinessTransactionsTab";
+import AdminAIBusinessRecommenderTab from "@/components/admin/business/AdminAIBusinessRecommenderTab";
 
 export default function AdminBusinesses({ defaultTab }: { defaultTab?: string }) {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -104,6 +105,14 @@ export default function AdminBusinesses({ defaultTab }: { defaultTab?: string })
             </TabsTrigger>
 
             <TabsTrigger
+              value="ai_recommender"
+              className="rounded-xl px-3.5 py-2 text-xs font-bold gap-1.5 bg-gradient-to-r from-violet-500/15 to-purple-500/15 text-violet-700 dark:text-violet-300 border border-violet-500/30 data-[state=active]:bg-gradient-to-r data-[state=active]:from-violet-600 data-[state=active]:to-purple-600 data-[state=active]:text-white data-[state=active]:shadow-sm"
+            >
+              <Sparkles className="h-4 w-4 text-violet-500" />
+              🎯 AI Recommender
+            </TabsTrigger>
+
+            <TabsTrigger
               value="ai_settings"
               className="rounded-xl px-3.5 py-2 text-xs font-bold gap-1.5 data-[state=active]:bg-card data-[state=active]:shadow-xs"
             >
@@ -124,6 +133,10 @@ export default function AdminBusinesses({ defaultTab }: { defaultTab?: string })
         {/* Tab Contents */}
         <TabsContent value="queen_service" className="space-y-6 m-0 focus-visible:outline-none">
           <AdminQueenServiceTab />
+        </TabsContent>
+
+        <TabsContent value="ai_recommender" className="space-y-6 m-0 focus-visible:outline-none">
+          <AdminAIBusinessRecommenderTab />
         </TabsContent>
 
         <TabsContent value="directory" className="space-y-6 m-0 focus-visible:outline-none">
