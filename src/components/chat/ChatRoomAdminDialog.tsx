@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -29,13 +30,18 @@ import {
   Image as ImageIcon,
   Upload,
   Trash2,
+  AlertTriangle,
+  MessageSquare,
 } from "lucide-react";
 import {
   RealtimeChatRoom,
   addMemberToChatRoom,
   removeMemberFromChatRoom,
   promoteMemberToAdmin,
+  demoteAdminToMember,
   updateChatRoomDetails,
+  deleteChatRoom,
+  isPlatformAdminEmail,
 } from "@/lib/firebaseChat";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -45,28 +51,36 @@ interface ChatRoomAdminDialogProps {
   onOpenChange: (open: boolean) => void;
   room: RealtimeChatRoom | null;
   currentUserId: string;
+  currentUserEmail?: string;
+  onRoomDeleted?: (roomId: string) => void;
 }
 
-const EMOJI_OPTIONS = ["💼", "🚀", "⚡", "🛍️", "🎯", "🌟", "💡", "🤝", "📦", "🏢", "👑", "🔥", "📺"];
+const EMOJI_OPTIONS = ["💼", "🚀", "⚡", "🛍️", "🎯", "🌟", "💡", "🤝", "📦", "🏢", "👑", "🔥", "📺", "🛡️", "💰"];
 
 export function ChatRoomAdminDialog({
   open,
   onOpenChange,
   room,
   currentUserId,
+  currentUserEmail,
+  onRoomDeleted,
 }: ChatRoomAdminDialogProps) {
   if (!room) return null;
 
+  const isPlatformAdmin = isPlatformAdminEmail(currentUserEmail);
   const isCreator = room.creatorId === currentUserId;
-  const isAdmin = isCreator || (room.adminIds || []).includes(currentUserId);
+  const isGroupAdmin = isCreator || (room.adminIds || []).includes(currentUserId) || isPlatformAdmin;
 
-  const [activeTab, setActiveTab] = useState<"members" | "edit" | "add">("members");
+  const [activeTab, setActiveTab] = useState<"members" | "edit" | "settings" | "add">("members");
   const [editName, setEditName] = useState(room.name || "");
   const [editDesc, setEditDesc] = useState(room.description || "");
   const [editEmoji, setEditEmoji] = useState(room.avatarEmoji || "💼");
   const [editAvatarUrl, setEditAvatarUrl] = useState(room.avatarUrl || "");
+  const [onlyAdminsCanPost, setOnlyAdminsCanPost] = useState(!!room.onlyAdminsCanPost);
+  const [onlyAdminsCanEditInfo, setOnlyAdminsCanEditInfo] = useState(room.onlyAdminsCanEditInfo !== false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // User search for adding members
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,6 +92,8 @@ export function ChatRoomAdminDialog({
     setEditDesc(room.description || "");
     setEditEmoji(room.avatarEmoji || "💼");
     setEditAvatarUrl(room.avatarUrl || "");
+    setOnlyAdminsCanPost(!!room.onlyAdminsCanPost);
+    setOnlyAdminsCanEditInfo(room.onlyAdminsCanEditInfo !== false);
   }, [room]);
 
   useEffect(() => {
@@ -99,7 +115,7 @@ export function ChatRoomAdminDialog({
 
         if (!isCancelled) {
           const formatted = (profiles || [])
-            .filter((p) => !(room.participants || []).includes(p.id))
+            .filter((p) => !(room?.participants || []).includes(p.id))
             .map((p) => ({
               id: p.id,
               name: p.display_name || (p.username ? `@${p.username}` : "Member"),
@@ -124,8 +140,8 @@ export function ChatRoomAdminDialog({
 
   const handleSaveDetails = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isAdmin) {
-      toast.error("Only room admins can edit settings");
+    if (!isGroupAdmin) {
+      toast.error("Only group admins can edit settings");
       return;
     }
     setIsSaving(true);
@@ -135,8 +151,10 @@ export function ChatRoomAdminDialog({
         description: editDesc.trim(),
         avatarEmoji: editEmoji,
         avatarUrl: editAvatarUrl.trim(),
+        onlyAdminsCanPost,
+        onlyAdminsCanEditInfo,
       });
-      toast.success("Room details updated successfully");
+      toast.success("Group details & permissions saved");
       setActiveTab("members");
     } catch (err: any) {
       toast.error(err?.message || "Failed to update room details");
@@ -170,7 +188,7 @@ export function ChatRoomAdminDialog({
   const handleAddMember = async (userObj: { id: string; name: string; avatar?: string }) => {
     try {
       await addMemberToChatRoom(room.id, userObj.id, userObj.name, userObj.avatar);
-      toast.success(`${userObj.name} added to the room`);
+      toast.success(`${userObj.name} added to the group`);
       setSearchQuery("");
       setSearchResults([]);
       setActiveTab("members");
@@ -180,32 +198,70 @@ export function ChatRoomAdminDialog({
   };
 
   const handleRemoveMember = async (memberId: string, memberName: string) => {
-    if (!isAdmin) {
-      toast.error("Only room admins can remove members");
+    if (!isGroupAdmin) {
+      toast.error("Only group admins can remove members");
       return;
     }
-    if (memberId === room.creatorId) {
+    if (memberId === room.creatorId && !isPlatformAdmin) {
       toast.error("Cannot remove the room creator");
       return;
     }
     try {
       await removeMemberFromChatRoom(room.id, memberId);
-      toast.success(`${memberName} removed from room`);
+      toast.success(`${memberName} removed from group`);
     } catch (err: any) {
       toast.error(err?.message || "Failed to remove member");
     }
   };
 
   const handlePromoteAdmin = async (memberId: string, memberName: string) => {
-    if (!isAdmin) {
-      toast.error("Only room admins can assign administrator roles");
+    if (!isGroupAdmin) {
+      toast.error("Only group admins can assign admin roles");
       return;
     }
     try {
       await promoteMemberToAdmin(room.id, memberId);
-      toast.success(`${memberName} is now a Room Admin! 🛡️`);
+      toast.success(`${memberName} is now a Group Admin! 🛡️`);
     } catch (err: any) {
       toast.error(err?.message || "Failed to promote admin");
+    }
+  };
+
+  const handleDemoteAdmin = async (memberId: string, memberName: string) => {
+    if (!isGroupAdmin) {
+      toast.error("Only group admins can modify roles");
+      return;
+    }
+    if (memberId === room.creatorId && !isPlatformAdmin) {
+      toast.error("Cannot demote the group creator");
+      return;
+    }
+    try {
+      await demoteAdminToMember(room.id, memberId);
+      toast.success(`${memberName} demoted to regular member`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to demote admin");
+    }
+  };
+
+  const handleDeleteGroup = async () => {
+    if (!isCreator && !isPlatformAdmin) {
+      toast.error("Only the creator or platform administrator can delete this group");
+      return;
+    }
+    if (!window.confirm("Are you sure you want to permanently delete this group? All messages and attachments will be deleted.")) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await deleteChatRoom(room.id);
+      toast.success("Group deleted successfully");
+      onOpenChange(false);
+      onRoomDeleted?.(room.id);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to delete group");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -214,7 +270,7 @@ export function ChatRoomAdminDialog({
       <DialogContent className="w-[94vw] max-w-lg max-h-[88vh] overflow-y-auto rounded-3xl p-4 sm:p-6 border-border/80 shadow-2xl">
         <DialogHeader className="text-left space-y-1.5 pb-2 border-b border-border/60">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-xl shrink-0 border border-primary/20 shadow-xs">
+            <div className="w-12 h-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center text-2xl shrink-0 border border-primary/20 shadow-xs">
               {room.avatarUrl ? (
                 <img src={room.avatarUrl} alt="Room" className="w-full h-full rounded-2xl object-cover" />
               ) : (
@@ -239,23 +295,23 @@ export function ChatRoomAdminDialog({
           </div>
 
           {/* Navigation Sub-Tabs */}
-          <div className="flex items-center gap-1.5 pt-2">
+          <div className="flex items-center gap-1.5 pt-2 overflow-x-auto no-scrollbar">
             <Button
               variant={activeTab === "members" ? "default" : "outline"}
               size="sm"
               onClick={() => setActiveTab("members")}
-              className="h-8 rounded-xl text-xs font-bold gap-1.5"
+              className="h-8 rounded-xl text-xs font-bold gap-1.5 shrink-0"
             >
               <Users className="w-3.5 h-3.5" />
               Members ({(room.participants || []).length})
             </Button>
-            {isAdmin && (
+            {isGroupAdmin && (
               <>
                 <Button
                   variant={activeTab === "add" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveTab("add")}
-                  className="h-8 rounded-xl text-xs font-bold gap-1.5"
+                  className="h-8 rounded-xl text-xs font-bold gap-1.5 shrink-0"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   Add People
@@ -264,10 +320,19 @@ export function ChatRoomAdminDialog({
                   variant={activeTab === "edit" ? "default" : "outline"}
                   size="sm"
                   onClick={() => setActiveTab("edit")}
-                  className="h-8 rounded-xl text-xs font-bold gap-1.5"
+                  className="h-8 rounded-xl text-xs font-bold gap-1.5 shrink-0"
                 >
                   <Edit className="w-3.5 h-3.5" />
-                  Edit Room
+                  Edit Info
+                </Button>
+                <Button
+                  variant={activeTab === "settings" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveTab("settings")}
+                  className="h-8 rounded-xl text-xs font-bold gap-1.5 shrink-0"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Permissions
                 </Button>
               </>
             )}
@@ -309,7 +374,7 @@ export function ChatRoomAdminDialog({
                             </Badge>
                           ) : isMemberAdmin ? (
                             <Badge variant="outline" className="text-[9px] py-0 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold gap-0.5">
-                              <ShieldCheck className="w-2.5 h-2.5" /> Admin
+                              <ShieldCheck className="w-2.5 h-2.5" /> Group Admin
                             </Badge>
                           ) : (
                             <span className="text-[10px] text-muted-foreground">Participant</span>
@@ -319,25 +384,35 @@ export function ChatRoomAdminDialog({
                     </div>
 
                     {/* Admin Actions for other members */}
-                    {isAdmin && memberId !== currentUserId && !isMemberCreator && (
+                    {isGroupAdmin && memberId !== currentUserId && !isMemberCreator && (
                       <div className="flex items-center gap-1 shrink-0">
-                        {!isMemberAdmin && (
+                        {!isMemberAdmin ? (
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => handlePromoteAdmin(memberId, memberName)}
-                            title="Make Admin"
+                            title="Promote to Group Admin"
                             className="h-8 px-2 rounded-xl text-[11px] font-bold text-emerald-600 hover:bg-emerald-500/10"
                           >
                             <Shield className="w-3.5 h-3.5 mr-1" />
                             Make Admin
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleDemoteAdmin(memberId, memberName)}
+                            title="Demote to Member"
+                            className="h-8 px-2 rounded-xl text-[11px] font-bold text-amber-600 hover:bg-amber-500/10"
+                          >
+                            Dismiss Admin
                           </Button>
                         )}
                         <Button
                           variant="ghost"
                           size="icon"
                           onClick={() => handleRemoveMember(memberId, memberName)}
-                          title="Remove from room"
+                          title="Remove from group"
                           className="h-8 w-8 rounded-xl text-destructive hover:bg-destructive/10"
                         >
                           <UserMinus className="w-4 h-4" />
@@ -404,13 +479,13 @@ export function ChatRoomAdminDialog({
           </div>
         )}
 
-        {/* Tab 3: Edit Room Info (Admin Only) */}
-        {activeTab === "edit" && isAdmin && (
+        {/* Tab 3: Edit Group Info */}
+        {activeTab === "edit" && isGroupAdmin && (
           <form onSubmit={handleSaveDetails} className="space-y-4 py-2">
-            {/* Custom Room Photo Upload */}
+            {/* Custom Group Photo Upload */}
             <div className="space-y-2 bg-muted/20 p-3.5 rounded-2xl border border-border/60">
               <Label className="text-xs font-bold flex items-center justify-between">
-                <span>Room Avatar / Community Photo</span>
+                <span>Group Avatar / Cover Photo</span>
                 {editAvatarUrl && (
                   <span className="text-[10px] text-emerald-600 font-semibold">Custom Photo Set</span>
                 )}
@@ -421,7 +496,7 @@ export function ChatRoomAdminDialog({
                     <AvatarImage src={editAvatarUrl} className="object-cover" />
                   ) : null}
                   <AvatarFallback className="text-xl bg-primary/10 text-primary">
-                    {editEmoji || "📺"}
+                    {editEmoji || "💼"}
                   </AvatarFallback>
                 </Avatar>
 
@@ -466,7 +541,7 @@ export function ChatRoomAdminDialog({
                     )}
                   </div>
                   <p className="text-[10px] text-muted-foreground">
-                    Upload a high-resolution logo or room image (JPG, PNG, WebP)
+                    Upload a high-resolution logo or image
                   </p>
                 </div>
               </div>
@@ -495,7 +570,7 @@ export function ChatRoomAdminDialog({
 
             <div className="space-y-1.5">
               <Label htmlFor="edit-room-name" className="text-xs font-bold">
-                Channel Title *
+                Group Title *
               </Label>
               <Input
                 id="edit-room-name"
@@ -537,6 +612,73 @@ export function ChatRoomAdminDialog({
               </Button>
             </DialogFooter>
           </form>
+        )}
+
+        {/* Tab 4: Group Permissions & Dangerous Actions */}
+        {activeTab === "settings" && isGroupAdmin && (
+          <div className="space-y-4 py-2">
+            <div className="rounded-2xl border border-border/80 p-4 space-y-4 bg-muted/20">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
+                Group Messaging Permissions
+              </h4>
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-bold text-foreground">Only Admins Can Send Messages</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    When active, only designated group admins can broadcast in this channel.
+                  </p>
+                </div>
+                <Switch
+                  checked={onlyAdminsCanPost}
+                  onCheckedChange={setOnlyAdminsCanPost}
+                />
+              </div>
+
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-border/60">
+                <div className="space-y-0.5 min-w-0 flex-1">
+                  <p className="text-xs font-bold text-foreground">Only Admins Can Edit Group Info</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Restricts editing group title, icon, and description to admins only.
+                  </p>
+                </div>
+                <Switch
+                  checked={onlyAdminsCanEditInfo}
+                  onCheckedChange={setOnlyAdminsCanEditInfo}
+                />
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              onClick={handleSaveDetails}
+              disabled={isSaving}
+              className="w-full rounded-2xl bg-primary text-primary-foreground font-bold text-xs h-10"
+            >
+              {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply Permissions"}
+            </Button>
+
+            {/* Danger Zone */}
+            {(isCreator || isPlatformAdmin) && (
+              <div className="pt-4 border-t border-destructive/30 space-y-2">
+                <p className="text-xs font-bold text-destructive flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4" /> Danger Zone
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  Permanently delete this group, its messages, and clear member subscriptions.
+                </p>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDeleteGroup}
+                  disabled={isDeleting}
+                  className="rounded-2xl text-xs h-9 font-bold w-full sm:w-auto"
+                >
+                  {isDeleting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete Group Permanently"}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </DialogContent>
     </Dialog>

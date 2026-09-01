@@ -12,6 +12,16 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isPlatformAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'goodgiftdigital@gmail.com' ||
+        request.auth.token.email == 'bethelincovibetv@gmail.com' ||
+        request.auth.token.email == 'bethelgoodgift3@gmail.com' ||
+        request.auth.token.email == 'bethelchukwunyere1@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
     function isValidId(id) {
       return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
@@ -24,43 +34,120 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Chat Rooms: Users can access chat rooms they participate in
+    function isParticipant(roomData) {
+      return isSignedIn() && (
+        (roomData.participants is list && request.auth.uid in roomData.participants) ||
+        roomData.isOfficial == true ||
+        roomData.roomType == 'community' ||
+        isPlatformAdmin()
+      );
+    }
+
+    function isGroupAdmin(roomData) {
+      return isSignedIn() && (
+        (roomData.adminIds is list && request.auth.uid in roomData.adminIds) ||
+        roomData.creatorId == request.auth.uid ||
+        isPlatformAdmin()
+      );
+    }
+
+    // Chat Rooms
     match /chats/{chatId} {
-      allow get: if isSignedIn() && isValidId(chatId) && (request.auth.uid in resource.data.participants);
-      allow list: if isSignedIn() && (request.auth.uid in resource.data.participants);
-      
-      allow create: if isSignedIn() 
+      allow get: if isSignedIn() && isValidId(chatId) && isParticipant(resource.data);
+      allow list: if isSignedIn();
+
+      allow create: if isSignedIn()
         && isValidId(chatId)
         && incoming().participants is list
         && incoming().participants.size() >= 1
-        && incoming().participants.size() <= 10
-        && incoming().participants.hasAny([request.auth.uid]);
-        
-      allow update: if isSignedIn()
-        && isValidId(chatId)
-        && (request.auth.uid in existing().participants)
-        && incoming().participants == existing().participants;
-        
-      allow delete: if false;
+        && (incoming().participants.hasAny([request.auth.uid]) || isPlatformAdmin());
 
-      // Messages subcollection
+      allow update: if isSignedIn() && isValidId(chatId) && (
+        isPlatformAdmin() ||
+        isGroupAdmin(existing()) ||
+        // Members can update participants when joining/leaving, or updating last message timestamp
+        (
+          isParticipant(existing()) &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'lastMessageText',
+            'lastMessageTime',
+            'lastMessageSenderId',
+            'lastMessageSenderName',
+            'participants',
+            'participantNames',
+            'participantAvatars',
+            'updatedAt'
+          ])
+        )
+      );
+
+      allow delete: if isSignedIn() && isValidId(chatId) && (isPlatformAdmin() || existing().creatorId == request.auth.uid);
+
+      // Messages Subcollection
       match /messages/{messageId} {
-        allow get, list: if isSignedIn() 
+        allow get, list: if isSignedIn()
           && isValidId(chatId)
-          && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants);
+          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data);
 
         allow create: if isSignedIn()
           && isValidId(chatId)
           && isValidId(messageId)
-          && (request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.participants)
+          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data)
           && incoming().senderId == request.auth.uid
           && incoming().chatId == chatId
-          && incoming().text is string
-          && incoming().text.size() > 0
-          && incoming().text.size() <= 3000;
+          && (
+            // If onlyAdminsCanPost is set, member must be a group admin or platform admin
+            get(/databases/$(database)/documents/chats/$(chatId)).data.onlyAdminsCanPost != true ||
+            isGroupAdmin(get(/databases/$(database)/documents/chats/$(chatId)).data)
+          )
+          && (
+            (incoming().text is string && incoming().text.size() <= 3000) ||
+            incoming().mediaUrl is string
+          );
 
-        allow update, delete: if false;
+        allow update: if isSignedIn()
+          && isValidId(chatId)
+          && isValidId(messageId)
+          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data)
+          && (
+            // Sender or admin can delete or edit
+            incoming().senderId == request.auth.uid ||
+            isGroupAdmin(get(/databases/$(database)/documents/chats/$(chatId)).data) ||
+            // Any participant can toggle reaction or mark readBy
+            incoming().diff(existing()).affectedKeys().hasOnly(['reactions', 'readBy', 'deletedForEveryone'])
+          );
+
+        allow delete: if isSignedIn()
+          && isValidId(chatId)
+          && isValidId(messageId)
+          && (
+            existing().senderId == request.auth.uid ||
+            isGroupAdmin(get(/databases/$(database)/documents/chats/$(chatId)).data) ||
+            isPlatformAdmin()
+          );
       }
+
+      // Typing Subcollection
+      match /typing/{userId} {
+        allow read: if isSignedIn()
+          && isValidId(chatId)
+          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data);
+
+        allow write: if isSignedIn()
+          && isValidId(chatId)
+          && (request.auth.uid == userId || isPlatformAdmin());
+      }
+    }
+
+    // Global User Presence
+    match /presence/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.uid == userId || isPlatformAdmin());
+    }
+
+    // Connection test document
+    match /test/connection {
+      allow read: if true;
     }
   }
 }

@@ -5,19 +5,21 @@ import {
   collection,
   doc,
   setDoc,
-  addDoc,
+  deleteDoc,
   getDocs,
   getDoc,
   getDocFromServer,
   query,
   where,
   orderBy,
+  limit,
   onSnapshot,
   serverTimestamp,
   Timestamp,
   Unsubscribe,
 } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
+import { supabase } from "@/integrations/supabase/client";
 
 // Initialize Firebase App
 export const firebaseApp = !getApps().length
@@ -45,11 +47,6 @@ export interface FirestoreErrorInfo {
     email?: string | null;
     emailVerified?: boolean | null;
     isAnonymous?: boolean | null;
-    tenantId?: string | null;
-    providerInfo?: {
-      providerId?: string | null;
-      email?: string | null;
-    }[];
   };
 }
 
@@ -65,12 +62,6 @@ export function handleFirestoreError(
       email: firebaseAuth.currentUser?.email || null,
       emailVerified: firebaseAuth.currentUser?.emailVerified || null,
       isAnonymous: firebaseAuth.currentUser?.isAnonymous || null,
-      tenantId: firebaseAuth.currentUser?.tenantId || null,
-      providerInfo:
-        firebaseAuth.currentUser?.providerData?.map((p) => ({
-          providerId: p.providerId,
-          email: p.email,
-        })) || [],
     },
     operationType,
     path,
@@ -79,18 +70,23 @@ export function handleFirestoreError(
   return errInfo;
 }
 
-// Connection test
+export const PLATFORM_ADMIN_EMAILS = [
+  "goodgiftdigital@gmail.com",
+  "bethelincovibetv@gmail.com",
+  "bethelgoodgift3@gmail.com",
+  "bethelchukwunyere1@gmail.com",
+];
+
+export function isPlatformAdminEmail(email?: string | null): boolean {
+  if (!email) return false;
+  return PLATFORM_ADMIN_EMAILS.includes(email.toLowerCase().trim());
+}
+
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
     await getDocFromServer(doc(firestoreDb, "test", "connection"));
     return true;
   } catch (error) {
-    if (
-      error instanceof Error &&
-      error.message.includes("the client is offline")
-    ) {
-      console.warn("Firestore is currently offline or connecting.");
-    }
     return false;
   }
 }
@@ -99,7 +95,7 @@ export interface RealtimeChatRoom {
   id: string;
   name?: string;
   description?: string;
-  roomType?: "direct" | "group" | "community" | "trade_mastermind";
+  roomType?: "direct" | "group" | "community" | "official" | "trade_mastermind" | "business_inquiry";
   avatarEmoji?: string;
   avatarUrl?: string;
   creatorId?: string;
@@ -108,10 +104,15 @@ export interface RealtimeChatRoom {
   participants: string[];
   participantNames: Record<string, string>;
   participantAvatars?: Record<string, string>;
+  onlyAdminsCanPost?: boolean;
+  onlyAdminsCanEditInfo?: boolean;
   lastMessageText?: string;
   lastMessageTime?: any;
+  lastMessageSenderId?: string;
+  lastMessageSenderName?: string;
   supportTopic?: string;
   createdAt: any;
+  updatedAt?: any;
 }
 
 export interface RealtimeChatMessage {
@@ -121,62 +122,39 @@ export interface RealtimeChatMessage {
   senderName: string;
   senderAvatar?: string;
   text: string;
+  type?: "text" | "image" | "video" | "voice_note" | "file" | "system";
+  mediaUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  mediaDuration?: number;
   createdAt: any;
-  isLocalPending?: boolean;
   replyTo?: {
     id: string;
     senderName: string;
     text: string;
   };
   reactions?: Record<string, string[]>; // emoji -> array of userIds
-  imageUrl?: string;
+  readBy?: string[];
+  deletedForEveryone?: boolean;
+  isLocalPending?: boolean;
 }
 
-const LOCAL_STORAGE_CHATS_KEY = "bethel_realtime_chats_v1";
-const LOCAL_STORAGE_MSGS_PREFIX = "bethel_realtime_msgs_";
-
-function getLocalChats(userId: string): RealtimeChatRoom[] {
-  try {
-    const raw = localStorage.getItem(`${LOCAL_STORAGE_CHATS_KEY}_${userId}`);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+export interface ChatTypingUser {
+  userId: string;
+  userName: string;
+  isTyping: boolean;
+  updatedAt?: any;
 }
 
-function saveLocalChats(userId: string, chats: RealtimeChatRoom[]) {
-  try {
-    localStorage.setItem(
-      `${LOCAL_STORAGE_CHATS_KEY}_${userId}`,
-      JSON.stringify(chats)
-    );
-  } catch (e) {
-    console.error(e);
-  }
-}
-
-function getLocalMessages(chatId: string): RealtimeChatMessage[] {
-  try {
-    const raw = localStorage.getItem(`${LOCAL_STORAGE_MSGS_PREFIX}${chatId}`);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveLocalMessages(chatId: string, msgs: RealtimeChatMessage[]) {
-  try {
-    localStorage.setItem(
-      `${LOCAL_STORAGE_MSGS_PREFIX}${chatId}`,
-      JSON.stringify(msgs)
-    );
-  } catch (e) {
-    console.error(e);
-  }
+export interface UserPresenceState {
+  userId: string;
+  userName?: string;
+  status: "online" | "offline";
+  lastSeen?: string;
 }
 
 /**
- * Ensures Firebase Auth has a session (either anonymous or signed in)
+ * Ensures Firebase Auth has an active session
  */
 export async function ensureFirebaseAuth(): Promise<string> {
   if (firebaseAuth.currentUser) {
@@ -186,63 +164,13 @@ export async function ensureFirebaseAuth(): Promise<string> {
     const cred = await signInAnonymously(firebaseAuth);
     return cred.user.uid;
   } catch (err) {
-    console.warn("Firebase anonymous auth fallback:", err);
+    console.warn("Firebase Auth fallback session:", err);
     return "guest_user";
   }
 }
 
-/**
- * Creates or retrieves a chat room between current user and target contact
- */
-export async function getOrCreateChatRoom(
-  currentUserId: string,
-  currentUserName: string,
-  targetUserId: string,
-  targetUserName: string,
-  targetAvatar?: string,
-  topic?: string
-): Promise<string> {
-  const sortedIds = [currentUserId, targetUserId].sort();
-  const roomId = `room_${sortedIds[0].replace(/[^a-zA-Z0-9_]/g, "_")}_${sortedIds[1].replace(/[^a-zA-Z0-9_]/g, "_")}`;
-
-  const roomData: RealtimeChatRoom = {
-    id: roomId,
-    participants: [currentUserId, targetUserId],
-    participantNames: {
-      [currentUserId]: currentUserName,
-      [targetUserId]: targetUserName,
-    },
-    participantAvatars: {
-      [targetUserId]: targetAvatar || "",
-    },
-    supportTopic: topic || "Direct Message",
-    createdAt: new Date().toISOString(),
-  };
-
-  // 1. Try Firestore
-  try {
-    const roomRef = doc(firestoreDb, "chats", roomId);
-    const existing = await getDoc(roomRef);
-    if (!existing.exists()) {
-      await setDoc(roomRef, {
-        ...roomData,
-        createdAt: serverTimestamp(),
-      });
-    }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
-  }
-
-  // 2. Persist in local storage mirror
-  const localList = getLocalChats(currentUserId);
-  if (!localList.some((c) => c.id === roomId)) {
-    saveLocalChats(currentUserId, [roomData, ...localList]);
-  }
-
-  return roomId;
-}
-
 export const BETHELINCO_GENERAL_ROOM_ID = "room_bethelincovibetv_general";
+export const BETHELINCO_TRADE_ROOM_ID = "room_bethelincovibetv_vip_trade";
 
 /**
  * Connects to or creates the official BethelincovibeTV Community Chat Room
@@ -252,17 +180,30 @@ export async function getOrCreateGeneralBethelChatRoom(
   userName: string,
   userAvatar?: string
 ): Promise<RealtimeChatRoom> {
+  await ensureFirebaseAuth();
   const roomId = BETHELINCO_GENERAL_ROOM_ID;
-  const officialRoomData: Partial<RealtimeChatRoom> = {
+  const officialRoomData: RealtimeChatRoom = {
     id: roomId,
-    name: "Bethelincovibe TV Official Community",
-    description: "Official real-time networking & trade channel for all entrepreneurs, verified merchants, and platform creators.",
+    name: "Bethelincovibe TV Official Community Lounge",
+    description: "Official real-time networking & verified commerce lounge for all entrepreneurs, merchants, and platform creators.",
     roomType: "community",
     avatarUrl: "/logo.png",
     avatarEmoji: "📺",
     isOfficial: true,
     creatorId: "system_admin",
     adminIds: ["system_admin", "admin_lead"],
+    participants: [userId, "system_admin"],
+    participantNames: {
+      [userId]: userName || "Entrepreneur",
+      system_admin: "Bethelincovibe TV Official",
+    },
+    participantAvatars: {
+      system_admin: "/logo.png",
+      [userId]: userAvatar || "",
+    },
+    onlyAdminsCanPost: false,
+    onlyAdminsCanEditInfo: true,
+    lastMessageText: "Welcome to Bethelincovibe TV Official Community! 🚀 Connect, trade, and collaborate in real-time.",
     createdAt: new Date().toISOString(),
   };
 
@@ -279,65 +220,174 @@ export async function getOrCreateGeneralBethelChatRoom(
       if (!participants.includes(userId)) {
         participants.push(userId);
       }
-      participantNames[userId] = userName;
+      participantNames[userId] = userName || "Member";
       if (userAvatar) participantAvatars[userId] = userAvatar;
 
-      await setDoc(roomRef, { participants, participantNames, participantAvatars }, { merge: true });
+      await setDoc(roomRef, { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
+      return {
+        ...data,
+        id: roomId,
+        participants,
+        participantNames,
+        participantAvatars,
+      };
     } else {
       await setDoc(roomRef, {
         ...officialRoomData,
-        participants: [userId, "system_admin"],
-        participantNames: {
-          [userId]: userName,
-          system_admin: "Bethelincovibe TV Official",
-        },
-        participantAvatars: {
-          system_admin: "/logo.png",
-          [userId]: userAvatar || "",
-        },
-        lastMessageText: "Welcome to Bethelincovibe TV Official Community! 🚀 Connect, trade, and network in real-time.",
-        lastMessageTime: serverTimestamp(),
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp(),
       });
+      return officialRoomData;
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
+    return officialRoomData;
   }
+}
 
-  // Update local storage
-  const fullRoom: RealtimeChatRoom = {
+/**
+ * Creates or gets the VIP Trade Mastermind Hub
+ */
+export async function getOrCreateVIPTradeChatRoom(
+  userId: string,
+  userName: string,
+  userAvatar?: string
+): Promise<RealtimeChatRoom> {
+  await ensureFirebaseAuth();
+  const roomId = BETHELINCO_TRADE_ROOM_ID;
+  const tradeRoomData: RealtimeChatRoom = {
     id: roomId,
-    name: "Bethelincovibe TV Official Community",
-    description: "Official real-time networking & trade channel for all entrepreneurs, verified merchants, and platform creators.",
-    roomType: "community",
+    name: "VIP Trade & Escrow Mastermind Hub",
+    description: "Verified Nigeria & West Africa wholesale trade offers, container cargo shares, and escrow deals.",
+    roomType: "trade_mastermind",
     avatarUrl: "/logo.png",
-    avatarEmoji: "📺",
+    avatarEmoji: "🚀",
     isOfficial: true,
     creatorId: "system_admin",
-    adminIds: ["system_admin", "admin_lead"],
+    adminIds: ["system_admin"],
     participants: [userId, "system_admin"],
     participantNames: {
-      [userId]: userName,
-      system_admin: "Bethelincovibe TV Official",
+      [userId]: userName || "VIP Trader",
+      system_admin: "Bethelincovibe Escrow Desk",
     },
     participantAvatars: {
       system_admin: "/logo.png",
       [userId]: userAvatar || "",
     },
-    lastMessageText: "Welcome to Bethelincovibe TV Official Community! 🚀 Connect, trade, and network in real-time.",
+    onlyAdminsCanPost: false,
+    onlyAdminsCanEditInfo: true,
+    lastMessageText: "Verified B2B wholesale deals, freight dispatch, and partnership agreements.",
     createdAt: new Date().toISOString(),
   };
 
-  const localList = getLocalChats(userId);
-  if (!localList.some((c) => c.id === roomId)) {
-    saveLocalChats(userId, [fullRoom, ...localList]);
-  }
+  try {
+    const roomRef = doc(firestoreDb, "chats", roomId);
+    const existing = await getDoc(roomRef);
 
-  return fullRoom;
+    if (existing.exists()) {
+      const data = existing.data() as any;
+      const participants = Array.isArray(data.participants) ? [...data.participants] : [];
+      const participantNames = { ...(data.participantNames || {}) };
+      const participantAvatars = { ...(data.participantAvatars || {}) };
+
+      if (!participants.includes(userId)) {
+        participants.push(userId);
+      }
+      participantNames[userId] = userName || "VIP Trader";
+      if (userAvatar) participantAvatars[userId] = userAvatar;
+
+      await setDoc(roomRef, { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
+      return {
+        ...data,
+        id: roomId,
+        participants,
+        participantNames,
+        participantAvatars,
+      };
+    } else {
+      await setDoc(roomRef, {
+        ...tradeRoomData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp(),
+      });
+      return tradeRoomData;
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
+    return tradeRoomData;
+  }
 }
 
 /**
- * Creates a new custom Group / Mastermind Chat Room with admin privileges for creator
+ * Creates or retrieves a direct 1-on-1 private chat room between two users
+ */
+export async function getOrCreateChatRoom(
+  currentUserId: string,
+  currentUserName: string,
+  targetUserId: string,
+  targetUserName: string,
+  targetAvatar?: string,
+  topic?: string,
+  currentUserAvatar?: string
+): Promise<string> {
+  await ensureFirebaseAuth();
+  const sortedIds = [currentUserId, targetUserId].sort();
+  const roomId = `room_${sortedIds[0].replace(/[^a-zA-Z0-9_]/g, "_")}_${sortedIds[1].replace(/[^a-zA-Z0-9_]/g, "_")}`;
+
+  const roomData: RealtimeChatRoom = {
+    id: roomId,
+    name: targetUserName,
+    description: topic || `Direct chat between ${currentUserName} and ${targetUserName}`,
+    roomType: "direct",
+    avatarUrl: targetAvatar || "",
+    avatarEmoji: "👤",
+    creatorId: currentUserId,
+    adminIds: [currentUserId, targetUserId],
+    participants: [currentUserId, targetUserId],
+    participantNames: {
+      [currentUserId]: currentUserName,
+      [targetUserId]: targetUserName,
+    },
+    participantAvatars: {
+      [currentUserId]: currentUserAvatar || "",
+      [targetUserId]: targetAvatar || "",
+    },
+    onlyAdminsCanPost: false,
+    onlyAdminsCanEditInfo: false,
+    supportTopic: topic || "Direct Message",
+    createdAt: new Date().toISOString(),
+  };
+
+  try {
+    const roomRef = doc(firestoreDb, "chats", roomId);
+    const existing = await getDoc(roomRef);
+    if (!existing.exists()) {
+      await setDoc(roomRef, {
+        ...roomData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp(),
+      });
+    } else {
+      // Update participant metadata
+      const data = existing.data() as any;
+      const participantNames = { ...(data.participantNames || {}), [currentUserId]: currentUserName, [targetUserId]: targetUserName };
+      const participantAvatars = { ...(data.participantAvatars || {}) };
+      if (currentUserAvatar) participantAvatars[currentUserId] = currentUserAvatar;
+      if (targetAvatar) participantAvatars[targetUserId] = targetAvatar;
+      await setDoc(roomRef, { participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
+  }
+
+  return roomId;
+}
+
+/**
+ * Creates a custom Community / Group / Mastermind Chat Room
  */
 export async function createCustomChatRoom(params: {
   creatorId: string;
@@ -345,12 +395,16 @@ export async function createCustomChatRoom(params: {
   creatorAvatar?: string;
   name: string;
   description: string;
-  roomType: "group" | "trade_mastermind" | "business_inquiry";
+  roomType: "group" | "community" | "trade_mastermind" | "business_inquiry";
   avatarEmoji: string;
   avatarUrl?: string;
   initialMemberIds?: string[];
+  onlyAdminsCanPost?: boolean;
+  onlyAdminsCanEditInfo?: boolean;
+  isOfficial?: boolean;
 }): Promise<string> {
-  const roomId = `room_group_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+  await ensureFirebaseAuth();
+  const roomId = `room_${params.roomType}_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const participants = Array.from(new Set([params.creatorId, ...(params.initialMemberIds || [])]));
   const participantNames: Record<string, string> = { [params.creatorId]: params.creatorName };
   const participantAvatars: Record<string, string> = { [params.creatorId]: params.creatorAvatar || "" };
@@ -361,13 +415,16 @@ export async function createCustomChatRoom(params: {
     description: params.description,
     roomType: params.roomType,
     avatarEmoji: params.avatarEmoji,
-    avatarUrl: params.avatarUrl,
+    avatarUrl: params.avatarUrl || "",
     creatorId: params.creatorId,
     adminIds: [params.creatorId],
+    isOfficial: !!params.isOfficial,
     participants,
     participantNames,
     participantAvatars,
-    lastMessageText: `Room created by ${params.creatorName}`,
+    onlyAdminsCanPost: !!params.onlyAdminsCanPost,
+    onlyAdminsCanEditInfo: params.onlyAdminsCanEditInfo !== undefined ? params.onlyAdminsCanEditInfo : true,
+    lastMessageText: `Group created by ${params.creatorName}`,
     createdAt: new Date().toISOString(),
   };
 
@@ -376,41 +433,37 @@ export async function createCustomChatRoom(params: {
     await setDoc(roomRef, {
       ...roomData,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
       lastMessageTime: serverTimestamp(),
     });
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
   }
 
-  const localList = getLocalChats(params.creatorId);
-  saveLocalChats(params.creatorId, [roomData, ...localList]);
-
   return roomId;
 }
 
 /**
- * Admin Action: Add member to a chat room
+ * Allows a user to join a public or community chat room
  */
-export async function addMemberToChatRoom(
+export async function joinCommunityChatRoom(
   chatId: string,
-  memberId: string,
-  memberName: string,
-  memberAvatar?: string
+  userId: string,
+  userName: string,
+  userAvatar?: string
 ): Promise<void> {
+  await ensureFirebaseAuth();
   try {
     const roomRef = doc(firestoreDb, "chats", chatId);
     const snap = await getDoc(roomRef);
     if (snap.exists()) {
       const data = snap.data();
-      const participants = Array.from(new Set([...(data.participants || []), memberId]));
-      const participantNames = { ...(data.participantNames || {}), [memberId]: memberName };
-      const participantAvatars = { ...(data.participantAvatars || {}), [memberId]: memberAvatar || "" };
+      const participants = Array.from(new Set([...(data.participants || []), userId]));
+      const participantNames = { ...(data.participantNames || {}), [userId]: userName };
+      const participantAvatars = { ...(data.participantAvatars || {}) };
+      if (userAvatar) participantAvatars[userId] = userAvatar;
 
-      await setDoc(
-        roomRef,
-        { participants, participantNames, participantAvatars },
-        { merge: true }
-      );
+      await setDoc(roomRef, { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
@@ -418,20 +471,18 @@ export async function addMemberToChatRoom(
 }
 
 /**
- * Admin Action: Remove a member from chat room
+ * Allows a user to leave a group or room
  */
-export async function removeMemberFromChatRoom(
-  chatId: string,
-  memberId: string
-): Promise<void> {
+export async function leaveChatRoom(chatId: string, userId: string): Promise<void> {
+  await ensureFirebaseAuth();
   try {
     const roomRef = doc(firestoreDb, "chats", chatId);
     const snap = await getDoc(roomRef);
     if (snap.exists()) {
       const data = snap.data();
-      const participants = (data.participants || []).filter((id: string) => id !== memberId);
-      const adminIds = (data.adminIds || []).filter((id: string) => id !== memberId);
-      await setDoc(roomRef, { participants, adminIds }, { merge: true });
+      const participants = (data.participants || []).filter((id: string) => id !== userId);
+      const adminIds = (data.adminIds || []).filter((id: string) => id !== userId);
+      await setDoc(roomRef, { participants, adminIds, updatedAt: serverTimestamp() }, { merge: true });
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
@@ -439,27 +490,7 @@ export async function removeMemberFromChatRoom(
 }
 
 /**
- * Admin Action: Promote member to admin
- */
-export async function promoteMemberToAdmin(
-  chatId: string,
-  memberId: string
-): Promise<void> {
-  try {
-    const roomRef = doc(firestoreDb, "chats", chatId);
-    const snap = await getDoc(roomRef);
-    if (snap.exists()) {
-      const data = snap.data();
-      const adminIds = Array.from(new Set([...(data.adminIds || []), memberId]));
-      await setDoc(roomRef, { adminIds }, { merge: true });
-    }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
-  }
-}
-
-/**
- * Admin Action: Update room info (name, description, emoji icon)
+ * Updates group settings, info, and permissions
  */
 export async function updateChatRoomDetails(
   chatId: string,
@@ -468,25 +499,141 @@ export async function updateChatRoomDetails(
     description?: string;
     avatarEmoji?: string;
     avatarUrl?: string;
+    onlyAdminsCanPost?: boolean;
+    onlyAdminsCanEditInfo?: boolean;
   }
 ): Promise<void> {
+  await ensureFirebaseAuth();
   try {
     const roomRef = doc(firestoreDb, "chats", chatId);
-    await setDoc(roomRef, updates, { merge: true });
+    await setDoc(roomRef, { ...updates, updatedAt: serverTimestamp() }, { merge: true });
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+    throw err;
   }
 }
 
 /**
- * Subscribes to real-time chats for the given user
+ * Group Admin Action: Add member to a chat room
+ */
+export async function addMemberToChatRoom(
+  chatId: string,
+  memberId: string,
+  memberName: string,
+  memberAvatar?: string
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const participants = Array.from(new Set([...(data.participants || []), memberId]));
+      const participantNames = { ...(data.participantNames || {}), [memberId]: memberName };
+      const participantAvatars = { ...(data.participantAvatars || {}) };
+      if (memberAvatar) participantAvatars[memberId] = memberAvatar;
+
+      await setDoc(
+        roomRef,
+        { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+    throw err;
+  }
+}
+
+/**
+ * Group Admin Action: Remove a member from a chat room
+ */
+export async function removeMemberFromChatRoom(
+  chatId: string,
+  memberId: string
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const participants = (data.participants || []).filter((id: string) => id !== memberId);
+      const adminIds = (data.adminIds || []).filter((id: string) => id !== memberId);
+      await setDoc(roomRef, { participants, adminIds, updatedAt: serverTimestamp() }, { merge: true });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+    throw err;
+  }
+}
+
+/**
+ * Group Admin Action: Promote member to Group Admin
+ */
+export async function promoteMemberToAdmin(
+  chatId: string,
+  memberId: string
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const adminIds = Array.from(new Set([...(data.adminIds || []), memberId]));
+      await setDoc(roomRef, { adminIds, updatedAt: serverTimestamp() }, { merge: true });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+    throw err;
+  }
+}
+
+/**
+ * Group Admin Action: Demote Group Admin to regular member
+ */
+export async function demoteAdminToMember(
+  chatId: string,
+  memberId: string
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const adminIds = (data.adminIds || []).filter((id: string) => id !== memberId);
+      await setDoc(roomRef, { adminIds, updatedAt: serverTimestamp() }, { merge: true });
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+    throw err;
+  }
+}
+
+/**
+ * Deletes an entire chat room (Creator or Platform Admin only)
+ */
+export async function deleteChatRoom(chatId: string): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    await deleteDoc(roomRef);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, `chats/${chatId}`);
+    throw err;
+  }
+}
+
+/**
+ * Subscribes to real-time chats for the given user (including public community channels)
  */
 export function subscribeToUserChats(
   userId: string,
   callback: (chats: RealtimeChatRoom[]) => void
 ): Unsubscribe {
-  const initialLocal = getLocalChats(userId);
-  callback(initialLocal);
+  ensureFirebaseAuth();
 
   try {
     const chatsQuery = query(
@@ -508,29 +655,34 @@ export function subscribeToUserChats(
             avatarEmoji: data.avatarEmoji,
             avatarUrl: data.avatarUrl,
             creatorId: data.creatorId,
-            adminIds: data.adminIds,
+            adminIds: data.adminIds || [],
             isOfficial: data.isOfficial,
             participants: data.participants || [],
             participantNames: data.participantNames || {},
             participantAvatars: data.participantAvatars || {},
+            onlyAdminsCanPost: data.onlyAdminsCanPost,
+            onlyAdminsCanEditInfo: data.onlyAdminsCanEditInfo,
             lastMessageText: data.lastMessageText || "",
-            lastMessageTime: data.lastMessageTime?.toDate?.() || data.lastMessageTime,
+            lastMessageTime: data.lastMessageTime?.toDate?.()?.toISOString() || data.lastMessageTime || new Date().toISOString(),
+            lastMessageSenderId: data.lastMessageSenderId,
+            lastMessageSenderName: data.lastMessageSenderName,
             supportTopic: data.supportTopic || "General",
-            createdAt: data.createdAt?.toDate?.() || data.createdAt,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
+            updatedAt: data.updatedAt?.toDate?.()?.toISOString() || data.updatedAt,
           });
         });
 
-        // Merge with local list
-        const mergedMap = new Map<string, RealtimeChatRoom>();
-        initialLocal.forEach((c) => mergedMap.set(c.id, c));
-        list.forEach((c) => mergedMap.set(c.id, c));
-        const merged = Array.from(mergedMap.values());
-        saveLocalChats(userId, merged);
-        callback(merged);
+        // Sort by most recent activity
+        list.sort((a, b) => {
+          const tA = new Date(a.lastMessageTime || a.createdAt).getTime();
+          const tB = new Date(b.lastMessageTime || b.createdAt).getTime();
+          return tB - tA;
+        });
+
+        callback(list);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, "chats");
-        callback(getLocalChats(userId));
       }
     );
 
@@ -542,14 +694,65 @@ export function subscribeToUserChats(
 }
 
 /**
+ * Subscribes to all public community rooms on Bethelincovibe TV
+ */
+export function subscribeToPublicCommunityRooms(
+  callback: (rooms: RealtimeChatRoom[]) => void
+): Unsubscribe {
+  ensureFirebaseAuth();
+  try {
+    const q = query(
+      collection(firestoreDb, "chats"),
+      where("roomType", "in", ["community", "official", "trade_mastermind"])
+    );
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const list: RealtimeChatRoom[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          list.push({
+            id: d.id,
+            name: data.name,
+            description: data.description,
+            roomType: data.roomType,
+            avatarEmoji: data.avatarEmoji,
+            avatarUrl: data.avatarUrl,
+            creatorId: data.creatorId,
+            adminIds: data.adminIds || [],
+            isOfficial: data.isOfficial,
+            participants: data.participants || [],
+            participantNames: data.participantNames || {},
+            participantAvatars: data.participantAvatars || {},
+            onlyAdminsCanPost: data.onlyAdminsCanPost,
+            onlyAdminsCanEditInfo: data.onlyAdminsCanEditInfo,
+            lastMessageText: data.lastMessageText || "",
+            lastMessageTime: data.lastMessageTime?.toDate?.()?.toISOString() || data.lastMessageTime || new Date().toISOString(),
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt,
+          });
+        });
+        callback(list);
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, "chats");
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.LIST, "chats");
+    return () => {};
+  }
+}
+
+/**
  * Subscribes to real-time messages in a specific chat
  */
 export function subscribeToChatMessages(
   chatId: string,
   callback: (messages: RealtimeChatMessage[]) => void
 ): Unsubscribe {
-  const initialLocal = getLocalMessages(chatId);
-  callback(initialLocal);
+  ensureFirebaseAuth();
 
   try {
     const msgsQuery = query(
@@ -569,22 +772,24 @@ export function subscribeToChatMessages(
             senderId: data.senderId,
             senderName: data.senderName,
             senderAvatar: data.senderAvatar,
-            text: data.text,
-            createdAt: data.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+            text: data.text || "",
+            type: data.type || "text",
+            mediaUrl: data.mediaUrl || data.imageUrl,
+            fileName: data.fileName,
+            fileSize: data.fileSize,
+            mediaDuration: data.mediaDuration,
+            createdAt: data.createdAt?.toDate?.()?.toISOString() || data.createdAt || new Date().toISOString(),
             replyTo: data.replyTo || undefined,
             reactions: data.reactions || undefined,
-            imageUrl: data.imageUrl || undefined,
+            readBy: data.readBy || [],
+            deletedForEveryone: !!data.deletedForEveryone,
           });
         });
 
-        if (msgs.length > 0) {
-          saveLocalMessages(chatId, msgs);
-          callback(msgs);
-        }
+        callback(msgs);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`);
-        callback(getLocalMessages(chatId));
       }
     );
 
@@ -596,70 +801,106 @@ export function subscribeToChatMessages(
 }
 
 /**
- * Sends a real-time message to a chat room with optional replyTo and attachments
+ * Sends a real-time message to a chat room
  */
-export async function sendMessageToChat(
-  chatId: string,
-  senderId: string,
-  senderName: string,
-  text: string,
-  senderAvatar?: string,
-  replyTo?: { id: string; senderName: string; text: string },
-  imageUrl?: string
-): Promise<RealtimeChatMessage> {
-  const cleanText = text.trim().slice(0, 3000);
-  if (!cleanText && !imageUrl) throw new Error("Message text or image cannot be empty");
+export async function sendMessageToChat(params: {
+  chatId: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  senderAvatar?: string;
+  type?: "text" | "image" | "video" | "voice_note" | "file" | "system";
+  mediaUrl?: string;
+  fileName?: string;
+  fileSize?: number;
+  mediaDuration?: number;
+  replyTo?: { id: string; senderName: string; text: string };
+}): Promise<RealtimeChatMessage> {
+  await ensureFirebaseAuth();
+  const {
+    chatId,
+    senderId,
+    senderName,
+    text,
+    senderAvatar,
+    type = "text",
+    mediaUrl,
+    fileName,
+    fileSize,
+    mediaDuration,
+    replyTo,
+  } = params;
+
+  const cleanText = (text || "").trim().slice(0, 3000);
+  if (!cleanText && !mediaUrl) {
+    throw new Error("Message text or media attachment cannot be empty");
+  }
 
   const newMsgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const localMsg: RealtimeChatMessage = {
+  const messageData: RealtimeChatMessage = {
     id: newMsgId,
     chatId,
     senderId,
     senderName,
     senderAvatar: senderAvatar || "",
     text: cleanText,
+    type,
+    mediaUrl: mediaUrl || "",
+    fileName: fileName || "",
+    fileSize: fileSize || 0,
+    mediaDuration: mediaDuration || 0,
     createdAt: new Date().toISOString(),
     replyTo: replyTo || undefined,
     reactions: {},
-    imageUrl: imageUrl || undefined,
+    readBy: [senderId],
+    deletedForEveryone: false,
   };
 
-  // 1. Instantly save in local storage
-  const currentLocal = getLocalMessages(chatId);
-  saveLocalMessages(chatId, [...currentLocal, localMsg]);
-
-  // 2. Write to Firestore
   try {
     const msgRef = doc(firestoreDb, "chats", chatId, "messages", newMsgId);
-    const payload: any = {
-      chatId,
-      senderId,
-      senderName,
-      senderAvatar: senderAvatar || "",
-      text: cleanText,
+    await setDoc(msgRef, {
+      ...messageData,
       createdAt: serverTimestamp(),
-      reactions: {},
-    };
-    if (replyTo) payload.replyTo = replyTo;
-    if (imageUrl) payload.imageUrl = imageUrl;
+    });
 
-    await setDoc(msgRef, payload);
+    // Update parent room last message metadata
+    let snippet = cleanText;
+    if (!snippet) {
+      if (type === "image") snippet = "📷 Photo";
+      else if (type === "video") snippet = "🎥 Video";
+      else if (type === "voice_note") snippet = "🎙️ Voice note";
+      else if (type === "file") snippet = `📎 ${fileName || "Document"}`;
+      else snippet = "Message attachment";
+    }
 
-    // Update parent room last message
     const roomRef = doc(firestoreDb, "chats", chatId);
     await setDoc(
       roomRef,
       {
-        lastMessageText: cleanText || "📷 Photo attachment",
+        lastMessageText: snippet,
+        lastMessageSenderId: senderId,
+        lastMessageSenderName: senderName,
         lastMessageTime: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       },
       { merge: true }
     );
+
+    // Optional notification insertion
+    try {
+      supabase.from("user_notifications").insert({
+        title: `New message from ${senderName}`,
+        message: snippet.slice(0, 120),
+        type: "chat",
+        action_url: `/chat?room=${chatId}`,
+      }).then(() => {}).catch(() => {});
+    } catch {}
   } catch (err) {
     handleFirestoreError(err, OperationType.CREATE, `chats/${chatId}/messages/${newMsgId}`);
+    throw err;
   }
 
-  return localMsg;
+  return messageData;
 }
 
 /**
@@ -671,23 +912,7 @@ export async function toggleMessageReaction(
   emoji: string,
   userId: string
 ): Promise<void> {
-  // Update local storage first
-  const currentLocal = getLocalMessages(chatId);
-  const updatedLocal = currentLocal.map((m) => {
-    if (m.id !== messageId) return m;
-    const reactions = { ...(m.reactions || {}) };
-    const currentUsers = reactions[emoji] || [];
-    if (currentUsers.includes(userId)) {
-      reactions[emoji] = currentUsers.filter((u) => u !== userId);
-      if (reactions[emoji].length === 0) delete reactions[emoji];
-    } else {
-      reactions[emoji] = [...currentUsers, userId];
-    }
-    return { ...m, reactions };
-  });
-  saveLocalMessages(chatId, updatedLocal);
-
-  // Update Firestore
+  await ensureFirebaseAuth();
   try {
     const msgRef = doc(firestoreDb, "chats", chatId, "messages", messageId);
     const snap = await getDoc(msgRef);
@@ -706,4 +931,138 @@ export async function toggleMessageReaction(
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}/messages/${messageId}`);
   }
+}
+
+/**
+ * Marks messages in a chat as read by the current user
+ */
+export async function markMessagesAsRead(chatId: string, userId: string): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const msgsQuery = query(
+      collection(firestoreDb, "chats", chatId, "messages"),
+      limit(20)
+    );
+    const snap = await getDocs(msgsQuery);
+    const updates = snap.docs.filter((d) => {
+      const readBy: string[] = d.data().readBy || [];
+      return !readBy.includes(userId);
+    });
+
+    for (const docSnap of updates) {
+      const readBy = [...(docSnap.data().readBy || []), userId];
+      await setDoc(docSnap.ref, { readBy }, { merge: true });
+    }
+  } catch (err) {
+    console.warn("Error marking messages read:", err);
+  }
+}
+
+/**
+ * Soft deletes a message for everyone (Sender or Group Admin only)
+ */
+export async function deleteMessageForEveryone(
+  chatId: string,
+  messageId: string
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const msgRef = doc(firestoreDb, "chats", chatId, "messages", messageId);
+    await setDoc(
+      msgRef,
+      {
+        text: "🚫 This message was deleted.",
+        mediaUrl: "",
+        deletedForEveryone: true,
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}/messages/${messageId}`);
+    throw err;
+  }
+}
+
+/**
+ * Real-time typing indicator heartbeat
+ */
+export async function setChatTypingState(
+  chatId: string,
+  userId: string,
+  userName: string,
+  isTyping: boolean
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const typingRef = doc(firestoreDb, "chats", chatId, "typing", userId);
+    await setDoc(
+      typingRef,
+      {
+        userId,
+        userName,
+        isTyping,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch (err) {
+    // Non-blocking
+  }
+}
+
+/**
+ * Subscribes to real-time typing indicators in a chat room
+ */
+export function subscribeToChatTyping(
+  chatId: string,
+  currentUserId: string,
+  callback: (typingUsers: string[]) => void
+): Unsubscribe {
+  ensureFirebaseAuth();
+  try {
+    const typingCol = collection(firestoreDb, "chats", chatId, "typing");
+    const unsubscribe = onSnapshot(
+      typingCol,
+      (snapshot) => {
+        const users: string[] = [];
+        snapshot.forEach((d) => {
+          const data = d.data();
+          if (data.isTyping && data.userId !== currentUserId && data.userName) {
+            users.push(data.userName);
+          }
+        });
+        callback(users);
+      },
+      () => {
+        callback([]);
+      }
+    );
+    return unsubscribe;
+  } catch {
+    return () => {};
+  }
+}
+
+/**
+ * Updates online presence for a user
+ */
+export async function updateUserPresence(
+  userId: string,
+  userName: string,
+  status: "online" | "offline"
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const presenceRef = doc(firestoreDb, "presence", userId);
+    await setDoc(
+      presenceRef,
+      {
+        userId,
+        userName,
+        status,
+        lastSeen: serverTimestamp(),
+      },
+      { merge: true }
+    );
+  } catch {}
 }

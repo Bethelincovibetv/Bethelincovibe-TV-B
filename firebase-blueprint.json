@@ -2,9 +2,51 @@
   "entities": {
     "ChatRoom": {
       "title": "ChatRoom",
-      "description": "A direct or support real-time chat room between users or customer support.",
+      "description": "A real-time group, community, or direct conversation room.",
       "type": "object",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the chat room",
+          "maxLength": 128
+        },
+        "name": {
+          "type": "string",
+          "description": "Display name of the group or room",
+          "maxLength": 120
+        },
+        "description": {
+          "type": "string",
+          "description": "Description or topic of the group",
+          "maxLength": 500
+        },
+        "roomType": {
+          "type": "string",
+          "description": "Type of conversation room",
+          "enum": ["direct", "group", "community", "official", "trade_mastermind", "business_inquiry"]
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "URL of the room profile or group image"
+        },
+        "avatarEmoji": {
+          "type": "string",
+          "description": "Display emoji icon for the room",
+          "maxLength": 16
+        },
+        "creatorId": {
+          "type": "string",
+          "description": "User ID of the room creator",
+          "maxLength": 128
+        },
+        "adminIds": {
+          "type": "array",
+          "description": "List of user IDs with group administrator privileges"
+        },
+        "isOfficial": {
+          "type": "boolean",
+          "description": "Whether this is an official Bethelincovibe TV platform-wide room"
+        },
         "participants": {
           "type": "array",
           "description": "List of user IDs participating in the conversation"
@@ -12,6 +54,18 @@
         "participantNames": {
           "type": "object",
           "description": "Mapping of user ID to display name"
+        },
+        "participantAvatars": {
+          "type": "object",
+          "description": "Mapping of user ID to avatar URL"
+        },
+        "onlyAdminsCanPost": {
+          "type": "boolean",
+          "description": "Whether only group administrators can send messages"
+        },
+        "onlyAdminsCanEditInfo": {
+          "type": "boolean",
+          "description": "Whether only group administrators can edit group settings"
         },
         "lastMessageText": {
           "type": "string",
@@ -22,13 +76,27 @@
           "type": "string",
           "description": "Server timestamp of last message"
         },
+        "lastMessageSenderId": {
+          "type": "string",
+          "description": "User ID of the last message sender",
+          "maxLength": 128
+        },
+        "lastMessageSenderName": {
+          "type": "string",
+          "description": "Display name of the last message sender",
+          "maxLength": 100
+        },
         "supportTopic": {
           "type": "string",
-          "description": "Optional support category or inquiry context"
+          "description": "Optional business or inquiry context"
         },
         "createdAt": {
           "type": "string",
           "description": "Timestamp when the room was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the room was last modified"
         }
       },
       "required": ["participants", "createdAt"]
@@ -38,6 +106,11 @@
       "description": "An individual real-time message inside a chat room.",
       "type": "object",
       "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the message",
+          "maxLength": 128
+        },
         "chatId": {
           "type": "string",
           "description": "ID of the parent chat room",
@@ -62,22 +135,121 @@
           "description": "The message body text",
           "maxLength": 3000
         },
+        "type": {
+          "type": "string",
+          "description": "Message media or payload format",
+          "enum": ["text", "image", "video", "voice_note", "file", "system"]
+        },
+        "mediaUrl": {
+          "type": "string",
+          "description": "Attached media or file URL"
+        },
+        "fileName": {
+          "type": "string",
+          "description": "Original file name for document/file attachments",
+          "maxLength": 255
+        },
+        "fileSize": {
+          "type": "number",
+          "description": "Size of attached file in bytes"
+        },
+        "mediaDuration": {
+          "type": "number",
+          "description": "Duration in seconds for voice notes or videos"
+        },
+        "replyTo": {
+          "type": "object",
+          "description": "Referenced parent message object for replies"
+        },
+        "reactions": {
+          "type": "object",
+          "description": "Emoji reaction mapping with user lists"
+        },
+        "readBy": {
+          "type": "array",
+          "description": "List of user IDs who have seen this message"
+        },
+        "deletedForEveryone": {
+          "type": "boolean",
+          "description": "Whether the message content has been deleted for all participants"
+        },
         "createdAt": {
           "type": "string",
           "description": "Server timestamp when message was sent"
         }
       },
-      "required": ["chatId", "senderId", "text", "createdAt"]
+      "required": ["chatId", "senderId", "createdAt"]
+    },
+    "ChatTypingState": {
+      "title": "ChatTypingState",
+      "description": "Real-time typing activity indicator for a specific user in a chat room.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User ID of the typing member",
+          "maxLength": 128
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name of the typing member",
+          "maxLength": 100
+        },
+        "isTyping": {
+          "type": "boolean",
+          "description": "Whether the user is currently typing"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp of the last typing heartbeat"
+        }
+      },
+      "required": ["userId", "isTyping"]
+    },
+    "UserPresence": {
+      "title": "UserPresence",
+      "description": "Real-time presence and active status of a user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "User ID",
+          "maxLength": 128
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name",
+          "maxLength": 100
+        },
+        "status": {
+          "type": "string",
+          "description": "Online or offline status indicator",
+          "enum": ["online", "offline"]
+        },
+        "lastSeen": {
+          "type": "string",
+          "description": "Server timestamp of last active interaction"
+        }
+      },
+      "required": ["userId", "status"]
     }
   },
   "firestore": {
     "/chats/{chatId}": {
       "schema": "ChatRoom",
-      "description": "Collection of direct and support chat conversations."
+      "description": "Collection of direct, group, and community chat conversations."
     },
     "/chats/{chatId}/messages/{messageId}": {
       "schema": "ChatMessage",
       "description": "Sub-collection of ordered messages inside each chat room."
+    },
+    "/chats/{chatId}/typing/{userId}": {
+      "schema": "ChatTypingState",
+      "description": "Sub-collection of typing indicators per user inside a chat room."
+    },
+    "/presence/{userId}": {
+      "schema": "UserPresence",
+      "description": "Global presence indicators for active users on the platform."
     }
   }
 }
