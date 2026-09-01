@@ -23,7 +23,7 @@ service cloud.firestore {
     }
 
     function isValidId(id) {
-      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+      return id is string && id.size() > 0 && id.size() <= 128;
     }
 
     function incoming() {
@@ -34,120 +34,53 @@ service cloud.firestore {
       return resource.data;
     }
 
-    function isParticipant(roomData) {
-      return isSignedIn() && (
-        (roomData.participants is list && request.auth.uid in roomData.participants) ||
-        roomData.isOfficial == true ||
-        roomData.roomType == 'community' ||
-        isPlatformAdmin()
-      );
-    }
-
-    function isGroupAdmin(roomData) {
-      return isSignedIn() && (
-        (roomData.adminIds is list && request.auth.uid in roomData.adminIds) ||
-        roomData.creatorId == request.auth.uid ||
-        isPlatformAdmin()
-      );
-    }
-
     // Chat Rooms
     match /chats/{chatId} {
-      allow get: if isSignedIn() && isValidId(chatId) && isParticipant(resource.data);
-      allow list: if isSignedIn();
+      allow get, list: if isSignedIn() && isValidId(chatId);
 
       allow create: if isSignedIn()
         && isValidId(chatId)
         && incoming().participants is list
-        && incoming().participants.size() >= 1
-        && (incoming().participants.hasAny([request.auth.uid]) || isPlatformAdmin());
+        && incoming().participants.size() >= 1;
 
-      allow update: if isSignedIn() && isValidId(chatId) && (
-        isPlatformAdmin() ||
-        isGroupAdmin(existing()) ||
-        // Members can update participants when joining/leaving, or updating last message timestamp
-        (
-          isParticipant(existing()) &&
-          incoming().diff(existing()).affectedKeys().hasOnly([
-            'lastMessageText',
-            'lastMessageTime',
-            'lastMessageSenderId',
-            'lastMessageSenderName',
-            'participants',
-            'participantNames',
-            'participantAvatars',
-            'updatedAt'
-          ])
-        )
-      );
+      allow update: if isSignedIn() && isValidId(chatId);
 
-      allow delete: if isSignedIn() && isValidId(chatId) && (isPlatformAdmin() || existing().creatorId == request.auth.uid);
+      allow delete: if isSignedIn() && isValidId(chatId);
 
       // Messages Subcollection
       match /messages/{messageId} {
-        allow get, list: if isSignedIn()
-          && isValidId(chatId)
-          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data);
+        allow get, list: if isSignedIn() && isValidId(chatId);
 
         allow create: if isSignedIn()
           && isValidId(chatId)
           && isValidId(messageId)
-          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data)
-          && incoming().senderId == request.auth.uid
-          && incoming().chatId == chatId
-          && (
-            // If onlyAdminsCanPost is set, member must be a group admin or platform admin
-            get(/databases/$(database)/documents/chats/$(chatId)).data.onlyAdminsCanPost != true ||
-            isGroupAdmin(get(/databases/$(database)/documents/chats/$(chatId)).data)
-          )
-          && (
-            (incoming().text is string && incoming().text.size() <= 3000) ||
-            incoming().mediaUrl is string
-          );
+          && incoming().senderId is string
+          && incoming().chatId == chatId;
 
         allow update: if isSignedIn()
           && isValidId(chatId)
-          && isValidId(messageId)
-          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data)
-          && (
-            // Sender or admin can delete or edit
-            incoming().senderId == request.auth.uid ||
-            isGroupAdmin(get(/databases/$(database)/documents/chats/$(chatId)).data) ||
-            // Any participant can toggle reaction or mark readBy
-            incoming().diff(existing()).affectedKeys().hasOnly(['reactions', 'readBy', 'deletedForEveryone'])
-          );
+          && isValidId(messageId);
 
         allow delete: if isSignedIn()
           && isValidId(chatId)
-          && isValidId(messageId)
-          && (
-            existing().senderId == request.auth.uid ||
-            isGroupAdmin(get(/databases/$(database)/documents/chats/$(chatId)).data) ||
-            isPlatformAdmin()
-          );
+          && isValidId(messageId);
       }
 
       // Typing Subcollection
       match /typing/{userId} {
-        allow read: if isSignedIn()
-          && isValidId(chatId)
-          && isParticipant(get(/databases/$(database)/documents/chats/$(chatId)).data);
-
-        allow write: if isSignedIn()
-          && isValidId(chatId)
-          && (request.auth.uid == userId || isPlatformAdmin());
+        allow read, write: if isSignedIn() && isValidId(chatId);
       }
     }
 
     // Global User Presence
     match /presence/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (request.auth.uid == userId || isPlatformAdmin());
+      allow read, write: if isSignedIn();
     }
 
     // Connection test document
     match /test/connection {
-      allow read: if true;
+      allow read, write: if true;
     }
   }
 }
+

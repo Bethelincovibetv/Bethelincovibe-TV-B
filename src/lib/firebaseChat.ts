@@ -50,6 +50,39 @@ export interface FirestoreErrorInfo {
   };
 }
 
+/**
+ * Recursively sanitizes data objects before writing to Firestore.
+ * Removes all undefined keys and ensures clean JSON primitives or Firestore sentinels.
+ */
+export function sanitizeFirestoreObject<T extends Record<string, any>>(obj: T): Record<string, any> {
+  if (!obj || typeof obj !== "object") return {};
+  const cleaned: Record<string, any> = {};
+
+  for (const [key, value] of Object.entries(obj)) {
+    if (value === undefined) {
+      continue; // Never write undefined to Firestore
+    }
+    if (value === null) {
+      cleaned[key] = null;
+    } else if (Array.isArray(value)) {
+      cleaned[key] = value
+        .filter((v) => v !== undefined)
+        .map((v) => (typeof v === "object" && v !== null && !(v as any)._methodName ? sanitizeFirestoreObject(v) : v));
+    } else if (typeof value === "object") {
+      // Check if it's a Firestore sentinel like serverTimestamp(), Timestamp, or FieldValue
+      if ((value as any)._methodName || typeof (value as any).toMillis === "function" || (value as any).isEqual) {
+        cleaned[key] = value;
+      } else {
+        cleaned[key] = sanitizeFirestoreObject(value);
+      }
+    } else {
+      cleaned[key] = value;
+    }
+  }
+
+  return cleaned;
+}
+
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
@@ -223,7 +256,16 @@ export async function getOrCreateGeneralBethelChatRoom(
       participantNames[userId] = userName || "Member";
       if (userAvatar) participantAvatars[userId] = userAvatar;
 
-      await setDoc(roomRef, { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          participants,
+          participantNames,
+          participantAvatars,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
       return {
         ...data,
         id: roomId,
@@ -232,12 +274,15 @@ export async function getOrCreateGeneralBethelChatRoom(
         participantAvatars,
       };
     } else {
-      await setDoc(roomRef, {
-        ...officialRoomData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp(),
-      });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          ...officialRoomData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp(),
+        })
+      );
       return officialRoomData;
     }
   } catch (err) {
@@ -297,7 +342,16 @@ export async function getOrCreateVIPTradeChatRoom(
       participantNames[userId] = userName || "VIP Trader";
       if (userAvatar) participantAvatars[userId] = userAvatar;
 
-      await setDoc(roomRef, { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          participants,
+          participantNames,
+          participantAvatars,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
       return {
         ...data,
         id: roomId,
@@ -306,12 +360,15 @@ export async function getOrCreateVIPTradeChatRoom(
         participantAvatars,
       };
     } else {
-      await setDoc(roomRef, {
-        ...tradeRoomData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp(),
-      });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          ...tradeRoomData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp(),
+        })
+      );
       return tradeRoomData;
     }
   } catch (err) {
@@ -364,12 +421,15 @@ export async function getOrCreateChatRoom(
     const roomRef = doc(firestoreDb, "chats", roomId);
     const existing = await getDoc(roomRef);
     if (!existing.exists()) {
-      await setDoc(roomRef, {
-        ...roomData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp(),
-      });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          ...roomData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp(),
+        })
+      );
     } else {
       // Update participant metadata
       const data = existing.data() as any;
@@ -377,7 +437,15 @@ export async function getOrCreateChatRoom(
       const participantAvatars = { ...(data.participantAvatars || {}) };
       if (currentUserAvatar) participantAvatars[currentUserId] = currentUserAvatar;
       if (targetAvatar) participantAvatars[targetUserId] = targetAvatar;
-      await setDoc(roomRef, { participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          participantNames,
+          participantAvatars,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
@@ -430,12 +498,15 @@ export async function createCustomChatRoom(params: {
 
   try {
     const roomRef = doc(firestoreDb, "chats", roomId);
-    await setDoc(roomRef, {
-      ...roomData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastMessageTime: serverTimestamp(),
-    });
+    await setDoc(
+      roomRef,
+      sanitizeFirestoreObject({
+        ...roomData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp(),
+      })
+    );
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
   }
@@ -463,7 +534,16 @@ export async function joinCommunityChatRoom(
       const participantAvatars = { ...(data.participantAvatars || {}) };
       if (userAvatar) participantAvatars[userId] = userAvatar;
 
-      await setDoc(roomRef, { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          participants,
+          participantNames,
+          participantAvatars,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
@@ -482,7 +562,15 @@ export async function leaveChatRoom(chatId: string, userId: string): Promise<voi
       const data = snap.data();
       const participants = (data.participants || []).filter((id: string) => id !== userId);
       const adminIds = (data.adminIds || []).filter((id: string) => id !== userId);
-      await setDoc(roomRef, { participants, adminIds, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          participants,
+          adminIds,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
@@ -506,7 +594,14 @@ export async function updateChatRoomDetails(
   await ensureFirebaseAuth();
   try {
     const roomRef = doc(firestoreDb, "chats", chatId);
-    await setDoc(roomRef, { ...updates, updatedAt: serverTimestamp() }, { merge: true });
+    await setDoc(
+      roomRef,
+      sanitizeFirestoreObject({
+        ...updates,
+        updatedAt: serverTimestamp(),
+      }),
+      { merge: true }
+    );
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
     throw err;
@@ -535,7 +630,12 @@ export async function addMemberToChatRoom(
 
       await setDoc(
         roomRef,
-        { participants, participantNames, participantAvatars, updatedAt: serverTimestamp() },
+        sanitizeFirestoreObject({
+          participants,
+          participantNames,
+          participantAvatars,
+          updatedAt: serverTimestamp(),
+        }),
         { merge: true }
       );
     }
@@ -560,7 +660,15 @@ export async function removeMemberFromChatRoom(
       const data = snap.data();
       const participants = (data.participants || []).filter((id: string) => id !== memberId);
       const adminIds = (data.adminIds || []).filter((id: string) => id !== memberId);
-      await setDoc(roomRef, { participants, adminIds, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          participants,
+          adminIds,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
@@ -582,7 +690,14 @@ export async function promoteMemberToAdmin(
     if (snap.exists()) {
       const data = snap.data();
       const adminIds = Array.from(new Set([...(data.adminIds || []), memberId]));
-      await setDoc(roomRef, { adminIds, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          adminIds,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
@@ -604,7 +719,14 @@ export async function demoteAdminToMember(
     if (snap.exists()) {
       const data = snap.data();
       const adminIds = (data.adminIds || []).filter((id: string) => id !== memberId);
-      await setDoc(roomRef, { adminIds, updatedAt: serverTimestamp() }, { merge: true });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          adminIds,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
@@ -837,31 +959,38 @@ export async function sendMessageToChat(params: {
   }
 
   const newMsgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  const messageData: RealtimeChatMessage = {
+  
+  const rawMsgDoc: Record<string, any> = {
     id: newMsgId,
-    chatId,
-    senderId,
-    senderName,
+    chatId: String(chatId),
+    senderId: String(senderId),
+    senderName: String(senderName || "Member"),
     senderAvatar: senderAvatar || "",
     text: cleanText,
-    type,
+    type: type || "text",
     mediaUrl: mediaUrl || "",
     fileName: fileName || "",
-    fileSize: fileSize || 0,
-    mediaDuration: mediaDuration || 0,
-    createdAt: new Date().toISOString(),
-    replyTo: replyTo || undefined,
+    fileSize: Number(fileSize || 0),
+    mediaDuration: Number(mediaDuration || 0),
     reactions: {},
-    readBy: [senderId],
+    readBy: [String(senderId)],
     deletedForEveryone: false,
+    createdAt: serverTimestamp(),
   };
+
+  if (replyTo && replyTo.id && replyTo.text) {
+    rawMsgDoc.replyTo = {
+      id: String(replyTo.id),
+      senderName: String(replyTo.senderName || "Member"),
+      text: String(replyTo.text || ""),
+    };
+  }
+
+  const sanitizedMsg = sanitizeFirestoreObject(rawMsgDoc);
 
   try {
     const msgRef = doc(firestoreDb, "chats", chatId, "messages", newMsgId);
-    await setDoc(msgRef, {
-      ...messageData,
-      createdAt: serverTimestamp(),
-    });
+    await setDoc(msgRef, sanitizedMsg);
 
     // Update parent room last message metadata
     let snippet = cleanText;
@@ -876,13 +1005,13 @@ export async function sendMessageToChat(params: {
     const roomRef = doc(firestoreDb, "chats", chatId);
     await setDoc(
       roomRef,
-      {
+      sanitizeFirestoreObject({
         lastMessageText: snippet,
-        lastMessageSenderId: senderId,
-        lastMessageSenderName: senderName,
+        lastMessageSenderId: String(senderId),
+        lastMessageSenderName: String(senderName || "Member"),
         lastMessageTime: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
 
@@ -900,7 +1029,26 @@ export async function sendMessageToChat(params: {
     throw err;
   }
 
-  return messageData;
+  const returnedMessage: RealtimeChatMessage = {
+    id: newMsgId,
+    chatId,
+    senderId,
+    senderName: senderName || "Member",
+    senderAvatar: senderAvatar || "",
+    text: cleanText,
+    type,
+    mediaUrl: mediaUrl || "",
+    fileName: fileName || "",
+    fileSize: fileSize || 0,
+    mediaDuration: mediaDuration || 0,
+    createdAt: new Date().toISOString(),
+    replyTo: replyTo && replyTo.id ? replyTo : undefined,
+    reactions: {},
+    readBy: [senderId],
+    deletedForEveryone: false,
+  };
+
+  return returnedMessage;
 }
 
 /**
@@ -926,7 +1074,11 @@ export async function toggleMessageReaction(
       } else {
         reactions[emoji] = [...currentUsers, userId];
       }
-      await setDoc(msgRef, { reactions }, { merge: true });
+      await setDoc(
+        msgRef,
+        sanitizeFirestoreObject({ reactions }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}/messages/${messageId}`);
@@ -951,7 +1103,11 @@ export async function markMessagesAsRead(chatId: string, userId: string): Promis
 
     for (const docSnap of updates) {
       const readBy = [...(docSnap.data().readBy || []), userId];
-      await setDoc(docSnap.ref, { readBy }, { merge: true });
+      await setDoc(
+        docSnap.ref,
+        sanitizeFirestoreObject({ readBy }),
+        { merge: true }
+      );
     }
   } catch (err) {
     console.warn("Error marking messages read:", err);
@@ -970,11 +1126,11 @@ export async function deleteMessageForEveryone(
     const msgRef = doc(firestoreDb, "chats", chatId, "messages", messageId);
     await setDoc(
       msgRef,
-      {
+      sanitizeFirestoreObject({
         text: "🚫 This message was deleted.",
         mediaUrl: "",
         deletedForEveryone: true,
-      },
+      }),
       { merge: true }
     );
   } catch (err) {
@@ -997,12 +1153,12 @@ export async function setChatTypingState(
     const typingRef = doc(firestoreDb, "chats", chatId, "typing", userId);
     await setDoc(
       typingRef,
-      {
+      sanitizeFirestoreObject({
         userId,
         userName,
         isTyping,
         updatedAt: serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
   } catch (err) {
@@ -1056,12 +1212,12 @@ export async function updateUserPresence(
     const presenceRef = doc(firestoreDb, "presence", userId);
     await setDoc(
       presenceRef,
-      {
+      sanitizeFirestoreObject({
         userId,
         userName,
         status,
         lastSeen: serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
   } catch {}

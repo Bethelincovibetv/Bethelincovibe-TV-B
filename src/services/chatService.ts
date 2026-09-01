@@ -14,7 +14,7 @@ import {
   Timestamp,
   Unsubscribe,
 } from "firebase/firestore";
-import { firestoreDb, ensureFirebaseAuth, handleFirestoreError, OperationType } from "@/lib/firebaseChat";
+import { firestoreDb, ensureFirebaseAuth, handleFirestoreError, OperationType, sanitizeFirestoreObject } from "@/lib/firebaseChat";
 import { supabase } from "@/integrations/supabase/client";
 
 export type MessageType = "text" | "image" | "video" | "voice_note" | "file" | "system";
@@ -160,7 +160,7 @@ export async function sendMessage(params: SendMessageParams): Promise<ChatMessag
     replyTo,
   } = params;
 
-  const cleanText = text.trim().slice(0, 3000);
+  const cleanText = (text || "").trim().slice(0, 3000);
   if (!cleanText && !mediaUrl) {
     throw new Error("Message cannot be empty");
   }
@@ -168,31 +168,35 @@ export async function sendMessage(params: SendMessageParams): Promise<ChatMessag
   const messageId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
   const nowIso = new Date().toISOString();
 
-  const messageData: ChatMessage = {
+  const rawMsgDoc: Record<string, any> = {
     id: messageId,
-    chatId,
-    senderId,
-    senderName,
-    senderAvatar,
+    chatId: String(chatId),
+    senderId: String(senderId),
+    senderName: String(senderName || "Member"),
+    senderAvatar: senderAvatar || "",
     text: cleanText,
-    type,
-    mediaUrl,
-    fileName,
-    fileSize,
-    mediaDuration,
-    createdAt: nowIso,
-    replyTo,
+    type: type || "text",
+    mediaUrl: mediaUrl || "",
+    fileName: fileName || "",
+    fileSize: Number(fileSize || 0),
+    mediaDuration: Number(mediaDuration || 0),
     reactions: {},
-    readBy: [senderId],
+    readBy: [String(senderId)],
     deletedForEveryone: false,
+    createdAt: serverTimestamp(),
   };
+
+  if (replyTo && replyTo.id && replyTo.text) {
+    rawMsgDoc.replyTo = {
+      id: String(replyTo.id),
+      senderName: String(replyTo.senderName || "Member"),
+      text: String(replyTo.text || ""),
+    };
+  }
 
   try {
     const msgRef = doc(firestoreDb, "chats", chatId, "messages", messageId);
-    await setDoc(msgRef, {
-      ...messageData,
-      createdAt: serverTimestamp(),
-    });
+    await setDoc(msgRef, sanitizeFirestoreObject(rawMsgDoc));
 
     // Formulate a preview snippet for the parent conversation
     let snippet = cleanText;
@@ -207,13 +211,13 @@ export async function sendMessage(params: SendMessageParams): Promise<ChatMessag
     const roomRef = doc(firestoreDb, "chats", chatId);
     await setDoc(
       roomRef,
-      {
+      sanitizeFirestoreObject({
         lastMessageText: snippet,
-        lastMessageSenderId: senderId,
-        lastMessageSenderName: senderName,
+        lastMessageSenderId: String(senderId),
+        lastMessageSenderName: String(senderName || "Member"),
         lastMessageTime: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
 
@@ -227,7 +231,26 @@ export async function sendMessage(params: SendMessageParams): Promise<ChatMessag
       }).then(() => {}).catch(() => {});
     } catch {}
 
-    return messageData;
+    const returnedMessage: ChatMessage = {
+      id: messageId,
+      chatId,
+      senderId,
+      senderName: senderName || "Member",
+      senderAvatar: senderAvatar || "",
+      text: cleanText,
+      type,
+      mediaUrl: mediaUrl || "",
+      fileName: fileName || "",
+      fileSize: fileSize || 0,
+      mediaDuration: mediaDuration || 0,
+      createdAt: nowIso,
+      replyTo: replyTo && replyTo.id ? replyTo : undefined,
+      reactions: {},
+      readBy: [senderId],
+      deletedForEveryone: false,
+    };
+
+    return returnedMessage;
   } catch (error) {
     handleFirestoreError(error, OperationType.CREATE, `chats/${chatId}/messages/${messageId}`);
     throw error;
@@ -381,12 +404,15 @@ export async function getOrCreateDirectConversation(params: CreateDirectChatPara
         createdAt: new Date().toISOString(),
       };
 
-      await setDoc(roomRef, {
-        ...roomData,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-        lastMessageTime: serverTimestamp(),
-      });
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          ...roomData,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+          lastMessageTime: serverTimestamp(),
+        })
+      );
     } else {
       // Sync participant metadata
       const data = existing.data() as any;
@@ -401,11 +427,11 @@ export async function getOrCreateDirectConversation(params: CreateDirectChatPara
 
       await setDoc(
         roomRef,
-        {
+        sanitizeFirestoreObject({
           participantNames,
           participantAvatars,
           updatedAt: serverTimestamp(),
-        },
+        }),
         { merge: true }
       );
     }
@@ -462,12 +488,15 @@ export async function createGroupConversation(params: CreateGroupChatParams): Pr
 
   try {
     const roomRef = doc(firestoreDb, "chats", roomId);
-    await setDoc(roomRef, {
-      ...roomData,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastMessageTime: serverTimestamp(),
-    });
+    await setDoc(
+      roomRef,
+      sanitizeFirestoreObject({
+        ...roomData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        lastMessageTime: serverTimestamp(),
+      })
+    );
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `chats/${roomId}`);
     throw err;
@@ -571,7 +600,11 @@ export async function toggleReaction(
         reactions[emoji] = [...currentUsers, userId];
       }
 
-      await setDoc(msgRef, { reactions }, { merge: true });
+      await setDoc(
+        msgRef,
+        sanitizeFirestoreObject({ reactions }),
+        { merge: true }
+      );
     }
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}/messages/${messageId}`);
@@ -587,11 +620,11 @@ export async function deleteMessageForEveryone(chatId: string, messageId: string
     const msgRef = doc(firestoreDb, "chats", chatId, "messages", messageId);
     await setDoc(
       msgRef,
-      {
+      sanitizeFirestoreObject({
         text: "🚫 This message was deleted.",
         mediaUrl: "",
         deletedForEveryone: true,
-      },
+      }),
       { merge: true }
     );
   } catch (err) {
@@ -618,7 +651,11 @@ export async function markMessagesAsRead(chatId: string, userId: string): Promis
 
     for (const docSnap of updates) {
       const readBy = [...(docSnap.data().readBy || []), userId];
-      await setDoc(docSnap.ref, { readBy }, { merge: true });
+      await setDoc(
+        docSnap.ref,
+        sanitizeFirestoreObject({ readBy }),
+        { merge: true }
+      );
     }
   } catch (err) {
     console.warn("Error marking messages read:", err);
@@ -639,12 +676,12 @@ export async function setTypingStatus(
     const typingRef = doc(firestoreDb, "chats", chatId, "typing", userId);
     await setDoc(
       typingRef,
-      {
+      sanitizeFirestoreObject({
         userId,
         userName,
         isTyping,
         updatedAt: serverTimestamp(),
-      },
+      }),
       { merge: true }
     );
   } catch {}
