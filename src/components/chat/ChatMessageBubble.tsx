@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { motion, PanInfo } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -6,6 +7,7 @@ import {
   Smile,
   CheckCheck,
   Check,
+  Clock,
   MoreVertical,
   Copy,
   ShieldCheck,
@@ -20,6 +22,7 @@ import {
   Mic,
   Info,
   ExternalLink,
+  User,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -317,21 +320,30 @@ export function ChatMessageBubble({
       >
         {/* Avatar (for incoming messages) */}
         {!isMe && (
-          <Avatar className="h-8 w-8 sm:h-9 sm:w-9 shrink-0 ring-2 ring-primary/10 self-end mb-1">
-            <AvatarImage src={message.senderAvatar} />
-            <AvatarFallback className="text-[11px] font-black bg-primary/10 text-primary">
-              {(message.senderName || "U").slice(0, 2).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
+          <Link
+            to={`/u/${message.senderId}`}
+            title={`View ${message.senderName || "user"}'s profile`}
+            className="shrink-0 group self-end mb-1"
+          >
+            <Avatar className="h-8 w-8 sm:h-9 sm:w-9 ring-2 ring-primary/10 transition-transform group-hover:scale-105">
+              <AvatarImage src={message.senderAvatar} />
+              <AvatarFallback className="text-[11px] font-black bg-primary/10 text-primary">
+                {(message.senderName || "U").slice(0, 2).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+          </Link>
         )}
 
         <div className="space-y-1 max-w-full">
           {/* Sender Name if not me */}
           {!isMe && message.senderName && (
-            <p className="text-[11px] font-bold text-foreground/80 pl-1 flex items-center gap-1">
-              {message.senderName}
+            <Link
+              to={`/u/${message.senderId}`}
+              className="text-[11px] font-bold text-foreground/80 pl-1 flex items-center gap-1 hover:text-primary transition-colors inline-flex"
+            >
+              <span>{message.senderName}</span>
               <ShieldCheck className="h-3 w-3 text-emerald-500 inline" />
-            </p>
+            </Link>
           )}
 
           {/* Main Bubble Card */}
@@ -446,7 +458,9 @@ export function ChatMessageBubble({
               }`}
             >
               <span>
-                {message.createdAt
+                {message.isLocalPending
+                  ? "sending..."
+                  : message.createdAt
                   ? formatDistanceToNow(new Date(message.createdAt), {
                       addSuffix: true,
                     })
@@ -455,13 +469,23 @@ export function ChatMessageBubble({
               {isMe && (
                 <span
                   className="inline-flex items-center"
-                  title={hasRead ? "Read by members" : "Sent & Delivered"}
+                  title={
+                    message.isLocalPending
+                      ? "Sending message..."
+                      : hasRead
+                      ? "Read by recipient"
+                      : "Sent & Delivered"
+                  }
                 >
-                  <CheckCheck
-                    className={`h-4 w-4 ml-0.5 stroke-[2.5] ${
-                      hasRead ? "text-emerald-300" : "text-white/60"
-                    }`}
-                  />
+                  {message.isLocalPending ? (
+                    <Clock className="h-3.5 w-3.5 ml-0.5 animate-spin text-white/70" />
+                  ) : (
+                    <CheckCheck
+                      className={`h-4 w-4 ml-0.5 stroke-[2.5] ${
+                        hasRead ? "text-emerald-300" : "text-white/75"
+                      }`}
+                    />
+                  )}
                 </span>
               )}
             </div>

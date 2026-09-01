@@ -73,6 +73,20 @@ class ChatSoundEngine {
   }
 
   /**
+   * Alias for playSentSound
+   */
+  public playSend(): void {
+    this.playSentSound();
+  }
+
+  /**
+   * Alias for playSentSound
+   */
+  public playSent(): void {
+    this.playSentSound();
+  }
+
+  /**
    * WhatsApp Message Received Tone (Double Pluck / Ding)
    */
   public playReceivedSound(): void {
@@ -111,6 +125,20 @@ class ChatSoundEngine {
   }
 
   /**
+   * Alias for playReceivedSound
+   */
+  public playReceive(): void {
+    this.playReceivedSound();
+  }
+
+  /**
+   * Alias for playReceivedSound
+   */
+  public playReceived(): void {
+    this.playReceivedSound();
+  }
+
+  /**
    * Voice Note Start Recording Tone
    */
   public playRecordStartSound(): void {
@@ -135,6 +163,13 @@ class ChatSoundEngine {
   }
 
   /**
+   * Alias for playRecordStartSound
+   */
+  public playRecordStart(): void {
+    this.playRecordStartSound();
+  }
+
+  /**
    * Voice Note Stop / Discard Tone
    */
   public playRecordStopSound(): void {
@@ -156,6 +191,13 @@ class ChatSoundEngine {
       osc.start(now);
       osc.stop(now + 0.1);
     } catch {}
+  }
+
+  /**
+   * Alias for playRecordStopSound
+   */
+  public playRecordStop(): void {
+    this.playRecordStopSound();
   }
 }
 

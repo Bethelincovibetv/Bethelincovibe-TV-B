@@ -478,6 +478,19 @@ export default function PublicProfile() {
 
                 {/* Direct Action Buttons */}
                 <div className="pt-2 flex flex-col gap-2">
+                  {!isOwner && profile.user_id && (
+                    <Button
+                      asChild
+                      className="w-full rounded-2xl font-black bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25 gap-2"
+                    >
+                      <Link
+                        to={`/chat?targetUserId=${profile.user_id}&targetName=${encodeURIComponent(fullName)}&targetAvatar=${encodeURIComponent(canonicalLogo || "")}`}
+                      >
+                        <MessageCircle className="h-4 w-4" /> Message {fullName.split(" ")[0]}
+                      </Link>
+                    </Button>
+                  )}
+
                   {waClean ? (
                     <Button
                       asChild

@@ -45,6 +45,7 @@ import {
   Crown,
   Settings2,
   Radio,
+  User,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -96,6 +97,7 @@ export default function UserMessages() {
   // Rooms & Active Chat State
   const [userRooms, setUserRooms] = useState<RealtimeChatRoom[]>([]);
   const [publicRooms, setPublicRooms] = useState<RealtimeChatRoom[]>([]);
+  const [optimisticRooms, setOptimisticRooms] = useState<Record<string, RealtimeChatRoom>>({});
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -143,9 +145,10 @@ export default function UserMessages() {
   const messageInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Combine user rooms and public rooms
+  // Combine user rooms, public rooms, and optimistic instantaneous rooms
   const allRooms = useMemo(() => {
     const map = new Map<string, RealtimeChatRoom>();
+    Object.values(optimisticRooms).forEach((r) => map.set(r.id, r));
     userRooms.forEach((r) => map.set(r.id, r));
     publicRooms.forEach((r) => {
       if (!map.has(r.id)) map.set(r.id, r);
@@ -155,11 +158,19 @@ export default function UserMessages() {
       const tB = new Date(b.lastMessageTime || b.createdAt || 0).getTime();
       return tB - tA;
     });
-  }, [userRooms, publicRooms]);
+  }, [userRooms, publicRooms, optimisticRooms]);
 
   const activeRoom = useMemo(() => {
     return allRooms.find((r) => r.id === activeRoomId) || null;
   }, [allRooms, activeRoomId]);
+
+  const otherUserId = useMemo(() => {
+    if (!activeRoom) return targetUserParam || null;
+    if (activeRoom.roomType === "direct") {
+      return activeRoom.participants?.find((id) => id !== currentUserId) || targetUserParam || null;
+    }
+    return null;
+  }, [activeRoom, currentUserId, targetUserParam]);
 
   const isRoomAdmin = useMemo(() => {
     if (!activeRoom) return false;
@@ -202,20 +213,52 @@ export default function UserMessages() {
     };
   }, [currentUserId]);
 
-  // Handle URL query parameters (e.g. ?targetUserId=..., ?roomId=..., ?officialRoom=true)
+  // Handle URL query parameters (instant 0ms direct room opening)
   useEffect(() => {
     if (!currentUserId) return;
 
     if (roomIdParam) {
       setActiveRoomId(roomIdParam);
       setMobileView("chat");
+      setLoading(false);
     } else if (officialRoomParam === "true" || officialRoomParam === "bethelincovibetv") {
       getOrCreateGeneralBethelChatRoom(currentUserId, currentUserName, currentUserAvatar).then((r) => {
         setActiveRoomId(r.id);
         setMobileView("chat");
+        setLoading(false);
       });
     } else if (targetUserParam) {
+      const sortedIds = [currentUserId, targetUserParam].sort();
+      const directRoomId = `room_${sortedIds[0].replace(/[^a-zA-Z0-9_]/g, "_")}_${sortedIds[1].replace(/[^a-zA-Z0-9_]/g, "_")}`;
       const tName = targetNameParam || "Bethelincovibe Member";
+      
+      const syntheticRoom: RealtimeChatRoom = {
+        id: directRoomId,
+        name: tName,
+        description: `Direct conversation with ${tName}`,
+        roomType: "direct",
+        avatarUrl: targetAvatarParam || "",
+        avatarEmoji: "👤",
+        creatorId: currentUserId,
+        adminIds: [currentUserId, targetUserParam],
+        participants: [currentUserId, targetUserParam],
+        participantNames: {
+          [currentUserId]: currentUserName,
+          [targetUserParam]: tName,
+        },
+        participantAvatars: {
+          [currentUserId]: currentUserAvatar,
+          [targetUserParam]: targetAvatarParam || "",
+        },
+        createdAt: new Date().toISOString(),
+      };
+
+      setOptimisticRooms((prev) => ({ ...prev, [directRoomId]: syntheticRoom }));
+      setActiveRoomId(directRoomId);
+      setMobileView("chat");
+      setLoading(false);
+
+      // In background, ensure Firestore record is created / synchronized
       getOrCreateChatRoom(
         currentUserId,
         currentUserName,
@@ -224,10 +267,7 @@ export default function UserMessages() {
         targetAvatarParam || undefined,
         undefined,
         currentUserAvatar
-      ).then((rId) => {
-        setActiveRoomId(rId);
-        setMobileView("chat");
-      });
+      ).catch(console.warn);
     }
   }, [roomIdParam, officialRoomParam, targetUserParam, targetNameParam, targetAvatarParam, currentUserId, currentUserName, currentUserAvatar]);
 
@@ -247,6 +287,15 @@ export default function UserMessages() {
 
     const unsubMessages = subscribeToChatMessages(activeRoomId, (loadedMsgs) => {
       setMessages((prev) => {
+        // Retain optimistic pending messages that are not yet returned from Firestore
+        const pending = prev.filter(
+          (p) =>
+            p.isLocalPending &&
+            !loadedMsgs.some(
+              (l) => l.senderId === p.senderId && l.text === p.text && l.type === p.type
+            )
+        );
+
         // If incoming message from someone else, play sound
         if (prev.length > 0 && loadedMsgs.length > prev.length) {
           const last = loadedMsgs[loadedMsgs.length - 1];
@@ -254,7 +303,7 @@ export default function UserMessages() {
             chatSounds.playReceive();
           }
         }
-        return loadedMsgs;
+        return [...loadedMsgs, ...pending];
       });
 
       // Mark as read
@@ -264,7 +313,7 @@ export default function UserMessages() {
 
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-      }, 80);
+      }, 50);
     });
 
     const unsubTyping = subscribeToChatTyping(activeRoomId, currentUserId, (users) => {
@@ -333,7 +382,7 @@ export default function UserMessages() {
     }, 2000);
   };
 
-  // Send text or media message
+  // Send text or media message (Instant Optimistic UI)
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     if (!activeRoomId) return;
@@ -346,9 +395,71 @@ export default function UserMessages() {
     const cleanText = messageText.trim();
     if (!cleanText && !selectedMedia) return;
 
-    setMessageText("");
     const mediaToSend = selectedMedia;
+    const replyToSend = replyingTo
+      ? {
+          id: replyingTo.id,
+          senderName: replyingTo.senderName,
+          text: replyingTo.text,
+        }
+      : undefined;
+
+    // Generate local optimistic message
+    const tempId = `temp_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const optimisticMsg: RealtimeChatMessage = {
+      id: tempId,
+      chatId: activeRoomId,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderAvatar: currentUserAvatar,
+      text: cleanText,
+      type: mediaToSend ? mediaToSend.type : "text",
+      mediaUrl: mediaToSend?.url,
+      fileName: mediaToSend?.fileName,
+      fileSize: mediaToSend?.fileSize,
+      createdAt: new Date().toISOString(),
+      replyTo: replyToSend,
+      isLocalPending: true,
+    };
+
+    // Instant UI update
+    setMessages((prev) => [...prev, optimisticMsg]);
+    setMessageText("");
     setSelectedMedia(null);
+    setReplyingTo(null);
+    chatSounds.playSend();
+
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 20);
+
+    // Background Firestore write
+    sendMessageToChat({
+      chatId: activeRoomId,
+      senderId: currentUserId,
+      senderName: currentUserName,
+      senderAvatar: currentUserAvatar,
+      text: cleanText,
+      type: mediaToSend ? mediaToSend.type : "text",
+      mediaUrl: mediaToSend?.url,
+      fileName: mediaToSend?.fileName,
+      fileSize: mediaToSend?.fileSize,
+      replyTo: replyToSend,
+    })
+      .then(() => {
+        setChatTypingState(activeRoomId, currentUserId, currentUserName, false);
+      })
+      .catch((err: any) => {
+        toast.error(err?.message || "Failed to deliver message");
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      });
+  };
+
+  // Send voice note (Instant Optimistic UI)
+  const handleSendVoiceNote = async (audioBlob: Blob, durationSeconds: number) => {
+    if (!activeRoomId) return;
+
+    setIsRecordingVoice(false);
     const replyToSend = replyingTo
       ? {
           id: replyingTo.id,
@@ -358,67 +469,48 @@ export default function UserMessages() {
       : undefined;
     setReplyingTo(null);
 
-    chatSounds.playSend();
+    const tempId = `temp_voice_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
-    try {
-      await sendMessageToChat({
+    // Read audio blob to base64 for instant optimistic preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64Url = event.target?.result as string;
+
+      const optimisticVoiceMsg: RealtimeChatMessage = {
+        id: tempId,
         chatId: activeRoomId,
         senderId: currentUserId,
         senderName: currentUserName,
         senderAvatar: currentUserAvatar,
-        text: cleanText,
-        type: mediaToSend ? mediaToSend.type : "text",
-        mediaUrl: mediaToSend?.url,
-        fileName: mediaToSend?.fileName,
-        fileSize: mediaToSend?.fileSize,
+        text: `🎙️ Voice Note (${Math.round(durationSeconds)}s)`,
+        type: "voice_note",
+        mediaUrl: base64Url,
+        mediaDuration: durationSeconds,
+        createdAt: new Date().toISOString(),
         replyTo: replyToSend,
-      });
-
-      // Clear typing
-      setChatTypingState(activeRoomId, currentUserId, currentUserName, false);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to send message");
-    }
-  };
-
-  // Send voice note
-  const handleSendVoiceNote = async (audioBlob: Blob, durationSeconds: number) => {
-    if (!activeRoomId) return;
-
-    setIsRecordingVoice(false);
-    toast.loading("Sending voice note...", { id: "voice-upload" });
-
-    try {
-      // Convert blob to base64 data url
-      const reader = new FileReader();
-      reader.onload = async (event) => {
-        const base64Url = event.target?.result as string;
-        await sendMessageToChat({
-          chatId: activeRoomId,
-          senderId: currentUserId,
-          senderName: currentUserName,
-          senderAvatar: currentUserAvatar,
-          text: `🎙️ Voice Note (${Math.round(durationSeconds)}s)`,
-          type: "voice_note",
-          mediaUrl: base64Url,
-          mediaDuration: durationSeconds,
-          replyTo: replyingTo
-            ? {
-                id: replyingTo.id,
-                senderName: replyingTo.senderName,
-                text: replyingTo.text,
-              }
-            : undefined,
-        });
-        toast.dismiss("voice-upload");
-        setReplyingTo(null);
-        chatSounds.playSend();
+        isLocalPending: true,
       };
-      reader.readAsDataURL(audioBlob);
-    } catch (err: any) {
-      toast.dismiss("voice-upload");
-      toast.error(err?.message || "Failed to send voice note");
-    }
+
+      setMessages((prev) => [...prev, optimisticVoiceMsg]);
+      chatSounds.playSend();
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 20);
+
+      sendMessageToChat({
+        chatId: activeRoomId,
+        senderId: currentUserId,
+        senderName: currentUserName,
+        senderAvatar: currentUserAvatar,
+        text: `🎙️ Voice Note (${Math.round(durationSeconds)}s)`,
+        type: "voice_note",
+        mediaUrl: base64Url,
+        mediaDuration: durationSeconds,
+        replyTo: replyToSend,
+      }).catch((err: any) => {
+        toast.error(err?.message || "Failed to send voice note");
+        setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      });
+    };
+    reader.readAsDataURL(audioBlob);
   };
 
   // Media file select handler
@@ -504,26 +596,50 @@ export default function UserMessages() {
     }
   };
 
-  // Start direct chat with user from directory
+  // Start direct chat with user from directory (Instant Optimistic Room)
   const handleStartDirectChat = async (contact: { id: string; name: string; avatar?: string }) => {
-    try {
-      const roomId = await getOrCreateChatRoom(
-        currentUserId,
-        currentUserName,
-        contact.id,
-        contact.name,
-        contact.avatar,
-        undefined,
-        currentUserAvatar
-      );
-      setActiveRoomId(roomId);
-      setDirectorySearch("");
-      setDiscoveredContacts([]);
-      setMobileView("chat");
-      toast.success(`Connected to chat with ${contact.name}`);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to open conversation");
-    }
+    const sortedIds = [currentUserId, contact.id].sort();
+    const directRoomId = `room_${sortedIds[0].replace(/[^a-zA-Z0-9_]/g, "_")}_${sortedIds[1].replace(/[^a-zA-Z0-9_]/g, "_")}`;
+    
+    const syntheticRoom: RealtimeChatRoom = {
+      id: directRoomId,
+      name: contact.name,
+      description: `Direct conversation with ${contact.name}`,
+      roomType: "direct",
+      avatarUrl: contact.avatar || "",
+      avatarEmoji: "👤",
+      creatorId: currentUserId,
+      adminIds: [currentUserId, contact.id],
+      participants: [currentUserId, contact.id],
+      participantNames: {
+        [currentUserId]: currentUserName,
+        [contact.id]: contact.name,
+      },
+      participantAvatars: {
+        [currentUserId]: currentUserAvatar,
+        [contact.id]: contact.avatar || "",
+      },
+      createdAt: new Date().toISOString(),
+    };
+
+    setOptimisticRooms((prev) => ({ ...prev, [directRoomId]: syntheticRoom }));
+    setActiveRoomId(directRoomId);
+    setDirectorySearch("");
+    setDiscoveredContacts([]);
+    setMobileView("chat");
+    setLoading(false);
+    toast.success(`Connected to chat with ${contact.name}`);
+
+    // In background, ensure Firestore record is created / synchronized
+    getOrCreateChatRoom(
+      currentUserId,
+      currentUserName,
+      contact.id,
+      contact.name,
+      contact.avatar,
+      undefined,
+      currentUserAvatar
+    ).catch(console.warn);
   };
 
   // Filtered rooms list by search query
@@ -798,41 +914,96 @@ export default function UserMessages() {
                     <ArrowLeft className="h-4 w-4" />
                   </Button>
 
-                  {/* Header Avatar */}
-                  <Avatar className="h-10 w-10 rounded-2xl ring-2 ring-primary/20 shrink-0">
-                    {activeRoom.avatarUrl ? (
-                      <AvatarImage src={activeRoom.avatarUrl} className="object-cover" />
-                    ) : null}
-                    <AvatarFallback className="text-base font-bold bg-primary/15 text-primary">
-                      {activeRoom.avatarEmoji || (activeRoom.roomType !== "direct" ? "👥" : "👤")}
-                    </AvatarFallback>
-                  </Avatar>
+                  {/* Header Avatar & Name with profile link */}
+                  {otherUserId ? (
+                    <Link
+                      to={`/u/${otherUserId}`}
+                      className="flex items-center gap-2.5 min-w-0 group hover:opacity-90 transition-opacity"
+                    >
+                      <Avatar className="h-10 w-10 rounded-2xl ring-2 ring-primary/20 shrink-0 group-hover:ring-primary/50 transition-all">
+                        {activeRoom.avatarUrl ? (
+                          <AvatarImage src={activeRoom.avatarUrl} className="object-cover" />
+                        ) : null}
+                        <AvatarFallback className="text-base font-bold bg-primary/15 text-primary">
+                          {activeRoom.avatarEmoji || "👤"}
+                        </AvatarFallback>
+                      </Avatar>
 
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <h2 className="text-sm sm:text-base font-black text-foreground truncate">
-                        {activeRoom.name || "Bethel Community"}
-                      </h2>
-                      {activeRoom.isOfficial && (
-                        <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
-                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h2 className="text-sm sm:text-base font-black text-foreground truncate group-hover:text-primary transition-colors">
+                            {activeRoom.name || "Bethel Community"}
+                          </h2>
+                          {activeRoom.isOfficial && (
+                            <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {typingUsers.length > 0 ? (
+                            <span className="text-emerald-500 font-bold animate-pulse">
+                              {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-emerald-600 font-medium">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                              Direct Verified Contact
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </Link>
+                  ) : (
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Avatar className="h-10 w-10 rounded-2xl ring-2 ring-primary/20 shrink-0">
+                        {activeRoom.avatarUrl ? (
+                          <AvatarImage src={activeRoom.avatarUrl} className="object-cover" />
+                        ) : null}
+                        <AvatarFallback className="text-base font-bold bg-primary/15 text-primary">
+                          {activeRoom.avatarEmoji || (activeRoom.roomType !== "direct" ? "👥" : "👤")}
+                        </AvatarFallback>
+                      </Avatar>
+
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <h2 className="text-sm sm:text-base font-black text-foreground truncate">
+                            {activeRoom.name || "Bethel Community"}
+                          </h2>
+                          {activeRoom.isOfficial && (
+                            <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                          )}
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {typingUsers.length > 0 ? (
+                            <span className="text-emerald-500 font-bold animate-pulse">
+                              {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
+                            </span>
+                          ) : activeRoom.roomType !== "direct" ? (
+                            `${(activeRoom.participants || []).length} members active`
+                          ) : (
+                            "Direct Encrypted Message"
+                          )}
+                        </p>
+                      </div>
                     </div>
-                    <p className="text-[11px] text-muted-foreground truncate">
-                      {typingUsers.length > 0 ? (
-                        <span className="text-emerald-500 font-bold animate-pulse">
-                          {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
-                        </span>
-                      ) : activeRoom.roomType !== "direct" ? (
-                        `${(activeRoom.participants || []).length} members active`
-                      ) : (
-                        "Direct Encrypted Message"
-                      )}
-                    </p>
-                  </div>
+                  )}
                 </div>
 
                 {/* Header Actions */}
                 <div className="flex items-center gap-1 shrink-0">
+                  {otherUserId && (
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-primary"
+                      title="View Member Profile & Store"
+                    >
+                      <Link to={`/u/${otherUserId}`}>
+                        <User className="h-4 w-4" />
+                      </Link>
+                    </Button>
+                  )}
+
                   {/* Call Simulation Buttons */}
                   <Button
                     variant="ghost"
