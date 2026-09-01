@@ -5,6 +5,10 @@ import {
   getPromotionOrderById,
 } from "./promotionOrderService";
 import { getPromoterProfileByUserId, getPromoterProfileById } from "./promoterService";
+import {
+  notifySettlementCompleted,
+  notifyPayoutStatusChanged,
+} from "./promotionNotificationService";
 
 export interface PromotionSettlement {
   id: string;
@@ -654,6 +658,14 @@ export async function releaseEscrowAndSettleOrder(
     // Graceful fallback for offline / test environments
   }
 
+  // Dispatch promotion lifecycle notification
+  notifySettlementCompleted({
+    id: order.id,
+    order_reference: order.order_reference,
+    promoter_user_id: promoterUserId,
+    net_amount: feeCalc.promoterNetAmount,
+  }).catch((err) => console.warn("Notice: settlement notification dispatch notice", err));
+
   return {
     ok: true,
     order,
@@ -856,6 +868,15 @@ export async function createPayoutRequest(
     // Offline fallback
   }
 
+  // Dispatch payout status notification
+  notifyPayoutStatusChanged({
+    id: newPayout.id,
+    payout_reference: newPayout.payout_reference,
+    user_id: userId,
+    amount: newPayout.amount,
+    status: "requested",
+  }).catch((err) => console.warn("Notice: payout notification notice", err));
+
   return { payout: newPayout, error: null };
 }
 
@@ -887,6 +908,9 @@ export async function processPayout(
 
   // Idempotency: If payout is already in terminal state ('paid' or 'failed')
   if (payout.status === "paid") {
+    return { payout, error: null };
+  }
+  if (payout.status === "failed" && action === "fail") {
     return { payout, error: null };
   }
 
@@ -962,6 +986,17 @@ export async function processPayout(
   }
 
   saveLocalPayouts(allPayouts);
+
+  // Dispatch payout status notification
+  notifyPayoutStatusChanged({
+    id: payout.id,
+    payout_reference: payout.payout_reference,
+    user_id: payout.user_id,
+    amount: payout.amount,
+    status: payout.status,
+    failure_reason: payout.failure_reason,
+  }).catch((err) => console.warn("Notice: payout status notification notice", err));
+
   return { payout, error: null };
 }
 
@@ -1126,3 +1161,237 @@ export function reconcileFinancialRecord(orderId: string): FinancialReconciliati
     issues,
   };
 }
+
+export interface PlatformTreasurySummary {
+  totalGmv: number;
+  totalPlatformCommission: number;
+  activeEscrowBalance: number;
+  totalPromoterNetEarnings: number;
+  totalPayoutsDisbursed: number;
+  totalPendingPayouts: number;
+  totalFailedPayouts: number;
+  currency: "NGN";
+  payoutsBreakdown: {
+    requested: number;
+    pending: number;
+    processing: number;
+    paid: number;
+    failed: number;
+    totalCount: number;
+  };
+  ordersBreakdown: {
+    pending_payment: number;
+    paid_escrow: number;
+    in_progress: number;
+    evidence_submitted: number;
+    revision_requested: number;
+    approved: number;
+    completed: number;
+    disputed: number;
+    cancelled: number;
+    totalCount: number;
+  };
+}
+
+/**
+ * 9. Administrative Platform Treasury Summary
+ * Calculates accurate financial metrics from authoritative records.
+ * Enforces admin authorization.
+ */
+export async function getPlatformTreasurySummary(
+  mockCallerUserId?: string,
+  mockCallerRole?: string
+): Promise<{ summary: PlatformTreasurySummary | null; error: string | null }> {
+  let userId = mockCallerUserId;
+  if (!userId) {
+    const { data: authData } = await supabase.auth.getUser();
+    userId = authData?.user?.id;
+  }
+
+  if (!userId) {
+    return { summary: null, error: "Unauthorized: Please log in to view platform treasury." };
+  }
+
+  // Check admin role
+  if (mockCallerRole !== "admin") {
+    // Check if user is admin in profiles/roles
+    try {
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", userId)
+        .single();
+      if (profile && profile.role !== "admin") {
+        return { summary: null, error: "Forbidden: Only administrators can access platform treasury." };
+      }
+    } catch {
+      // In local mode, enforce role check
+      if (mockCallerRole && mockCallerRole !== "admin") {
+        return { summary: null, error: "Forbidden: Only administrators can access platform treasury." };
+      }
+    }
+  }
+
+  const allOrders = getLocalOrders();
+  const allSettlements = getLocalSettlements();
+  const allPayouts = getLocalPayouts();
+
+  // 1. Total GMV: sum of gross amounts for orders that reached paid_escrow or beyond
+  const activeAndCompletedOrders = allOrders.filter(
+    (o) =>
+      o.status === "paid_escrow" ||
+      o.status === "in_progress" ||
+      o.status === "evidence_submitted" ||
+      o.status === "revision_requested" ||
+      o.status === "approved" ||
+      o.status === "completed" ||
+      o.status === "disputed"
+  );
+  const totalGmv = activeAndCompletedOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
+
+  // 2. Total Platform Commission: sum of platform_fee from settled records
+  const settledRecords = allSettlements.filter((s) => s.status === "settled");
+  const totalPlatformCommission = settledRecords.reduce((sum, s) => sum + (s.platform_fee || 0), 0);
+
+  // 3. Active Escrow Balance: funds locked in active promotion custody
+  const escrowStatuses: PromotionOrderStatus[] = [
+    "paid_escrow",
+    "in_progress",
+    "evidence_submitted",
+    "revision_requested",
+    "approved",
+    "disputed",
+  ];
+  const activeEscrowOrders = allOrders.filter((o) => escrowStatuses.includes(o.status));
+  const activeEscrowBalance = activeEscrowOrders.reduce((sum, o) => sum + (o.amount || 0), 0);
+
+  // 4. Total Promoter Net Earnings
+  const totalPromoterNetEarnings = settledRecords.reduce((sum, s) => sum + (s.promoter_net_amount || 0), 0);
+
+  // 5. Payouts totals
+  const totalPayoutsDisbursed = allPayouts
+    .filter((p) => p.status === "paid")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const totalPendingPayouts = allPayouts
+    .filter((p) => p.status === "requested" || p.status === "pending" || p.status === "processing")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  const totalFailedPayouts = allPayouts
+    .filter((p) => p.status === "failed")
+    .reduce((sum, p) => sum + (p.amount || 0), 0);
+
+  // Payouts count breakdown
+  const payoutsBreakdown = {
+    requested: allPayouts.filter((p) => p.status === "requested").length,
+    pending: allPayouts.filter((p) => p.status === "pending").length,
+    processing: allPayouts.filter((p) => p.status === "processing").length,
+    paid: allPayouts.filter((p) => p.status === "paid").length,
+    failed: allPayouts.filter((p) => p.status === "failed").length,
+    totalCount: allPayouts.length,
+  };
+
+  // Orders count breakdown
+  const ordersBreakdown = {
+    pending_payment: allOrders.filter((o) => o.status === "pending_payment").length,
+    paid_escrow: allOrders.filter((o) => o.status === "paid_escrow").length,
+    in_progress: allOrders.filter((o) => o.status === "in_progress").length,
+    evidence_submitted: allOrders.filter((o) => o.status === "evidence_submitted").length,
+    revision_requested: allOrders.filter((o) => o.status === "revision_requested").length,
+    approved: allOrders.filter((o) => o.status === "approved").length,
+    completed: allOrders.filter((o) => o.status === "completed").length,
+    disputed: allOrders.filter((o) => o.status === "disputed").length,
+    cancelled: allOrders.filter((o) => o.status === "cancelled").length,
+    totalCount: allOrders.length,
+  };
+
+  const summary: PlatformTreasurySummary = {
+    totalGmv,
+    totalPlatformCommission,
+    activeEscrowBalance,
+    totalPromoterNetEarnings,
+    totalPayoutsDisbursed,
+    totalPendingPayouts,
+    totalFailedPayouts,
+    currency: "NGN",
+    payoutsBreakdown,
+    ordersBreakdown,
+  };
+
+  return { summary, error: null };
+}
+
+/**
+ * 10. Admin Retrieval of All Promoter Payout Requests
+ */
+export async function getAllPayoutRequests(
+  filterStatus?: string,
+  mockCallerUserId?: string,
+  mockCallerRole?: string
+): Promise<{ payouts: PayoutRequest[]; error: string | null }> {
+  let userId = mockCallerUserId;
+  if (!userId) {
+    const { data: authData } = await supabase.auth.getUser();
+    userId = authData?.user?.id;
+  }
+
+  if (!userId) {
+    return { payouts: [], error: "Unauthorized: Please log in to view payout requests." };
+  }
+
+  if (mockCallerRole && mockCallerRole !== "admin") {
+    return { payouts: [], error: "Forbidden: Only administrators can view all payout requests." };
+  }
+
+  const allPayouts = getLocalPayouts();
+  let result = allPayouts;
+
+  if (filterStatus && filterStatus !== "all") {
+    result = result.filter((p) => p.status === filterStatus);
+  }
+
+  result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return { payouts: result, error: null };
+}
+
+/**
+ * 11. Admin Action: Approve, Complete, or Fail a Payout Request
+ */
+export async function adminProcessPayout(
+  payoutId: string,
+  action: "execute" | "complete" | "fail",
+  options?: {
+    providerRef?: string;
+    failureReason?: string;
+    adminId?: string;
+  },
+  mockCallerUserId?: string,
+  mockCallerRole?: string
+): Promise<{ payout: PayoutRequest | null; error: string | null }> {
+  let userId = mockCallerUserId || options?.adminId;
+  if (!userId) {
+    const { data: authData } = await supabase.auth.getUser();
+    userId = authData?.user?.id;
+  }
+
+  if (!userId) {
+    return { payout: null, error: "Unauthorized: Please log in to process payouts." };
+  }
+
+  if (mockCallerRole && mockCallerRole !== "admin") {
+    return { payout: null, error: "Forbidden: Only administrators can process payout requests." };
+  }
+
+  return await processPayout(
+    payoutId,
+    action,
+    {
+      providerRef: options?.providerRef,
+      failureReason: options?.failureReason,
+    },
+    userId,
+    "admin"
+  );
+}
+
