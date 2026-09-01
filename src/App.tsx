@@ -126,6 +126,7 @@ import PromoterPromotionOrders from "./pages/PromoterPromotionOrders";
 import PromoterPromotionOrderDetail from "./pages/PromoterPromotionOrderDetail";
 import AdminPromotionDisputes from "./pages/admin/AdminPromotionDisputes";
 import AdminPromotionTreasury from "./pages/admin/AdminPromotionTreasury";
+import PromoterEarningsPage from "./pages/PromoterEarningsPage";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -254,6 +255,9 @@ const App = () => (
               <Route path="/dashboard/business-orders" element={<BusinessPromotionOrders />} />
               <Route path="/dashboard/promoter-orders" element={<PromoterPromotionOrders />} />
               <Route path="/dashboard/promoter-orders/:id" element={<PromoterPromotionOrderDetail />} />
+              <Route path="/dashboard/promoter/earnings" element={<PromoterEarningsPage />} />
+              <Route path="/dashboard/promoter-earnings" element={<PromoterEarningsPage />} />
+              <Route path="/dashboard/earnings" element={<PromoterEarningsPage />} />
 
               <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />

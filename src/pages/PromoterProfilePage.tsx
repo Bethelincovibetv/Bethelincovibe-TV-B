@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Users,
   Radio,
+  Wallet,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -243,6 +244,16 @@ export default function PromoterProfilePage() {
               >
                 <Link to="/dashboard/promoter-orders">
                   <Clock className="w-3.5 h-3.5 mr-1.5" /> Orders
+                </Link>
+              </Button>
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="h-8 text-xs font-medium rounded-lg text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10"
+              >
+                <Link to="/dashboard/promoter/earnings">
+                  <Wallet className="w-3.5 h-3.5 mr-1.5" /> Earnings & Payouts
                 </Link>
               </Button>
               <Button
