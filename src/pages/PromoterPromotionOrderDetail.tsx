@@ -13,6 +13,11 @@ import {
   OrderAuditEvent,
   REVIEW_WINDOW_HOURS,
 } from "@/services/promotionExecutionService";
+import {
+  releaseEscrowAndSettleOrder,
+  getSettlementByOrderId,
+  PromotionSettlement,
+} from "@/services/promotionSettlementService";
 import { formatNaira } from "@/services/packageService";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -75,6 +80,10 @@ export default function PromoterPromotionOrderDetail() {
   // Selected Proof for Viewing
   const [selectedProof, setSelectedProof] = useState<DeliveryProofSubmission | null>(null);
 
+  // Settlement Data
+  const [settlement, setSettlement] = useState<PromotionSettlement | null>(null);
+  const [settling, setSettling] = useState(false);
+
   useEffect(() => {
     async function loadOrder() {
       if (!id) return;
@@ -89,11 +98,40 @@ export default function PromoterPromotionOrderDetail() {
         if (proofs && proofs.length > 0) {
           setSelectedProof(proofs[proofs.length - 1]);
         }
+
+        // Check if settlement exists
+        if (result.order.status === "completed" || result.order.status === "approved") {
+          const settleRes = await getSettlementByOrderId(result.order.id, user?.id, user?.role);
+          if (settleRes.settlement) {
+            setSettlement(settleRes.settlement);
+          }
+        }
       }
       setLoading(false);
     }
     loadOrder();
   }, [id, user]);
+
+  async function handleClaimEscrowSettlement() {
+    if (!order) return;
+    setSettling(true);
+    try {
+      const res = await releaseEscrowAndSettleOrder(order.id, user?.id);
+      if (res.error || !res.order) {
+        toast.error(res.error || "Failed to release escrow settlement");
+      } else {
+        setOrder(res.order);
+        if (res.settlement) {
+          setSettlement(res.settlement);
+        }
+        toast.success("Escrow settled! Net earnings credited to your wallet.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to settle escrow");
+    } finally {
+      setSettling(false);
+    }
+  }
 
   async function handleAcceptOrder() {
     if (!order) return;
@@ -242,6 +280,7 @@ export default function PromoterPromotionOrderDetail() {
   const isEvidenceSubmitted = order.status === "evidence_submitted";
   const isRevisionRequested = order.status === "revision_requested";
   const isApproved = order.status === "approved";
+  const isCompleted = order.status === "completed";
   const isDisputed = order.status === "disputed";
   const isCancelled = order.status === "cancelled";
 
@@ -301,6 +340,11 @@ export default function PromoterPromotionOrderDetail() {
                 {isApproved && (
                   <Badge variant="outline" className="text-xs font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
                     Deliverables Approved
+                  </Badge>
+                )}
+                {isCompleted && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    Order Settled & Completed
                   </Badge>
                 )}
                 {isDisputed && (
@@ -443,24 +487,83 @@ export default function PromoterPromotionOrderDetail() {
             </Alert>
           )}
 
-          {/* 5. Approved Alert */}
-          {isApproved && (
-            <Alert className="bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-50 rounded-2xl">
-              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
-              <div className="space-y-1">
-                <AlertTitle className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                  Deliverables Approved & Verified
-                </AlertTitle>
-                <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-                  The client has approved your campaign delivery! Your net earning of {formatNaira(order.promoter_net_earning)} is scheduled for escrow release.
-                </AlertDescription>
-                {order.approved_at && (
-                  <div className="pt-1 text-[11px] text-muted-foreground font-mono">
-                    Approved at: {new Date(order.approved_at).toLocaleString()}
+          {/* 5. Approved / Completed Settlement Card */}
+          {(isApproved || isCompleted) && (
+            <div className="p-5 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 space-y-4">
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+                  <div className="space-y-1">
+                    <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
+                      {isCompleted ? "Escrow Settled & Credited to Wallet" : "Deliverables Approved — Ready for Escrow Release"}
+                    </h3>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {isCompleted
+                        ? `Funds have been transferred to your promoter wallet balance. You can withdraw to your bank account anytime.`
+                        : `The client has approved your campaign delivery! Your net earning of ${formatNaira(order.promoter_net_earning)} is ready for settlement.`}
+                    </p>
                   </div>
-                )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  {isApproved && !isCompleted && (
+                    <Button
+                      size="sm"
+                      onClick={handleClaimEscrowSettlement}
+                      disabled={settling}
+                      className="rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-sm"
+                    >
+                      {settling ? (
+                        <>
+                          <div className="h-3.5 w-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Settling...</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <span>Release Escrow to Wallet</span>
+                        </>
+                      )}
+                    </Button>
+                  )}
+                  {isCompleted && (
+                    <Button
+                      asChild
+                      size="sm"
+                      className="rounded-xl text-xs font-bold bg-primary text-primary-foreground gap-1.5 shadow-sm"
+                    >
+                      <Link to="/dashboard/wallet">
+                        <span>Go to Wallet & Withdraw</span>
+                        <ArrowLeft className="h-3.5 w-3.5 rotate-180" />
+                      </Link>
+                    </Button>
+                  )}
+                </div>
               </div>
-            </Alert>
+
+              {/* Settlement Financial Breakdown */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-emerald-500/20 text-xs">
+                <div className="p-3 rounded-xl bg-background/80 border border-border/60">
+                  <span className="text-muted-foreground block text-[11px]">Gross Order Escrow</span>
+                  <span className="font-bold text-foreground text-sm">{formatNaira(order.amount)}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-background/80 border border-border/60">
+                  <span className="text-muted-foreground block text-[11px]">Platform Fee (10%)</span>
+                  <span className="font-bold text-muted-foreground text-sm">-{formatNaira(order.platform_fee)}</span>
+                </div>
+                <div className="p-3 rounded-xl bg-emerald-500/20 border border-emerald-500/40">
+                  <span className="text-emerald-900 dark:text-emerald-200 block text-[11px] font-bold">Net Wallet Credit</span>
+                  <span className="font-black text-emerald-700 dark:text-emerald-400 text-sm">{formatNaira(order.promoter_net_earning)}</span>
+                </div>
+              </div>
+
+              {settlement && (
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 font-mono">
+                  <span>Settlement Ref: {settlement.settlement_reference}</span>
+                  <span>Settled: {new Date(settlement.settled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              )}
+            </div>
           )}
 
           {/* 6. Disputed Alert */}
