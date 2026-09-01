@@ -18,6 +18,7 @@ import {
   getSettlementByOrderId,
   PromotionSettlement,
 } from "@/services/promotionSettlementService";
+import { PromotionOrderCollaboration } from "@/components/promoter/PromotionOrderCollaboration";
 import { formatNaira } from "@/services/packageService";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -825,6 +826,17 @@ export default function PromoterPromotionOrderDetail() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Main Content (2 cols) */}
           <div className="md:col-span-2 space-y-6">
+            {/* In-Order Collaboration & Creative Asset Exchange */}
+            <PromotionOrderCollaboration
+              order={order}
+              currentUserId={user?.id}
+              userRole={user?.role === "admin" ? "admin" : "promoter"}
+              onViewProof={() => {
+                const el = document.getElementById("proof-submission-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
+
             {/* Promotion Brief */}
             <Card className="p-5 rounded-2xl border border-border/70 bg-card space-y-3">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">

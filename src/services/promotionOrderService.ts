@@ -80,7 +80,7 @@ function generateOrderReference(): string {
 }
 
 // Fallback Local Storage Helper
-function getLocalOrders(): PromotionOrder[] {
+export function getLocalOrders(): PromotionOrder[] {
   try {
     const data = localStorage.getItem(ORDERS_STORAGE_KEY);
     return data ? JSON.parse(data) : [];
@@ -89,7 +89,7 @@ function getLocalOrders(): PromotionOrder[] {
   }
 }
 
-function saveLocalOrders(orders: PromotionOrder[]) {
+export function saveLocalOrders(orders: PromotionOrder[]) {
   try {
     localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
   } catch (err) {
@@ -490,8 +490,14 @@ export async function getPromotionOrderById(
   }
 
   // 3. Assigned promoter can view
+  if (
+    foundOrder.promoter_id === userId ||
+    (foundOrder.promoter && (foundOrder.promoter.user_id === userId || foundOrder.promoter.id === userId))
+  ) {
+    return { order: foundOrder, error: null };
+  }
   const promoterProfile = await getPromoterProfileByUserId(userId);
-  if (promoterProfile && promoterProfile.id === foundOrder.promoter_id) {
+  if (promoterProfile && (promoterProfile.id === foundOrder.promoter_id || promoterProfile.user_id === userId)) {
     return { order: foundOrder, error: null };
   }
 

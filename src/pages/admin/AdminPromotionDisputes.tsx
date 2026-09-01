@@ -48,6 +48,7 @@ import {
   getDisputedOrders,
   resolveOrderDispute,
 } from "@/services/promotionReviewService";
+import { PromotionOrderCollaboration } from "@/components/promoter/PromotionOrderCollaboration";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminPromotionDisputes() {
@@ -678,6 +679,18 @@ export default function AdminPromotionDisputes() {
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* In-Order Collaboration History */}
+              <div className="space-y-1.5 pt-2">
+                <span className="font-bold text-foreground block">
+                  Order Collaboration & Communication Log
+                </span>
+                <PromotionOrderCollaboration
+                  order={inspectOrder}
+                  currentUserId={user?.id}
+                  userRole="admin"
+                />
               </div>
 
               {/* Dispute Reason */}

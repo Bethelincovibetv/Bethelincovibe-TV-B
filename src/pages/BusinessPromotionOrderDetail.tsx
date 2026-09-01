@@ -26,6 +26,7 @@ import {
   getOrderReview,
   PromotionReview,
 } from "@/services/promotionReviewService";
+import { PromotionOrderCollaboration } from "@/components/promoter/PromotionOrderCollaboration";
 import { formatNaira } from "@/services/packageService";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -857,6 +858,17 @@ export default function BusinessPromotionOrderDetail() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Main Details (2 cols) */}
           <div className="md:col-span-2 space-y-6">
+            {/* In-Order Collaboration & Creative Asset Exchange */}
+            <PromotionOrderCollaboration
+              order={order}
+              currentUserId={user?.id}
+              userRole={user?.role === "admin" ? "admin" : "business"}
+              onViewProof={() => {
+                const el = document.getElementById("proof-review-section");
+                if (el) el.scrollIntoView({ behavior: "smooth" });
+              }}
+            />
+
             {/* Post-Order Verified Review Card */}
             {(isCompleted || isApproved) && (
               <Card className="p-5 rounded-2xl border border-amber-500/30 bg-card space-y-4 shadow-sm">
