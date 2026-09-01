@@ -4,7 +4,7 @@ import { HelmetProvider } from "react-helmet-async";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import PublicLayout from "@/components/layout/PublicLayout";
 import AdminLayout from "@/components/layout/AdminLayout";
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
@@ -127,8 +127,6 @@ import PromoterPromotionOrderDetail from "./pages/PromoterPromotionOrderDetail";
 import AdminPromotionDisputes from "./pages/admin/AdminPromotionDisputes";
 import AdminPromotionTreasury from "./pages/admin/AdminPromotionTreasury";
 import PromoterEarningsPage from "./pages/PromoterEarningsPage";
-import StartupSplashScreen from "./components/StartupSplashScreen";
-
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -167,16 +165,6 @@ function FeatureAwareServices() {
   );
 }
 
-function AppStartupManager({ children }: { children: React.ReactNode }) {
-  const { loading: authLoading } = useAuth();
-  return (
-    <>
-      <StartupSplashScreen isReady={!authLoading} />
-      {children}
-    </>
-  );
-}
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <HelmetProvider>
@@ -185,10 +173,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <AppStartupManager>
-            <FeatureFlagsProvider>
-            <FeatureAwareServices />
-            <Routes>
+          <FeatureFlagsProvider>
+          <FeatureAwareServices />
+          <Routes>
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Index />} />
               <Route path="/blog" element={<FeatureGate feature="blog"><Blog /></FeatureGate>} />
@@ -400,7 +387,6 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </FeatureFlagsProvider>
-          </AppStartupManager>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
