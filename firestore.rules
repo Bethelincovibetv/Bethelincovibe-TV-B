@@ -24,7 +24,132 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Chat Rooms: Users can access chat rooms they participate in
+    function isAdmin() {
+      return isSignedIn() && (
+        (request.auth.token.email is string && (
+          request.auth.token.email == 'bethelincovibetv@gmail.com' ||
+          request.auth.token.email == 'bethelgoodgift3@gmail.com' ||
+          request.auth.token.email == 'goodgiftdigital@gmail.com' ||
+          request.auth.token.email == 'bethelchukwunyere1@gmail.com' ||
+          request.auth.token.email == 'ccreator980@gmail.com'
+        )) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // Community Group & Direct Conversations
+    match /conversations/{conversationId} {
+      allow get: if isSignedIn() && isValidId(conversationId) && (
+        resource.data.isPublic == true ||
+        (request.auth.uid in resource.data.participantIds) ||
+        isAdmin()
+      );
+
+      allow list: if isSignedIn() && (
+        resource.data.isPublic == true ||
+        (request.auth.uid in resource.data.participantIds) ||
+        isAdmin()
+      );
+
+      allow create: if isSignedIn() 
+        && isValidId(conversationId)
+        && incoming().participantIds is list
+        && incoming().participantIds.size() >= 1
+        && (incoming().participantIds.hasAny([request.auth.uid]) || isAdmin());
+
+      allow update: if isSignedIn()
+        && isValidId(conversationId)
+        && (
+          isAdmin() ||
+          (request.auth.uid in existing().adminIds) ||
+          (existing().createdBy == request.auth.uid) ||
+          // Member join/leave self update
+          (incoming().diff(existing()).affectedKeys().hasOnly(['participantIds', 'memberCount', 'updatedAt']) &&
+            (request.auth.uid in incoming().participantIds || request.auth.uid in existing().participantIds)) ||
+          // Activity & last message update by participant
+          (incoming().diff(existing()).affectedKeys().hasOnly(['lastMessageText', 'lastMessageTime', 'lastSenderId', 'lastSenderName', 'updatedAt']) &&
+            (request.auth.uid in existing().participantIds || existing().isPublic == true))
+        );
+
+      allow delete: if isSignedIn()
+        && isValidId(conversationId)
+        && (isAdmin() || (existing().createdBy == request.auth.uid) || (request.auth.uid in existing().adminIds));
+
+      // Messages inside conversation
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn()
+          && isValidId(conversationId)
+          && (
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data.isPublic == true ||
+            (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds) ||
+            isAdmin()
+          );
+
+        allow create: if isSignedIn()
+          && isValidId(conversationId)
+          && isValidId(messageId)
+          && (
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data.isPublic == true ||
+            (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds) ||
+            isAdmin()
+          )
+          && incoming().senderId == request.auth.uid
+          && incoming().conversationId == conversationId
+          && (
+            get(/databases/$(database)/documents/conversations/$(conversationId)).data.onlyAdminsCanPost != true ||
+            (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.adminIds) ||
+            isAdmin()
+          );
+
+        allow update: if isSignedIn()
+          && isValidId(conversationId)
+          && isValidId(messageId)
+          && (
+            // Add/remove emoji reaction
+            incoming().diff(existing()).affectedKeys().hasOnly(['reactions']) ||
+            // Read receipts map update
+            incoming().diff(existing()).affectedKeys().hasOnly(['readBy']) ||
+            // Edit own message
+            (existing().senderId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['text', 'isEdited', 'updatedAt'])) ||
+            // Soft delete by sender or group admin or platform admin
+            ((existing().senderId == request.auth.uid || (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.adminIds) || isAdmin()) &&
+              incoming().diff(existing()).affectedKeys().hasOnly(['isDeleted', 'deletedBy', 'updatedAt']))
+          );
+
+        allow delete: if isSignedIn()
+          && isValidId(conversationId)
+          && isValidId(messageId)
+          && (
+            existing().senderId == request.auth.uid ||
+            (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.adminIds) ||
+            isAdmin()
+          );
+      }
+
+      // Real-time typing indicators
+      match /typing/{userId} {
+        allow get, list: if isSignedIn() && isValidId(conversationId);
+        allow create, update, delete: if isSignedIn() && isValidId(conversationId) && request.auth.uid == userId;
+      }
+
+      // Group members list
+      match /members/{userId} {
+        allow get, list: if isSignedIn() && isValidId(conversationId);
+        allow create, update, delete: if isSignedIn() && isValidId(conversationId) && (
+          request.auth.uid == userId ||
+          (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.adminIds) ||
+          isAdmin()
+        );
+      }
+    }
+
+    // User presence
+    match /users/{userId}/presence/{docId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Legacy Chat Rooms support
     match /chats/{chatId} {
       allow get: if isSignedIn() && isValidId(chatId) && (request.auth.uid in resource.data.participants);
       allow list: if isSignedIn() && (request.auth.uid in resource.data.participants);
@@ -33,7 +158,7 @@ service cloud.firestore {
         && isValidId(chatId)
         && incoming().participants is list
         && incoming().participants.size() >= 1
-        && incoming().participants.size() <= 10
+        && incoming().participants.size() <= 100
         && incoming().participants.hasAny([request.auth.uid]);
         
       allow update: if isSignedIn()
@@ -41,9 +166,9 @@ service cloud.firestore {
         && (request.auth.uid in existing().participants)
         && incoming().participants == existing().participants;
         
-      allow delete: if false;
+      allow delete: if isAdmin();
 
-      // Messages subcollection
+      // Legacy Messages subcollection
       match /messages/{messageId} {
         allow get, list: if isSignedIn() 
           && isValidId(chatId)
@@ -57,10 +182,11 @@ service cloud.firestore {
           && incoming().chatId == chatId
           && incoming().text is string
           && incoming().text.size() > 0
-          && incoming().text.size() <= 3000;
+          && incoming().text.size() <= 5000;
 
-        allow update, delete: if false;
+        allow update, delete: if isAdmin();
       }
     }
   }
 }
+

@@ -1,17 +1,76 @@
 {
   "entities": {
-    "ChatRoom": {
-      "title": "ChatRoom",
-      "description": "A direct or support real-time chat room between users or customer support.",
+    "Conversation": {
+      "title": "Conversation",
+      "description": "A WhatsApp-style community group, announcement channel, or direct 1-on-1 private conversation.",
       "type": "object",
       "properties": {
-        "participants": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the conversation",
+          "maxLength": 128
+        },
+        "type": {
+          "type": "string",
+          "description": "Conversation type: group, direct, official, announcement",
+          "enum": ["group", "direct", "official", "announcement"]
+        },
+        "name": {
+          "type": "string",
+          "description": "Title or display name of the group/conversation",
+          "maxLength": 150
+        },
+        "description": {
+          "type": "string",
+          "description": "Group purpose, rules, or description",
+          "maxLength": 1000
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "Profile picture / avatar icon for the group or conversation"
+        },
+        "bannerUrl": {
+          "type": "string",
+          "description": "Optional header / banner image for the group"
+        },
+        "category": {
+          "type": "string",
+          "description": "Community category classification",
+          "maxLength": 60
+        },
+        "createdBy": {
+          "type": "string",
+          "description": "User ID of creator or administrator",
+          "maxLength": 128
+        },
+        "creatorName": {
+          "type": "string",
+          "description": "Display name of group creator",
+          "maxLength": 100
+        },
+        "participantIds": {
           "type": "array",
           "description": "List of user IDs participating in the conversation"
         },
-        "participantNames": {
-          "type": "object",
-          "description": "Mapping of user ID to display name"
+        "adminIds": {
+          "type": "array",
+          "description": "List of user IDs holding group admin privileges"
+        },
+        "isEncrypted": {
+          "type": "boolean",
+          "description": "Whether message payloads are marked as end-to-end protected"
+        },
+        "isPublic": {
+          "type": "boolean",
+          "description": "Whether the group is discoverable in the public community directory"
+        },
+        "onlyAdminsCanPost": {
+          "type": "boolean",
+          "description": "If true, only group administrators and platform administrators can send messages"
+        },
+        "onlyAdminsCanEditInfo": {
+          "type": "boolean",
+          "description": "If true, only group administrators can edit group settings, name, and avatar"
         },
         "lastMessageText": {
           "type": "string",
@@ -20,27 +79,46 @@
         },
         "lastMessageTime": {
           "type": "string",
-          "description": "Server timestamp of last message"
+          "description": "ISO timestamp of the most recent message"
         },
-        "supportTopic": {
+        "lastSenderId": {
           "type": "string",
-          "description": "Optional support category or inquiry context"
+          "description": "User ID of the last sender",
+          "maxLength": 128
+        },
+        "lastSenderName": {
+          "type": "string",
+          "description": "Name of the last sender",
+          "maxLength": 100
+        },
+        "memberCount": {
+          "type": "number",
+          "description": "Total number of joined members"
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp when the room was created"
+          "description": "Timestamp when the conversation was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the conversation was last updated"
         }
       },
-      "required": ["participants", "createdAt"]
+      "required": ["type", "name", "participantIds", "createdAt"]
     },
-    "ChatMessage": {
-      "title": "ChatMessage",
-      "description": "An individual real-time message inside a chat room.",
+    "Message": {
+      "title": "Message",
+      "description": "A real-time text, media, voice note, or system message within a conversation.",
       "type": "object",
       "properties": {
-        "chatId": {
+        "id": {
           "type": "string",
-          "description": "ID of the parent chat room",
+          "description": "Unique identifier of the message",
+          "maxLength": 128
+        },
+        "conversationId": {
+          "type": "string",
+          "description": "ID of parent conversation",
           "maxLength": 128
         },
         "senderId": {
@@ -50,34 +128,175 @@
         },
         "senderName": {
           "type": "string",
-          "description": "Display name of the sender",
+          "description": "Display name of sender",
           "maxLength": 100
         },
         "senderAvatar": {
           "type": "string",
-          "description": "Avatar URL of the sender"
+          "description": "Avatar URL of sender"
         },
         "text": {
           "type": "string",
-          "description": "The message body text",
-          "maxLength": 3000
+          "description": "Body text of the message",
+          "maxLength": 5000
+        },
+        "type": {
+          "type": "string",
+          "description": "Message media type",
+          "enum": ["text", "image", "voice_note", "video", "file", "system"]
+        },
+        "mediaUrl": {
+          "type": "string",
+          "description": "URL to attached photo, video, document, or audio"
+        },
+        "mediaName": {
+          "type": "string",
+          "description": "File name for document or media attachment",
+          "maxLength": 200
+        },
+        "mediaSize": {
+          "type": "number",
+          "description": "File size in bytes"
+        },
+        "mediaDuration": {
+          "type": "number",
+          "description": "Audio duration in seconds for voice notes"
+        },
+        "replyTo": {
+          "type": "object",
+          "description": "Quoted parent message details for replies"
+        },
+        "reactions": {
+          "type": "object",
+          "description": "Map of emoji string to { count, users: [userId] }"
+        },
+        "readBy": {
+          "type": "object",
+          "description": "Map of userId to read timestamp string"
+        },
+        "isEdited": {
+          "type": "boolean",
+          "description": "Whether message content was edited"
+        },
+        "isDeleted": {
+          "type": "boolean",
+          "description": "Whether message was soft-deleted"
+        },
+        "deletedBy": {
+          "type": "string",
+          "description": "UID of user or admin who removed the message"
         },
         "createdAt": {
           "type": "string",
-          "description": "Server timestamp when message was sent"
+          "description": "Timestamp when message was sent"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when message was modified"
         }
+      },
+      "required": ["conversationId", "senderId", "senderName", "type", "createdAt"]
+    },
+    "TypingIndicator": {
+      "title": "TypingIndicator",
+      "description": "Real-time indicator showing who is currently composing a message.",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userAvatar": { "type": "string" },
+        "isTyping": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["conversationId", "userId", "isTyping", "updatedAt"]
+    },
+    "ConversationMember": {
+      "title": "ConversationMember",
+      "description": "Membership, role, and notification preferences for a user in a group conversation.",
+      "type": "object",
+      "properties": {
+        "conversationId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userAvatar": { "type": "string" },
+        "role": { "type": "string", "enum": ["owner", "admin", "member"] },
+        "joinedAt": { "type": "string" },
+        "muted": { "type": "boolean" },
+        "lastReadAt": { "type": "string" }
+      },
+      "required": ["conversationId", "userId", "role", "joinedAt"]
+    },
+    "UserPresence": {
+      "title": "UserPresence",
+      "description": "Online and active status for real-time presence indicators.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userName": { "type": "string", "maxLength": 100 },
+        "userAvatar": { "type": "string" },
+        "isOnline": { "type": "boolean" },
+        "lastSeen": { "type": "string" }
+      },
+      "required": ["userId", "isOnline", "lastSeen"]
+    },
+    "ChatRoom": {
+      "title": "ChatRoom",
+      "description": "Legacy direct or support chat room.",
+      "type": "object",
+      "properties": {
+        "participants": { "type": "array" },
+        "participantNames": { "type": "object" },
+        "lastMessageText": { "type": "string", "maxLength": 1000 },
+        "lastMessageTime": { "type": "string" },
+        "supportTopic": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["participants", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Legacy chat message.",
+      "type": "object",
+      "properties": {
+        "chatId": { "type": "string", "maxLength": 128 },
+        "senderId": { "type": "string", "maxLength": 128 },
+        "senderName": { "type": "string", "maxLength": 100 },
+        "senderAvatar": { "type": "string" },
+        "text": { "type": "string", "maxLength": 3000 },
+        "createdAt": { "type": "string" }
       },
       "required": ["chatId", "senderId", "text", "createdAt"]
     }
   },
   "firestore": {
+    "/conversations/{conversationId}": {
+      "schema": "Conversation",
+      "description": "Collection of community groups, announcement channels, and direct 1-on-1 conversations."
+    },
+    "/conversations/{conversationId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Real-time messages subcollection with text, media, voice notes, and reactions."
+    },
+    "/conversations/{conversationId}/typing/{userId}": {
+      "schema": "TypingIndicator",
+      "description": "Active typing indicators per conversation."
+    },
+    "/conversations/{conversationId}/members/{userId}": {
+      "schema": "ConversationMember",
+      "description": "Member roster, role assignments, and preferences for a conversation."
+    },
+    "/users/{userId}/presence/status": {
+      "schema": "UserPresence",
+      "description": "Real-time online presence and last seen state."
+    },
     "/chats/{chatId}": {
       "schema": "ChatRoom",
-      "description": "Collection of direct and support chat conversations."
+      "description": "Collection of legacy direct and support chat conversations."
     },
     "/chats/{chatId}/messages/{messageId}": {
       "schema": "ChatMessage",
-      "description": "Sub-collection of ordered messages inside each chat room."
+      "description": "Sub-collection of ordered messages inside each legacy chat room."
     }
   }
 }
