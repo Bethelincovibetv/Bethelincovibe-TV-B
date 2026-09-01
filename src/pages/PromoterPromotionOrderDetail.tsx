@@ -4,27 +4,54 @@ import {
   getPromotionOrderById,
   PromotionOrder,
 } from "@/services/promotionOrderService";
+import {
+  acceptPromotionOrder,
+  declinePromotionOrder,
+  submitDeliveryProof,
+  checkSLAStatus,
+  DeliveryProofSubmission,
+  OrderAuditEvent,
+  REVIEW_WINDOW_HOURS,
+} from "@/services/promotionExecutionService";
 import { formatNaira } from "@/services/packageService";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ArrowLeft,
   Clock,
   CheckCircle2,
   AlertCircle,
-  Sparkles,
-  Layers,
   Users,
   Eye,
   ExternalLink,
-  ShieldCheck,
   FileText,
-  Calendar,
-  Lock,
+  ShieldCheck,
+  Check,
+  UploadCloud,
+  Image as ImageIcon,
+  Link as LinkIcon,
+  RotateCcw,
+  History,
+  AlertTriangle,
+  Send,
+  XCircle,
+  Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 export default function PromoterPromotionOrderDetail() {
   const { id } = useParams<{ id: string }>();
@@ -32,6 +59,21 @@ export default function PromoterPromotionOrderDetail() {
   const [order, setOrder] = useState<PromotionOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Execution Action States
+  const [actionLoading, setActionLoading] = useState(false);
+  const [declineDialogOpen, setDeclineDialogOpen] = useState(false);
+  const [declineReason, setDeclineReason] = useState("");
+
+  // Proof Submission Form State
+  const [screenshotUrlInput, setScreenshotUrlInput] = useState("");
+  const [screenshotList, setScreenshotList] = useState<string[]>([]);
+  const [postUrl, setPostUrl] = useState("");
+  const [viewsCount, setViewsCount] = useState<string>("");
+  const [notes, setNotes] = useState("");
+
+  // Selected Proof for Viewing
+  const [selectedProof, setSelectedProof] = useState<DeliveryProofSubmission | null>(null);
 
   useEffect(() => {
     async function loadOrder() {
@@ -42,18 +84,133 @@ export default function PromoterPromotionOrderDetail() {
         setError(result.error || "Order not found");
       } else {
         setOrder(result.order);
+        // Pre-fill proofs if available
+        const proofs = (result.order as any).delivery_proofs;
+        if (proofs && proofs.length > 0) {
+          setSelectedProof(proofs[proofs.length - 1]);
+        }
       }
       setLoading(false);
     }
     loadOrder();
   }, [id, user]);
 
+  async function handleAcceptOrder() {
+    if (!order) return;
+    setActionLoading(true);
+    try {
+      const res = await acceptPromotionOrder(order.id, user?.id);
+      if (res.error || !res.order) {
+        toast.error(res.error || "Failed to accept order");
+      } else {
+        setOrder(res.order);
+        toast.success("Order accepted! The SLA broadcast timer is now active.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to accept order");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleDeclineOrder() {
+    if (!order) return;
+    if (!declineReason.trim() || declineReason.trim().length < 5) {
+      toast.error("Please provide a decline reason with at least 5 characters.");
+      return;
+    }
+    setActionLoading(true);
+    try {
+      const res = await declinePromotionOrder(order.id, declineReason.trim(), user?.id);
+      if (res.error || !res.order) {
+        toast.error(res.error || "Failed to decline order");
+      } else {
+        setOrder(res.order);
+        setDeclineDialogOpen(false);
+        toast.info("Order has been declined and cancelled.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to decline order");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function handleAddScreenshot() {
+    if (!screenshotUrlInput.trim()) return;
+    const url = screenshotUrlInput.trim();
+    if (
+      !url.startsWith("http://") &&
+      !url.startsWith("https://") &&
+      !url.startsWith("data:image/")
+    ) {
+      toast.error("URL must start with http:// or https:// or be a valid image URL.");
+      return;
+    }
+    setScreenshotList((prev) => [...prev, url]);
+    setScreenshotUrlInput("");
+  }
+
+  function handleRemoveScreenshot(index: number) {
+    setScreenshotList((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  // Quick Demo Helper to insert a sample screenshot
+  function handleAddSampleScreenshot() {
+    const sample = "https://images.unsplash.com/photo-1611162617474-5b21e879e113?w=800&auto=format&fit=crop&q=80";
+    setScreenshotList((prev) => [...prev, sample]);
+    toast.success("Sample status screenshot added.");
+  }
+
+  async function handleSubmitProof() {
+    if (!order) return;
+    if (screenshotList.length === 0 && !screenshotUrlInput.trim()) {
+      toast.error("Please add at least one screenshot or deliverable evidence image.");
+      return;
+    }
+
+    const finalScreenshots = [...screenshotList];
+    if (screenshotUrlInput.trim()) {
+      finalScreenshots.push(screenshotUrlInput.trim());
+    }
+
+    setActionLoading(true);
+    try {
+      const payload = {
+        screenshotUrls: finalScreenshots,
+        postUrl: postUrl.trim() || undefined,
+        viewsCount: viewsCount ? parseInt(viewsCount, 10) : undefined,
+        notes: notes.trim() || undefined,
+      };
+
+      const res = await submitDeliveryProof(order.id, payload, user?.id);
+      if (res.error || !res.order) {
+        toast.error(res.error || "Failed to submit delivery proof");
+      } else {
+        setOrder(res.order);
+        if (res.proof) {
+          setSelectedProof(res.proof);
+        }
+        setScreenshotList([]);
+        setScreenshotUrlInput("");
+        setPostUrl("");
+        setViewsCount("");
+        setNotes("");
+        toast.success("Proof submitted successfully! Business has 48 hours to review.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit proof");
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
         <div className="text-center space-y-2">
           <div className="h-8 w-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-          <p className="text-xs text-muted-foreground">Loading order brief...</p>
+          <p className="text-xs text-muted-foreground">Loading order execution workspace...</p>
         </div>
       </div>
     );
@@ -79,6 +236,19 @@ export default function PromoterPromotionOrderDetail() {
     );
   }
 
+  const isPendingPayment = order.status === "pending_payment";
+  const isPaidEscrow = order.status === "paid_escrow";
+  const isInProgress = order.status === "in_progress";
+  const isEvidenceSubmitted = order.status === "evidence_submitted";
+  const isRevisionRequested = order.status === "revision_requested";
+  const isApproved = order.status === "approved";
+  const isDisputed = order.status === "disputed";
+  const isCancelled = order.status === "cancelled";
+
+  const slaStatus = checkSLAStatus(order);
+  const deliveryProofs: DeliveryProofSubmission[] = (order as any).delivery_proofs || [];
+  const auditTrail: OrderAuditEvent[] = (order as any).audit_trail || [];
+
   return (
     <div className="min-h-screen bg-background text-foreground pb-16">
       {/* Top Header Navigation */}
@@ -99,20 +269,56 @@ export default function PromoterPromotionOrderDetail() {
 
       <div className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
         {/* Order Status Header Card */}
-        <Card className="p-6 rounded-3xl border border-border/70 bg-card space-y-4">
+        <Card className="p-6 rounded-3xl border border-border/70 bg-card space-y-4 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <div className="flex items-center gap-2">
-                <Badge
-                  variant="outline"
-                  className="text-xs font-extrabold bg-amber-500/10 text-amber-600 border-amber-500/30"
-                >
-                  Awaiting Business Payment
-                </Badge>
+              <div className="flex items-center gap-2 flex-wrap">
+                {isPendingPayment && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    Awaiting Business Payment
+                  </Badge>
+                )}
+                {isPaidEscrow && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-blue-500/10 text-blue-600 border-blue-500/30 animate-pulse">
+                    Action Required: Accept Order
+                  </Badge>
+                )}
+                {isInProgress && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-indigo-500/10 text-indigo-600 border-indigo-500/30">
+                    Execution in Progress
+                  </Badge>
+                )}
+                {isEvidenceSubmitted && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    Proof Submitted (Under Review)
+                  </Badge>
+                )}
+                {isRevisionRequested && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-orange-500/10 text-orange-600 border-orange-500/30">
+                    Revision Requested
+                  </Badge>
+                )}
+                {isApproved && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                    Deliverables Approved
+                  </Badge>
+                )}
+                {isDisputed && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-rose-500/10 text-rose-600 border-rose-500/30">
+                    Dispute Active
+                  </Badge>
+                )}
+                {isCancelled && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-muted text-muted-foreground border-border">
+                    Cancelled / Declined
+                  </Badge>
+                )}
+
                 <span className="text-xs text-muted-foreground">
                   Requested {new Date(order.created_at).toLocaleDateString()}
                 </span>
               </div>
+
               <h1 className="text-2xl font-black text-foreground mt-1">
                 {order.package?.title || "Promotion Order"}
               </h1>
@@ -124,23 +330,393 @@ export default function PromoterPromotionOrderDetail() {
                 {formatNaira(order.promoter_net_earning)}
               </span>
               <span className="text-[10px] text-muted-foreground block">
-                Total Price: {formatNaira(order.amount)}
+                Total Price: {formatNaira(order.amount)} (Fee: {formatNaira(order.platform_fee)})
               </span>
             </div>
           </div>
 
-          <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-900 dark:text-amber-100 rounded-2xl">
-            <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-            <div>
-              <AlertTitle className="text-xs font-bold text-amber-700 dark:text-amber-400">
-                Awaiting business payment
-              </AlertTitle>
-              <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                Do not post this promotion yet. Once the business completes escrow payment in Step 7, the order status will transition to funded/in-progress and you will receive a notification to broadcast.
-              </AlertDescription>
+          {/* 1. Paid Escrow: Accept / Decline Action Banner */}
+          {isPaidEscrow && (
+            <div className="p-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 space-y-4">
+              <div className="flex items-start gap-3">
+                <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100">
+                    Order Funded in Escrow ({formatNaira(order.amount)})
+                  </h3>
+                  <p className="text-xs text-blue-800/80 dark:text-blue-200/80 leading-relaxed">
+                    The client has funded this order. Please review the campaign brief and accept to start the broadcast timer, or decline if you cannot fulfill the schedule.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-1">
+                <Button
+                  id="promoter-accept-btn"
+                  onClick={handleAcceptOrder}
+                  disabled={actionLoading}
+                  className="rounded-xl font-bold text-xs bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 shadow-sm"
+                >
+                  <Check className="h-4 w-4" />
+                  <span>Accept Order & Start SLA</span>
+                </Button>
+
+                <Button
+                  id="promoter-decline-btn"
+                  variant="outline"
+                  onClick={() => setDeclineDialogOpen(true)}
+                  disabled={actionLoading}
+                  className="rounded-xl font-bold text-xs text-destructive border-destructive/30 hover:bg-destructive/10 gap-1.5"
+                >
+                  <XCircle className="h-4 w-4" />
+                  <span>Decline Order</span>
+                </Button>
+              </div>
             </div>
-          </Alert>
+          )}
+
+          {/* 2. In Progress: SLA Countdown Timer Banner */}
+          {isInProgress && (
+            <div className="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <Clock className="h-5 w-5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+                <div>
+                  <div className="text-xs font-bold text-indigo-900 dark:text-indigo-100 flex items-center gap-1.5">
+                    <span>SLA Execution Timer Active</span>
+                    {slaStatus.isExpired ? (
+                      <Badge variant="destructive" className="text-[10px] py-0">Deadline Passed</Badge>
+                    ) : (
+                      <Badge className="bg-indigo-600 text-white text-[10px] py-0">{slaStatus.hoursRemaining}h remaining</Badge>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-indigo-800/80 dark:text-indigo-200/80">
+                    Deadline: {slaStatus.deadlineIso ? new Date(slaStatus.deadlineIso).toLocaleString() : "24 hours"}
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="#proof-submission-section"
+                className="text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1 shrink-0"
+              >
+                <span>Submit Delivery Proof Below</span>
+                <ArrowLeft className="h-3 w-3 rotate-180" />
+              </a>
+            </div>
+          )}
+
+          {/* 3. Revision Requested Alert */}
+          {isRevisionRequested && (
+            <Alert className="bg-orange-500/10 border-orange-500/30 text-orange-950 dark:text-orange-50 rounded-2xl">
+              <AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <AlertTitle className="text-xs font-bold text-orange-700 dark:text-orange-400">
+                  Revision Requested by Business
+                </AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
+                  Reason: &ldquo;{(order as any).revision_reason || "Please update your deliverable proof"}&rdquo;
+                </AlertDescription>
+                <p className="text-[11px] text-orange-600 dark:text-orange-400 font-medium pt-1">
+                  Please submit updated proof (Proof V{((order as any).proof_version || 1) + 1}) addressing the client&apos;s request.
+                </p>
+              </div>
+            </Alert>
+          )}
+
+          {/* 4. Evidence Submitted: Under 48-Hour Review Banner */}
+          {isEvidenceSubmitted && (
+            <Alert className="bg-amber-500/10 border-amber-500/30 text-amber-950 dark:text-amber-50 rounded-2xl">
+              <Clock className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <AlertTitle className="text-xs font-bold text-amber-700 dark:text-amber-400">
+                  Proof Under 48-Hour Business Review
+                </AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
+                  Your delivery proof (Version {(order as any).proof_version || 1}) has been submitted to the client. The client has 48 hours to approve, request revisions, or raise inquiries. If no action is taken within 48 hours, escrow auto-approval will trigger automatically.
+                </AlertDescription>
+                {(order as any).review_deadline && (
+                  <div className="pt-1 text-[11px] text-muted-foreground font-mono">
+                    Review Deadline: {new Date((order as any).review_deadline).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            </Alert>
+          )}
+
+          {/* 5. Approved Alert */}
+          {isApproved && (
+            <Alert className="bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-50 rounded-2xl">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <AlertTitle className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  Deliverables Approved & Verified
+                </AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
+                  The client has approved your campaign delivery! Your net earning of {formatNaira(order.promoter_net_earning)} is scheduled for escrow release.
+                </AlertDescription>
+                {order.approved_at && (
+                  <div className="pt-1 text-[11px] text-muted-foreground font-mono">
+                    Approved at: {new Date(order.approved_at).toLocaleString()}
+                  </div>
+                )}
+              </div>
+            </Alert>
+          )}
+
+          {/* 6. Disputed Alert */}
+          {isDisputed && (
+            <Alert className="bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-50 rounded-2xl">
+              <AlertCircle className="h-4 w-4 text-rose-600 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <AlertTitle className="text-xs font-bold text-rose-700 dark:text-rose-400">
+                  Order Disputed
+                </AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
+                  The client raised a dispute: &ldquo;{(order as any).dispute_reason}&rdquo;. Escrow funds are safely frozen while our support team reviews the submission.
+                </AlertDescription>
+              </div>
+            </Alert>
+          )}
         </Card>
+
+        {/* Deliverable Proof Submission Form (Visible when in_progress or revision_requested) */}
+        {(isInProgress || isRevisionRequested) && (
+          <Card id="proof-submission-section" className="p-6 rounded-3xl border border-primary/30 bg-card space-y-5 shadow-sm">
+            <div className="flex items-center justify-between gap-3 pb-3 border-b border-border/60">
+              <div className="flex items-center gap-2">
+                <UploadCloud className="h-5 w-5 text-primary" />
+                <h2 className="text-lg font-bold text-foreground">
+                  {isRevisionRequested ? "Submit Revised Delivery Proof" : "Submit Deliverable Proof"}
+                </h2>
+              </div>
+              <Badge variant="outline" className="text-xs font-bold text-primary">
+                Version {((order as any).proof_version || 0) + 1}
+              </Badge>
+            </div>
+
+            <div className="space-y-4">
+              {/* Screenshots Input */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-bold">
+                    Delivery Screenshots / Evidence Files <span className="text-destructive">*</span>
+                  </Label>
+                  <button
+                    type="button"
+                    onClick={handleAddSampleScreenshot}
+                    className="text-[11px] text-primary hover:underline font-medium flex items-center gap-1"
+                  >
+                    <Sparkles className="h-3 w-3" />
+                    <span>Insert Sample Screenshot</span>
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://... image URL (PNG, JPG, WEBP, PDF)"
+                    value={screenshotUrlInput}
+                    onChange={(e) => setScreenshotUrlInput(e.target.value)}
+                    className="rounded-xl text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddScreenshot();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleAddScreenshot}
+                    className="rounded-xl text-xs shrink-0"
+                  >
+                    Add Evidence
+                  </Button>
+                </div>
+
+                {/* Screenshot Thumbnails List */}
+                {screenshotList.length > 0 && (
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
+                    {screenshotList.map((url, idx) => (
+                      <div
+                        key={idx}
+                        className="relative group rounded-xl overflow-hidden border border-border/80 bg-muted/40 aspect-video flex items-center justify-center"
+                      >
+                        <img
+                          src={url}
+                          alt={`Proof preview ${idx + 1}`}
+                          className="w-full h-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.target as any).src = "https://placehold.co/400x250/222/fff?text=Proof+Image";
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveScreenshot(idx)}
+                          className="absolute top-1.5 right-1.5 p-1 rounded-full bg-black/70 text-white hover:bg-destructive transition-colors"
+                          title="Remove"
+                        >
+                          <XCircle className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* View Count & Live Link Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Total Reach / View Counter (Optional)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="e.g. 1500"
+                    value={viewsCount}
+                    onChange={(e) => setViewsCount(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-bold">Published Post / Group URL (Optional)</Label>
+                  <Input
+                    type="url"
+                    placeholder="https://chat.whatsapp.com/..."
+                    value={postUrl}
+                    onChange={(e) => setPostUrl(e.target.value)}
+                    className="rounded-xl text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Delivery Notes */}
+              <div className="space-y-1.5">
+                <Label className="text-xs font-bold">Proof Notes / Confirmation Details</Label>
+                <Textarea
+                  placeholder="Broadcast posted to verified group members at 2:00 PM. Live for 24 hours."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  className="rounded-xl text-xs resize-none"
+                />
+              </div>
+
+              {/* Submit Action */}
+              <div className="pt-2 flex justify-end">
+                <Button
+                  id="submit-proof-btn"
+                  onClick={handleSubmitProof}
+                  disabled={actionLoading || (screenshotList.length === 0 && !screenshotUrlInput.trim())}
+                  className="rounded-xl font-bold text-xs bg-primary text-primary-foreground gap-2 px-6 shadow-md"
+                >
+                  {actionLoading ? (
+                    <>
+                      <div className="h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full animate-spin" />
+                      <span>Submitting Proof...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4" />
+                      <span>Submit Proof for Business Review</span>
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Previously Submitted Proofs History */}
+        {deliveryProofs.length > 0 && (
+          <Card className="p-6 rounded-3xl border border-border/70 bg-card space-y-4 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-bold text-foreground">Submitted Deliverable Proofs</h3>
+              </div>
+              <span className="text-xs text-muted-foreground">{deliveryProofs.length} version(s)</span>
+            </div>
+
+            {/* Proof Versions Tabs/Selector */}
+            <div className="flex flex-wrap gap-2">
+              {deliveryProofs.map((proof) => (
+                <Button
+                  key={proof.id}
+                  variant={selectedProof?.id === proof.id ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedProof(proof)}
+                  className="rounded-xl text-xs font-bold gap-1"
+                >
+                  <span>Proof V{proof.version}</span>
+                  <span className="text-[10px] opacity-70">
+                    ({new Date(proof.submitted_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })})
+                  </span>
+                </Button>
+              ))}
+            </div>
+
+            {/* Selected Proof Details */}
+            {selectedProof && (
+              <div className="p-4 rounded-2xl border border-border/60 bg-muted/20 space-y-4">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span>Submitted: {new Date(selectedProof.submitted_at).toLocaleString()}</span>
+                  {selectedProof.views_count !== null && (
+                    <Badge variant="secondary" className="text-xs font-bold">
+                      {selectedProof.views_count?.toLocaleString()} Views
+                    </Badge>
+                  )}
+                </div>
+
+                {/* Evidence Image Gallery */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {selectedProof.screenshot_urls.map((url, idx) => (
+                    <a
+                      key={idx}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block group rounded-xl overflow-hidden border border-border/80 bg-background aspect-video relative"
+                    >
+                      <img
+                        src={url}
+                        alt={`Proof evidence ${idx + 1}`}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <ExternalLink className="h-4 w-4 text-white" />
+                      </div>
+                    </a>
+                  ))}
+                </div>
+
+                {selectedProof.post_url && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground block">Published Post Link:</span>
+                    <a
+                      href={selectedProof.post_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary hover:underline font-medium break-all flex items-center gap-1"
+                    >
+                      <LinkIcon className="h-3 w-3 shrink-0" />
+                      <span>{selectedProof.post_url}</span>
+                    </a>
+                  </div>
+                )}
+
+                {selectedProof.notes && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground block">Notes:</span>
+                    <p className="text-foreground italic">{selectedProof.notes}</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </Card>
+        )}
 
         {/* Campaign Brief & Materials */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -148,8 +724,9 @@ export default function PromoterPromotionOrderDetail() {
           <div className="md:col-span-2 space-y-6">
             {/* Promotion Brief */}
             <Card className="p-5 rounded-2xl border border-border/70 bg-card space-y-3">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
-                Client Promotion Brief
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                <span>Client Promotion Brief</span>
               </h3>
               <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
                 {order.promotion_brief}
@@ -158,8 +735,9 @@ export default function PromoterPromotionOrderDetail() {
 
             {/* Creative Assets */}
             <Card className="p-5 rounded-2xl border border-border/70 bg-card space-y-3">
-              <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
-                Provided Creative Assets / Links
+              <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                <ExternalLink className="h-3.5 w-3.5 text-primary" />
+                <span>Provided Creative Assets / Links</span>
               </h3>
               {order.creative_assets_urls && order.creative_assets_urls.length > 0 ? (
                 <div className="space-y-2">
@@ -192,6 +770,34 @@ export default function PromoterPromotionOrderDetail() {
                 <p className="text-xs text-foreground leading-relaxed whitespace-pre-wrap">
                   {order.special_instructions}
                 </p>
+              </Card>
+            )}
+
+            {/* Audit Trail Log */}
+            {auditTrail.length > 0 && (
+              <Card className="p-5 rounded-2xl border border-border/70 bg-card space-y-3">
+                <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                  <History className="h-3.5 w-3.5 text-primary" />
+                  <span>Order Audit History</span>
+                </h3>
+                <div className="space-y-2.5">
+                  {auditTrail.map((ev, idx) => (
+                    <div key={idx} className="text-xs flex items-start gap-2.5 pb-2 border-b border-border/40 last:border-0 last:pb-0">
+                      <div className="h-2 w-2 rounded-full bg-primary mt-1.5 shrink-0" />
+                      <div className="space-y-0.5 flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-foreground capitalize">
+                            {ev.event_type.replace(/_/g, " ")}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            {new Date(ev.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground">{ev.details}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </Card>
             )}
           </div>
@@ -244,6 +850,49 @@ export default function PromoterPromotionOrderDetail() {
           </div>
         </div>
       </div>
+
+      {/* Decline Dialog Modal */}
+      <Dialog open={declineDialogOpen} onOpenChange={setDeclineDialogOpen}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold">Decline Promotion Order</DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Please provide a reason for declining this order. The client will be notified and escrow refunded.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2 py-2">
+            <Label className="text-xs font-bold">Decline Reason (Required)</Label>
+            <Textarea
+              placeholder="e.g. Schedule conflict, cannot broadcast within the requested timeframe."
+              value={declineReason}
+              onChange={(e) => setDeclineReason(e.target.value)}
+              rows={3}
+              className="rounded-xl text-xs"
+            />
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDeclineDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleDeclineOrder}
+              disabled={actionLoading || declineReason.trim().length < 5}
+              className="rounded-xl text-xs font-bold"
+            >
+              Confirm Decline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

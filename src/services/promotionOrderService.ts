@@ -9,6 +9,7 @@ export type PromotionOrderStatus =
   | "in_progress"
   | "evidence_submitted"
   | "revision_requested"
+  | "approved"
   | "completed"
   | "disputed"
   | "refunded"
@@ -32,9 +33,22 @@ export interface PromotionOrder {
   creative_assets_urls?: string[] | null;
   special_instructions?: string | null;
   paid_at?: string | null;
+  promoter_accepted_at?: string | null;
+  promoter_declined_at?: string | null;
+  decline_reason?: string | null;
+  sla_deadline?: string | null;
   evidence_submitted_at?: string | null;
+  review_deadline?: string | null;
+  revision_requested_at?: string | null;
+  revision_reason?: string | null;
   approved_at?: string | null;
+  disputed_at?: string | null;
+  dispute_reason?: string | null;
   completed_at?: string | null;
+  auto_approved?: boolean;
+  proof_version?: number;
+  delivery_proofs?: any[];
+  audit_trail?: any[];
   created_at: string;
   updated_at: string;
   // Joined display metadata
