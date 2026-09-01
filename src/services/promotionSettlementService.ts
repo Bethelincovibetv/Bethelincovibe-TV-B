@@ -157,7 +157,7 @@ function saveLocalSettlements(settlements: PromotionSettlement[]) {
   }
 }
 
-function getLocalWallets(): PromoterWallet[] {
+export function getLocalWallets(): PromoterWallet[] {
   try {
     const data = localStorage.getItem(WALLETS_STORAGE_KEY);
     return data ? JSON.parse(data) : [];
@@ -166,7 +166,7 @@ function getLocalWallets(): PromoterWallet[] {
   }
 }
 
-function saveLocalWallets(wallets: PromoterWallet[]) {
+export function saveLocalWallets(wallets: PromoterWallet[]) {
   try {
     localStorage.setItem(WALLETS_STORAGE_KEY, JSON.stringify(wallets));
   } catch (err) {
@@ -174,7 +174,7 @@ function saveLocalWallets(wallets: PromoterWallet[]) {
   }
 }
 
-function getLocalLedger(): WalletLedgerEntry[] {
+export function getLocalLedger(): WalletLedgerEntry[] {
   try {
     const data = localStorage.getItem(LEDGER_STORAGE_KEY);
     return data ? JSON.parse(data) : [];
@@ -183,7 +183,7 @@ function getLocalLedger(): WalletLedgerEntry[] {
   }
 }
 
-function saveLocalLedger(ledger: WalletLedgerEntry[]) {
+export function saveLocalLedger(ledger: WalletLedgerEntry[]) {
   try {
     localStorage.setItem(LEDGER_STORAGE_KEY, JSON.stringify(ledger));
   } catch (err) {
@@ -465,8 +465,12 @@ export async function releaseEscrowAndSettleOrder(
   // 8. Determine Promoter User ID
   let promoterUserId = order.promoter?.user_id;
   if (!promoterUserId) {
-    const { promoter } = await getPromoterProfileById(order.promoter_id);
-    promoterUserId = promoter?.user_id || order.promoter_id;
+    try {
+      const res = await getPromoterProfileById(order.promoter_id);
+      promoterUserId = res?.user_id || (res as any)?.promoter?.user_id || order.promoter_id;
+    } catch {
+      promoterUserId = order.promoter_id;
+    }
   }
 
   if (!promoterUserId) {

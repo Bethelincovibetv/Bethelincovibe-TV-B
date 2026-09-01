@@ -30,6 +30,7 @@ import {
 import { toast } from "sonner";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import TransferDialog from "@/components/wallet/TransferDialog";
+import WithdrawDialog from "@/components/wallet/WithdrawDialog";
 import { playNotificationSound, playCreditSound } from "@/lib/notificationSound";
 
 declare global {
@@ -68,6 +69,7 @@ export default function UserWallet() {
   const [paystackPublicKey, setPaystackPublicKey] = useState<string>("");
   const [paying, setPaying] = useState(false);
   const [transferOpen, setTransferOpen] = useState(false);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [filterType, setFilterType] = useState<"all" | "credit" | "debit" | "reward" | "transfer">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -236,6 +238,11 @@ export default function UserWallet() {
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-300 bg-emerald-500/20 px-2.5 py-0.5 rounded-full border border-emerald-400/30">
                 <CheckCircle2 className="h-3 w-3" /> Live & Ready
               </span>
+              {Number(wallet?.reserved_balance || 0) > 0 && (
+                <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-sky-300 bg-sky-500/20 px-2.5 py-0.5 rounded-full border border-sky-400/30">
+                  <Clock className="h-3 w-3" /> ₦{Number(wallet?.reserved_balance || 0).toLocaleString()} In Payout Processing
+                </span>
+              )}
               <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-300 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-400/30">
                 <Gift className="h-3 w-3" /> ₦{rewardTotal.toLocaleString()} Earned in Rewards
               </span>
@@ -244,6 +251,14 @@ export default function UserWallet() {
 
           {/* Quick Action Badges / Send & Top-up Shortcuts */}
           <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
+            <Button
+              onClick={() => setWithdrawOpen(true)}
+              variant="outline"
+              size="sm"
+              className="flex-1 sm:flex-initial rounded-2xl font-bold bg-white/15 hover:bg-white/25 text-white border-white/40 backdrop-blur-md shadow-sm gap-1.5 text-xs sm:text-sm h-10"
+            >
+              <ArrowDown className="h-4 w-4 text-emerald-300" /> Withdraw Funds
+            </Button>
             <Button
               onClick={() => setTransferOpen(true)}
               variant="outline"
@@ -358,6 +373,16 @@ export default function UserWallet() {
         onOpenChange={setTransferOpen}
         currentBalance={Number(wallet?.balance ?? 0)}
         onSuccess={load}
+      />
+
+      <WithdrawDialog
+        open={withdrawOpen}
+        onOpenChange={setWithdrawOpen}
+        availableBalance={Number(wallet?.balance ?? 0)}
+        onSuccess={() => {
+          window.dispatchEvent(new CustomEvent("wallet_updated"));
+          load();
+        }}
       />
 
       {/* Transaction History & Receipts - Mobile Aligned & No Overflow */}

@@ -21,6 +21,11 @@ import {
   getSettlementByOrderId,
   PromotionSettlement,
 } from "@/services/promotionSettlementService";
+import {
+  submitOrderReview,
+  getOrderReview,
+  PromotionReview,
+} from "@/services/promotionReviewService";
 import { formatNaira } from "@/services/packageService";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -56,6 +61,7 @@ import {
   History,
   Link as LinkIcon,
   ShieldAlert,
+  Star,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -78,6 +84,15 @@ export default function BusinessPromotionOrderDetail() {
   const [revisionReason, setRevisionReason] = useState("");
   const [disputeDialogOpen, setDisputeDialogOpen] = useState(false);
   const [disputeReason, setDisputeReason] = useState("");
+
+  // Post-Order Feedback / Rating States
+  const [existingReview, setExistingReview] = useState<PromotionReview | null>(null);
+  const [reviewDialogOpen, setReviewDialogOpen] = useState(false);
+  const [ratingValue, setRatingValue] = useState<number>(5);
+  const [communicationRating, setCommunicationRating] = useState<number>(5);
+  const [deliveryRating, setDeliveryRating] = useState<number>(5);
+  const [reviewFeedback, setReviewFeedback] = useState<string>("");
+  const [submittingReview, setSubmittingReview] = useState(false);
 
   // Proof Viewer
   const [selectedProof, setSelectedProof] = useState<DeliveryProofSubmission | null>(null);
@@ -124,6 +139,14 @@ export default function BusinessPromotionOrderDetail() {
           if (autoRes.autoApproved && autoRes.order) {
             setOrder(autoRes.order);
             toast.info("48-Hour review window concluded: Order automatically approved.");
+          }
+        }
+
+        // Fetch existing review if order is completed or approved
+        if (result.order.status === "completed" || result.order.status === "approved") {
+          const rev = await getOrderReview(result.order.id);
+          if (rev) {
+            setExistingReview(rev);
           }
         }
 
@@ -308,6 +331,36 @@ export default function BusinessPromotionOrderDetail() {
     }
   }
 
+  async function handleSubmitReview() {
+    if (!order) return;
+    if (ratingValue < 1 || ratingValue > 5) {
+      toast.error("Please select a rating between 1 and 5 stars.");
+      return;
+    }
+    setSubmittingReview(true);
+    try {
+      const res = await submitOrderReview({
+        order_id: order.id,
+        rating: ratingValue,
+        review_text: reviewFeedback.trim() || undefined,
+        communication_rating: communicationRating,
+        delivery_speed_rating: deliveryRating,
+      }, user?.id);
+
+      if (res.error || !res.review) {
+        toast.error(res.error || "Failed to submit review");
+      } else {
+        setExistingReview(res.review);
+        setReviewDialogOpen(false);
+        toast.success("Review submitted! Thank you for rating this promoter.");
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit review");
+    } finally {
+      setSubmittingReview(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
@@ -345,6 +398,7 @@ export default function BusinessPromotionOrderDetail() {
   const isEvidenceSubmitted = order.status === "evidence_submitted";
   const isRevisionRequested = order.status === "revision_requested";
   const isApproved = order.status === "approved";
+  const isCompleted = order.status === "completed";
   const isDisputed = order.status === "disputed";
   const isCancelled = order.status === "cancelled";
 
@@ -403,6 +457,12 @@ export default function BusinessPromotionOrderDetail() {
                 {isApproved && (
                   <Badge variant="outline" className="text-xs font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
                     Deliverables Approved
+                  </Badge>
+                )}
+                {isCompleted && (
+                  <Badge variant="outline" className="text-xs font-extrabold bg-emerald-500/15 text-emerald-600 border-emerald-500/40">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    Order Completed
                   </Badge>
                 )}
                 {isDisputed && (
@@ -564,6 +624,26 @@ export default function BusinessPromotionOrderDetail() {
                   <div className="pt-1 text-[11px] text-muted-foreground font-mono">
                     Approved on: {new Date(order.approved_at).toLocaleString()}
                     {(order as any).auto_approved && " (Auto-approved via 48h SLA)"}
+                  </div>
+                )}
+              </div>
+            </Alert>
+          )}
+
+          {/* Completed State */}
+          {isCompleted && (
+            <Alert className="bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-50 rounded-2xl">
+              <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
+              <div className="space-y-1">
+                <AlertTitle className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
+                  Order Successfully Completed & Settled
+                </AlertTitle>
+                <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
+                  This campaign was executed, deliverables verified, and escrow payout was credited to the promoter.
+                </AlertDescription>
+                {order.settled_at && (
+                  <div className="pt-1 text-[11px] text-muted-foreground font-mono">
+                    Settled on: {new Date(order.settled_at).toLocaleString()}
                   </div>
                 )}
               </div>
@@ -777,6 +857,83 @@ export default function BusinessPromotionOrderDetail() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {/* Main Details (2 cols) */}
           <div className="md:col-span-2 space-y-6">
+            {/* Post-Order Verified Review Card */}
+            {(isCompleted || isApproved) && (
+              <Card className="p-5 rounded-2xl border border-amber-500/30 bg-card space-y-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+                    <h3 className="text-sm font-bold text-foreground">
+                      {existingReview ? "Your Verified Promoter Review" : "Rate & Review Campaign Delivery"}
+                    </h3>
+                  </div>
+                  {existingReview && (
+                    <Badge variant="outline" className="text-[11px] font-bold bg-amber-500/10 text-amber-600 border-amber-500/30">
+                      Verified Feedback
+                    </Badge>
+                  )}
+                </div>
+
+                {existingReview ? (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-0.5">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 ${
+                              star <= existingReview.rating
+                                ? "text-amber-500 fill-amber-500"
+                                : "text-muted-foreground/30"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs font-bold text-foreground">
+                        {existingReview.rating} out of 5 Stars
+                      </span>
+                      <span className="text-[11px] text-muted-foreground ml-auto font-mono">
+                        {new Date(existingReview.created_at).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    {(existingReview.communication_rating || existingReview.delivery_speed_rating) && (
+                      <div className="flex flex-wrap gap-4 pt-1 text-xs text-muted-foreground border-t border-border/40">
+                        {existingReview.communication_rating && (
+                          <span>Communication: <strong className="text-foreground">{existingReview.communication_rating}/5</strong></span>
+                        )}
+                        {existingReview.delivery_speed_rating && (
+                          <span>Delivery Speed: <strong className="text-foreground">{existingReview.delivery_speed_rating}/5</strong></span>
+                        )}
+                      </div>
+                    )}
+
+                    {existingReview.review_text ? (
+                      <p className="text-xs text-foreground/90 italic leading-relaxed bg-muted/20 p-3 rounded-xl border border-border/40">
+                        &ldquo;{existingReview.review_text}&rdquo;
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground italic">No written feedback provided.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      How was your experience working with {order.promoter?.display_name || "this promoter"}? Share your verified rating to help the community.
+                    </p>
+                    <Button
+                      id="open-review-dialog-btn"
+                      onClick={() => setReviewDialogOpen(true)}
+                      className="rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 gap-1.5 shadow-sm"
+                    >
+                      <Star className="h-3.5 w-3.5 fill-slate-950" />
+                      <span>Rate & Leave Review</span>
+                    </Button>
+                  </div>
+                )}
+              </Card>
+            )}
+
             {/* Promotion Brief */}
             <Card className="p-5 rounded-2xl border border-border/70 bg-card space-y-3">
               <h3 className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -1023,6 +1180,142 @@ export default function BusinessPromotionOrderDetail() {
               className="rounded-xl text-xs font-bold"
             >
               Confirm Dispute
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Review Submission Dialog */}
+      <Dialog open={reviewDialogOpen} onOpenChange={setReviewDialogOpen}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-base font-bold flex items-center gap-2">
+              <Star className="h-5 w-5 text-amber-500 fill-amber-500" />
+              <span>Rate Your Experience</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Your feedback is verified and helps other businesses find reputable promoters.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Overall Star Rating */}
+            <div className="space-y-1.5 text-center">
+              <Label className="text-xs font-bold">Overall Rating</Label>
+              <div className="flex items-center justify-center gap-2 pt-1">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <button
+                    key={star}
+                    type="button"
+                    onClick={() => setRatingValue(star)}
+                    className="p-1.5 rounded-lg hover:bg-muted transition-colors focus:outline-none"
+                  >
+                    <Star
+                      className={`h-7 w-7 transition-all ${
+                        star <= ratingValue
+                          ? "text-amber-500 fill-amber-500 scale-110"
+                          : "text-muted-foreground/30"
+                      }`}
+                    />
+                  </button>
+                ))}
+              </div>
+              <span className="text-xs font-semibold text-muted-foreground block">
+                {ratingValue === 5 && "Excellent (5 Stars)"}
+                {ratingValue === 4 && "Great (4 Stars)"}
+                {ratingValue === 3 && "Average (3 Stars)"}
+                {ratingValue === 2 && "Poor (2 Stars)"}
+                {ratingValue === 1 && "Terrible (1 Star)"}
+              </span>
+            </div>
+
+            {/* Sub-ratings: Communication & Delivery */}
+            <div className="grid grid-cols-2 gap-3 pt-2 border-t border-border/50">
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold text-muted-foreground">Communication</Label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setCommunicationRating(s)}
+                      className="p-0.5"
+                    >
+                      <Star
+                        className={`h-4 w-4 ${
+                          s <= communicationRating
+                            ? "text-amber-500 fill-amber-500"
+                            : "text-muted-foreground/30"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-[11px] font-bold text-muted-foreground">Delivery Speed</Label>
+                <div className="flex items-center gap-1">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setDeliveryRating(s)}
+                      className="p-0.5"
+                    >
+                      <Star
+                        className={`h-4 w-4 ${
+                          s <= deliveryRating
+                            ? "text-amber-500 fill-amber-500"
+                            : "text-muted-foreground/30"
+                        }`}
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Written Comments */}
+            <div className="space-y-1.5 pt-1">
+              <Label className="text-xs font-bold">Feedback Comments (Optional)</Label>
+              <Textarea
+                placeholder="Share specific details about response speed, view count accuracy, or audience engagement..."
+                value={reviewFeedback}
+                onChange={(e) => setReviewFeedback(e.target.value)}
+                rows={3}
+                className="rounded-xl text-xs"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setReviewDialogOpen(false)}
+              className="rounded-xl text-xs"
+            >
+              Cancel
+            </Button>
+            <Button
+              id="submit-review-modal-btn"
+              size="sm"
+              onClick={handleSubmitReview}
+              disabled={submittingReview}
+              className="rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-slate-950 gap-1.5"
+            >
+              {submittingReview ? (
+                <>
+                  <div className="h-3.5 w-3.5 border-2 border-slate-950 border-t-transparent rounded-full animate-spin" />
+                  <span>Submitting...</span>
+                </>
+              ) : (
+                <>
+                  <Star className="h-3.5 w-3.5 fill-slate-950" />
+                  <span>Submit Verified Review</span>
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
