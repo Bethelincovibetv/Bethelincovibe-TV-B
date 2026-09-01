@@ -127,6 +127,8 @@ import PromoterPromotionOrderDetail from "./pages/PromoterPromotionOrderDetail";
 import AdminPromotionDisputes from "./pages/admin/AdminPromotionDisputes";
 import AdminPromotionTreasury from "./pages/admin/AdminPromotionTreasury";
 import PromoterEarningsPage from "./pages/PromoterEarningsPage";
+import StartupSplashScreen from "./components/StartupSplashScreen";
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -165,6 +167,16 @@ function FeatureAwareServices() {
   );
 }
 
+function AppStartupManager({ children }: { children: React.ReactNode }) {
+  const { loading: authLoading } = useAuth();
+  return (
+    <>
+      <StartupSplashScreen isReady={!authLoading} />
+      {children}
+    </>
+  );
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <HelmetProvider>
@@ -173,9 +185,10 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <FeatureFlagsProvider>
-          <FeatureAwareServices />
-          <Routes>
+          <AppStartupManager>
+            <FeatureFlagsProvider>
+            <FeatureAwareServices />
+            <Routes>
             <Route element={<PublicLayout />}>
               <Route path="/" element={<Index />} />
               <Route path="/blog" element={<FeatureGate feature="blog"><Blog /></FeatureGate>} />
@@ -387,6 +400,7 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
           </FeatureFlagsProvider>
+          </AppStartupManager>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
