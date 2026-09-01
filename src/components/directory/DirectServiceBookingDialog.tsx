@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,8 +11,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { recordBusinessLead } from "@/lib/leadCaptureEngine";
 
 interface DirectServiceBookingDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: React.ReactNode;
   businessId: string;
   businessName: string;
   ownerUserId?: string;
@@ -25,8 +26,9 @@ interface DirectServiceBookingDialogProps {
 }
 
 export default function DirectServiceBookingDialog({
-  open,
-  onOpenChange,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  trigger,
   businessId,
   businessName,
   ownerUserId,
@@ -38,6 +40,17 @@ export default function DirectServiceBookingDialog({
   businessEmail,
 }: DirectServiceBookingDialogProps) {
   const { user } = useAuth();
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const open = isControlled ? controlledOpen : internalOpen;
+  const onOpenChange = (newOpen: boolean) => {
+    if (isControlled) {
+      controlledOnOpenChange?.(newOpen);
+    } else {
+      setInternalOpen(newOpen);
+    }
+  };
+
   const [name, setName] = useState(user?.user_metadata?.full_name || "");
   const [phone, setPhone] = useState(user?.user_metadata?.phone || "");
   const [email, setEmail] = useState(user?.email || "");
@@ -138,6 +151,7 @@ export default function DirectServiceBookingDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent className="sm:max-w-lg rounded-3xl p-5 sm:p-6 overflow-hidden">
         <DialogHeader className="text-left space-y-1.5 pb-2 border-b">
           <div className="flex items-center gap-2">

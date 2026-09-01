@@ -360,15 +360,16 @@ export default function RealtimeChatPage() {
     setIsSending(true);
 
     try {
-      await sendMessageToChat(
-        activeChatId,
-        currentUserId,
-        currentUserName,
-        textToSend,
-        user?.user_metadata?.avatar_url || undefined,
-        replyContext,
-        imgToSend || undefined
-      );
+      await sendMessageToChat({
+        chatId: activeChatId,
+        senderId: currentUserId,
+        senderName: currentUserName,
+        text: textToSend,
+        senderAvatar: user?.user_metadata?.avatar_url || undefined,
+        replyTo: replyContext,
+        mediaUrl: imgToSend || undefined,
+        type: imgToSend ? "image" : "text",
+      });
 
       // Check if chatting with an AI Agent / Official Support Specialist
       const currentActiveRoom = chats.find((c) => c.id === activeChatId);
@@ -409,13 +410,14 @@ export default function RealtimeChatPage() {
             );
 
             if (aiAnswer) {
-              await sendMessageToChat(
-                activeChatId,
-                recipientId,
-                agentName,
-                aiAnswer,
-                agentAvatar
-              );
+              await sendMessageToChat({
+                chatId: activeChatId,
+                senderId: recipientId,
+                senderName: agentName,
+                text: aiAnswer,
+                senderAvatar: agentAvatar,
+                type: "text",
+              });
               playNotificationSound();
             }
           } catch (agentErr) {

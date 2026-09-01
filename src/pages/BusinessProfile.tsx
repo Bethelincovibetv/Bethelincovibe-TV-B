@@ -15,6 +15,7 @@ import {
 import BusinessChatDialog from "@/components/BusinessChatDialog";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
 import DirectServiceBookingDialog from "@/components/directory/DirectServiceBookingDialog";
+import FeaturedServiceCard from "@/components/directory/FeaturedServiceCard";
 import Breadcrumbs from "@/components/Breadcrumbs";
 import BusinessCard from "@/components/directory/BusinessCard";
 import ProductCard from "@/components/directory/ProductCard";
@@ -162,6 +163,7 @@ export default function BusinessProfile() {
   }
 
   const sl = biz.social_links || {};
+  const isVerified = Boolean(biz.verified ?? (biz.status === "approved"));
   const isBoosted = biz.boosted_until && new Date(biz.boosted_until) > new Date();
   const allowDirectCalls = sl.allow_direct_calls !== false;
   const phoneClean = biz.phone?.replace(/\D/g, "");
@@ -390,107 +392,34 @@ export default function BusinessProfile() {
 
           {/* Services - clickable to chat & direct booking */}
           {services.length > 0 && (
-            <Card className="mt-4 border-primary/20 shadow-sm overflow-hidden">
+            <Card className="mt-4 border-primary/20 shadow-sm overflow-hidden bg-gradient-to-b from-card to-card/60">
               <CardContent className="p-5 sm:p-6">
-                <div className="flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center justify-between gap-2 mb-5">
                   <div>
                     <h2 className="text-sm sm:text-base font-black uppercase tracking-wide text-foreground flex items-center gap-2">
                       <Briefcase className="h-4 w-4 text-primary" />
                       Featured Services &amp; Solutions ({services.length})
                     </h2>
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      Professional verified services. Inquire directly or book seamlessly with instant notification.
+                      Professional verified services. Inquire directly or book seamlessly with instant provider notification.
                     </p>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {services.map((svc: any, i: number) => {
-                    const serviceImg = svc?.image_url || svc?.flyer_creative_url || svc?.photo_url || svc?.image;
-                    
-                    return (
-                      <div key={i} className="group rounded-2xl border bg-card hover:border-primary hover:shadow-lg transition-all overflow-hidden flex flex-col h-full">
-                        {serviceImg ? (
-                          <div className="aspect-[16/10] w-full bg-muted overflow-hidden relative">
-                            <img
-                              src={serviceImg}
-                              alt={svc.title}
-                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                              loading="lazy"
-                            />
-                            {svc.price && (
-                              <div className="absolute bottom-2 left-2 bg-black/80 backdrop-blur-md text-white text-[11px] font-extrabold px-2 py-0.5 rounded-lg shadow-sm">
-                                {svc.price}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="aspect-[16/10] w-full bg-gradient-to-br from-primary/15 via-indigo-500/10 to-accent/15 flex flex-col items-center justify-center p-4 relative">
-                            <Briefcase className="h-8 w-8 text-primary/70 mb-1" />
-                            {svc.price && (
-                              <div className="absolute bottom-2 left-2 bg-primary/20 text-primary text-[10px] font-bold px-2 py-0.5 rounded-md">
-                                {svc.price}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <div className="p-4 flex-1 flex flex-col justify-between space-y-2">
-                          <div>
-                            <p className="font-bold text-sm text-foreground line-clamp-1 group-hover:text-primary transition-colors">
-                              {svc.title}
-                            </p>
-                            {svc.description && (
-                              <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
-                                {svc.description}
-                              </p>
-                            )}
-
-                            {/* Deliverable bullets if present */}
-                            {Array.isArray(svc.benefits) && svc.benefits.length > 0 && (
-                              <div className="mt-2.5 space-y-1 pt-2 border-t border-border/60">
-                                {svc.benefits.slice(0, 2).map((b: string, bi: number) => (
-                                  <div key={bi} className="flex items-center gap-1.5 text-[11px] text-foreground/80">
-                                    <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
-                                    <span className="truncate">{b}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-
-                          <div className="pt-3 border-t border-border/40 grid grid-cols-2 gap-2">
-                            <DirectServiceBookingDialog
-                              businessId={biz.id}
-                              businessName={biz.name}
-                              ownerUserId={biz.submitted_by}
-                              serviceTitle={svc.title}
-                              servicePrice={svc.price}
-                              businessPhone={biz.phone || ownerProfile?.phone}
-                              businessWhatsApp={biz.whatsapp || sl?.whatsapp || ownerProfile?.whatsapp}
-                              businessEmail={sl?.email || ownerProfile?.email}
-                              trigger={
-                                <Button size="sm" className="w-full text-xs font-bold h-8 rounded-xl bg-primary text-primary-foreground shadow-xs">
-                                  Book Direct
-                                </Button>
-                              }
-                            />
-
-                            <BusinessChatDialog
-                              businessId={biz.id}
-                              businessName={biz.name}
-                              serviceTitle={svc.title}
-                              trigger={
-                                <Button size="sm" variant="outline" className="w-full text-xs font-bold h-8 rounded-xl gap-1">
-                                  <MessageCircle className="h-3.5 w-3.5" />
-                                  Chat
-                                </Button>
-                              }
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {services.map((svc: any, i: number) => (
+                    <FeaturedServiceCard
+                      key={i}
+                      service={svc}
+                      businessId={biz.id}
+                      businessName={biz.name}
+                      ownerUserId={biz.submitted_by}
+                      businessPhone={biz.phone || ownerProfile?.phone}
+                      businessWhatsApp={biz.whatsapp || sl?.whatsapp || ownerProfile?.whatsapp}
+                      businessEmail={sl?.email || ownerProfile?.email}
+                      isVerified={isVerified}
+                    />
+                  ))}
                 </div>
               </CardContent>
             </Card>

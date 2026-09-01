@@ -44,6 +44,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import ServicePreviewDialog from "@/components/ServicePreviewDialog";
+import FeaturedServiceCard from "@/components/directory/FeaturedServiceCard";
 import QRCodeDialog from "@/components/QRCodeDialog";
 import VerifiedBadge, { VerifiedPillBadge } from "@/components/VerifiedBadge";
 import { waLink as buildWaLink } from "@/lib/phone";
@@ -975,11 +976,16 @@ export default function PublicProfile() {
 
             {/* TAB 4: SERVICES PAGE */}
             {activeTab === "services" && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-black text-foreground flex items-center gap-2">
-                    <Briefcase className="h-5 w-5 text-primary" /> Professional Services ({services.length})
-                  </h2>
+                  <div>
+                    <h2 className="text-lg sm:text-xl font-black text-foreground flex items-center gap-2">
+                      <Briefcase className="h-5 w-5 text-primary" /> Professional Services ({services.length})
+                    </h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Explore verified client deliverables, request customized quotes, or book directly.
+                    </p>
+                  </div>
                 </div>
 
                 {services.length === 0 ? (
@@ -991,9 +997,18 @@ export default function PublicProfile() {
                     </p>
                   </Card>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
                     {services.map((s, i) => (
-                      <ServicePreviewDialog key={i} service={s} />
+                      <FeaturedServiceCard
+                        key={i}
+                        service={s}
+                        businessName={fullName || "Verified Professional"}
+                        ownerUserId={profile.id}
+                        businessPhone={profile.phone}
+                        businessWhatsApp={profile.whatsapp}
+                        businessEmail={profile.email}
+                        isVerified={isVerified}
+                      />
                     ))}
                   </div>
                 )}

@@ -925,11 +925,11 @@ export function subscribeToChatMessages(
 /**
  * Sends a real-time message to a chat room
  */
-export async function sendMessageToChat(params: {
+export type SendMessageParams = {
   chatId: string;
   senderId: string;
   senderName: string;
-  text: string;
+  text?: string;
   senderAvatar?: string;
   type?: "text" | "image" | "video" | "voice_note" | "file" | "system";
   mediaUrl?: string;
@@ -937,48 +937,95 @@ export async function sendMessageToChat(params: {
   fileSize?: number;
   mediaDuration?: number;
   replyTo?: { id: string; senderName: string; text: string };
-}): Promise<RealtimeChatMessage> {
-  await ensureFirebaseAuth();
-  const {
-    chatId,
-    senderId,
-    senderName,
-    text,
-    senderAvatar,
-    type = "text",
-    mediaUrl,
-    fileName,
-    fileSize,
-    mediaDuration,
-    replyTo,
-  } = params;
+};
 
-  const cleanText = (text || "").trim().slice(0, 3000);
+/**
+ * Sends a real-time message to a chat room.
+ * Supports both options object and legacy positional argument signatures with complete input sanitization.
+ */
+export async function sendMessageToChat(
+  paramsOrChatId: SendMessageParams | string,
+  maybeSenderId?: string,
+  maybeSenderName?: string,
+  maybeText?: string,
+  maybeAvatar?: string,
+  maybeReplyTo?: { id: string; senderName: string; text: string },
+  maybeMediaUrl?: string,
+  maybeType?: "text" | "image" | "video" | "voice_note" | "file" | "system"
+): Promise<RealtimeChatMessage> {
+  await ensureFirebaseAuth();
+
+  let chatId: string;
+  let senderId: string;
+  let senderName: string;
+  let text: string;
+  let senderAvatar: string = "";
+  let type: "text" | "image" | "video" | "voice_note" | "file" | "system" = "text";
+  let mediaUrl: string = "";
+  let fileName: string = "";
+  let fileSize: number = 0;
+  let mediaDuration: number = 0;
+  let replyTo: { id: string; senderName: string; text: string } | undefined = undefined;
+
+  if (typeof paramsOrChatId === "object" && paramsOrChatId !== null) {
+    chatId = String(paramsOrChatId.chatId || "").trim();
+    senderId = String(paramsOrChatId.senderId || "").trim();
+    senderName = String(paramsOrChatId.senderName || "Member").trim();
+    text = (paramsOrChatId.text || "").trim();
+    senderAvatar = paramsOrChatId.senderAvatar || "";
+    type = paramsOrChatId.type || (paramsOrChatId.mediaUrl ? "image" : "text");
+    mediaUrl = paramsOrChatId.mediaUrl || "";
+    fileName = paramsOrChatId.fileName || "";
+    fileSize = Number(paramsOrChatId.fileSize || 0);
+    mediaDuration = Number(paramsOrChatId.mediaDuration || 0);
+    replyTo = paramsOrChatId.replyTo;
+  } else {
+    chatId = String(paramsOrChatId || "").trim();
+    senderId = String(maybeSenderId || "").trim();
+    senderName = String(maybeSenderName || "Member").trim();
+    text = (maybeText || "").trim();
+    senderAvatar = maybeAvatar || "";
+    replyTo = maybeReplyTo;
+    mediaUrl = maybeMediaUrl || "";
+    type = maybeType || (maybeMediaUrl ? "image" : "text");
+  }
+
+  if (!chatId) {
+    throw new Error("Chat ID is required to send a message");
+  }
+  if (!senderId) {
+    senderId = `anon_${Date.now()}`;
+  }
+  if (!senderName) {
+    senderName = "Member";
+  }
+
+  const cleanText = text.slice(0, 3000);
   if (!cleanText && !mediaUrl) {
     throw new Error("Message text or media attachment cannot be empty");
   }
 
   const newMsgId = `msg_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
-  
+
   const rawMsgDoc: Record<string, any> = {
     id: newMsgId,
-    chatId: String(chatId),
-    senderId: String(senderId),
-    senderName: String(senderName || "Member"),
-    senderAvatar: senderAvatar || "",
+    chatId,
+    senderId,
+    senderName,
+    senderAvatar,
     text: cleanText,
-    type: type || "text",
-    mediaUrl: mediaUrl || "",
-    fileName: fileName || "",
-    fileSize: Number(fileSize || 0),
-    mediaDuration: Number(mediaDuration || 0),
+    type,
+    mediaUrl,
+    fileName,
+    fileSize,
+    mediaDuration,
     reactions: {},
-    readBy: [String(senderId)],
+    readBy: [senderId],
     deletedForEveryone: false,
     createdAt: serverTimestamp(),
   };
 
-  if (replyTo && replyTo.id && replyTo.text) {
+  if (replyTo && replyTo.id && (replyTo.text || replyTo.senderName)) {
     rawMsgDoc.replyTo = {
       id: String(replyTo.id),
       senderName: String(replyTo.senderName || "Member"),
@@ -1007,8 +1054,8 @@ export async function sendMessageToChat(params: {
       roomRef,
       sanitizeFirestoreObject({
         lastMessageText: snippet,
-        lastMessageSenderId: String(senderId),
-        lastMessageSenderName: String(senderName || "Member"),
+        lastMessageSenderId: senderId,
+        lastMessageSenderName: senderName,
         lastMessageTime: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }),
@@ -1033,14 +1080,14 @@ export async function sendMessageToChat(params: {
     id: newMsgId,
     chatId,
     senderId,
-    senderName: senderName || "Member",
-    senderAvatar: senderAvatar || "",
+    senderName,
+    senderAvatar,
     text: cleanText,
     type,
-    mediaUrl: mediaUrl || "",
-    fileName: fileName || "",
-    fileSize: fileSize || 0,
-    mediaDuration: mediaDuration || 0,
+    mediaUrl,
+    fileName,
+    fileSize,
+    mediaDuration,
     createdAt: new Date().toISOString(),
     replyTo: replyTo && replyTo.id ? replyTo : undefined,
     reactions: {},
