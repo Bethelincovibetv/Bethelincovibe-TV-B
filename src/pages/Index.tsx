@@ -17,6 +17,7 @@ import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import AmazonProductGrid from "@/components/AmazonProductGrid";
 import CategoryTile from "@/components/directory/CategoryTile";
 import ProductCard from "@/components/directory/ProductCard";
+import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 
 import iconStartup3D from "@/assets/images/icon_startup_guide_3d_1787553506436.jpg";
 import iconBusinessDir3D from "@/assets/images/icon_business_dir_3d_1787553523151.jpg";
@@ -205,6 +206,11 @@ export default function Index() {
           </div>
         </section>
       )}
+
+      {/* Live Rotating Sponsor Advert Spotlight */}
+      <section className="container mx-auto px-4">
+        <ProgrammaticAdBanner placement="home" format="banner" className="my-4" />
+      </section>
 
       {/* 5. EXPLORE PRODUCTS / MARKETPLACE DISCOVERY */}
       {flags.products && (

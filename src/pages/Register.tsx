@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, EyeOff, Building2, MapPin, Sparkles, Compass, ShieldCheck } from "lucide-react";
+import { Eye, EyeOff, Building2, MapPin, Sparkles, Compass, ShieldCheck, Image as ImageIcon, Upload, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
@@ -24,6 +24,8 @@ export default function Register() {
   const [username, setUsername] = useState("");
   const [isUsernameCustom, setIsUsernameCustom] = useState(false);
   const [categorySlug, setCategorySlug] = useState("tech");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [showLogoInput, setShowLogoInput] = useState(false);
   
   // 36 Nigerian States + FCT State Selection
   const [selectedStateName, setSelectedStateName] = useState<string>("Lagos");
@@ -85,6 +87,24 @@ export default function Register() {
 
   const cleanUsername = username.trim() || displayName.toLowerCase().replace(/[^a-z0-9]/g, "") || "username";
 
+  const handleLogoFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error("Logo image size should be under 3MB");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result as string;
+      if (result) {
+        setLogoUrl(result);
+        toast.success("Brand logo attached! It will be set on your profile.");
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -102,7 +122,7 @@ export default function Register() {
     setLoading(false);
     localStorage.removeItem("referral_code");
 
-    // Sync business category & Nigerian State location
+    // Sync business category, logo & Nigerian State location
     try {
       const { data: { user: signedInUser } } = await supabase.auth.getUser();
       if (signedInUser) {
@@ -110,15 +130,17 @@ export default function Register() {
         const matchedDbCat = dbCategories.find((c) => c.slug === categorySlug);
         const catName = matchedDbCat?.name || PRESET_BUSINESS_CATEGORIES.find((c) => c.slug === categorySlug)?.name || "Professional Services";
 
-        // Save state permanently to user profile
+        // Save state and logo permanently to user profile
         await supabase.from("profiles").update({
           background_template: categorySlug,
+          avatar_url: logoUrl || undefined,
           social_links: {
             category_slug: categorySlug,
             category_name: catName,
             category_id: matchedDbCat?.id || null,
             state: selectedStateName,
             city: selectedCityName,
+            logo_url: logoUrl || null,
             location: {
               country: "Nigeria",
               state: selectedStateName,
@@ -129,13 +151,14 @@ export default function Register() {
           },
         }).eq("user_id", signedInUser.id);
 
-        // Initialize canonical directory presence and profile with selected Nigerian State & Category
+        // Initialize canonical directory presence and profile with selected Nigerian State & Category & Logo
         await syncCanonicalBusinessAndProfile({
           userId: signedInUser.id,
           name: displayName || "My Business",
           username: finalUsername,
           coverTemplate: categorySlug,
           categoryId: matchedDbCat?.id || null,
+          logoUrl: logoUrl || undefined,
           location: {
             country: "Nigeria",
             state: selectedStateName,
@@ -148,6 +171,7 @@ export default function Register() {
             category_slug: categorySlug,
             category_name: catName,
             category_id: matchedDbCat?.id || null,
+            logo_url: logoUrl || null,
           },
           isPublic: true,
           categoriesList: dbCategories,
@@ -174,14 +198,28 @@ export default function Register() {
         image={PAGE_OG_IMAGES.home()}
       />
       <Card className="w-full max-w-lg border-2 shadow-2xl rounded-3xl overflow-hidden bg-card">
-        {/* Header with audio helper */}
-        <CardHeader className="text-center space-y-1 bg-muted/40 p-4 sm:p-6 border-b">
-          <div className="flex items-center justify-center gap-2 mb-1">
+        {/* Header with audio helper and Platform Logo under Head */}
+        <CardHeader className="text-center space-y-2 bg-gradient-to-b from-muted/60 via-muted/30 to-card p-5 sm:p-6 border-b relative">
+          {/* Logo prominently placed under registration head */}
+          <div className="flex justify-center mb-1">
+            <Link to="/" className="inline-flex items-center gap-2 group transition-transform hover:scale-105 active:scale-95" title="Go to Homepage">
+              <div className="relative p-2 rounded-2xl bg-gradient-to-tr from-primary/20 via-background to-amber-500/20 shadow-md border border-border/80 group-hover:border-primary/50 transition-colors">
+                <img
+                  src="/logo.png"
+                  alt="Bethelincovibe TV"
+                  className="h-12 w-12 sm:h-14 sm:w-14 rounded-xl object-contain drop-shadow-sm"
+                />
+                <span className="absolute -bottom-1 -right-1 h-3.5 w-3.5 rounded-full bg-emerald-500 border-2 border-background animate-pulse" />
+              </div>
+            </Link>
+          </div>
+
+          <div className="flex items-center justify-center gap-2 mb-0.5">
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="text-[11px] font-bold text-primary tracking-wide uppercase">Bethelincovibe Ecosystem</span>
+            <span className="text-[11px] font-extrabold text-primary tracking-wider uppercase">Bethelincovibe Ecosystem</span>
           </div>
           <CardTitle className="text-xl sm:text-2xl font-black tracking-tight text-foreground">Create Your Account</CardTitle>
-          <CardDescription className="text-xs text-muted-foreground">
+          <CardDescription className="text-xs text-muted-foreground max-w-sm mx-auto">
             Join verified merchants across all 36 Nigerian States & global markets.
           </CardDescription>
 
@@ -191,7 +229,7 @@ export default function Register() {
               explanation="Hello! To join, simply enter your business name, pick your Nigerian State from the list, type your email, and pick a 6-digit password. Everything is automatically set up for you!"
               simpleTip="Select your home State so nearby customers can find your shop easily."
               variant="card"
-              className="text-left w-full mt-2"
+              className="text-left w-full mt-1"
             />
           </div>
         </CardHeader>
@@ -215,6 +253,74 @@ export default function Register() {
                 placeholder="e.g. Jane Doe or Apex Solar & Tech"
                 className="rounded-xl h-11 text-xs sm:text-sm font-medium"
               />
+            </div>
+
+            {/* Optional Brand Logo under the name header */}
+            <div className="p-3 rounded-2xl bg-muted/40 border border-border/60 space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-bold text-foreground flex items-center gap-1.5">
+                  <ImageIcon className="h-3.5 w-3.5 text-primary" />
+                  <span>Business Logo / Avatar (Optional)</span>
+                </Label>
+                <button
+                  type="button"
+                  onClick={() => setShowLogoInput(!showLogoInput)}
+                  className="text-[11px] font-bold text-primary hover:underline"
+                >
+                  {showLogoInput || logoUrl ? "Hide" : "+ Add Logo Now"}
+                </button>
+              </div>
+
+              {(showLogoInput || logoUrl) && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center gap-3">
+                    {logoUrl ? (
+                      <div className="relative h-12 w-12 rounded-xl overflow-hidden border-2 border-primary shadow-xs shrink-0 bg-background flex items-center justify-center">
+                        <img src={logoUrl} alt="Logo Preview" className="h-full w-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setLogoUrl("")}
+                          className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full p-0.5 shadow-sm hover:bg-red-700"
+                          title="Remove logo"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="h-12 w-12 rounded-xl border border-dashed border-border flex items-center justify-center text-muted-foreground shrink-0 bg-muted/50">
+                        <Building2 className="h-5 w-5" />
+                      </div>
+                    )}
+
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-background border border-border hover:bg-muted text-xs font-bold text-foreground shadow-xs transition-colors">
+                          <Upload className="h-3 w-3 text-primary" />
+                          <span>Upload File</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleLogoFileChange}
+                          />
+                        </label>
+                        <span className="text-[10px] text-muted-foreground">or enter URL</span>
+                      </div>
+                      <Input
+                        type="url"
+                        placeholder="https://example.com/logo.png"
+                        value={logoUrl.startsWith("data:") ? "(Uploaded local file)" : logoUrl}
+                        onChange={(e) => setLogoUrl(e.target.value)}
+                        disabled={logoUrl.startsWith("data:")}
+                        className="h-8 text-xs rounded-lg"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    You can also generate high-converting 3D vector branding anytime from your AI Studio.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Username / Handle */}

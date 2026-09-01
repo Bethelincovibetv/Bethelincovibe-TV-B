@@ -1,14 +1,25 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Megaphone, ExternalLink, Sparkles, ShieldCheck } from "lucide-react";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
+import LiveRotatingAdvert, { AdvertItem } from "@/components/ads/LiveRotatingAdvert";
 
 export interface ProgrammaticAdBannerProps {
-  placement?: "blog" | "dashboard" | "shop" | "listings" | "header" | "footer" | "sidebar" | "in_article" | "services" | "marketplace" | "products" | string;
+  placement?:
+    | "blog"
+    | "dashboard"
+    | "shop"
+    | "listings"
+    | "header"
+    | "footer"
+    | "sidebar"
+    | "in_article"
+    | "services"
+    | "marketplace"
+    | "products"
+    | string;
   className?: string;
   format?: "banner" | "card" | "compact" | "feed" | "flyer" | "billboard";
+  autoRotateInterval?: number;
 }
 
 const PLACEMENT_ALIASES: Record<string, string[]> = {
@@ -26,38 +37,128 @@ const PLACEMENT_ALIASES: Record<string, string[]> = {
   sidebar: ["sidebar", "all"],
 };
 
+// High-converting Curated Ecosystem Spotlights with deep consumer psychology & trust triggers
+const CURATED_ECOSYSTEM_ADS: Record<string, AdvertItem[]> = {
+  default: [
+    {
+      id: "curated-vip-seller",
+      title: "Get Verified Blue Checkmark — 10x Inquiries in Nigeria",
+      description:
+        "Join 1,800+ top Nigerian merchants. Verified sellers receive prioritized search ranking, direct WhatsApp inquiries & zero escrow hold delays.",
+      image_url: "/logo.png",
+      target_url: "/businesses/list",
+      sponsor_name: "Bethelincovibe VIP Merchant",
+      badge_text: "Verified Spotlight",
+      urgency_tag: "⚡ High Demand — Instant Verification",
+      social_proof: "Over 1,400+ shoppers visited today",
+      is_verified: true,
+    },
+    {
+      id: "curated-ai-studio",
+      title: "Queen AI Marketing Studio — Auto-Create Product Videos & Ads",
+      description:
+        "Generate 3D vector graphics, promotional flyers, voiceovers in Nigerian accents, and social media captions in under 30 seconds.",
+      image_url: "/logo.png",
+      target_url: "/ai-assistant",
+      sponsor_name: "Queen AI Engine",
+      badge_text: "Smart Tool",
+      urgency_tag: "🚀 100% Free for Bethelincovibe Users",
+      social_proof: "Generated 12,000+ creative designs this month",
+      is_verified: true,
+    },
+    {
+      id: "curated-escrow-logistics",
+      title: "Sell Nationwide Across All 36 Nigerian States",
+      description:
+        "Seamless delivery with verified courier partners from Lagos to Abuja, Port Harcourt, Kano & beyond. Safe escrow buyer protection.",
+      image_url: "/logo.png",
+      target_url: "/products",
+      sponsor_name: "Nationwide Logistics",
+      badge_text: "Live Network",
+      urgency_tag: "🛡️ 100% Buyer & Seller Protection",
+      social_proof: "Active across Lagos, Abuja & 34 States",
+      is_verified: true,
+    },
+  ],
+  blog: [
+    {
+      id: "curated-blog-startup",
+      title: "Scale Your Nigerian Startup with Expert Guides & Blueprints",
+      description:
+        "Read verified case studies, CAC registration workflows, export-import guides, and digital payment playbooks written by top Lagos founders.",
+      image_url: "/logo.png",
+      target_url: "/blog/category/startup-guides",
+      sponsor_name: "Bethel Business Academy",
+      badge_text: "Trending Guide",
+      urgency_tag: "📚 Read Today's Top Story",
+      social_proof: "4.8k entrepreneurs read this week",
+      is_verified: true,
+    },
+    {
+      id: "curated-blog-ad-platform",
+      title: "Promote Your Brand on Bethelincovibe TV & Newsletters",
+      description:
+        "Reach over 50,000 active Nigerian buyers, business owners, and wholesale importers daily. High CTR guaranteed.",
+      image_url: "/logo.png",
+      target_url: "/advertise",
+      sponsor_name: "Bethel Ad Network",
+      badge_text: "Ad Space",
+      urgency_tag: "🎯 Target by State & Category",
+      social_proof: "Top ROI ad channel for Nigerian SMEs",
+      is_verified: true,
+    },
+  ],
+  dashboard: [
+    {
+      id: "curated-dash-boost",
+      title: "Boost Your Store Visibility by 300% This Week",
+      description:
+        "Feature your products on the Bethelincovibe homepage banner and category top-picks. Direct WhatsApp leads sent straight to your phone.",
+      image_url: "/logo.png",
+      target_url: "/dashboard/analytics",
+      sponsor_name: "Merchant Accelerator",
+      badge_text: "Growth Deal",
+      urgency_tag: "🔥 Limited Placement Slots Available",
+      social_proof: "98% satisfaction from Nigerian merchants",
+      is_verified: true,
+    },
+  ],
+};
+
 export default function ProgrammaticAdBanner({
   placement = "marketplace",
   className = "",
   format = "banner",
+  autoRotateInterval = 7000,
 }: ProgrammaticAdBannerProps) {
   const { flags } = useFeatureFlags();
-  const [ad, setAd] = useState<any>(null);
+  const [adsList, setAdsList] = useState<AdvertItem[]>([]);
   const [watermark, setWatermark] = useState<{ text?: string; url?: string }>({});
   const [loading, setLoading] = useState(true);
-  const impressionRecorded = useRef(false);
 
   const targetPlacement = (placement || "marketplace").toLowerCase().trim();
 
   // Check admin feature flag toggles
   const isFeatureDisabled =
     flags.advertise === false ||
-    ((targetPlacement === "marketplace" || targetPlacement === "shop" || targetPlacement === "products") && flags.ads_marketplace === false) ||
-    ((targetPlacement === "blog" || targetPlacement === "article" || targetPlacement === "in_article") && flags.ads_blog === false) ||
+    ((targetPlacement === "marketplace" || targetPlacement === "shop" || targetPlacement === "products") &&
+      flags.ads_marketplace === false) ||
+    ((targetPlacement === "blog" || targetPlacement === "article" || targetPlacement === "in_article") &&
+      flags.ads_blog === false) ||
     (targetPlacement === "dashboard" && flags.ads_dashboard === false) ||
-    ((targetPlacement === "listings" || targetPlacement === "services" || targetPlacement === "businesses") && flags.ads_directory === false);
+    ((targetPlacement === "listings" || targetPlacement === "services" || targetPlacement === "businesses") &&
+      flags.ads_directory === false);
 
   useEffect(() => {
     if (isFeatureDisabled) {
-      setAd(null);
+      setAdsList([]);
       setLoading(false);
       return;
     }
 
     let isMounted = true;
-    impressionRecorded.current = false;
 
-    async function fetchProgrammaticAd() {
+    async function fetchProgrammaticAds() {
       try {
         setLoading(true);
         const candidateKeys = PLACEMENT_ALIASES[targetPlacement] || [targetPlacement, "all"];
@@ -85,9 +186,10 @@ export default function ProgrammaticAdBanner({
         });
 
         // Master switch check
-        const isMasterDisabled = settingsMap.ads_global_enabled === "false" || settingsMap.ads_provider_native === "false";
-        
-        // Specific placement switch check: only disabled if the target is specifically false or all synonyms are explicitly false
+        const isMasterDisabled =
+          settingsMap.ads_global_enabled === "false" || settingsMap.ads_provider_native === "false";
+
+        // Specific placement switch check
         let isPlacementDisabled = false;
         if (settingsMap[`ad_placement_${targetPlacement}_enabled`] === "false") {
           isPlacementDisabled = true;
@@ -101,7 +203,7 @@ export default function ProgrammaticAdBanner({
         }
 
         if (isMasterDisabled || isPlacementDisabled) {
-          if (isMounted) setAd(null);
+          if (isMounted) setAdsList([]);
           return;
         }
 
@@ -110,106 +212,94 @@ export default function ProgrammaticAdBanner({
           url: settingsMap.ad_watermark_url,
         };
 
-        let candidateAd: any = null;
+        const fetchedAds: AdvertItem[] = [];
 
         // Strategy A: Security Definer RPC serve_random_ad with alias candidate loop
-        // Bypasses table RLS so guests, normal users, and admins all receive public active ads
         for (const candidateKey of candidateKeys) {
-          if (candidateAd) break;
           try {
             const { data: rpcAd, error: rpcErr } = await supabase.rpc("serve_random_ad", {
               _placement: candidateKey,
             });
 
             if (!rpcErr && rpcAd) {
-              const item = Array.isArray(rpcAd) ? rpcAd[0] : rpcAd;
-              if (item && item.id && item.image_url) {
-                candidateAd = item;
-                break;
-              }
-            }
-          } catch {
-            // continue checking candidate keys
-          }
-        }
-
-        // Strategy B: If RPC didn't return an item, fallback to direct query (for admin or authorized context)
-        if (!candidateAd) {
-          try {
-            const { data: directAds } = await supabase
-              .from("user_ads")
-              .select("*")
-              .in("status", ["active", "approved"]);
-
-            if (directAds && directAds.length > 0) {
-              const now = Date.now();
-              const validAds = directAds.filter((a: any) => {
-                // Status validation: active or approved only
-                if (a.status !== "active" && a.status !== "approved") return false;
-                // Expiry and date restrictions
-                if (a.starts_at && new Date(a.starts_at).getTime() > now) return false;
-                if (a.ends_at && new Date(a.ends_at).getTime() < now) return false;
-
-                // Placement check against candidate aliases
-                if (!a.placement || a.placement === "all") return true;
-                const places = a.placement.toLowerCase().split(",").map((p: string) => p.trim());
-                return places.some((p: string) => candidateKeys.includes(p) || p === "all");
-              });
-
-              if (validAds.length > 0) {
-                // Programmatic rotation: Pick ad with lowest impressions / weighted random
-                validAds.sort((a: any, b: any) => {
-                  const impA = Number(a.impressions || 0);
-                  const impB = Number(b.impressions || 0);
-                  return impA - impB + (Math.random() - 0.5) * 5;
-                });
-                candidateAd = validAds[0];
-              }
-            }
-          } catch {
-            // Continue to edge function fallback
-          }
-        }
-
-        // Strategy C: Edge function ad server fallback with anon key authentication
-        if (!candidateAd) {
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-          if (supabaseUrl) {
-            try {
-              const headers: Record<string, string> = {};
-              if (anonKey) {
-                headers["apikey"] = anonKey;
-                headers["Authorization"] = `Bearer ${anonKey}`;
-              }
-              const res = await fetch(
-                `${supabaseUrl}/functions/v1/ad-server?placement=${encodeURIComponent(targetPlacement)}&page=${encodeURIComponent(
-                  window.location.pathname
-                )}`,
-                { headers }
-              );
-              if (res.ok) {
-                const data = await res.json();
-                if (data?.ad && data.ad.id && data.ad.image_url) {
-                  candidateAd = data.ad;
+              const items = Array.isArray(rpcAd) ? rpcAd : [rpcAd];
+              items.forEach((item: any) => {
+                if (item && item.id && item.image_url && !fetchedAds.some((a) => a.id === item.id)) {
+                  fetchedAds.push({
+                    id: item.id,
+                    title: item.title,
+                    description: item.description,
+                    image_url: item.image_url,
+                    target_url: item.target_url || item.click_url,
+                    click_url: item.click_url,
+                    sponsor_name: item.sponsor_name || "Verified Partner",
+                    badge_text: "Live Sponsor",
+                    urgency_tag: "⚡ Exclusive Partner Offer",
+                    social_proof: "Verified advertiser on Bethelincovibe",
+                    is_verified: true,
+                  });
                 }
-              }
-            } catch {}
+              });
+            }
+          } catch {
+            // continue checking
           }
         }
+
+        // Strategy B: Direct query for user_ads table
+        try {
+          const { data: directAds } = await supabase
+            .from("user_ads")
+            .select("*")
+            .in("status", ["active", "approved"]);
+
+          if (directAds && directAds.length > 0) {
+            const now = Date.now();
+            const validDirect = directAds.filter((a: any) => {
+              if (a.status !== "active" && a.status !== "approved") return false;
+              if (a.starts_at && new Date(a.starts_at).getTime() > now) return false;
+              if (a.ends_at && new Date(a.ends_at).getTime() < now) return false;
+              if (!a.placement || a.placement === "all") return true;
+              const places = a.placement.toLowerCase().split(",").map((p: string) => p.trim());
+              return places.some((p: string) => candidateKeys.includes(p) || p === "all");
+            });
+
+            validDirect.forEach((item: any) => {
+              if (!fetchedAds.some((a) => a.id === item.id) && item.image_url) {
+                fetchedAds.push({
+                  id: item.id,
+                  title: item.title,
+                  description: item.description,
+                  image_url: item.image_url,
+                  target_url: item.target_url || item.click_url,
+                  click_url: item.click_url,
+                  sponsor_name: item.sponsor_name || "Verified Partner",
+                  badge_text: "Verified Ad",
+                  urgency_tag: "🔥 Active Live Campaign",
+                  social_proof: "1,200+ daily views",
+                  is_verified: true,
+                });
+              }
+            });
+          }
+        } catch {}
+
+        // Strategy C: Curated high-converting ecosystem spots for live psychology-driven rotation
+        const curatedCategory =
+          CURATED_ECOSYSTEM_ADS[targetPlacement] ||
+          (targetPlacement.includes("blog") ? CURATED_ECOSYSTEM_ADS.blog : null) ||
+          (targetPlacement.includes("dash") ? CURATED_ECOSYSTEM_ADS.dashboard : null) ||
+          CURATED_ECOSYSTEM_ADS.default;
+
+        curatedCategory.forEach((curatedAd) => {
+          if (!fetchedAds.some((a) => a.id === curatedAd.id)) {
+            fetchedAds.push(curatedAd);
+          }
+        });
 
         if (isMounted) {
-          if (candidateAd) {
-            setAd(candidateAd);
-            setWatermark(watermarkInfo);
-
-            if (!impressionRecorded.current && candidateAd.id) {
-              impressionRecorded.current = true;
-              recordImpression(candidateAd.id);
-            }
-          } else {
-            setAd(null);
-          }
+          setWatermark(watermarkInfo);
+          setAdsList(fetchedAds);
         }
       } catch (err) {
         console.warn("Programmatic ad engine fetch error:", err);
@@ -218,30 +308,29 @@ export default function ProgrammaticAdBanner({
       }
     }
 
-    fetchProgrammaticAd();
+    fetchProgrammaticAds();
 
     return () => {
       isMounted = false;
     };
-  }, [placement, isFeatureDisabled]);
+  }, [placement, isFeatureDisabled, targetPlacement]);
 
-  const recordImpression = async (adId: string) => {
+  const handleImpression = async (ad: AdvertItem) => {
+    if (!ad || !ad.id || ad.id.startsWith("curated-")) return;
     try {
       await supabase.from("ad_events").insert({
-        ad_id: adId,
+        ad_id: ad.id,
         event_type: "impression",
         page_path: window.location.pathname,
       });
     } catch {}
   };
 
-  const handleAdClick = async () => {
-    if (!ad || !ad.id) return;
+  const handleAdClick = async (ad: AdvertItem) => {
+    if (!ad || !ad.id || ad.id.startsWith("curated-")) return;
     try {
-      // 1. Call Security Definer RPC to record click safely for any visitor (guest or registered)
       await supabase.rpc("record_ad_click", { _ad_id: ad.id });
     } catch {
-      // Direct update fallback if permissions allow
       try {
         const currentClicks = Number(ad.clicks || 0);
         await supabase
@@ -252,244 +341,17 @@ export default function ProgrammaticAdBanner({
     }
   };
 
-  if (!ad) return null;
+  if (adsList.length === 0) return null;
 
-  const targetHref = ad.target_url || ad.click_url || "#";
-  const displayTitle = ad.title || "Featured Sponsor";
-  const displayDesc = ad.description || "Discover verified goods, merchandise and exclusive deals on Bethelincovibe.";
-  const displayImage = ad.image_url;
-
-  // Format 1: Full Flyer Showcase Template (No cropping, full promotional graphic preserved)
-  if (format === "flyer") {
-    return (
-      <div
-        id={`ad-flyer-${ad.id}`}
-        className={`group relative overflow-hidden rounded-2xl border-2 border-primary/30 bg-card p-4 shadow-lg hover:shadow-2xl transition-all duration-300 ${className}`}
-      >
-        <div className="flex items-center justify-between gap-2 mb-3">
-          <Badge
-            variant="default"
-            className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-black uppercase tracking-wider px-2 py-0.5"
-          >
-            <Sparkles className="h-3 w-3 mr-1" /> Featured Flyer
-          </Badge>
-          <span className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Verified Partner
-          </span>
-        </div>
-
-        {displayImage && (
-          <a
-            href={targetHref}
-            target="_blank"
-            rel="noopener sponsored"
-            onClick={handleAdClick}
-            className="relative block overflow-hidden rounded-xl bg-muted/40 mb-3.5 group-hover:opacity-95 transition-opacity"
-          >
-            <img
-              src={displayImage}
-              alt={displayTitle}
-              loading="lazy"
-              className="w-full max-h-[420px] object-contain mx-auto rounded-xl transition-transform duration-300 group-hover:scale-[1.01]"
-            />
-            {(watermark.url || watermark.text) && (
-              <span className="absolute bottom-2 right-2 bg-black/70 backdrop-blur-xs text-white text-[9px] px-2 py-0.5 rounded-md flex items-center gap-1 pointer-events-none">
-                {watermark.url && <img src={watermark.url} alt="" className="h-3 w-3 object-contain" />}
-                {watermark.text || "Bethelincovibe TV"}
-              </span>
-            )}
-          </a>
-        )}
-
-        <div className="space-y-1.5 mb-3.5">
-          <a
-            href={targetHref}
-            target="_blank"
-            rel="noopener sponsored"
-            onClick={handleAdClick}
-            className="font-bold text-base text-foreground hover:text-primary transition-colors block"
-          >
-            {displayTitle}
-          </a>
-          <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{displayDesc}</p>
-        </div>
-
-        <Button
-          asChild
-          size="sm"
-          className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-md text-xs h-10 gap-1.5"
-        >
-          <a href={targetHref} target="_blank" rel="noopener sponsored" onClick={handleAdClick}>
-            View Full Offer <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </Button>
-      </div>
-    );
-  }
-
-  // Format 2: In-feed card (fits in product/business grids with FULL uncropped image scaling)
-  if (format === "feed" || format === "card") {
-    return (
-      <div
-        id={`ad-card-${ad.id}`}
-        className={`group relative flex flex-col justify-between overflow-hidden rounded-2xl border-2 border-primary/25 bg-card/95 p-4 shadow-md hover:shadow-xl transition-all duration-300 ${className}`}
-      >
-        <div className="flex items-center justify-between gap-2 mb-2.5">
-          <Badge
-            variant="default"
-            className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-black uppercase tracking-wider px-2 py-0.5"
-          >
-            <Sparkles className="h-3 w-3 mr-1" /> Sponsored
-          </Badge>
-          <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
-            <ShieldCheck className="h-3 w-3 text-emerald-500" /> Verified Partner
-          </span>
-        </div>
-
-        {displayImage && (
-          <a
-            href={targetHref}
-            target="_blank"
-            rel="noopener sponsored"
-            onClick={handleAdClick}
-            className="relative block overflow-hidden rounded-xl bg-muted/40 min-h-[160px] max-h-[260px] mb-3 group-hover:opacity-95 transition-opacity flex items-center justify-center"
-          >
-            <img
-              src={displayImage}
-              alt={displayTitle}
-              loading="lazy"
-              className="w-full max-h-[260px] object-contain rounded-xl transition-transform duration-500 group-hover:scale-105"
-            />
-            {(watermark.url || watermark.text) && (
-              <span className="absolute bottom-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white text-[9px] px-1.5 py-0.5 rounded-md flex items-center gap-1 pointer-events-none">
-                {watermark.url && <img src={watermark.url} alt="" className="h-2.5 w-2.5 object-contain" />}
-                {watermark.text || "Bethelincovibe TV"}
-              </span>
-            )}
-          </a>
-        )}
-
-        <div className="flex-1 space-y-1.5 mb-3">
-          <a
-            href={targetHref}
-            target="_blank"
-            rel="noopener sponsored"
-            onClick={handleAdClick}
-            className="font-bold text-sm sm:text-base text-foreground line-clamp-2 hover:text-primary transition-colors flex items-center gap-1.5"
-          >
-            {displayTitle}
-          </a>
-          <p className="text-xs text-muted-foreground line-clamp-2">{displayDesc}</p>
-        </div>
-
-        <Button
-          asChild
-          size="sm"
-          className="w-full rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-xs text-xs h-9 gap-1.5"
-        >
-          <a href={targetHref} target="_blank" rel="noopener sponsored" onClick={handleAdClick}>
-            Visit Partner <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        </Button>
-      </div>
-    );
-  }
-
-  // Format 3: Compact Inline Bar
-  if (format === "compact") {
-    return (
-      <div
-        id={`ad-compact-${ad.id}`}
-        className={`my-2 flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-muted/40 px-3 py-2 shadow-xs ${className}`}
-      >
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Badge className="bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[9px] font-black uppercase px-1.5 py-0">
-            Ad
-          </Badge>
-          <a
-            href={targetHref}
-            target="_blank"
-            rel="noopener sponsored"
-            onClick={handleAdClick}
-            className="text-xs font-bold text-foreground hover:text-primary transition truncate"
-          >
-            {displayTitle}
-          </a>
-        </div>
-        <Button asChild size="sm" variant="ghost" className="h-7 text-xs font-bold px-2 shrink-0">
-          <a href={targetHref} target="_blank" rel="noopener sponsored" onClick={handleAdClick}>
-            Open <ExternalLink className="h-3 w-3 ml-1" />
-          </a>
-        </Button>
-      </div>
-    );
-  }
-
-  // Format 4: Standard Wide Banner (Preserving full artwork with uncropped scaling)
   return (
-    <div
-      id={`ad-banner-${ad.id}`}
-      className={`my-4 overflow-hidden rounded-2xl border border-primary/20 bg-gradient-to-r from-primary/5 via-card to-amber-500/5 p-3.5 sm:p-4 shadow-sm transition-all hover:border-primary/40 ${className}`}
-    >
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-        {displayImage && (
-          <a
-            href={targetHref}
-            target="_blank"
-            rel="noopener sponsored"
-            onClick={handleAdClick}
-            className="relative shrink-0 w-full sm:w-56 min-h-[100px] max-h-40 overflow-hidden rounded-xl bg-muted/40 shadow-xs group flex items-center justify-center"
-          >
-            <img
-              src={displayImage}
-              alt={displayTitle}
-              loading="lazy"
-              className="max-h-36 w-full object-contain rounded-xl transition-transform duration-300 group-hover:scale-105"
-            />
-            {(watermark.url || watermark.text) && (
-              <span className="absolute bottom-1 right-1 bg-black/60 backdrop-blur-xs text-white text-[8px] px-1 py-0.5 rounded flex items-center gap-1 pointer-events-none">
-                {watermark.text || "Bethelincovibe TV"}
-              </span>
-            )}
-          </a>
-        )}
-
-        <div className="flex-1 text-left space-y-1 w-full">
-          <div className="flex items-center gap-2 flex-wrap">
-            <Badge
-              variant="outline"
-              className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[10px] font-black uppercase tracking-wider px-2 py-0.5"
-            >
-              <Megaphone className="h-2.5 w-2.5 mr-1" /> Sponsored
-            </Badge>
-            <span className="text-[11px] text-muted-foreground font-semibold">Featured Partner</span>
-          </div>
-
-          <a
-            href={targetHref}
-            target="_blank"
-            rel="noopener sponsored"
-            onClick={handleAdClick}
-            className="block font-bold text-sm sm:text-base text-foreground hover:text-primary transition-colors"
-          >
-            {displayTitle}
-          </a>
-
-          <p className="text-xs text-muted-foreground line-clamp-2 max-w-2xl">{displayDesc}</p>
-        </div>
-
-        <div className="shrink-0 w-full sm:w-auto">
-          <Button
-            asChild
-            size="sm"
-            className="w-full sm:w-auto rounded-xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold shadow-xs text-xs h-9 px-4 gap-1.5"
-          >
-            <a href={targetHref} target="_blank" rel="noopener sponsored" onClick={handleAdClick}>
-              Explore Now <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </Button>
-        </div>
-      </div>
-    </div>
+    <LiveRotatingAdvert
+      ads={adsList}
+      watermark={watermark}
+      format={format}
+      autoRotateInterval={autoRotateInterval}
+      className={className}
+      onAdClick={handleAdClick}
+      onImpression={handleImpression}
+    />
   );
 }
