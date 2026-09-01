@@ -14,6 +14,10 @@ import {
   saveLocalLedger,
   WalletLedgerEntry,
 } from "./promotionSettlementService";
+import {
+  notifyReviewSubmitted,
+  notifyDisputeResolved,
+} from "./promotionNotificationService";
 
 export interface PromotionReview {
   id: string;
@@ -345,6 +349,18 @@ export async function submitOrderReview(
     saveLocalOrders(allOrders);
   }
 
+  // Dispatch review notification to promoter
+  const targetPromoterId = promoterUserId || (newReview as any).promoter_user_id || order.promoter_id;
+  if (targetPromoterId) {
+    notifyReviewSubmitted({
+      id: order.id,
+      order_reference: order.order_reference,
+      promoter_user_id: targetPromoterId,
+      rating: newReview.rating,
+      reviewerName: (newReview.business as any)?.business_name || (newReview.business as any)?.display_name || "Business Client",
+    }).catch((err) => console.warn("Notice: review notification dispatch notice", err));
+  }
+
   return {
     ok: true,
     review: newReview,
@@ -609,6 +625,17 @@ export async function resolveOrderDispute(
       };
     }
 
+    // Dispatch dispute resolved notification safely
+    const promoterUserId = order.promoter?.user_id || order.promoter_id;
+    notifyDisputeResolved({
+      id: order.id,
+      order_reference: order.order_reference,
+      promoter_user_id: promoterUserId,
+      business_user_id: order.business_user_id,
+      resolution: "released_to_promoter",
+      adminNotes: input.adminNotes || input.admin_notes,
+    }).catch((err) => console.warn("Notice: dispute resolved notification notice", err));
+
     return {
       ok: true,
       resolution: "release_to_promoter",
@@ -718,6 +745,17 @@ export async function resolveOrderDispute(
       allOrders[orderIdx] = { ...allOrders[orderIdx], ...order };
       saveLocalOrders(allOrders);
     }
+
+    // Dispatch dispute resolved notification safely
+    const promoterUserId = order.promoter?.user_id || order.promoter_id;
+    notifyDisputeResolved({
+      id: order.id,
+      order_reference: order.order_reference,
+      promoter_user_id: promoterUserId,
+      business_user_id: order.business_user_id,
+      resolution: "refunded_to_business",
+      adminNotes: input.adminNotes || input.admin_notes,
+    }).catch((err) => console.warn("Notice: dispute resolved notification notice", err));
 
     return {
       ok: true,

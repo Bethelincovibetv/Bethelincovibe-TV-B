@@ -99,18 +99,23 @@ export async function dispatchPromotionNotification(input: {
 
     // 2. Synchronize to Supabase user_notifications table if available
     try {
-      await supabase.from("user_notifications").insert({
-        id: notificationId,
-        user_id: input.userId,
-        title: input.title,
-        body: input.body,
-        url: input.url,
-        type: input.type || "order",
-        is_read: false,
-        created_at: nowIso,
-      });
+      if (supabase && typeof supabase.from === "function") {
+        const query = supabase.from("user_notifications");
+        if (query && typeof query.insert === "function") {
+          await query.insert({
+            id: notificationId,
+            user_id: input.userId,
+            title: input.title,
+            body: input.body,
+            url: input.url,
+            type: input.type || "order",
+            is_read: false,
+            created_at: nowIso,
+          });
+        }
+      }
     } catch (dbErr) {
-      console.warn("Supabase user_notifications write notice:", dbErr);
+      // Non-blocking write
     }
 
     return { success: true, notification };

@@ -1,7 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, FileText, Building2, FolderTree, ArrowLeft, Tv, Image as ImageIcon,
-  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server, MessageSquare, ShieldCheck, Package, Coins,
+  Settings, Users, Mail, Bell, Bot, Sparkles, Code2, BarChart3, Menu, MoreHorizontal, Search, X, ToggleLeft, Megaphone, Music, GraduationCap, Rocket, ChevronLeft, ShoppingCart, Send, Server, MessageSquare, ShieldCheck, Package, Coins, Landmark, Scale,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,7 @@ const allLinks = [
 
   { to: "/admin/businesses", label: "Business Hub", icon: Building2, group: "Directory", feature: "businesses" },
   { to: "/admin/community-verification", label: "WhatsApp Communities", icon: ShieldCheck, group: "Directory", feature: null },
+  { to: "/admin/promotion-disputes", label: "Promotion Disputes", icon: Scale, group: "Directory", feature: null },
   { to: "/admin/verification", label: "Verification (Blue Tick)", icon: ShieldCheck, group: "Directory", feature: "businesses" },
   { to: "/admin/featured", label: "Featured Promos", icon: Sparkles, group: "Directory", feature: "businesses" },
   { to: "/admin/featured-products", label: "Marketplace Products", icon: Package, group: "Directory", feature: "businesses" },
@@ -44,6 +45,7 @@ const allLinks = [
   { to: "/admin/contacts", label: "Messages", icon: Mail, group: "People", feature: null },
   { to: "/admin/notifications", label: "Notifications", icon: Bell, group: "People", feature: null },
 
+  { to: "/admin/promotion-treasury", label: "Promotion Treasury", icon: Landmark, group: "System", feature: null },
   { to: "/admin/pricing", label: "Feature Pricing (₦)", icon: Coins, group: "System", feature: null },
   { to: "/admin/ads", label: "Ad Network", icon: Megaphone, group: "System", feature: "advertise" },
   { to: "/admin/amazon", label: "Amazon Affiliate", icon: ShoppingCart, group: "System", feature: "amazon_affiliate" },

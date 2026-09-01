@@ -2,6 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PromotionPackage, getPackageById } from "./packageService";
 import { WhatsAppCommunity, getCommunityById } from "./communityService";
 import { PromoterProfile, getPromoterProfileById, getPromoterProfileByUserId } from "./promoterService";
+import { notifyOrderCreated } from "./promotionNotificationService";
 
 export type PromotionOrderStatus =
   | "pending_payment"
@@ -281,6 +282,19 @@ export async function createPromotionOrder(
   const existingOrders = getLocalOrders();
   existingOrders.unshift(localOrder);
   saveLocalOrders(existingOrders);
+
+  // Dispatch order created notification to promoter
+  const promoterUserId = promoter?.user_id || localOrder.promoter_id;
+  if (promoterUserId) {
+    notifyOrderCreated({
+      id: localOrder.id,
+      order_reference: localOrder.order_reference,
+      promoter_user_id: promoterUserId,
+      business_user_id: localOrder.business_user_id,
+      package_title: pkg.title,
+      amount: localOrder.amount,
+    }).catch((err) => console.warn("Notice: order created notification dispatch notice", err));
+  }
 
   return { order: localOrder, error: null };
 }

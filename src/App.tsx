@@ -125,6 +125,7 @@ import BusinessPromotionOrderDetail from "./pages/BusinessPromotionOrderDetail";
 import PromoterPromotionOrders from "./pages/PromoterPromotionOrders";
 import PromoterPromotionOrderDetail from "./pages/PromoterPromotionOrderDetail";
 import AdminPromotionDisputes from "./pages/admin/AdminPromotionDisputes";
+import AdminPromotionTreasury from "./pages/admin/AdminPromotionTreasury";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -345,6 +346,10 @@ const App = () => (
               <Route path="promoter-verification" element={<AdminCommunityVerification />} />
               <Route path="promotion-disputes" element={<AdminPromotionDisputes />} />
               <Route path="disputes" element={<AdminPromotionDisputes />} />
+              <Route path="promotion-treasury" element={<AdminPromotionTreasury />} />
+              <Route path="treasury" element={<AdminPromotionTreasury />} />
+              <Route path="promotion-payouts" element={<AdminPromotionTreasury />} />
+              <Route path="payouts" element={<AdminPromotionTreasury />} />
               <Route path="whatsapp-engine" element={<AdminWhatsAppEngine />} />
               <Route path="contacts" element={<AdminContacts />} />
               <Route path="settings" element={<AdminSettings />} />

@@ -5,6 +5,7 @@ import {
 } from "./promotionOrderService";
 import { getPackageById } from "./packageService";
 import { getCommunityById } from "./communityService";
+import { notifyPaymentVerified } from "./promotionNotificationService";
 
 export interface InitPaymentResult {
   ok: boolean;
@@ -309,6 +310,18 @@ export async function verifyPromotionOrderPayment(
   if (targetIndex >= 0) {
     allOrders[targetIndex] = updatedOrder;
     saveLocalOrders(allOrders);
+  }
+
+  // Dispatch payment verified notification to promoter
+  const promoterUserId = updatedOrder.promoter?.user_id || updatedOrder.promoter_id;
+  if (promoterUserId) {
+    notifyPaymentVerified({
+      id: updatedOrder.id,
+      order_reference: updatedOrder.order_reference,
+      promoter_user_id: promoterUserId,
+      amount: updatedOrder.amount,
+      package_title: updatedOrder.package?.title || "Promotion Package",
+    }).catch((err) => console.warn("Notice: payment verified notification notice", err));
   }
 
   return {

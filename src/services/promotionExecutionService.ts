@@ -6,6 +6,11 @@ import {
 } from "./promotionOrderService";
 import { getPackageById } from "./packageService";
 import { getPromoterProfileByUserId, getPromoterProfileById } from "./promoterService";
+import {
+  notifyProofSubmitted,
+  notifyRevisionRequested,
+  notifyDisputeOpened,
+} from "./promotionNotificationService";
 
 export interface DeliveryProofSubmission {
   id: string;
@@ -603,6 +608,14 @@ export async function submitDeliveryProof(
     // DB sync error fallback
   }
 
+  // Dispatch notification to business owner
+  notifyProofSubmitted({
+    id: order.id,
+    order_reference: order.order_reference,
+    business_user_id: order.business_user_id,
+    package_title: order.package?.title || "Promotion Package",
+  }).catch((err) => console.warn("Notice: proof submitted notification notice", err));
+
   return { order, proof: newProof, error: null };
 }
 
@@ -772,6 +785,26 @@ export async function reviewDeliveryProof(
       .eq("id", order.id);
   } catch {
     // DB sync error fallback
+  }
+
+  // Dispatch notifications based on review decision
+  const promoterUserId = order.promoter?.user_id || order.promoter_id;
+  if (decision === "request_revision" && promoterUserId) {
+    notifyRevisionRequested({
+      id: order.id,
+      order_reference: order.order_reference,
+      promoter_user_id: promoterUserId,
+      reason: reviewData.reason?.trim(),
+    }).catch((err) => console.warn("Notice: revision requested notification notice", err));
+  } else if (decision === "dispute" && promoterUserId) {
+    notifyDisputeOpened({
+      id: order.id,
+      order_reference: order.order_reference,
+      promoter_user_id: promoterUserId,
+      business_user_id: order.business_user_id,
+      reason: reviewData.reason?.trim(),
+      opened_by: "business",
+    }).catch((err) => console.warn("Notice: dispute opened notification notice", err));
   }
 
   return { order, error: null };
