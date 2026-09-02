@@ -3,6 +3,7 @@ import App from "./App.tsx";
 import "./index.css";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { installBusinessGalleryLightbox } from "./lib/businessGalleryLightbox";
+import { installAIMatchFloatingGuard } from "./lib/aiMatchFloatingGuard";
 
 // Gracefully handle benign third-party or network rejections without crashing React
 if (typeof window !== "undefined") {
@@ -44,6 +45,8 @@ if (typeof window !== "undefined") {
 
   // Business directory gallery photos open inside Bethelincovibe TV instead of navigating away.
   installBusinessGalleryLightbox();
+  // Business pages stay distraction-free; elsewhere the AI matcher can be moved by the user.
+  installAIMatchFloatingGuard();
 }
 
 createRoot(document.getElementById("root")!).render(
