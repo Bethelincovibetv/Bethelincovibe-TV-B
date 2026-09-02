@@ -10,17 +10,17 @@ function installStyles() {
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
-    #${ROOT_ID}{position:fixed;inset:0;z-index:99999;display:none;background:rgba(5,8,18,.94);backdrop-filter:blur(14px);align-items:center;justify-content:center;padding:18px}
+    #${ROOT_ID}{position:fixed;inset:0;z-index:99999;display:none;background:rgba(5,8,18,.94);backdrop-filter:blur(14px);align-items:center;justify-content:center;padding:18px;touch-action:none}
     #${ROOT_ID}.is-open{display:flex}
     #${ROOT_ID} .bicv-shell{position:relative;width:min(1100px,100%);height:min(92vh,860px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px}
     #${ROOT_ID} .bicv-image-wrap{position:relative;width:100%;height:calc(100% - 58px);display:flex;align-items:center;justify-content:center}
     #${ROOT_ID} img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;border-radius:18px;box-shadow:0 25px 80px rgba(0,0,0,.55)}
-    #${ROOT_ID} .bicv-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
+    #${ROOT_ID} .bicv-top{position:absolute;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;justify-content:space-between;pointer-events:none}
     #${ROOT_ID} .bicv-brand{pointer-events:auto;display:flex;align-items:center;gap:8px;color:#fff;font:700 12px/1 system-ui,sans-serif;background:rgba(15,23,42,.72);border:1px solid rgba(255,255,255,.14);padding:9px 12px;border-radius:999px;box-shadow:0 8px 30px rgba(0,0,0,.2)}
     #${ROOT_ID} .bicv-brand-dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#e67e22,#8b5cf6);box-shadow:0 0 14px rgba(230,126,34,.65)}
-    #${ROOT_ID} button{border:0;cursor:pointer;color:#fff;background:rgba(15,23,42,.78);border:1px solid rgba(255,255,255,.14);width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:700 22px/1 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.25)}
+    #${ROOT_ID} button{border:0;cursor:pointer;color:#fff;background:rgba(15,23,42,.88);border:1px solid rgba(255,255,255,.18);width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font:700 22px/1 system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.25);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
     #${ROOT_ID} button:hover{background:rgba(255,255,255,.16)}
-    #${ROOT_ID} .bicv-close{pointer-events:auto}
+    #${ROOT_ID} .bicv-close{pointer-events:auto;position:relative;z-index:21}
     #${ROOT_ID} .bicv-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:2}
     #${ROOT_ID} .bicv-prev{left:10px}.bicv-next{right:10px}
     #${ROOT_ID} .bicv-caption{width:100%;min-height:34px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.9);font:600 13px/1.35 system-ui,sans-serif;text-align:center;padding:0 54px}
@@ -54,6 +54,7 @@ function ensureRoot() {
   document.body.appendChild(root);
 
   root.querySelector(".bicv-close")?.addEventListener("click", closeViewer);
+  root.querySelector(".bicv-close")?.addEventListener("pointerup", closeViewer);
   root.querySelector(".bicv-prev")?.addEventListener("click", () => show(index - 1));
   root.querySelector(".bicv-next")?.addEventListener("click", () => show(index + 1));
   root.addEventListener("click", (event) => {
