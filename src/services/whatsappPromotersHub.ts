@@ -18,9 +18,7 @@ async function request<T>(path: string, method: "GET" | "POST" = "GET", body?: u
   return data as T;
 }
 
-/** Secure browser-side client for the live WhatsApp Promoters Hub.
- * Hub credentials are intentionally never exposed to the browser.
- */
+/** Secure browser-side client for the live WhatsApp Promoters Hub. */
 export const whatsappPromotersHub = {
   health: () => request<HubHealth>("/api/health"),
   getPromoter: () => request("/api/promoters/me"),
