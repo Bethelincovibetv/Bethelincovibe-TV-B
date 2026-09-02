@@ -16,9 +16,47 @@ const SUPABASE_PUBLISHABLE_KEY =
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// Safe storage provider that gracefully handles iframe/sandbox/cross-origin DOMExceptions
+const memoryStorage = new Map<string, string>();
+
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        return window.localStorage.getItem(key);
+      }
+    } catch {
+      // Access denied or sandboxed
+    }
+    return memoryStorage.get(key) ?? null;
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(key, value);
+        return;
+      }
+    } catch {
+      // Access denied or sandboxed
+    }
+    memoryStorage.set(key, value);
+  },
+  removeItem: (key: string): void => {
+    try {
+      if (typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.removeItem(key);
+        return;
+      }
+    } catch {
+      // Access denied or sandboxed
+    }
+    memoryStorage.delete(key);
+  },
+};
+
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: localStorage,
+    storage: safeStorage,
     persistSession: true,
     autoRefreshToken: true,
   },

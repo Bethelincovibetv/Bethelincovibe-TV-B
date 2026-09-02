@@ -156,8 +156,7 @@ export const useFeatureFlags = () => useContext(Ctx);
 export const useFeature = (key: FeatureKey) => useContext(Ctx).flags[key];
 
 export function FeatureGate({ feature, children }: { feature: FeatureKey; children: ReactNode }) {
-  const { flags, loading } = useFeatureFlags();
-  if (loading) return null;
-  if (!flags[feature]) return <Navigate to="/" replace />;
+  const { flags } = useFeatureFlags();
+  if (flags[feature] === false) return <Navigate to="/" replace />;
   return <>{children}</>;
 }

@@ -23,6 +23,7 @@ import AdsterraAd from "@/components/AdsterraAd";
 import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
 import { absUrl, ogImageUrl, PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 import SEO from "@/components/SEO";
+import PostRequestBanner from "@/components/requests/PostRequestBanner";
 
 type Sort = "recommended" | "newest" | "az" | "za";
 type ViewMode = "grid" | "list" | "map";
@@ -230,6 +231,9 @@ export default function BusinessDirectory() {
           </div>
           <Building2 className="absolute -bottom-6 -right-6 h-44 w-44 opacity-10" aria-hidden="true" />
         </section>
+
+        {/* Instant Matchmaking Request Banner */}
+        <PostRequestBanner variant="compact" className="mb-5" />
 
         <AdsterraAd slot="directory" />
 

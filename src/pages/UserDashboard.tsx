@@ -16,6 +16,7 @@ import ProfileCompletionCard from "@/components/ProfileCompletionCard";
 import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
+import PostRequestBanner from "@/components/requests/PostRequestBanner";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -174,6 +175,8 @@ export default function UserDashboard() {
 
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
+    { to: "/dashboard/my-requests", label: "My Requests", icon: Sparkles, color: "from-indigo-600 via-purple-600 to-pink-600", show: true },
+    { to: "/dashboard/opportunities", label: "Opportunities & Bids", icon: Briefcase, color: "from-amber-500 via-orange-500 to-rose-600", show: true },
     { to: "/dashboard/promoter/profile", label: "Promoter Hub", icon: Smartphone, color: "from-emerald-600 via-teal-600 to-green-600", show: true },
     { to: "/dashboard/promoter/earnings", label: "Promoter Earnings", icon: Wallet, color: "from-emerald-500 via-green-600 to-teal-700", show: true },
     { to: "/dashboard/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-green-600", show: flags.whatsapp_engine },
@@ -301,6 +304,9 @@ export default function UserDashboard() {
           profile={profile}
           onProfileUpdated={fetchUserData}
         />
+
+        {/* Smart Opportunity & Request Matcher Banner */}
+        <PostRequestBanner variant="compact" />
 
         {/* Quick Link Tile Grid — 3D Glossy App Style */}
         <div className="grid grid-cols-2 min-[400px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3.5">

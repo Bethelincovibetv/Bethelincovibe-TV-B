@@ -51,12 +51,16 @@ export default function CustomCodeInjector() {
     document.querySelectorAll('[data-injection^="cci-"]').forEach((n) => n.remove());
 
     rules.forEach((r: any) => {
-      if (!matchRoute(r.route_pattern, pathname)) return;
-      const target = r.location === "body" ? document.body : document.head;
-      if (!target || !r.code) return;
-      // Block Adsterra ad scripts
-      if (/adsterra|alwingulla|highperformancegate/i.test(r.code)) return;
-      injectHTML(r.code, target, `cci-${r.id}`);
+      try {
+        if (!matchRoute(r.route_pattern, pathname)) return;
+        const target = r.location === "body" ? document.body : document.head;
+        if (!target || !r.code) return;
+        // Block Adsterra ad scripts
+        if (/adsterra|alwingulla|highperformancegate|popunder/i.test(r.code)) return;
+        injectHTML(r.code, target, `cci-${r.id}`);
+      } catch (err) {
+        console.warn("Failed to inject custom code item:", err);
+      }
     });
   }, [rules, pathname]);
 

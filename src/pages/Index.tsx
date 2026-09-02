@@ -18,6 +18,7 @@ import AmazonProductGrid from "@/components/AmazonProductGrid";
 import CategoryTile from "@/components/directory/CategoryTile";
 import ProductCard from "@/components/directory/ProductCard";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
+import PostRequestBanner from "@/components/requests/PostRequestBanner";
 
 import iconStartup3D from "@/assets/images/icon_startup_guide_3d_1787553506436.jpg";
 import iconBusinessDir3D from "@/assets/images/icon_business_dir_3d_1787553523151.jpg";
@@ -178,6 +179,11 @@ export default function Index() {
         <div className="container mx-auto px-4 py-6">
           <TVFrame placement="home" />
         </div>
+      </section>
+
+      {/* Smart Request Matchmaker Banner */}
+      <section className="container mx-auto px-4 py-6">
+        <PostRequestBanner variant="hero" />
       </section>
 
       {/* 3. Featured Businesses Slider */}
