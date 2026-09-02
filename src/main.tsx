@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import ErrorBoundary from "./components/ErrorBoundary";
+import { installBusinessGalleryLightbox } from "./lib/businessGalleryLightbox";
 
 // Gracefully handle benign third-party or network rejections without crashing React
 if (typeof window !== "undefined") {
@@ -40,6 +41,9 @@ if (typeof window !== "undefined") {
     const msg = (event.message || event.error?.message || "").toLowerCase();
     if (isBenignError(msg)) { event.preventDefault?.(); event.stopPropagation?.(); }
   }, true);
+
+  // Business directory gallery photos open inside Bethelincovibe TV instead of navigating away.
+  installBusinessGalleryLightbox();
 }
 
 createRoot(document.getElementById("root")!).render(
