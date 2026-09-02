@@ -38,54 +38,10 @@ export interface AdminCommunityQueueItem extends WhatsAppCommunity {
   verifications?: CommunityVerificationAudit[];
 }
 
-const VERIFICATIONS_STORAGE_KEY_PREFIX = "bincovibe_community_verifications_";
-const COMMUNITIES_STORAGE_KEY_PREFIX = "bincovibe_whatsapp_communities_";
-const PROMOTER_STORAGE_KEY_PREFIX = "bincovibe_promoter_profile_";
 
-function isSchemaMissingError(error: any): boolean {
-  if (!error) return false;
-  const code = String(error.code || "");
-  const msg = String(error.message || "").toLowerCase();
-  const hint = String(error.hint || "").toLowerCase();
-  const details = String(error.details || "").toLowerCase();
-  return (
-    code === "PGRST205" ||
-    code === "42P01" ||
-    code === "PGRST116" ||
-    code === "PGRST202" ||
-    msg.includes("schema cache") ||
-    msg.includes("could not find the table") ||
-    msg.includes("could not find the function") ||
-    (msg.includes("relation") && msg.includes("does not exist")) ||
-    hint.includes("perhaps you meant") ||
-    details.includes("table")
-  );
-}
 
-function getLocalAudits(communityId: string): CommunityVerificationAudit[] {
-  try {
-    const raw = localStorage.getItem(`${VERIFICATIONS_STORAGE_KEY_PREFIX}${communityId}`);
-    if (raw) {
-      return JSON.parse(raw);
-    }
-  } catch (e) {
-    // ignore
-  }
-  return [];
-}
-
-function saveLocalAudit(audit: CommunityVerificationAudit): void {
-  try {
-    const list = getLocalAudits(audit.community_id);
-    const updated = [audit, ...list];
-    localStorage.setItem(
-      `${VERIFICATIONS_STORAGE_KEY_PREFIX}${audit.community_id}`,
-      JSON.stringify(updated)
-    );
-  } catch (e) {
-    // ignore
-  }
-}
+function getLocalAudits(_communityId: string): CommunityVerificationAudit[] { return []; }
+function saveLocalAudit(_audit: CommunityVerificationAudit): void {}
 
 function getAllLocalCommunitiesWithPromoters(): AdminCommunityQueueItem[] {
   const result: AdminCommunityQueueItem[] = [];
@@ -126,36 +82,7 @@ function getAllLocalCommunitiesWithPromoters(): AdminCommunityQueueItem[] {
   return result;
 }
 
-function updateLocalCommunityStatus(
-  communityId: string,
-  newStatus: VerificationStatus,
-  isPublished: boolean,
-  rejectionReason: string | null = null,
-  verifiedAt: string | null = null
-): void {
-  try {
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(COMMUNITIES_STORAGE_KEY_PREFIX)) {
-        const list: WhatsAppCommunity[] = JSON.parse(localStorage.getItem(key) || "[]");
-        const idx = list.findIndex((c) => c.id === communityId);
-        if (idx >= 0) {
-          list[idx] = {
-            ...list[idx],
-            verification_status: newStatus,
-            is_published: isPublished,
-            rejection_reason: rejectionReason,
-            verified_at: verifiedAt !== undefined ? verifiedAt : list[idx].verified_at,
-            updated_at: new Date().toISOString(),
-          };
-          localStorage.setItem(key, JSON.stringify(list));
-        }
-      }
-    }
-  } catch (e) {
-    // ignore
-  }
-}
+function updateLocalCommunityStatus(..._args: any[]): void {}
 
 /**
  * Fetch all communities for the Admin verification queue with filter and search support
@@ -201,13 +128,7 @@ export async function fetchAdminCommunityQueue(filters?: {
 
     const { data, error } = await query;
 
-    if (error) {
-      if (isSchemaMissingError(error)) {
-        return filterLocalCommunities(getAllLocalCommunitiesWithPromoters(), filters);
-      }
-      console.warn("Notice: Falling back to local community store for admin queue:", error.message);
-      return filterLocalCommunities(getAllLocalCommunitiesWithPromoters(), filters);
-    }
+    if (error) throw error;
 
     const communities = (data || []) as unknown as AdminCommunityQueueItem[];
     if (communities.length > 0) {
@@ -215,16 +136,8 @@ export async function fetchAdminCommunityQueue(filters?: {
       return filterLocalCommunities(communities, filters);
     }
 
-    // Check local fallback
-    const local = getAllLocalCommunitiesWithPromoters();
-    if (local.length > 0) {
-      return filterLocalCommunities(local, filters);
-    }
-
-    return [];
-  } catch (err: any) {
-    return filterLocalCommunities(getAllLocalCommunitiesWithPromoters(), filters);
-  }
+    return communities;
+  } catch (err: any) { throw err; }
 }
 
 function filterLocalCommunities(
@@ -275,25 +188,10 @@ export async function fetchCommunityVerificationHistory(
       .eq("community_id", communityId)
       .order("created_at", { ascending: false });
 
-    if (error) {
-      if (isSchemaMissingError(error)) {
-        return getLocalAudits(communityId);
-      }
-      return getLocalAudits(communityId);
-    }
+    if (error) throw error;
 
     const logs = (data || []) as unknown as CommunityVerificationAudit[];
-    const localLogs = getLocalAudits(communityId);
-
-    // Merge and deduplicate by ID
-    const mergedMap = new Map<string, CommunityVerificationAudit>();
-    for (const log of [...logs, ...localLogs]) {
-      mergedMap.set(log.id, log);
-    }
-
-    return Array.from(mergedMap.values()).sort(
-      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-    );
+    return logs.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   } catch (err) {
     return getLocalAudits(communityId);
   }

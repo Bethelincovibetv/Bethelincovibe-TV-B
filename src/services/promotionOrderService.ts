@@ -80,22 +80,8 @@ function generateOrderReference(): string {
 }
 
 // Fallback Local Storage Helper
-export function getLocalOrders(): PromotionOrder[] {
-  try {
-    const data = localStorage.getItem(ORDERS_STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveLocalOrders(orders: PromotionOrder[]) {
-  try {
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
-  } catch (err) {
-    console.error("Failed to persist orders to local store", err);
-  }
-}
+export function getLocalOrders(): PromotionOrder[] { return []; }
+export function saveLocalOrders(_orders: PromotionOrder[]) { throw new Error("Local promotion-order persistence is disabled. Use Supabase."); }
 
 /**
  * Validates promotion order input before processing
@@ -251,52 +237,7 @@ export async function createPromotionOrder(
     // Table not available in schema cache, proceed to store in local fallback
   }
 
-  // Local storage fallback for test environment & offline support
-  const localOrder: PromotionOrder = {
-    id: `order_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    order_reference: orderReference,
-    business_user_id: businessUserId,
-    promoter_id: pkg.promoter_id,
-    community_id: pkg.community_id,
-    package_id: pkg.id,
-    amount: amount,
-    platform_fee: platformFee,
-    promoter_net_earning: promoterNetEarning,
-    payment_method: null,
-    payment_reference: null,
-    status: "pending_payment",
-    promotion_brief: input.promotionBrief.trim(),
-    creative_assets_urls: input.creativeAssetsUrls || null,
-    special_instructions: input.specialInstructions?.trim() || null,
-    paid_at: null,
-    evidence_submitted_at: null,
-    approved_at: null,
-    completed_at: null,
-    created_at: now,
-    updated_at: now,
-    package: pkg,
-    community: community,
-    promoter: promoter || undefined,
-  };
-
-  const existingOrders = getLocalOrders();
-  existingOrders.unshift(localOrder);
-  saveLocalOrders(existingOrders);
-
-  // Dispatch order created notification to promoter
-  const promoterUserId = promoter?.user_id || localOrder.promoter_id;
-  if (promoterUserId) {
-    notifyOrderCreated({
-      id: localOrder.id,
-      order_reference: localOrder.order_reference,
-      promoter_user_id: promoterUserId,
-      business_user_id: localOrder.business_user_id,
-      package_title: pkg.title,
-      amount: localOrder.amount,
-    }).catch((err) => console.warn("Notice: order created notification dispatch notice", err));
-  }
-
-  return { order: localOrder, error: null };
+  return { order: null, error: "Promotion order could not be persisted to the database." };
 }
 
 /**
@@ -325,30 +266,14 @@ export async function getMyBusinessOrders(mockUserId?: string): Promise<Promotio
       .eq("business_user_id", businessUserId)
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      return data;
+    if (!error) {
+      return data || [];
     }
   } catch {
     // fallback
   }
 
-  const allOrders = getLocalOrders();
-  const userOrders = allOrders.filter((o) => o.business_user_id === businessUserId);
-
-  // Populate joined relations
-  for (const order of userOrders) {
-    if (!order.package) {
-      order.package = (await getPackageById(order.package_id)) || undefined;
-    }
-    if (!order.community) {
-      order.community = (await getCommunityById(order.community_id)) || undefined;
-    }
-    if (!order.promoter) {
-      order.promoter = (await getPromoterProfileById(order.promoter_id)) || undefined;
-    }
-  }
-
-  return userOrders;
+  return [];
 }
 
 /**
@@ -387,30 +312,14 @@ export async function getMyPromoterOrders(mockPromoterId?: string, mockUserId?: 
       .eq("promoter_id", promoterId)
       .order("created_at", { ascending: false });
 
-    if (!error && data && data.length > 0) {
-      return data;
+    if (!error) {
+      return data || [];
     }
   } catch {
     // fallback
   }
 
-  const allOrders = getLocalOrders();
-  const promoterOrders = allOrders.filter((o) => o.promoter_id === promoterId);
-
-  // Populate joined relations
-  for (const order of promoterOrders) {
-    if (!order.package) {
-      order.package = (await getPackageById(order.package_id)) || undefined;
-    }
-    if (!order.community) {
-      order.community = (await getCommunityById(order.community_id)) || undefined;
-    }
-    if (!order.promoter) {
-      order.promoter = (await getPromoterProfileById(order.promoter_id)) || undefined;
-    }
-  }
-
-  return promoterOrders;
+  return [];
 }
 
 /**
@@ -458,10 +367,6 @@ export async function getPromotionOrderById(
     // fallback
   }
 
-  if (!foundOrder) {
-    const allOrders = getLocalOrders();
-    foundOrder = allOrders.find((o) => o.id === orderId) || null;
-  }
 
   if (!foundOrder) {
     return { order: null, error: "Order not found." };

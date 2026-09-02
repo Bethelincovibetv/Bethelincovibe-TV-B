@@ -98,43 +98,11 @@ export interface DisputeResolutionResult {
   error?: string | null;
 }
 
-const REVIEWS_STORAGE_KEY = "bincovibe_promotion_reviews_all";
-const ORDERS_STORAGE_KEY = "bincovibe_promotion_orders_all";
-const PROMOTER_STORAGE_KEY_PREFIX = "bincovibe_promoter_profile_";
 
-export function getLocalReviews(): PromotionReview[] {
-  try {
-    const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveLocalReviews(reviews: PromotionReview[]) {
-  try {
-    localStorage.setItem(REVIEWS_STORAGE_KEY, JSON.stringify(reviews));
-  } catch (err) {
-    console.error("Failed to save reviews to local storage", err);
-  }
-}
-
-export function getLocalOrders(): PromotionOrder[] {
-  try {
-    const raw = localStorage.getItem(ORDERS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-export function saveLocalOrders(orders: PromotionOrder[]) {
-  try {
-    localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
-  } catch (err) {
-    console.error("Failed to save orders to local storage", err);
-  }
-}
+export function getLocalReviews(): PromotionReview[] { return []; }
+export function saveLocalReviews(_reviews: PromotionReview[]) { throw new Error("Local review persistence is disabled. Use Supabase."); }
+export function getLocalOrders(): PromotionOrder[] { return []; }
+export function saveLocalOrders(_orders: PromotionOrder[]) { throw new Error("Local promotion-order persistence is disabled. Use Supabase."); }
 
 function generateRefundReference(): string {
   const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, "");
@@ -247,15 +215,6 @@ export async function submitOrderReview(
 
   const reviewText = (input.reviewText || input.review_text || "").trim();
 
-  // 7. Duplicate Submission Protection (Database & Local Store)
-  const allReviews = getLocalReviews();
-  const existingReview = allReviews.find((r) => r.order_id === order.id);
-  if (existingReview) {
-    return {
-      ok: false,
-      error: "Duplicate review rejected: You have already reviewed this promotion order.",
-    };
-  }
 
   // 8. Prevent self-reviews (if business is promoter themselves)
   let promoterUserId = order.promoter?.user_id;
@@ -294,8 +253,11 @@ export async function submitOrderReview(
     updated_at: nowIso,
   };
 
-  allReviews.push(newReview);
-  saveLocalReviews(allReviews);
+  const { data: existingDbReview, error: existingDbReviewError } = await supabase.from("promotion_reviews").select("id").eq("order_id", order.id).maybeSingle();
+  if (existingDbReviewError) return { ok: false, error: existingDbReviewError.message };
+  if (existingDbReview) return { ok: false, error: "Duplicate review rejected: You have already reviewed this promotion order." };
+  const { error: reviewInsertError } = await supabase.from("promotion_reviews").insert(newReview);
+  if (reviewInsertError) return { ok: false, error: reviewInsertError.message };
 
   // 9. Recalculate Promoter Average Rating and Review Count
   const promoterReviews = allReviews.filter((r) => r.promoter_id === order.promoter_id);
@@ -309,12 +271,6 @@ export async function submitOrderReview(
     if (promoter) {
       promoter.rating = avgRating ?? 5.0;
       (promoter as any).review_count = reviewCount;
-      if (promoter.user_id) {
-        localStorage.setItem(
-          `${PROMOTER_STORAGE_KEY_PREFIX}${promoter.user_id}`,
-          JSON.stringify(promoter)
-        );
-      }
     }
   } catch (err) {
     console.warn("Notice: could not update promoter cache rating:", err);
@@ -342,12 +298,6 @@ export async function submitOrderReview(
     timestamp: nowIso,
   });
 
-  const allOrders = getLocalOrders();
-  const orderIdx = allOrders.findIndex((o) => o.id === order.id);
-  if (orderIdx >= 0) {
-    allOrders[orderIdx] = { ...allOrders[orderIdx], ...order };
-    saveLocalOrders(allOrders);
-  }
 
   // Dispatch review notification to promoter
   const targetPromoterId = promoterUserId || (newReview as any).promoter_user_id || order.promoter_id;
@@ -375,8 +325,8 @@ export async function submitOrderReview(
  */
 export async function getOrderReview(orderId: string): Promise<PromotionReview | null> {
   if (!orderId) return null;
-  const reviews = getLocalReviews();
-  return reviews.find((r) => r.order_id === orderId) || null;
+  const { data } = await supabase.from("promotion_reviews").select("*").eq("order_id", orderId).maybeSingle();
+  return (data as PromotionReview | null) || null;
 }
 
 /**
