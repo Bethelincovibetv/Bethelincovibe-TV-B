@@ -3,7 +3,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default-deny catch-all
     match /{document=**} {
       allow read, write: if false;
     }
@@ -34,53 +33,51 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Chat Rooms
     match /chats/{chatId} {
       allow get, list: if isSignedIn() && isValidId(chatId);
-
-      allow create: if isSignedIn()
-        && isValidId(chatId)
-        && incoming().participants is list
-        && incoming().participants.size() >= 1;
-
+      allow create: if isSignedIn() && isValidId(chatId) && incoming().participants is list && incoming().participants.size() >= 1;
       allow update: if isSignedIn() && isValidId(chatId);
-
       allow delete: if isSignedIn() && isValidId(chatId);
 
-      // Messages Subcollection
       match /messages/{messageId} {
         allow get, list: if isSignedIn() && isValidId(chatId);
-
-        allow create: if isSignedIn()
-          && isValidId(chatId)
-          && isValidId(messageId)
-          && incoming().senderId is string
-          && incoming().chatId == chatId;
-
-        allow update: if isSignedIn()
-          && isValidId(chatId)
-          && isValidId(messageId);
-
-        allow delete: if isSignedIn()
-          && isValidId(chatId)
-          && isValidId(messageId);
+        allow create: if isSignedIn() && isValidId(chatId) && isValidId(messageId) && incoming().senderId is string && incoming().chatId == chatId;
+        allow update: if isSignedIn() && isValidId(chatId) && isValidId(messageId);
+        allow delete: if isSignedIn() && isValidId(chatId) && isValidId(messageId);
       }
 
-      // Typing Subcollection
       match /typing/{userId} {
         allow read, write: if isSignedIn() && isValidId(chatId);
       }
     }
 
-    // Global User Presence
+    // WebRTC signaling. Media never passes through Firestore; only short-lived
+    // call metadata, SDP offers/answers, and ICE candidates are signaled here.
+    match /calls/{callId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && incoming().callerId is string
+        && incoming().participantIds is list
+        && incoming().participantIds.size() >= 1
+        && incoming().kind in ['voice', 'video']
+        && incoming().state == 'ringing';
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+
+      match /peers/{peerId} {
+        allow get, list, create, update: if isSignedIn();
+        match /candidates/{candidateId} {
+          allow get, list, create: if isSignedIn();
+        }
+      }
+    }
+
     match /presence/{userId} {
       allow read, write: if isSignedIn();
     }
 
-    // Connection test document
     match /test/connection {
       allow read, write: if true;
     }
   }
 }
-
