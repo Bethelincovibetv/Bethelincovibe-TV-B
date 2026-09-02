@@ -73,7 +73,6 @@ import {
   DEFAULT_GOOGLE_CLIENT_ID,
 } from "@/services/googleContactsService";
 import {
-  INITIAL_VERIFIED_POOL,
   BUSINESS_CATEGORIES,
   LAGOS_LOCATIONS,
   NetworkMember,
@@ -88,6 +87,7 @@ import {
   createStatusAdBooking,
   updateBookingStatus,
   clearAllEngineData,
+  refreshVerifiedNetworkMembers,
 } from "@/services/whatsappEngineService";
 
 export default function WhatsAppStatusEngine() {
@@ -107,6 +107,7 @@ export default function WhatsAppStatusEngine() {
   const [selectedLocation, setSelectedLocation] = useState("All Lagos Locations");
 
   // Exchange logs & Preferences
+  const [networkMembers, setNetworkMembers] = useState<NetworkMember[]>([]);
   const [connectionLogs, setConnectionLogs] = useState<ConnectionLog[]>([]);
   const [preferences, setPreferences] = useState<UserEnginePreferences>(getUserEnginePreferences());
   const [bookings, setBookings] = useState<StatusAdBooking[]>([]);
@@ -141,9 +142,14 @@ export default function WhatsAppStatusEngine() {
 
   // Load initial states
   useEffect(() => {
+    let active = true;
     setGoogleSession(getStoredGoogleSession());
     setConnectionLogs(getConnectionLogs());
     setBookings(getStatusAdBookings());
+    refreshVerifiedNetworkMembers()
+      .then((members) => { if (active) setNetworkMembers(members); })
+      .catch((error) => { if (active) toast.error(error?.message || "Unable to load the verified WhatsApp network."); });
+    return () => { active = false; };
   }, []);
 
   // Handle Google OAuth Consent
@@ -391,7 +397,7 @@ export default function WhatsAppStatusEngine() {
 
   // Filter Members
   const filteredMembers = useMemo(() => {
-    return INITIAL_VERIFIED_POOL.filter((m) => {
+    return networkMembers.filter((m) => {
       const matchesSearch =
         searchQuery.trim() === "" ||
         m.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -406,12 +412,12 @@ export default function WhatsAppStatusEngine() {
 
       return matchesSearch && matchesCat && matchesLoc;
     });
-  }, [searchQuery, selectedCategory, selectedLocation]);
+  }, [networkMembers, searchQuery, selectedCategory, selectedLocation]);
 
   // Creators open for Status Ads
   const adCreators = useMemo(() => {
-    return INITIAL_VERIFIED_POOL.filter((m) => m.openForAds);
-  }, []);
+    return networkMembers.filter((m) => m.openForAds);
+  }, [networkMembers]);
 
   // Submit Ad Booking
   const handleOpenBookingDialog = (creator: NetworkMember) => {
@@ -441,7 +447,7 @@ export default function WhatsAppStatusEngine() {
       creatorName: targetCreator.name,
       advertiserId: user?.id || "guest-adv",
       advertiserName: bookingForm.advertiserName,
-      advertiserPhone: bookingForm.advertiserPhone || "+2348000000000",
+      advertiserPhone: bookingForm.advertiserPhone,
       advertiserEmail: bookingForm.advertiserEmail,
       campaignTitle: bookingForm.campaignTitle,
       caption: bookingForm.caption,

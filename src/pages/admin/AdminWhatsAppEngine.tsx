@@ -22,7 +22,6 @@ import {
   ExternalLink,
 } from "lucide-react";
 import {
-  INITIAL_VERIFIED_POOL,
   BUSINESS_CATEGORIES,
   LAGOS_LOCATIONS,
   NetworkMember,
@@ -30,12 +29,21 @@ import {
   getStatusAdBookings,
   updateBookingStatus,
   getConnectionLogs,
+  refreshVerifiedNetworkMembers,
 } from "@/services/whatsappEngineService";
 import AdminWhatsAppPromotersHub from "./AdminWhatsAppPromotersHub";
 
 export default function AdminWhatsAppEngine() {
-  const [members, setMembers] = useState<NetworkMember[]>(INITIAL_VERIFIED_POOL);
+  const [members, setMembers] = useState<NetworkMember[]>([]);
   const [bookings, setBookings] = useState<StatusAdBooking[]>([]);
+
+  useEffect(() => {
+    let active = true;
+    refreshVerifiedNetworkMembers()
+      .then((loaded) => { if (active) setMembers(loaded); })
+      .catch((error) => { if (active) toast.error(error?.message || "Unable to load verified communities."); });
+    return () => { active = false; };
+  }, []);
   const [newMemberDialog, setNewMemberDialog] = useState(false);
   const [newMember, setNewMember] = useState<Partial<NetworkMember>>({
     name: "",
