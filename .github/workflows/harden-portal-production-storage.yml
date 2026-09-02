@@ -1,0 +1,63 @@
+name: Harden portal production storage
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  harden:
+    if: ${{ !contains(github.event.head_commit.message, '[portal-hardening]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Remove remaining promoter demo and browser persistence fallbacks
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+
+          # Promotion packages must never silently become browser-only data.
+          p = Path('src/services/packageService.ts')
+          s = p.read_text()
+          s = s.replace('export const PACKAGE_STORAGE_KEY_PREFIX = "bincovibe_promotion_packages_";\n', '')
+          s = re.sub(r'\n    if \(error\) \{\n      console\.warn\("Notice: Fetching packages from local storage cache:", error\.message\);.*?\n    \}\n\n    const packages', '\n    if (error) throw error;\n\n    const packages', s, flags=re.S)
+          s = re.sub(r'\n    localStorage\.setItem\(`\$\{PACKAGE_STORAGE_KEY_PREFIX\}\$\{promoterId\}`, JSON\.stringify\(packages\)\);', '', s)
+          s = re.sub(r'\n  \} catch \(err: any\) \{\n    console\.warn\("Notice: Fetching packages from fallback store:", err\?\.message\);.*?\n  \}\n\}', '\n  } catch (err) {\n    throw err;\n  }\n}', s, count=1, flags=re.S)
+          s = re.sub(r'\n    if \(error\) \{\n      // Search local cache.*?\n      return \[\];\n    \}', '\n    if (error) throw error;', s, flags=re.S)
+          s = re.sub(r'\n  \} catch \(err: any\) \{\n    console\.warn\("Notice: Querying community packages from cache:", err\?\.message\);\n    return \[\];\n  \}', '\n  } catch (err) {\n    throw err;\n  }', s)
+          s = re.sub(r'\n    if \(error \|\| !data\) \{.*?\n      return null;\n    \}', '\n    if (error) throw error;\n    if (!data) return null;', s, flags=re.S)
+          s = re.sub(r'\n  \} catch \(err: any\) \{\n    console\.warn\("Notice: Fetching package by ID from cache:", err\?\.message\);\n    return null;\n  \}', '\n  } catch (err) {\n    throw err;\n  }', s)
+          # Remove local community pre-validation; the database is authoritative.
+          s = re.sub(r'\n  // Pre-validate community from local storage cache if available.*?\n  \}\n\n  const now', '\n  const now', s, flags=re.S)
+          # Any create/update fallback blocks are replaced with the original DB error.
+          s = re.sub(r'\n    if \(error\) \{\n      console\.warn\("Notice: Saving package to local storage store:", error\.message\);.*?\n    \}\n\n    const savedPackage', '\n    if (error) throw error;\n\n    const savedPackage', s, flags=re.S)
+          s = re.sub(r'\n    const storageKey = `\$\{PACKAGE_STORAGE_KEY_PREFIX\}\$\{params\.promoterId\}`;.*?\n    return savedPackage;', '\n    return savedPackage;', s, count=1, flags=re.S)
+          s = re.sub(r'\n  \} catch \(err: any\) \{\n    console\.warn\("Notice: Handling package creation in fallback mode:", err\?\.message\);.*?\n  \}\n\}', '\n  } catch (err) {\n    throw err;\n  }\n}', s, count=1, flags=re.S)
+          s = re.sub(r'\n    if \(error\) \{\n      console\.warn\("Notice: Updating package in local store:", error\.message\);.*?\n      throw error;\n    \}\n\n    const saved', '\n    if (error) throw error;\n\n    const saved', s, flags=re.S)
+          s = re.sub(r'\n    if \(params\.promoterId\) \{.*?\n    \}\n\n    return saved;', '\n    return saved;', s, flags=re.S)
+          p.write_text(s)
+
+          # WhatsApp engine must not seed fake advertisers/bookings.
+          p = Path('src/services/whatsappEngineService.ts')
+          s = p.read_text()
+          s = re.sub(r'\n    if \(!raw\) \{\n      // Seed an initial demo booking for testing.*?\n      return demo;\n    \}', '\n    if (!raw) return [];', s, flags=re.S)
+          p.write_text(s)
+          PY
+      - name: Verify no package fallback or demo booking remains
+        run: |
+          ! grep -R -nE 'bincovibe_promotion_packages_|Seed an initial demo booking|bk-sample-1' src/services || true
+          npm ci
+          npm run build
+      - name: Commit hardening changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/services
+          if git diff --cached --quiet; then echo 'No source changes required'; exit 0; fi
+          git commit -m 'fix: remove remaining portal demo storage fallbacks [portal-hardening]'
+          git push
