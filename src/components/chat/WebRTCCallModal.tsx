@@ -20,13 +20,11 @@ export interface WebRTCCallModalProps {
   isIncoming?: boolean;
 }
 
-const RTC_CONFIG: RTCConfiguration = {
-  iceServers: [
-    { urls: "stun:stun.l.google.com:19302" },
-    { urls: "stun:stun1.l.google.com:19302" },
-    { urls: "stun:stun.cloudflare.com:3478" },
-  ],
-};
+const RTC_CONFIG: RTCConfiguration = { iceServers: [
+  { urls: "stun:stun.l.google.com:19302" },
+  { urls: "stun:stun1.l.google.com:19302" },
+  { urls: "stun:stun.cloudflare.com:3478" },
+] };
 
 export function WebRTCCallModal({ open, onOpenChange, targetUser, contactName, contactAvatar, contactRole, isVideo = false, isIncoming = false }: WebRTCCallModalProps) {
   const [localUserId, setLocalUserId] = useState("");
@@ -178,14 +176,27 @@ export function WebRTCCallModal({ open, onOpenChange, targetUser, contactName, c
     setTimeout(() => { setInternalOpen(false); onOpenChange(false); }, 200);
   };
 
-  const remoteStream = Object.values(remoteStreams)[0];
+  const remoteEntries = Object.entries(remoteStreams);
   const duration = `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 
   return (
     <Dialog open={internalOpen || open} onOpenChange={(value) => { if (!value) void cleanup(); }}>
-      <DialogContent className="w-[92vw] max-w-sm rounded-3xl p-6 bg-gradient-to-b from-slate-950 via-zinc-950 to-black text-white border-white/10 shadow-2xl flex flex-col items-center min-h-[440px]">
+      <DialogContent className="w-[94vw] max-w-2xl rounded-3xl p-5 sm:p-6 bg-gradient-to-b from-slate-950 via-zinc-950 to-black text-white border-white/10 shadow-2xl flex flex-col items-center min-h-[430px]">
         <div className="w-full flex justify-between text-[10px] font-bold uppercase tracking-wide text-white/60"><span className="flex items-center gap-1.5 bg-emerald-500/15 text-emerald-400 px-2.5 py-1 rounded-full"><Lock className="w-3 h-3" /> End-to-End Media</span><span className="flex items-center gap-1">{quality === "good" ? <Wifi className="w-3.5 h-3.5 text-emerald-400" /> : <WifiOff className="w-3.5 h-3.5 text-amber-400" />} WebRTC</span></div>
-        {effectiveVideo && status === "connected" && remoteStream ? <div className="w-full aspect-video rounded-2xl overflow-hidden bg-black border border-white/10 my-5"><video autoPlay playsInline ref={(el) => { if (el) el.srcObject = remoteStream; }} className="w-full h-full object-cover" /></div> : <div className="flex flex-col items-center text-center my-auto space-y-4"><Avatar className="w-24 h-24 ring-4 ring-emerald-500/40"><AvatarImage src={displayAvatar} /><AvatarFallback className="bg-emerald-600 text-white text-2xl font-black">{displayName.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><div><h3 className="text-xl font-extrabold">{displayName}</h3><p className="text-xs text-white/60">{targetUser?.role || contactRole || (effectiveVideo ? "Video Call" : "Voice Call")}</p></div><p className="text-sm font-semibold text-emerald-400">{status === "calling" ? "Calling…" : status === "ringing" ? `Incoming ${effectiveVideo ? "video" : "voice"} call…` : status === "connected" ? duration : status === "declined" ? "Call declined" : "Call ended"}</p><audio ref={(el) => { if (el && remoteStream) el.srcObject = remoteStream; }} autoPlay playsInline /></div>}
+
+        {effectiveVideo && status === "connected" ? (
+          <div className={`w-full my-4 grid gap-2 ${remoteEntries.length > 1 ? "grid-cols-2" : "grid-cols-1"}`}>
+            {remoteEntries.length ? remoteEntries.map(([remoteId, stream]) => (
+              <div key={remoteId} className="relative aspect-video rounded-2xl overflow-hidden bg-black border border-white/10">
+                <video autoPlay playsInline ref={(el) => { if (el) el.srcObject = stream; }} className="w-full h-full object-cover" />
+                <span className="absolute bottom-2 left-2 rounded-lg bg-black/60 px-2 py-1 text-[10px]">Participant</span>
+              </div>
+            )) : <div className="aspect-video rounded-2xl bg-black/60 border border-white/10 flex items-center justify-center text-white/50 text-sm">Waiting for participants…</div>}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center text-center my-auto space-y-4"><Avatar className="w-24 h-24 ring-4 ring-emerald-500/40"><AvatarImage src={displayAvatar} /><AvatarFallback className="bg-emerald-600 text-white text-2xl font-black">{displayName.slice(0, 2).toUpperCase()}</AvatarFallback></Avatar><div><h3 className="text-xl font-extrabold">{displayName}</h3><p className="text-xs text-white/60">{targetUser?.role || contactRole || (effectiveVideo ? "Group Video Call" : "Voice Call")}</p></div><p className="text-sm font-semibold text-emerald-400">{status === "calling" ? "Calling…" : status === "ringing" ? `Incoming ${effectiveVideo ? "video" : "voice"} call…` : status === "connected" ? duration : status === "declined" ? "Call declined" : "Call ended"}</p><audio autoPlay playsInline ref={(el) => { if (el && remoteEntries[0]) el.srcObject = remoteEntries[0][1]; }} /></div>
+        )}
+
         <div className="w-full pt-4 border-t border-white/10 flex items-center justify-center gap-3">{status === "ringing" ? <><Button onClick={() => void cleanup("declined")} size="icon" className="w-14 h-14 rounded-full bg-rose-600"><PhoneOff /></Button><Button onClick={async () => { if (call) { await updateCallState(call.id, "accepted"); setStatus("connected"); } }} size="icon" className="w-14 h-14 rounded-full bg-emerald-600 animate-pulse"><Phone /></Button></> : status === "connected" ? <><Button onClick={() => { const next = !muted; localStreamRef.current?.getAudioTracks().forEach((t) => { t.enabled = !next; }); setMuted(next); }} size="icon" className="w-11 h-11 rounded-full bg-white/10">{muted ? <MicOff /> : <Mic />}</Button>{effectiveVideo && <Button onClick={() => { const next = !cameraOff; localStreamRef.current?.getVideoTracks().forEach((t) => { t.enabled = !next; }); setCameraOff(next); }} size="icon" className="w-11 h-11 rounded-full bg-white/10">{cameraOff ? <VideoOff /> : <Video />}</Button>}<Button onClick={() => setSpeakerOn((v) => !v)} size="icon" className={`w-11 h-11 rounded-full ${speakerOn ? "bg-white/10" : "bg-amber-500/20"}`}><Volume2 /></Button><Button onClick={() => void cleanup()} size="icon" className="w-12 h-12 rounded-full bg-rose-600"><PhoneOff /></Button></> : <Button onClick={() => void cleanup()} size="icon" className="w-14 h-14 rounded-full bg-rose-600"><PhoneOff /></Button>}</div>
       </DialogContent>
     </Dialog>
