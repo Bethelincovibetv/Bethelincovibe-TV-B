@@ -7,9 +7,13 @@ import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import { useAuth } from "@/contexts/AuthContext";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
-/** Individual business listing pages get a clean, full-width layout (no footer link menus). */
+/** Individual business listing pages get a clean, focused layout with no site footer or mobile tab menu. */
 function isListingDetail(pathname: string) {
-  return /^\/businesses\/(?!list$|category\/)[^/]+$/.test(pathname);
+  return (
+    /^\/businesses\/(?!list$|category\/)[^/]+$/.test(pathname) ||
+    /^\/directory\/(?!category\/)[^/]+$/.test(pathname) ||
+    /^\/suppliers\/(?!category\/|submit$)[^/]+$/.test(pathname)
+  );
 }
 
 /** Graphic Design and Logo Creator studio pages get full immersive canvas layout with no footer menu. */
@@ -33,14 +37,15 @@ export default function PublicLayout() {
   const { pathname } = useLocation();
   const isGraphicPage = isGraphicDesignPage(pathname);
   const isDashboard = isDashboardPage(pathname);
-  const clean = isListingDetail(pathname) || isGraphicPage || isDashboard;
+  const isBusinessListing = isListingDetail(pathname);
+  const clean = isBusinessListing || isGraphicPage || isDashboard;
   const isHome = pathname === "/";
   const showFooter = !clean && (Boolean(user) || flags.footer_for_non_members !== false);
 
   return (
     <div className="flex flex-col min-h-screen">
       <ErrorBoundary label="Header" fallback={null}><Header /></ErrorBoundary>
-      <main className={`flex-1 ${isGraphicPage ? "pb-4 md:pb-0" : "pb-28 md:pb-0"}`}>
+      <main className={`flex-1 ${isGraphicPage ? "pb-4 md:pb-0" : clean ? "pb-4 md:pb-0" : "pb-28 md:pb-0"}`}>
         <ErrorBoundary label="Route"><Outlet /></ErrorBoundary>
       </main>
       {flags.advertise && !clean && <AdPlaceholder placement="footer" className="container mx-auto px-4 mb-2" />}
@@ -49,7 +54,7 @@ export default function PublicLayout() {
           {isHome ? <Footer /> : <MinimalFooter />}
         </ErrorBoundary>
       )}
-      {!isGraphicPage && (
+      {!isGraphicPage && !isDashboard && !isBusinessListing && (
         <ErrorBoundary label="TabBar" fallback={null}><MobileTabBar /></ErrorBoundary>
       )}
     </div>
