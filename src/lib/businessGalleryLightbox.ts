@@ -88,13 +88,20 @@ function closeViewer() {
 }
 
 function isGalleryAnchor(anchor: HTMLAnchorElement) {
-  if (!window.location.pathname.startsWith("/businesses/")) return false;
-  let node: HTMLElement | null = anchor;
-  for (let i = 0; node && i < 6; i++, node = node.parentElement) {
-    const text = (node.textContent || "").replace(/\s+/g, " ").trim();
-    if (text.includes("Business Gallery & Photos")) return true;
-  }
-  return false;
+  if (!/^\/businesses\/[^/]+$/.test(window.location.pathname)) return false;
+
+  // A gallery trigger must be an actual image link. This deliberately avoids
+  // broad ancestor-text matching, which could accidentally classify normal
+  // navigation links (Home, Businesses, Back to Directory) as gallery links.
+  const image = anchor.querySelector("img") as HTMLImageElement | null;
+  if (!image) return false;
+
+  const href = anchor.href?.trim();
+  const imageSrc = (image.currentSrc || image.src || "").trim();
+  if (!href || !imageSrc || href === window.location.href) return false;
+  if (/^(?:#|javascript:|data:|about:|undefined|null)$/i.test(href)) return false;
+
+  return href === imageSrc;
 }
 
 function collectGallery(anchor: HTMLAnchorElement) {
