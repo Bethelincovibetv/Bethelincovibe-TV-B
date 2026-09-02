@@ -1,10 +1,4 @@
-/**
- * WhatsApp Status Engine — Networking, Mutual Exchange & Status Monetization
- * 
- * Compliant with:
- * - Google API Services User Data Policy (Explicit single-user OAuth & People API)
- * - NDPR (Nigeria Data Protection Regulation — Affirmative consent, no data scraping)
- */
+import { supabase } from "@/integrations/supabase/client";
 
 export interface NetworkMember {
   id: string;
@@ -17,8 +11,8 @@ export interface NetworkMember {
   statusViewsEstimate: number;
   verified: boolean;
   openForAds: boolean;
-  ratePerPost?: number; // in NGN
-  bundlePrice?: number; // 3-post bundle in NGN
+  ratePerPost?: number;
+  bundlePrice?: number;
   bio: string;
   avatarUrl?: string;
   joinedAt: string;
@@ -72,324 +66,175 @@ export interface UserEnginePreferences {
   customWhatsAppNumber: string;
 }
 
-// Initial curated verified Lagos business pool
-export const INITIAL_VERIFIED_POOL: NetworkMember[] = [
-  {
-    id: "pool-1",
-    name: "Adewale Adeleke",
-    businessName: "Lagos Tech Gadgets & Accessories",
-    category: "Tech & Electronics",
-    location: "Computer Village, Ikeja",
-    phone: "+2348031234567",
-    email: "adewale@techgadgetslagos.ng",
-    statusViewsEstimate: 1450,
-    verified: true,
-    openForAds: true,
-    ratePerPost: 2500,
-    bundlePrice: 6500,
-    bio: "Wholesale & retail supplier of Apple, Samsung, audio accessories & power banks. 1.4k+ daily tech buyers on status.",
-    joinedAt: "2026-08-10T09:00:00Z",
-  },
-  {
-    id: "pool-2",
-    name: "Chioma Okonkwo",
-    businessName: "Lekki Luxe Fabrics & Ready-to-Wear",
-    category: "Fashion & Apparel",
-    location: "Lekki Phase 1, Lagos",
-    phone: "+2348129876543",
-    email: "chioma@lekkiluxefabrics.com",
-    statusViewsEstimate: 2200,
-    verified: true,
-    openForAds: true,
-    ratePerPost: 4000,
-    bundlePrice: 10000,
-    bio: "Premium bridal lace, silk, and corporate bespoke tailoring. Daily status viewers are high-income Lagos professionals.",
-    joinedAt: "2026-08-12T14:30:00Z",
-  },
-  {
-    id: "pool-3",
-    name: "Oluwaseun Babatunde",
-    businessName: "Surulere Sound & Event Rentals",
-    category: "Events & Entertainment",
-    location: "Surulere, Lagos",
-    phone: "+2347065544332",
-    email: "seun@suruleresound.ng",
-    statusViewsEstimate: 980,
-    verified: true,
-    openForAds: true,
-    ratePerPost: 2000,
-    bundlePrice: 5000,
-    bio: "Heavy sound system, stage lighting, and generator leasing for wedding receptions, concerts and private parties.",
-    joinedAt: "2026-08-15T11:00:00Z",
-  },
-  {
-    id: "pool-4",
-    name: "Fatima Al-Hassan",
-    businessName: "Yaba Gourmet Treats & Chops",
-    category: "Food & Catering",
-    location: "Yaba / Akoka, Lagos",
-    phone: "+2349081122334",
-    email: "fatima@yabatreats.ng",
-    statusViewsEstimate: 1850,
-    verified: true,
-    openForAds: true,
-    ratePerPost: 3000,
-    bundlePrice: 7500,
-    bio: "Finger foods, small chops packs, and office lunch bowls delivered across Lagos Mainland. Huge student & techies viewership.",
-    joinedAt: "2026-08-18T16:20:00Z",
-  },
-  {
-    id: "pool-5",
-    name: "Emeka Nwosu",
-    businessName: "Alaba Direct Solar & Inverter Hub",
-    category: "Solar & Energy",
-    location: "Alaba International Market, Ojo",
-    phone: "+2348023456789",
-    email: "emeka@alabainverters.com",
-    statusViewsEstimate: 3100,
-    verified: true,
-    openForAds: true,
-    ratePerPost: 5000,
-    bundlePrice: 12000,
-    bio: "Lithium battery systems, pure sine wave inverters, and commercial solar installations nationwide.",
-    joinedAt: "2026-08-20T08:15:00Z",
-  },
-  {
-    id: "pool-6",
-    name: "Blessing Effiong",
-    businessName: "Island Drone & Visuals Studio",
-    category: "Media & Photography",
-    location: "Victoria Island, Lagos",
-    phone: "+2348145678901",
-    email: "blessing@islandvisuals.ng",
-    statusViewsEstimate: 1250,
-    verified: true,
-    openForAds: true,
-    ratePerPost: 3500,
-    bundlePrice: 9000,
-    bio: "4K cinematic drone footage, real estate video tours, and corporate documentary production.",
-    joinedAt: "2026-08-22T10:45:00Z",
-  },
-  {
-    id: "pool-7",
-    name: "Kunle Ajayi",
-    businessName: "Lagos Logistics & Haulage Swift",
-    category: "Logistics & Transport",
-    location: "Ikeja / Maryland, Lagos",
-    phone: "+2347012345678",
-    email: "kunle@lagoslogistics.ng",
-    statusViewsEstimate: 1600,
-    verified: true,
-    openForAds: false,
-    ratePerPost: 2500,
-    bundlePrice: 6000,
-    bio: "Interstate haulage trucks, dispatch bike fleet, and warehouse cargo clearance at Apapa Port.",
-    joinedAt: "2026-08-24T12:00:00Z",
-  },
-  {
-    id: "pool-8",
-    name: "Zainab Mohammed",
-    businessName: "Gbagada Organic Skincare & Spa",
-    category: "Beauty & Wellness",
-    location: "Gbagada, Lagos",
-    phone: "+2348099887766",
-    email: "zainab@gbagadaorganics.ng",
-    statusViewsEstimate: 2400,
-    verified: true,
-    openForAds: true,
-    ratePerPost: 3500,
-    bundlePrice: 9000,
-    bio: "Natural skincare serums, body polishes, and bridal glow treatments. Highly engaged female shopping audience.",
-    joinedAt: "2026-08-24T17:30:00Z",
-  }
+export const BUSINESS_CATEGORIES = [
+  "All Categories", "Tech & Electronics", "Fashion & Apparel", "Food & Catering",
+  "Events & Entertainment", "Solar & Energy", "Media & Photography", "Logistics & Transport",
+  "Beauty & Wellness", "Real Estate & Property", "Professional Services", "Automotive & Spare Parts",
 ];
 
 export const LAGOS_LOCATIONS = [
-  "All Lagos Locations",
-  "Computer Village, Ikeja",
-  "Ikeja / Maryland",
-  "Lekki Phase 1 & 2",
-  "Victoria Island",
-  "Ikoyi",
-  "Yaba / Akoka",
-  "Surulere",
-  "Alaba International, Ojo",
-  "Trade Fair Complex",
-  "Balogun / Idumota",
-  "Gbagada / Ogudu",
-  "Ikorodu",
-  "Festac Town",
-  "Ajah / Sangotedo",
+  "All Lagos Locations", "Computer Village, Ikeja", "Ikeja / Maryland", "Lekki Phase 1 & 2",
+  "Victoria Island", "Ikoyi", "Yaba / Akoka", "Surulere", "Alaba International, Ojo",
+  "Trade Fair Complex", "Balogun / Idumota", "Gbagada / Ogudu", "Ikorodu", "Festac Town", "Ajah / Sangotedo",
 ];
-
-export const BUSINESS_CATEGORIES = [
-  "All Categories",
-  "Tech & Electronics",
-  "Fashion & Apparel",
-  "Food & Catering",
-  "Events & Entertainment",
-  "Solar & Energy",
-  "Media & Photography",
-  "Logistics & Transport",
-  "Beauty & Wellness",
-  "Real Estate & Property",
-  "Professional Services",
-  "Automotive & Spare Parts",
-];
-
-const LOGS_STORAGE_KEY = "leos_wa_connection_logs_v1";
-const PREFS_STORAGE_KEY = "leos_wa_user_preferences_v1";
-const BOOKINGS_STORAGE_KEY = "leos_wa_ad_bookings_v1";
 
 export const DEFAULT_PREFERENCES: UserEnginePreferences = {
   autoExchangeEnabled: true,
   isPaused: false,
   targetCategories: ["All Categories"],
   targetLocations: ["All Lagos Locations"],
-  openForAds: true,
-  ratePerPost: 2500,
-  bundlePrice: 6500,
-  audienceNiche: "Lagos Entrepreneurs, Tech Professionals, and Shoppers",
-  estimatedViews: 850,
+  openForAds: false,
+  ratePerPost: 0,
+  bundlePrice: 0,
+  audienceNiche: "",
+  estimatedViews: 0,
   customWhatsAppNumber: "",
 };
 
-/**
- * Get stored connection logs
- */
-export function getConnectionLogs(): ConnectionLog[] {
-  try {
-    const raw = localStorage.getItem(LOGS_STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error("Failed to load connection logs", e);
-    return [];
-  }
+/** Production network: only verified + published communities from Supabase. */
+export async function getVerifiedNetworkMembers(): Promise<NetworkMember[]> {
+  const { data, error } = await supabase
+    .from("whatsapp_communities")
+    .select(`id,name,member_count,active_daily_views,verification_status,is_published,created_at,promoter:promoter_profiles(id,user_id,display_name,phone_whatsapp,bio,niche,is_verified,status),category:categories(name)`)
+    .eq("verification_status", "verified")
+    .eq("is_published", true)
+    .order("active_daily_views", { ascending: false });
+  if (error) throw error;
+
+  return (data ?? []).flatMap((row: any) => {
+    const promoter = Array.isArray(row.promoter) ? row.promoter[0] : row.promoter;
+    const category = Array.isArray(row.category) ? row.category[0] : row.category;
+    if (!promoter || promoter.status !== "active" || !promoter.is_verified) return [];
+    return [{
+      id: row.id,
+      name: promoter.display_name,
+      businessName: row.name,
+      category: category?.name ?? promoter.niche?.[0] ?? "Business",
+      location: "Nigeria",
+      phone: promoter.phone_whatsapp,
+      statusViewsEstimate: row.active_daily_views ?? 0,
+      verified: true,
+      openForAds: false,
+      ratePerPost: undefined,
+      bundlePrice: undefined,
+      bio: promoter.bio ?? "",
+      joinedAt: row.created_at,
+    }];
+  });
 }
 
-/**
- * Add a new connection log
- */
-export function recordConnectionLog(log: Omit<ConnectionLog, "id" | "syncedAt">): ConnectionLog {
-  const existing = getConnectionLogs();
-  const newEntry: ConnectionLog = {
-    ...log,
-    id: `log_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-    syncedAt: new Date().toISOString(),
+/** @deprecated Kept only for compatibility; no seeded/demo members are returned. */
+export const INITIAL_VERIFIED_POOL: NetworkMember[] = [];
+
+export async function getConnectionLogs(): Promise<ConnectionLog[]> {
+  const { data, error } = await supabase
+    .from("whatsapp_engine_connection_logs")
+    .select("*")
+    .order("synced_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((r: any) => ({
+    id: r.id, contactId: r.contact_id, contactName: r.contact_name, businessName: r.business_name,
+    category: r.category, phone: r.phone, syncedAt: r.synced_at, method: r.method,
+    googleResourceName: r.google_resource_name ?? undefined, mutualConfirmed: r.mutual_confirmed,
+  }));
+}
+
+export async function recordConnectionLog(log: Omit<ConnectionLog, "id" | "syncedAt">): Promise<ConnectionLog> {
+  const { data, error } = await supabase.from("whatsapp_engine_connection_logs").upsert({
+    user_id: (await supabase.auth.getUser()).data.user?.id,
+    contact_id: log.contactId, contact_name: log.contactName, business_name: log.businessName,
+    category: log.category, phone: log.phone, method: log.method,
+    google_resource_name: log.googleResourceName ?? null, mutual_confirmed: log.mutualConfirmed,
+  }, { onConflict: "user_id,contact_id" }).select().single();
+  if (error) throw error;
+  return { id: data.id, contactId: data.contact_id, contactName: data.contact_name, businessName: data.business_name,
+    category: data.category, phone: data.phone, syncedAt: data.synced_at, method: data.method,
+    googleResourceName: data.google_resource_name ?? undefined, mutualConfirmed: data.mutual_confirmed };
+}
+
+export async function isContactConnected(contactId: string): Promise<boolean> {
+  const { data, error } = await supabase.from("whatsapp_engine_connection_logs").select("id").eq("contact_id", contactId).maybeSingle();
+  if (error) throw error;
+  return !!data;
+}
+
+export async function getUserEnginePreferences(): Promise<UserEnginePreferences> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return DEFAULT_PREFERENCES;
+  const { data, error } = await supabase.from("whatsapp_engine_preferences").select("*").eq("user_id", userId).maybeSingle();
+  if (error) throw error;
+  if (!data) return DEFAULT_PREFERENCES;
+  return {
+    autoExchangeEnabled: data.auto_exchange_enabled, isPaused: data.is_paused,
+    targetCategories: data.target_categories ?? [], targetLocations: data.target_locations ?? [],
+    openForAds: data.open_for_ads, ratePerPost: data.rate_per_post, bundlePrice: data.bundle_price,
+    audienceNiche: data.audience_niche, estimatedViews: data.estimated_views,
+    customWhatsAppNumber: data.custom_whatsapp_number,
   };
-
-  // Avoid duplicate records for same contact
-  const updated = [newEntry, ...existing.filter((e) => e.contactId !== log.contactId)];
-  try {
-    localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(updated));
-  } catch (e) {
-    console.error("Failed to save connection log", e);
-  }
-  return newEntry;
 }
 
-/**
- * Check if a member is already connected
- */
-export function isContactConnected(contactId: string): boolean {
-  const logs = getConnectionLogs();
-  return logs.some((l) => l.contactId === contactId);
+export async function saveUserEnginePreferences(prefs: UserEnginePreferences): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) throw new Error("You must be signed in to save WhatsApp engine preferences.");
+  const { error } = await supabase.from("whatsapp_engine_preferences").upsert({
+    user_id: userId, auto_exchange_enabled: prefs.autoExchangeEnabled, is_paused: prefs.isPaused,
+    target_categories: prefs.targetCategories, target_locations: prefs.targetLocations,
+    open_for_ads: prefs.openForAds, rate_per_post: prefs.ratePerPost, bundle_price: prefs.bundlePrice,
+    audience_niche: prefs.audienceNiche, estimated_views: prefs.estimatedViews,
+    custom_whatsapp_number: prefs.customWhatsAppNumber,
+  });
+  if (error) throw error;
 }
 
-/**
- * Get User Preferences
- */
-export function getUserEnginePreferences(): UserEnginePreferences {
-  try {
-    const raw = localStorage.getItem(PREFS_STORAGE_KEY);
-    if (!raw) return DEFAULT_PREFERENCES;
-    return { ...DEFAULT_PREFERENCES, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_PREFERENCES;
-  }
+function mapBooking(r: any): StatusAdBooking {
+  return { id: r.id, creatorId: r.creator_id, creatorName: r.creator_name, advertiserId: r.advertiser_id,
+    advertiserName: r.advertiser_name, advertiserPhone: r.advertiser_phone, advertiserEmail: r.advertiser_email ?? undefined,
+    campaignTitle: r.campaign_title, caption: r.caption, mediaUrl: r.media_url ?? undefined, targetDate: r.target_date,
+    slotCount: r.slot_count, totalAmount: r.total_amount, status: r.status, proofScreenshotUrl: r.proof_screenshot_url ?? undefined,
+    proofSubmittedAt: r.proof_submitted_at ?? undefined, proofViewerCount: r.proof_viewer_count ?? undefined,
+    notes: r.notes ?? undefined, createdAt: r.created_at };
 }
 
-/**
- * Save User Preferences
- */
-export function saveUserEnginePreferences(prefs: UserEnginePreferences): void {
-  try {
-    localStorage.setItem(PREFS_STORAGE_KEY, JSON.stringify(prefs));
-  } catch (e) {
-    console.error("Failed to save preferences", e);
-  }
+export async function getStatusAdBookings(): Promise<StatusAdBooking[]> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return [];
+  const { data, error } = await supabase.from("whatsapp_status_ad_bookings").select("*").or(`creator_id.eq.${userId},advertiser_id.eq.${userId}`).order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map(mapBooking);
 }
 
-/**
- * Get all Ad Bookings
- */
-export function getStatusAdBookings(): StatusAdBooking[] {
-  try {
-    const raw = localStorage.getItem(BOOKINGS_STORAGE_KEY);
-    if (!raw) {
-      // Seed an initial demo booking for testing
-      const demo: StatusAdBooking[] = [
-        {
-          id: "bk-sample-1",
-          creatorId: "current-user",
-          creatorName: "My WhatsApp Status",
-          advertiserId: "adv-1",
-          advertiserName: "Lagos Gadget Fair 2026",
-          advertiserPhone: "+2348011223344",
-          advertiserEmail: "ads@lagosgadgetfair.ng",
-          campaignTitle: "Special Weekend Tech Flash Sale Announcement",
-          caption: "🔥 Weekend Tech Flash Sale at Computer Village! Use code LEOS20 for 20% discount on all iPhone & Mac accessories. Tap the link below! 📱💻 https://bethelincovibetv.com/deals",
-          targetDate: new Date(Date.now() + 86400000).toISOString().split("T")[0],
-          slotCount: 1,
-          totalAmount: 2500,
-          status: "pending",
-          createdAt: new Date(Date.now() - 3600000 * 4).toISOString(),
-        },
-      ];
-      localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(demo));
-      return demo;
-    }
-    return JSON.parse(raw);
-  } catch {
-    return [];
-  }
+export async function createStatusAdBooking(booking: Omit<StatusAdBooking, "id" | "createdAt" | "status">): Promise<StatusAdBooking> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) throw new Error("You must be signed in to create an ad booking.");
+  const { data, error } = await supabase.from("whatsapp_status_ad_bookings").insert({
+    ...booking, creator_id: booking.creatorId, advertiser_id: booking.advertiserId,
+    advertiser_email: booking.advertiserEmail ?? null, media_url: booking.mediaUrl ?? null,
+    target_date: booking.targetDate, slot_count: booking.slotCount, total_amount: booking.totalAmount,
+    proof_screenshot_url: booking.proofScreenshotUrl ?? null, proof_submitted_at: booking.proofSubmittedAt ?? null,
+    proof_viewer_count: booking.proofViewerCount ?? null,
+  }).select().single();
+  if (error) throw error;
+  return mapBooking(data);
 }
 
-/**
- * Save Ad Booking
- */
-export function createStatusAdBooking(booking: Omit<StatusAdBooking, "id" | "createdAt" | "status">): StatusAdBooking {
-  const current = getStatusAdBookings();
-  const newBooking: StatusAdBooking = {
-    ...booking,
-    id: `bk_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-    status: "pending",
-    createdAt: new Date().toISOString(),
-  };
-  const updated = [newBooking, ...current];
-  localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(updated));
-  return newBooking;
+export async function updateBookingStatus(bookingId: string, update: Partial<StatusAdBooking>): Promise<StatusAdBooking[]> {
+  const patch: any = {};
+  if (update.status !== undefined) patch.status = update.status;
+  if (update.proofScreenshotUrl !== undefined) patch.proof_screenshot_url = update.proofScreenshotUrl;
+  if (update.proofSubmittedAt !== undefined) patch.proof_submitted_at = update.proofSubmittedAt;
+  if (update.proofViewerCount !== undefined) patch.proof_viewer_count = update.proofViewerCount;
+  if (update.notes !== undefined) patch.notes = update.notes;
+  const { error } = await supabase.from("whatsapp_status_ad_bookings").update(patch).eq("id", bookingId);
+  if (error) throw error;
+  return getStatusAdBookings();
 }
 
-/**
- * Update Ad Booking Status & Proof
- */
-export function updateBookingStatus(
-  bookingId: string,
-  update: Partial<StatusAdBooking>
-): StatusAdBooking[] {
-  const current = getStatusAdBookings();
-  const updated = current.map((b) => (b.id === bookingId ? { ...b, ...update } : b));
-  localStorage.setItem(BOOKINGS_STORAGE_KEY, JSON.stringify(updated));
-  return updated;
-}
-
-/**
- * Clear All Stored Data (NDPR Compliance)
- */
-export function clearAllEngineData(): void {
-  localStorage.removeItem(LOGS_STORAGE_KEY);
-  localStorage.removeItem(PREFS_STORAGE_KEY);
-  localStorage.removeItem(BOOKINGS_STORAGE_KEY);
+/** Production clear: deletes only the signed-in user's persisted engine data. */
+export async function clearAllEngineData(): Promise<void> {
+  const userId = (await supabase.auth.getUser()).data.user?.id;
+  if (!userId) return;
+  await Promise.all([
+    supabase.from("whatsapp_engine_connection_logs").delete().eq("user_id", userId),
+    supabase.from("whatsapp_engine_preferences").delete().eq("user_id", userId),
+  ]);
 }
