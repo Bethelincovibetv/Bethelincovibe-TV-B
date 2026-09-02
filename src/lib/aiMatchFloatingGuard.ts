@@ -31,11 +31,6 @@ function clampPosition(el: HTMLElement, x: number, y: number) {
   };
 }
 
-function resetTransform(el: HTMLElement) {
-  el.style.transform = "";
-  el.removeAttribute("data-bicv-dragged");
-}
-
 function setupDraggable(el: HTMLElement) {
   if (el.dataset.bicvDragReady === "true") return;
   el.dataset.bicvDragReady = "true";
@@ -47,10 +42,10 @@ function setupDraggable(el: HTMLElement) {
     const p = clampPosition(el, saved.x, saved.y);
     const rect = el.getBoundingClientRect();
     el.style.transform = `translate(${p.x - rect.left}px, ${p.y - rect.top}px)`;
-    el.dataset.bicvDragged = "true";
   }
 
   let startX = 0, startY = 0, baseX = 0, baseY = 0, moved = false;
+  let suppressNextClick = false;
 
   const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0 || (event.target as HTMLElement)?.closest("button,a,input,textarea,select")) return;
@@ -60,6 +55,7 @@ function setupDraggable(el: HTMLElement) {
     baseX = rect.left;
     baseY = rect.top;
     moved = false;
+    suppressNextClick = false;
     try { el.setPointerCapture(event.pointerId); } catch {}
   };
 
@@ -69,12 +65,10 @@ function setupDraggable(el: HTMLElement) {
     const dy = event.clientY - startY;
     if (!moved && Math.hypot(dx, dy) < 6) return;
     moved = true;
+    suppressNextClick = true;
     const p = clampPosition(el, baseX + dx, baseY + dy);
     const rect = el.getBoundingClientRect();
-    const currentLeft = rect.left;
-    const currentTop = rect.top;
-    el.style.transform = `translate(${p.x - currentLeft}px, ${p.y - currentTop}px)`;
-    el.dataset.bicvDragged = "true";
+    el.style.transform = `translate(${p.x - rect.left}px, ${p.y - rect.top}px)`;
   };
 
   const onPointerUp = (event: PointerEvent) => {
@@ -84,14 +78,22 @@ function setupDraggable(el: HTMLElement) {
       const rect = el.getBoundingClientRect();
       const p = clampPosition(el, rect.left, rect.top);
       savePosition(p.x, p.y);
-      event.stopPropagation();
+      window.setTimeout(() => { suppressNextClick = false; }, 0);
     }
+  };
+
+  const onClickCapture = (event: MouseEvent) => {
+    if (!suppressNextClick) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressNextClick = false;
   };
 
   el.addEventListener("pointerdown", onPointerDown);
   el.addEventListener("pointermove", onPointerMove);
   el.addEventListener("pointerup", onPointerUp);
   el.addEventListener("pointercancel", onPointerUp);
+  el.addEventListener("click", onClickCapture, true);
 
   window.addEventListener("resize", () => {
     const rect = el.getBoundingClientRect();
