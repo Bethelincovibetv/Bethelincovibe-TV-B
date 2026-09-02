@@ -32,6 +32,20 @@ export interface CallPeerSignal {
 }
 
 const calls = collection(firestoreDb, "calls");
+const RING_TIMEOUT_MS = 60_000;
+
+function isFreshRingingCall(createdAt: any): boolean {
+  if (!createdAt) return true;
+  try {
+    const createdMs = typeof createdAt.toMillis === "function"
+      ? createdAt.toMillis()
+      : new Date(createdAt).getTime();
+    if (!Number.isFinite(createdMs)) return true;
+    return Date.now() - createdMs <= RING_TIMEOUT_MS;
+  } catch {
+    return true;
+  }
+}
 
 export async function createCall(params: {
   callerId: string;
@@ -74,23 +88,50 @@ export function listenForIncomingCalls(
   userId: string,
   callback: (call: CallRecord) => void
 ) {
-  const q = query(calls, where("participantIds", "array-contains", userId));
-  return onSnapshot(q, (snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      if (change.type !== "added" && change.type !== "modified") return;
-      const data = change.doc.data() as Omit<CallRecord, "id">;
-      if (data.callerId === userId) return;
-      if (data.state !== "ringing") return;
-      callback({ id: change.doc.id, ...data });
-    });
-  }, (error) => console.warn("Incoming call listener failed:", error));
+  let cancelled = false;
+  let unsubscribe: (() => void) | null = null;
+
+  ensureFirebaseAuth().then(() => {
+    if (cancelled) return;
+    const q = query(calls, where("participantIds", "array-contains", userId));
+    unsubscribe = onSnapshot(q, (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type !== "added" && change.type !== "modified") return;
+        const data = change.doc.data() as Omit<CallRecord, "id">;
+        if (data.callerId === userId || data.state !== "ringing") return;
+
+        if (!isFreshRingingCall(data.createdAt)) {
+          void endCall(change.doc.id);
+          return;
+        }
+
+        callback({ id: change.doc.id, ...data });
+      });
+    }, (error) => console.warn("Incoming call listener failed:", error));
+  }).catch((error) => console.warn("Incoming call auth failed:", error));
+
+  return () => {
+    cancelled = true;
+    unsubscribe?.();
+  };
 }
 
 export function listenToCall(callId: string, callback: (call: CallRecord | null) => void) {
-  return onSnapshot(doc(calls, callId), (snap) => {
-    if (!snap.exists()) return callback(null);
-    callback({ id: snap.id, ...(snap.data() as Omit<CallRecord, "id">) });
-  }, (error) => console.warn("Call listener failed:", error));
+  let cancelled = false;
+  let unsubscribe: (() => void) | null = null;
+
+  ensureFirebaseAuth().then(() => {
+    if (cancelled) return;
+    unsubscribe = onSnapshot(doc(calls, callId), (snap) => {
+      if (!snap.exists()) return callback(null);
+      callback({ id: snap.id, ...(snap.data() as Omit<CallRecord, "id">) });
+    }, (error) => console.warn("Call listener failed:", error));
+  }).catch((error) => console.warn("Call auth failed:", error));
+
+  return () => {
+    cancelled = true;
+    unsubscribe?.();
+  };
 }
 
 export function peerKey(a: string, b: string) {
@@ -98,20 +139,34 @@ export function peerKey(a: string, b: string) {
 }
 
 export async function writePeerOffer(callId: string, a: string, b: string, offer: RTCSessionDescriptionInit) {
+  await ensureFirebaseAuth();
   await setDoc(doc(calls, callId, "peers", peerKey(a, b)), { offer, offerFrom: a, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export async function writePeerAnswer(callId: string, a: string, b: string, answer: RTCSessionDescriptionInit) {
+  await ensureFirebaseAuth();
   await setDoc(doc(calls, callId, "peers", peerKey(a, b)), { answer, answerFrom: a, updatedAt: serverTimestamp() }, { merge: true });
 }
 
 export function listenToPeerSignal(callId: string, a: string, b: string, callback: (signal: CallPeerSignal) => void) {
-  return onSnapshot(doc(calls, callId, "peers", peerKey(a, b)), (snap) => {
-    if (snap.exists()) callback(snap.data() as CallPeerSignal);
-  });
+  let cancelled = false;
+  let unsubscribe: (() => void) | null = null;
+
+  ensureFirebaseAuth().then(() => {
+    if (cancelled) return;
+    unsubscribe = onSnapshot(doc(calls, callId, "peers", peerKey(a, b)), (snap) => {
+      if (snap.exists()) callback(snap.data() as CallPeerSignal);
+    }, (error) => console.warn("Peer signal listener failed:", error));
+  }).catch((error) => console.warn("Peer signal auth failed:", error));
+
+  return () => {
+    cancelled = true;
+    unsubscribe?.();
+  };
 }
 
 export async function addIceCandidate(callId: string, a: string, b: string, candidate: RTCIceCandidateInit) {
+  await ensureFirebaseAuth();
   await addDoc(collection(calls, callId, "peers", peerKey(a, b), "candidates"), {
     from: a,
     candidate,
@@ -120,15 +175,27 @@ export async function addIceCandidate(callId: string, a: string, b: string, cand
 }
 
 export function listenToIceCandidates(callId: string, a: string, b: string, localUserId: string, callback: (candidate: RTCIceCandidateInit) => void) {
-  return onSnapshot(collection(calls, callId, "peers", peerKey(a, b), "candidates"), (snapshot) => {
-    snapshot.docChanges().forEach((change) => {
-      if (change.type !== "added") return;
-      const data = change.doc.data() as { from?: string; candidate?: RTCIceCandidateInit };
-      if (data.from && data.from !== localUserId && data.candidate) callback(data.candidate);
-    });
-  });
+  let cancelled = false;
+  let unsubscribe: (() => void) | null = null;
+
+  ensureFirebaseAuth().then(() => {
+    if (cancelled) return;
+    unsubscribe = onSnapshot(collection(calls, callId, "peers", peerKey(a, b), "candidates"), (snapshot) => {
+      snapshot.docChanges().forEach((change) => {
+        if (change.type !== "added") return;
+        const data = change.doc.data() as { from?: string; candidate?: RTCIceCandidateInit };
+        if (data.from && data.from !== localUserId && data.candidate) callback(data.candidate);
+      });
+    }, (error) => console.warn("ICE listener failed:", error));
+  }).catch((error) => console.warn("ICE auth failed:", error));
+
+  return () => {
+    cancelled = true;
+    unsubscribe?.();
+  };
 }
 
 export async function deleteCall(callId: string) {
+  await ensureFirebaseAuth();
   await deleteDoc(doc(calls, callId));
 }
