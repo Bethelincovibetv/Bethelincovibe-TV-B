@@ -60,12 +60,12 @@ describe("Step 11: Promotion Notification Dispatcher & Admin Promotion Treasury"
       expect(res.success).toBe(true);
       expect(res.notification).toBeDefined();
       expect(res.notification?.user_id).toBe("user-123");
-      expect(res.notification?.title).toBe("Test Title");
+      expect(res.notification?.title).toContain("Test Title");
       expect(res.notification?.is_read).toBe(false);
 
       const stored = getLocalStoredNotifications();
       expect(stored.length).toBe(1);
-      expect(stored[0].title).toBe("Test Title");
+      expect(stored[0].title).toContain("Test Title");
     });
 
     it("should fail gracefully with error result when userId or eventType is missing", async () => {

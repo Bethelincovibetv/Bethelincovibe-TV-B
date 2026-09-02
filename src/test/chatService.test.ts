@@ -21,6 +21,7 @@ vi.mock("@/lib/firebaseChat", () => {
     firestoreDb: {},
     ensureFirebaseAuth: vi.fn().mockResolvedValue("mock_user_1"),
     handleFirestoreError: vi.fn(),
+    sanitizeFirestoreObject: (obj: any) => obj,
     OperationType: {
       CREATE: "create",
       UPDATE: "update",
