@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchUserNameById } from "./notificationPersonalizer";
 import { toast } from "sonner";
 
 export interface BusinessLeadPayload {
@@ -47,10 +48,11 @@ export async function recordBusinessLead(payload: BusinessLeadPayload): Promise<
     }
 
     // 2. Trigger instant user-based notification strictly for this specific business owner
+    const ownerName = await fetchUserNameById(payload.userId);
     await supabase.from("user_notifications").insert({
       user_id: payload.userId,
-      title: `🎯 New Lead: ${payload.customerName || "Prospective Client"}`,
-      body: `Interested in ${payload.serviceTitle || payload.businessName}. Contact: ${payload.customerPhone || payload.customerEmail || "Direct via app"}.`,
+      title: `🎯 ${ownerName}, New Lead: ${payload.customerName || "Prospective Client"}`,
+      body: `Hi ${ownerName}, ${payload.customerName || "A prospective client"} is interested in ${payload.serviceTitle || payload.businessName}. Contact: ${payload.customerPhone || payload.customerEmail || "Direct via app"}.`,
       type: "lead",
       url: "/dashboard/leads",
       is_read: false,

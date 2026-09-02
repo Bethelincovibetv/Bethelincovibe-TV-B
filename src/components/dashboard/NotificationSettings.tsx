@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { getBestUserName } from "@/lib/notificationPersonalizer";
 import {
   getUserFcmDevices,
   removeFcmDevice,
@@ -136,16 +137,17 @@ export default function NotificationSettings() {
   const handleSendTest = async () => {
     if (!user) return;
     setSendingTest(true);
+    const userName = getBestUserName(user);
     try {
       await sendFcmNotificationToUser({
         userId: user.id,
-        title: "🔔 Test Push Notification",
-        body: "Your FCM push notifications are working perfectly on Bethelincovibe TV!",
+        title: `🔔 ${userName}, Test Push Notification`,
+        body: `Hi ${userName}, your FCM push notifications are working perfectly on Bethelincovibe TV!`,
         url: "/dashboard",
         type: "system",
         icon: "/logo.png",
       });
-      toast.success("Test notification triggered! Check your device or notification bell.");
+      toast.success(`Test notification sent for ${userName}! Check your device or notification bell.`);
     } catch (err: any) {
       toast.error(err?.message || "Failed to send test push notification");
     } finally {

@@ -1,6 +1,7 @@
 import { getToken, onMessage, deleteToken } from "firebase/messaging";
 import { getFirebaseMessaging, VAPID_KEY } from "./firebase";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "./notificationPersonalizer";
 
 export interface FcmDevice {
   id: string;
@@ -202,10 +203,14 @@ export async function sendFcmNotificationToUser(params: {
   image?: string;
 }) {
   try {
+    const recipientName = await fetchUserNameById(params.userId);
+    const personalizedTitle = personalizeNotificationTitle(params.title, recipientName);
+    const personalizedBody = personalizeNotificationBody(params.body, recipientName);
+
     await supabase.from("user_notifications").insert({
       user_id: params.userId,
-      title: params.title,
-      body: params.body,
+      title: personalizedTitle,
+      body: personalizedBody,
       url: params.url || "/dashboard",
       type: params.type || "system",
       is_read: false,
@@ -221,8 +226,8 @@ export async function sendFcmNotificationToUser(params: {
     // the same event to appear twice on the current user's device.
     await supabase.functions.invoke("onesignal-send", {
       body: {
-        title: params.title,
-        message: params.body,
+        title: personalizedTitle,
+        message: personalizedBody,
         url: params.url || "/dashboard",
         mode: "users",
         user_ids: [params.userId],
@@ -278,10 +283,11 @@ export function triggerDirectBrowserNotification(options: {
 }
 
 export async function sendWelcomePushNotification(userId: string) {
+  const userName = await fetchUserNameById(userId);
   await sendFcmNotificationToUser({
     userId,
-    title: "Welcome to Bethelincovibe TV! 🚀",
-    body: "Push notifications are successfully active on your device. You'll receive real-time alerts for business inquiries, blog performance, and community trade updates.",
+    title: `Welcome to Bethelincovibe TV, ${userName}! 🚀`,
+    body: `Hi ${userName}, push notifications are successfully active on your device. You'll receive real-time alerts for business inquiries, blog performance, and community trade updates.`,
     url: "/dashboard",
     icon: "/logo.png",
     type: "system",

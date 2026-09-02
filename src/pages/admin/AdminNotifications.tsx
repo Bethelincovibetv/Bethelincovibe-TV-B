@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { triggerDirectBrowserNotification } from "@/lib/fcm";
+import { fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 import { formatDistanceToNow, format } from "date-fns";
 
 type PromptStyle = "bell" | "modal" | "custom";
@@ -198,32 +199,44 @@ export default function AdminNotifications() {
             }
           } catch (rpcErr) {
             console.warn("RPC broadcast fallback:", rpcErr);
-            const { data: profiles } = await supabase.from("profiles").select("user_id");
-            const allIds = (profiles || []).map((p: any) => p.user_id).filter(Boolean);
-            const notifRecords = allIds.map((uId) => ({
-              user_id: uId,
-              title: cleanTitle,
-              body: cleanMsg,
-              url: cleanUrl,
-              type: notifType,
-              is_read: false,
-            }));
+            const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, username, email");
+            const notifRecords = (profiles || []).map((p: any) => {
+              const uName = p.display_name?.trim() || p.username?.trim() || (p.email ? p.email.split("@")[0] : "Entrepreneur");
+              return {
+                user_id: p.user_id,
+                title: personalizeNotificationTitle(cleanTitle, uName),
+                body: personalizeNotificationBody(cleanMsg, uName),
+                url: cleanUrl,
+                type: notifType,
+                is_read: false,
+              };
+            });
 
             for (let i = 0; i < notifRecords.length; i += 100) {
               const chunk = notifRecords.slice(i, i + 100);
               await supabase.from("user_notifications").insert(chunk);
             }
-            inAppDeliveredCount = allIds.length;
+            inAppDeliveredCount = notifRecords.length;
           }
         } else if (targetUserIds.length > 0) {
-          const notifRecords = targetUserIds.map((uId) => ({
-            user_id: uId,
-            title: cleanTitle,
-            body: cleanMsg,
-            url: cleanUrl,
-            type: notifType,
-            is_read: false,
-          }));
+          const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, username, email").in("user_id", targetUserIds);
+          const nameMap = new Map<string, string>();
+          (profiles || []).forEach((p: any) => {
+            const uName = p.display_name?.trim() || p.username?.trim() || (p.email ? p.email.split("@")[0] : "Entrepreneur");
+            nameMap.set(p.user_id, uName);
+          });
+
+          const notifRecords = targetUserIds.map((uId) => {
+            const uName = nameMap.get(uId) || "Entrepreneur";
+            return {
+              user_id: uId,
+              title: personalizeNotificationTitle(cleanTitle, uName),
+              body: personalizeNotificationBody(cleanMsg, uName),
+              url: cleanUrl,
+              type: notifType,
+              is_read: false,
+            };
+          });
 
           for (let i = 0; i < notifRecords.length; i += 100) {
             const chunk = notifRecords.slice(i, i + 100);
@@ -287,8 +300,9 @@ export default function AdminNotifications() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not logged in as Administrator");
 
-      const testTitle = "Welcome to Bethelincovibe TV";
-      const testBody = "Discover a growing business and media ecosystem built to help businesses, entrepreneurs, creators and communities connect, promote their work, discover opportunities and grow.";
+      const adminName = await fetchUserNameById(user.id);
+      const testTitle = `Welcome to Bethelincovibe TV, ${adminName}!`;
+      const testBody = `Hi ${adminName}, discover a growing business and media ecosystem built to help businesses, entrepreneurs, creators and communities connect, promote their work, discover opportunities and grow.`;
       const testUrl = "/dashboard/notifications";
 
       // 1. Insert into admin's private in-app notifications

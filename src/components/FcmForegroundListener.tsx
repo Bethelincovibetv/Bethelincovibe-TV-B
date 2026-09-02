@@ -2,11 +2,15 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { listenForForegroundFcm } from "@/lib/fcm";
 import { playNotificationSound } from "@/lib/notificationSound";
+import { useAuth } from "@/contexts/AuthContext";
+import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 import { toast } from "sonner";
 import { Bell } from "lucide-react";
 
 export default function FcmForegroundListener() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const userName = getBestUserName(user);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -14,9 +18,12 @@ export default function FcmForegroundListener() {
     listenForForegroundFcm((payload) => {
       console.log("Foreground FCM message received:", payload);
 
-      const title = payload.notification?.title || payload.data?.title || "New Notification";
-      const body = payload.notification?.body || payload.data?.body || "";
+      const rawTitle = payload.notification?.title || payload.data?.title || "New Notification";
+      const rawBody = payload.notification?.body || payload.data?.body || "";
       const targetUrl = payload.data?.url || payload.data?.deep_link || payload.notification?.click_action;
+
+      const title = personalizeNotificationTitle(rawTitle, userName);
+      const body = rawBody ? personalizeNotificationBody(rawBody, userName) : "";
 
       playNotificationSound();
 
@@ -38,7 +45,7 @@ export default function FcmForegroundListener() {
     return () => {
       if (unsubscribe) unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, userName]);
 
   return null;
 }

@@ -128,6 +128,11 @@ import AdminPromotionDisputes from "./pages/admin/AdminPromotionDisputes";
 import AdminPromotionTreasury from "./pages/admin/AdminPromotionTreasury";
 import PromoterEarningsPage from "./pages/PromoterEarningsPage";
 import AIBusinessMatchAssistant from "./components/ai-match/AIBusinessMatchAssistant";
+import CustomerMyRequests from "./pages/CustomerMyRequests";
+import CustomerRequestDetail from "./pages/CustomerRequestDetail";
+import ProviderOpportunitiesPage from "./pages/ProviderOpportunitiesPage";
+import ProviderOpportunityDetail from "./pages/ProviderOpportunityDetail";
+import AdminBusinessRequests from "./pages/admin/AdminBusinessRequests";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -261,6 +266,20 @@ const App = () => (
               <Route path="/dashboard/promoter-earnings" element={<PromoterEarningsPage />} />
               <Route path="/dashboard/earnings" element={<PromoterEarningsPage />} />
 
+              {/* Step 7: Smart Business Request & Opportunity Matching System */}
+              <Route path="/dashboard/my-requests" element={<CustomerMyRequests />} />
+              <Route path="/dashboard/my-requests/:id" element={<CustomerRequestDetail />} />
+              <Route path="/dashboard/requests" element={<CustomerMyRequests />} />
+              <Route path="/dashboard/requests/:id" element={<CustomerRequestDetail />} />
+              <Route path="/my-requests" element={<CustomerMyRequests />} />
+              <Route path="/my-requests/:id" element={<CustomerRequestDetail />} />
+              <Route path="/requests" element={<CustomerMyRequests />} />
+              <Route path="/dashboard/opportunities" element={<ProviderOpportunitiesPage />} />
+              <Route path="/dashboard/opportunities/:id" element={<ProviderOpportunityDetail />} />
+              <Route path="/opportunities" element={<ProviderOpportunitiesPage />} />
+              <Route path="/opportunities/:id" element={<ProviderOpportunityDetail />} />
+              <Route path="/leads" element={<ProviderOpportunitiesPage />} />
+
               <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
@@ -340,6 +359,10 @@ const App = () => (
               <Route path="business-ai" element={<AdminBusinesses defaultTab="ai_settings" />} />
               <Route path="business-transactions" element={<AdminBusinesses defaultTab="transactions" />} />
               <Route path="suppliers" element={<AdminBusinesses />} />
+              <Route path="business-requests" element={<AdminBusinessRequests />} />
+              <Route path="requests" element={<AdminBusinessRequests />} />
+              <Route path="matching" element={<AdminBusinessRequests />} />
+              <Route path="opportunities" element={<AdminBusinessRequests />} />
               <Route path="categories" element={<AdminCategories />} />
               <Route path="blog-categories" element={<AdminCategories categoryType="blog" />} />
               <Route path="directory-categories" element={<AdminCategories categoryType="business" />} />

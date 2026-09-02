@@ -8,11 +8,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
+import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 
 type N = { id: string; title: string; body: string | null; url: string | null; is_read: boolean; created_at: string; type: string };
 
 export default function NotificationBell() {
   const { user } = useAuth();
+  const userName = getBestUserName(user);
   const [items, setItems] = useState<N[]>([]);
   const [open, setOpen] = useState(false);
   const [soundEnabled, setSoundState] = useState(() => isNotificationSoundEnabled());
@@ -142,6 +144,9 @@ export default function NotificationBell() {
           )}
 
           {items.map((n) => {
+            const displayTitle = personalizeNotificationTitle(n.title, userName);
+            const displayBody = n.body ? personalizeNotificationBody(n.body, userName) : null;
+
             const inner = (
               <div className={`p-3.5 hover:bg-muted/40 transition cursor-pointer ${!n.is_read ? "bg-primary/5" : ""}`}>
                 <div className="flex items-start gap-2.5">
@@ -152,11 +157,11 @@ export default function NotificationBell() {
                   )}
                   <div className="flex-1 min-w-0">
                     <p className={`text-xs font-bold truncate ${!n.is_read ? "text-foreground" : "text-foreground/80"}`}>
-                      {n.title}
+                      {displayTitle}
                     </p>
-                    {n.body && (
+                    {displayBody && (
                       <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5 leading-relaxed">
-                        {n.body}
+                        {displayBody}
                       </p>
                     )}
                     <p className="text-[10px] font-medium text-muted-foreground/80 mt-1">

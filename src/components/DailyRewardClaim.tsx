@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { playCreditSound } from "@/lib/notificationSound";
+import { getBestUserName } from "@/lib/notificationPersonalizer";
 
 // Account-based daily login reward — strictly one claim per calendar day per user account.
 export default function DailyRewardClaim() {
@@ -31,13 +32,14 @@ export default function DailyRewardClaim() {
         if (result?.claimed) {
           localStorage.setItem(storageKey, "1");
           const amount = result.amount || 50;
+          const userName = getBestUserName(user);
 
-          // Ensure private notification record for the user
+          // Ensure private notification record for the user mentioning their name
           try {
             await supabase.from("user_notifications").insert({
               user_id: user.id,
-              title: `🎁 Daily Free Login Reward: +₦${amount}`,
-              body: `You received ₦${amount} free design credits for logging in today. Credits have been added to your wallet.`,
+              title: `🎁 ${userName}, Daily Free Login Reward: +₦${amount}`,
+              body: `Hi ${userName}, you received ₦${amount} free design credits for logging in today. Credits have been added to your wallet.`,
               url: "/dashboard/wallet",
               type: "reward",
               is_read: false,
@@ -45,8 +47,8 @@ export default function DailyRewardClaim() {
           } catch {}
 
           playCreditSound();
-          toast.success(`🎁 Daily Reward: +₦${amount} Free Credits added to your wallet!`, {
-            description: "Use your free credits for AI Graphic Designs, Flyers, and Logo creations.",
+          toast.success(`🎁 ${userName}, +₦${amount} Daily Free Credits Claimed!`, {
+            description: `Hi ${userName}, use your free credits for AI Graphic Designs, Flyers, and Logo creations.`,
           });
 
           // Notify any wallet/studio components to update live

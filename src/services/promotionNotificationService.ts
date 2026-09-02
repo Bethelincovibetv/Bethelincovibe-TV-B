@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 
 export type PromotionNotificationEventType =
   | "order_created"
@@ -72,14 +73,18 @@ export async function dispatchPromotionNotification(input: {
   }
 
   try {
+    const recipientName = await fetchUserNameById(input.userId);
+    const personalizedTitle = personalizeNotificationTitle(input.title, recipientName);
+    const personalizedBody = personalizeNotificationBody(input.body, recipientName);
+
     const nowIso = new Date().toISOString();
     const notificationId = `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     
     const notification: PromotionNotification = {
       id: notificationId,
       user_id: input.userId,
-      title: input.title,
-      body: input.body,
+      title: personalizedTitle,
+      body: personalizedBody,
       url: input.url,
       type: input.type || "order",
       event_type: input.eventType,
@@ -105,8 +110,8 @@ export async function dispatchPromotionNotification(input: {
           await query.insert({
             id: notificationId,
             user_id: input.userId,
-            title: input.title,
-            body: input.body,
+            title: personalizedTitle,
+            body: personalizedBody,
             url: input.url,
             type: input.type || "order",
             is_read: false,

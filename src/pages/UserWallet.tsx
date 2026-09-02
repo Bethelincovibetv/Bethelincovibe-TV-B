@@ -128,10 +128,11 @@ export default function UserWallet() {
 
             // Record targeted notification for this top-up
             try {
+              const uName = user?.user_metadata?.display_name || user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : "Entrepreneur");
               await supabase.from("user_notifications").insert({
                 user_id: user!.id,
-                title: `₦${amt.toLocaleString()} Wallet Top-up Successful`,
-                body: `Your wallet was successfully credited with ₦${amt.toLocaleString()} via Paystack.`,
+                title: `₦${amt.toLocaleString()} Wallet Top-up Successful, ${uName}!`,
+                body: `Hi ${uName}, your wallet was successfully credited with ₦${amt.toLocaleString()} via Paystack.`,
                 url: `/dashboard/receipt/${resp.reference}`,
                 type: "wallet",
                 is_read: false,

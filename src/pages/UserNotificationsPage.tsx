@@ -24,6 +24,7 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
+import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 
 export type NotificationItem = {
   id: string;
@@ -126,6 +127,8 @@ export default function UserNotificationsPage() {
     }
   }, [searchParams, notifications]);
 
+  const userName = getBestUserName(user);
+
   // Filtered notifications calculation (top-level hook)
   const filtered = useMemo(() => {
     return notifications.filter((n) => {
@@ -138,15 +141,17 @@ export default function UserNotificationsPage() {
 
       if (search.trim()) {
         const q = search.toLowerCase();
+        const pTitle = personalizeNotificationTitle(n.title, userName).toLowerCase();
+        const pBody = n.body ? personalizeNotificationBody(n.body, userName).toLowerCase() : "";
         return (
-          n.title.toLowerCase().includes(q) ||
-          (n.body && n.body.toLowerCase().includes(q)) ||
+          pTitle.includes(q) ||
+          pBody.includes(q) ||
           (n.type && n.type.toLowerCase().includes(q))
         );
       }
       return true;
     });
-  }, [notifications, filter, search]);
+  }, [notifications, filter, search, userName]);
 
   if (loading) {
     return (
@@ -453,6 +458,8 @@ export default function UserNotificationsPage() {
           ) : (
             filtered.map((item) => {
               const meta = getNotifMeta(item.type);
+              const displayTitle = personalizeNotificationTitle(item.title, userName);
+              const displayBody = item.body ? personalizeNotificationBody(item.body, userName) : null;
               return (
                 <div
                   key={item.id}
@@ -479,7 +486,7 @@ export default function UserNotificationsPage() {
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex items-center gap-2 min-w-0 flex-wrap">
                         <p className={`text-sm font-bold ${!item.is_read ? "text-foreground" : "text-foreground/80"}`}>
-                          {item.title}
+                          {displayTitle}
                         </p>
                         <Badge variant="outline" className={`text-[10px] font-semibold px-2 py-0 h-4.5 rounded-full ${meta.badgeClass}`}>
                           {meta.label}
@@ -496,9 +503,9 @@ export default function UserNotificationsPage() {
                       </span>
                     </div>
 
-                    {item.body && (
+                    {displayBody && (
                       <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2">
-                        {item.body}
+                        {displayBody}
                       </p>
                     )}
 
@@ -556,7 +563,7 @@ export default function UserNotificationsPage() {
                   </span>
                 </div>
                 <DialogTitle className="text-lg sm:text-xl font-black text-foreground leading-snug">
-                  {selectedNotification.title}
+                  {personalizeNotificationTitle(selectedNotification.title, userName)}
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
                   Delivered securely to your Bethelincovibe TV dashboard inbox and active devices.
@@ -565,7 +572,9 @@ export default function UserNotificationsPage() {
 
               {/* Full Un-truncated Body */}
               <div className="p-4 rounded-xl bg-muted/40 border border-border/80 text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
-                {selectedNotification.body || "No additional text content provided for this notification."}
+                {selectedNotification.body
+                  ? personalizeNotificationBody(selectedNotification.body, userName)
+                  : `Hi ${userName}, no additional text content provided for this notification.`}
               </div>
 
               {/* Action Buttons */}

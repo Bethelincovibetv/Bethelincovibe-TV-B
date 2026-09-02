@@ -72,12 +72,13 @@ export default function TransferDialog({ open, onOpenChange, currentBalance, onS
     if (!result?.success) { toast.error(result?.error || "Transfer failed"); return; }
 
     // Targeted notification for Recipient
+    const senderName = user?.user_metadata?.display_name || user?.user_metadata?.full_name || (user?.email ? user.email.split("@")[0] : "A community member");
     if (recipient.user_id) {
       try {
         await supabase.from("user_notifications").insert({
           user_id: recipient.user_id,
-          title: `₦${amt.toLocaleString()} Received from ${user?.user_metadata?.display_name || user?.email || "User"}`,
-          body: `You received ₦${amt.toLocaleString()} in your Bethelincovibe wallet.${note ? ` Note: "${note}"` : ""}`,
+          title: `₦${amt.toLocaleString()} Received, ${recipientName}!`,
+          body: `Hi ${recipientName}, you received ₦${amt.toLocaleString()} from ${senderName} in your Bethelincovibe wallet.${note ? ` Note: "${note}"` : ""}`,
           url: "/dashboard/wallet",
           type: "wallet",
           is_read: false,
@@ -92,8 +93,8 @@ export default function TransferDialog({ open, onOpenChange, currentBalance, onS
       try {
         await supabase.from("user_notifications").insert({
           user_id: user.id,
-          title: `₦${amt.toLocaleString()} Transfer Completed`,
-          body: `Transferred ₦${amt.toLocaleString()} to ${recipientName} (${recipient.email}).`,
+          title: `₦${amt.toLocaleString()} Transfer Completed, ${senderName}!`,
+          body: `Hi ${senderName}, your transfer of ₦${amt.toLocaleString()} to ${recipientName} (${recipient.email}) was successful.`,
           url: "/dashboard/wallet",
           type: "wallet",
           is_read: false,
