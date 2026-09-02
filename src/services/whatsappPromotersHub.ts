@@ -4,22 +4,13 @@ const FUNCTION_NAME = "promoters-hub-api";
 
 export interface HubHealth { ok?: boolean; status?: string; [key: string]: unknown }
 
-export interface HubRequestOptions {
-  method?: "GET" | "POST" | "PATCH" | "DELETE";
-  body?: unknown;
-}
-
-/** Secure bridge from Bethelincovibe TV to the live WhatsApp Promoters Hub.
- * The browser sends the current TV user's Supabase JWT; the server-side bridge
- * is responsible for forwarding it to the Hub. No Hub API key belongs here.
- */
-async function request<T>(path: string, options: HubRequestOptions = {}): Promise<T> {
+async function request<T>(path: string, method: "GET" | "POST" = "GET", body?: unknown): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("You must be signed in to use WhatsApp Promoters.");
 
   const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
-    body: { path, ...(options.body === undefined ? {} : { body: options.body }), method: options.method ?? "GET" },
+    body: { path, method, ...(body === undefined ? {} : { body }) },
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -27,6 +18,9 @@ async function request<T>(path: string, options: HubRequestOptions = {}): Promis
   return data as T;
 }
 
+/** Secure browser-side client for the live WhatsApp Promoters Hub.
+ * Hub credentials are intentionally never exposed to the browser.
+ */
 export const whatsappPromotersHub = {
   health: () => request<HubHealth>("/api/health"),
   getPromoter: () => request("/api/promoters/me"),
