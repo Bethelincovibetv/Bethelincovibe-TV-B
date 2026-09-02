@@ -6,7 +6,7 @@ export type FeatureKey =
   // Core Commerce & Marketplace
   | "products" | "businesses" | "business_listing" | "business_boost" | "sales_pages" | "user_leads"
   // AI & Creative Studios
-  | "graphic_designer" | "logo_creator" | "video_creator" | "coach" | "ai_blogger" | "ai_admin"
+  | "graphic_designer" | "logo_creator" | "video_creator" | "coach" | "ai_blogger" | "ai_admin" | "ai_recommender"
   // WhatsApp & Communication
   | "whatsapp_engine" | "realtime_chat"
   // Advertising & Ad Placements
@@ -43,6 +43,7 @@ export const FEATURE_META: FeatureMetaItem[] = [
   { key: "coach", label: "AI Business Coach", category: "ai_creative", description: "Coach Bethel Goodgift AI-powered advisory chat and business mentor (/dashboard/coach)" },
   { key: "ai_blogger", label: "AI Blogger Studio", category: "ai_creative", description: "Autonomous AI Blogging and content scheduling studio for automated articles" },
   { key: "ai_admin", label: "Executive AI Admin Console", category: "ai_creative", description: "AI Strategy Director, revenue analytics & platform intelligence console" },
+  { key: "ai_recommender", label: "AI Business Recommender & Match Assistant", category: "ai_creative", description: "Maya smart business-matching assistant, intent pattern detection, dynamic behavioural scoring and curated recommendations" },
 
   // WhatsApp & Communication
   { key: "whatsapp_engine", label: "WhatsApp Status Engine", category: "communication", description: "Mutual Google Contacts exchange, audience growth, and status ad monetization (/whatsapp-engine)" },

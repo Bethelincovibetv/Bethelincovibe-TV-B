@@ -28,6 +28,7 @@ import SEO from "@/components/SEO";
 import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
 import BrandedLoader from "@/components/BrandedLoader";
+import { trackRecommenderSignal } from "@/lib/aiBusinessRecommenderEngine";
 
 type Biz = any;
 
@@ -87,6 +88,26 @@ export default function BusinessProfile() {
           .order("display_order");
         setImages(imgs ?? []);
         track(foundBiz.id, "view");
+        
+        // Track AI Recommender signal
+        try {
+          trackRecommenderSignal({
+            type: "business_view",
+            entityId: foundBiz.id,
+            entityName: foundBiz.name,
+            categorySlug: foundBiz.categories?.slug || foundBiz.category,
+            categoryName: foundBiz.categories?.name,
+            keywords: [
+              foundBiz.name,
+              foundBiz.category,
+              foundBiz.city,
+              foundBiz.state,
+              ...(Array.isArray(foundBiz.services) ? foundBiz.services.map((s: any) => typeof s === 'string' ? s : s.title) : [])
+            ].filter(Boolean),
+            location: foundBiz.city || foundBiz.state,
+            path: `/businesses/${foundBiz.slug || foundBiz.id}`,
+          });
+        } catch {}
 
         // Fetch products submitted by business owner
         if (foundBiz.submitted_by) {
@@ -305,18 +326,32 @@ export default function BusinessProfile() {
 
               {/* Quick action chips (desktop) */}
               <div className="mt-5 hidden md:grid grid-cols-6 gap-2">
-                {biz.phone && allowDirectCalls && <ActionBtn icon={Phone} label="Call" onClick={() => { track(biz.id, "call"); window.location.href = `tel:${biz.phone}`; }} />}
-                {waClean && <ActionBtn icon={MessageCircle} label="WhatsApp" onClick={() => { track(biz.id, "whatsapp"); window.open(`https://wa.me/${waClean}`); }} />}
+                {biz.phone && allowDirectCalls && <ActionBtn icon={Phone} label="Call" onClick={() => { 
+                  track(biz.id, "call"); 
+                  try { trackRecommenderSignal({ type: "business_contact", entityId: biz.id, entityName: biz.name, categorySlug: biz.categories?.slug || biz.category, categoryName: biz.categories?.name, keywords: [biz.name, biz.category].filter(Boolean), location: biz.city || biz.state }); } catch {}
+                  window.location.href = `tel:${biz.phone}`; 
+                }} />}
+                {waClean && <ActionBtn icon={MessageCircle} label="WhatsApp" onClick={() => { 
+                  track(biz.id, "whatsapp"); 
+                  try { trackRecommenderSignal({ type: "business_contact", entityId: biz.id, entityName: biz.name, categorySlug: biz.categories?.slug || biz.category, categoryName: biz.categories?.name, keywords: [biz.name, biz.category].filter(Boolean), location: biz.city || biz.state }); } catch {}
+                  window.open(`https://wa.me/${waClean}`); 
+                }} />}
                 {waGroupUrl && (
                   <ActionBtn
                     icon={Users}
                     label="Community"
                     highlight
-                    onClick={() => { track(biz.id, "whatsapp_group"); window.open(waGroupUrl, "_blank"); }}
+                    onClick={() => { 
+                      track(biz.id, "whatsapp_group"); 
+                      try { trackRecommenderSignal({ type: "business_contact", entityId: biz.id, entityName: biz.name, categorySlug: biz.categories?.slug || biz.category, categoryName: biz.categories?.name, keywords: [biz.name, biz.category].filter(Boolean), location: biz.city || biz.state }); } catch {}
+                      window.open(waGroupUrl, "_blank"); 
+                    }}
                   />
                 )}
                 <BusinessChatDialog businessId={biz.id} businessName={biz.name} trigger={
-                  <button className="flex flex-col items-center gap-1 p-3 rounded-xl border bg-card hover:bg-secondary transition active:scale-95">
+                  <button onClick={() => {
+                    try { trackRecommenderSignal({ type: "business_contact", entityId: biz.id, entityName: biz.name, categorySlug: biz.categories?.slug || biz.category, categoryName: biz.categories?.name, keywords: [biz.name, biz.category].filter(Boolean), location: biz.city || biz.state }); } catch {}
+                  }} className="flex flex-col items-center gap-1 p-3 rounded-xl border bg-card hover:bg-secondary transition active:scale-95">
                     <MessageCircle className="h-5 w-5 text-primary" /><span className="text-xs font-medium">Message</span>
                   </button>
                 } />

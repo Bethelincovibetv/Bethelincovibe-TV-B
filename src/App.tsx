@@ -127,6 +127,7 @@ import PromoterPromotionOrderDetail from "./pages/PromoterPromotionOrderDetail";
 import AdminPromotionDisputes from "./pages/admin/AdminPromotionDisputes";
 import AdminPromotionTreasury from "./pages/admin/AdminPromotionTreasury";
 import PromoterEarningsPage from "./pages/PromoterEarningsPage";
+import AIBusinessMatchAssistant from "./components/ai-match/AIBusinessMatchAssistant";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -161,6 +162,7 @@ function FeatureAwareServices() {
       <AdClickTracker />
       <WhatsAppCommunityBanner />
       {isHome && <BackgroundJingle />}
+      {flags.ai_recommender !== false && <AIBusinessMatchAssistant />}
     </ErrorBoundary>
   );
 }

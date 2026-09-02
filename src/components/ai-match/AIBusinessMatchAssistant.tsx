@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -18,6 +18,9 @@ import {
   ExternalLink,
   ChevronDown,
   ChevronUp,
+  RefreshCw,
+  Compass,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -37,16 +40,19 @@ import {
   saveRecommenderUserPrefs,
   findBestBusinessMatch,
   getUserInterestProfile,
+  trackRecommenderSignal,
 } from "@/lib/aiBusinessRecommenderEngine";
 import aiMatchAvatar from "@/assets/images/ai_match_avatar_1788303151852.jpg";
 
 export default function AIBusinessMatchAssistant() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [match, setMatch] = useState<BusinessMatchResult | null>(null);
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
   const [isDismissed, setIsDismissed] = useState<boolean>(false);
   const [showWhyInfo, setShowWhyInfo] = useState<boolean>(false);
   const [userPrefs, setUserPrefs] = useState(getRecommenderUserPrefs());
+  const [isScanning, setIsScanning] = useState<boolean>(false);
   const [hasInteracted, setHasInteracted] = useState(false);
 
   // Subscribe to real-time recommendation updates
@@ -66,14 +72,14 @@ export default function AIBusinessMatchAssistant() {
       }
     });
 
-    // Check on mount if an intent pattern already exists
+    // Check on mount or navigation if an intent pattern already exists
     async function checkInitialIntent() {
       const prefs = getRecommenderUserPrefs();
       setUserPrefs(prefs);
       if (!prefs.enabled) return;
 
       const profile = getUserInterestProfile();
-      if (profile.totalSignalsCount >= 2 && profile.confidence >= 65) {
+      if (profile.totalSignalsCount >= 2 && profile.confidence >= 60) {
         const found = await findBestBusinessMatch();
         if (found) {
           setMatch(found);
@@ -81,54 +87,88 @@ export default function AIBusinessMatchAssistant() {
       }
     }
 
-    const timer = setTimeout(checkInitialIntent, 3500);
+    const timer = setTimeout(checkInitialIntent, 3000);
 
     return () => {
       clearTimeout(timer);
       unsubscribe();
     };
-  }, [isDismissed]);
+  }, [isDismissed, location.pathname]);
 
-  if (!userPrefs.enabled || !match || isDismissed) {
+  if (!userPrefs.enabled) {
     return null;
   }
 
-  const { business, dialogue, confidence, inferredIntent, whyExplanation } = match;
-  const bizSlug = business.slug || business.id;
-  const isVerified = Boolean(business.is_verified || business.verified);
-  const catName = business.categories?.name || business.category || "Verified Business";
+  // Handle Manual Trigger / Scan
+  const handleTriggerMatch = async (categoryKeyword?: string) => {
+    setIsScanning(true);
+    setIsDismissed(false);
+    setIsExpanded(true);
+    try {
+      if (categoryKeyword) {
+        trackRecommenderSignal({
+          type: "search",
+          keywords: [categoryKeyword],
+          path: location.pathname,
+        });
+      }
+      const found = await findBestBusinessMatch(
+        categoryKeyword
+          ? { overrideIntentKeywords: [categoryKeyword], overrideCategory: categoryKeyword }
+          : undefined
+      );
+      if (found) {
+        setMatch(found);
+        recordRecommendationFeedback({
+          businessId: found.business.id,
+          businessName: found.business.name,
+          category: found.business.categories?.name || found.business.category || "General",
+          action: "shown",
+          confidence: found.confidence,
+        });
+      }
+    } catch (e) {
+      console.warn("Manual match error:", e);
+    } finally {
+      setIsScanning(false);
+    }
+  };
 
   const handleViewBusiness = () => {
+    if (!match) return;
     recordRecommendationFeedback({
-      businessId: business.id,
-      businessName: business.name,
-      category: catName,
+      businessId: match.business.id,
+      businessName: match.business.name,
+      category: match.business.categories?.name || match.business.category || "General",
       action: "click",
-      confidence,
+      confidence: match.confidence,
     });
     setIsDismissed(true);
-    navigate(`/businesses/${bizSlug}`);
+    navigate(`/businesses/${match.business.slug || match.business.id}`);
   };
 
   const handleNotInterested = () => {
+    if (!match) return;
     recordRecommendationFeedback({
-      businessId: business.id,
-      businessName: business.name,
-      category: catName,
+      businessId: match.business.id,
+      businessName: match.business.name,
+      category: match.business.categories?.name || match.business.category || "General",
       action: "not_interested",
-      confidence,
+      confidence: match.confidence,
     });
     setIsDismissed(true);
   };
 
   const handleClose = () => {
-    recordRecommendationFeedback({
-      businessId: business.id,
-      businessName: business.name,
-      category: catName,
-      action: "dismiss",
-      confidence,
-    });
+    if (match) {
+      recordRecommendationFeedback({
+        businessId: match.business.id,
+        businessName: match.business.name,
+        category: match.business.categories?.name || match.business.category || "General",
+        action: "dismiss",
+        confidence: match.confidence,
+      });
+    }
     setIsDismissed(true);
   };
 
@@ -136,6 +176,54 @@ export default function AIBusinessMatchAssistant() {
     setIsExpanded(!isExpanded);
     setHasInteracted(true);
   };
+
+  // If dismissed or no match yet, show subtle floating Maya avatar trigger
+  if (isDismissed || !match) {
+    if (!userPrefs.show_avatar) return null;
+    return (
+      <aside aria-label="AI Business Match Assistant" className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 select-none pointer-events-auto">
+        <motion.div
+          initial={{ scale: 0, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          exit={{ scale: 0, opacity: 0 }}
+          whileHover={{ scale: 1.06 }}
+          whileTap={{ scale: 0.94 }}
+          onClick={() => handleTriggerMatch()}
+          className="relative flex items-center gap-2.5 p-2 pr-4 bg-card/95 dark:bg-slate-900/95 backdrop-blur-xl border border-violet-500/35 rounded-full shadow-2xl cursor-pointer hover:border-violet-500/70 transition-all group"
+          title="Maya — Smart AI Business Match Assistant"
+        >
+          <div className="relative shrink-0">
+            <div className="absolute -inset-1 bg-gradient-to-r from-violet-600 via-purple-500 to-amber-400 rounded-full blur-xs opacity-75 group-hover:opacity-100 transition animate-pulse" />
+            <img
+              src={aiMatchAvatar}
+              alt="Maya AI Match Specialist"
+              className="relative h-10 w-10 sm:h-11 sm:w-11 rounded-full object-cover border-2 border-white dark:border-slate-800 shadow-md"
+            />
+            <span className="absolute bottom-0 right-0 h-3 w-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full" />
+          </div>
+
+          <div className="flex flex-col text-left">
+            <div className="flex items-center gap-1">
+              <span className="text-xs font-black text-foreground flex items-center gap-1">
+                Maya <Sparkles className="h-3 w-3 text-amber-500 fill-amber-500" />
+              </span>
+              <Badge className="text-[9px] px-1.5 py-0 bg-violet-500/15 text-violet-700 dark:text-violet-300 border-violet-500/30 font-bold">
+                Smart Match
+              </Badge>
+            </div>
+            <p className="text-[10px] text-muted-foreground line-clamp-1 max-w-[150px]">
+              {isScanning ? "Finding best match..." : "Ask Maya to match you"}
+            </p>
+          </div>
+        </motion.div>
+      </aside>
+    );
+  }
+
+  const { business, dialogue, confidence, inferredIntent, whyExplanation } = match;
+  const bizSlug = business.slug || business.id;
+  const isVerified = Boolean(business.is_verified || business.verified);
+  const catName = business.categories?.name || business.category || "Verified Business";
 
   return (
     <aside aria-label="AI Business Match Assistant" className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-40 max-w-[calc(100vw-32px)] sm:max-w-md select-none pointer-events-auto">
@@ -218,6 +306,16 @@ export default function AIBusinessMatchAssistant() {
               </div>
 
               <div className="flex items-center gap-1">
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => handleTriggerMatch()}
+                  disabled={isScanning}
+                  className="h-8 w-8 text-white/80 hover:text-white hover:bg-white/20 rounded-xl"
+                  title="Find another recommendation"
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${isScanning ? "animate-spin" : ""}`} />
+                </Button>
                 <Button
                   size="icon"
                   variant="ghost"
@@ -319,6 +417,28 @@ export default function AIBusinessMatchAssistant() {
                     )}
                   </div>
                 </div>
+              </div>
+
+              {/* Quick Topic Explorer Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 scrollbar-none text-[10px]">
+                <span className="text-muted-foreground font-semibold shrink-0">Explore:</span>
+                {[
+                  { label: "🎉 Events", key: "events" },
+                  { label: "💻 Tech", key: "tech" },
+                  { label: "👗 Fashion", key: "fashion" },
+                  { label: "⚡ Solar", key: "solar" },
+                  { label: "📜 Legal", key: "legal" },
+                  { label: "🚚 Logistics", key: "logistics" },
+                ].map((item) => (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => handleTriggerMatch(item.key)}
+                    className="shrink-0 px-2 py-0.5 rounded-full border bg-muted/40 hover:bg-violet-500/10 hover:border-violet-500/30 text-muted-foreground hover:text-violet-600 dark:hover:text-violet-400 font-medium transition"
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
 
               {/* "Why am I seeing this?" Transparency Accordion */}

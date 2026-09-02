@@ -12,6 +12,8 @@ import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import { absUrl, PAGE_OG_IMAGES, SITE_NAME, truncate } from "@/lib/seo";
 import SEO from "@/components/SEO";
 import BrandedLoader from "@/components/BrandedLoader";
+import { trackRecommenderSignal } from "@/lib/aiBusinessRecommenderEngine";
+import { useEffect } from "react";
 
 export default function BusinessCategory() {
   const { slug } = useParams<{ slug: string }>();
@@ -58,6 +60,20 @@ export default function BusinessCategory() {
     },
     enabled: !!category?.id,
   });
+
+  useEffect(() => {
+    if (category) {
+      try {
+        trackRecommenderSignal({
+          type: "category_browse",
+          categorySlug: category.slug,
+          categoryName: category.name,
+          keywords: [category.name, category.slug],
+          path: `/businesses/category/${category.slug}`,
+        });
+      } catch {}
+    }
+  }, [category?.id]);
 
   const bizIds = (businesses ?? []).map((b: any) => b.id);
   const { data: imagesMap } = useQuery({

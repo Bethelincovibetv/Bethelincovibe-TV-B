@@ -34,6 +34,7 @@ import { getProductCategoryInfo } from "@/lib/productAIEngine";
 import { toast } from "sonner";
 import { copyToClipboard } from "@/lib/clipboard";
 import BrandedLoader from "@/components/BrandedLoader";
+import { trackRecommenderSignal } from "@/lib/aiBusinessRecommenderEngine";
 
 export default function ProductDetail() {
   const { slug } = useParams();
@@ -102,6 +103,25 @@ export default function ProductDetail() {
             featureType: "product",
             entityId: foundProduct.id,
           });
+
+          // Track AI Recommender signal
+          try {
+            trackRecommenderSignal({
+              type: "product_view",
+              entityId: foundProduct.id,
+              entityName: foundProduct.name,
+              categorySlug: foundProduct.categories?.slug || foundProduct.category,
+              categoryName: foundProduct.categories?.name,
+              keywords: [
+                foundProduct.name,
+                foundProduct.category,
+                foundProduct.location,
+                foundProduct.brand,
+              ].filter(Boolean),
+              location: foundProduct.location,
+              path: `/products/${foundProduct.slug || foundProduct.id}`,
+            });
+          } catch {}
 
           // Load seller profile & business listing
           if (foundProduct.user_id) {

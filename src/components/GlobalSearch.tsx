@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Search, X, FileText, Building2, User as UserIcon, ShoppingBag, ArrowRight, Sparkles, Layers, Package } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { trackRecommenderSignal } from "@/lib/aiBusinessRecommenderEngine";
 
 export type GlobalSearchTab = "all" | "products" | "businesses" | "articles" | "people";
 
@@ -27,6 +28,23 @@ export default function GlobalSearch() {
     queryKey: ["global-search", query],
     queryFn: async () => {
       if (query.length < 2) return { posts: [], products: [], businesses: [], users: [] };
+
+      // Track AI Recommender search intent
+      if (query.length >= 3) {
+        try {
+          const kws = query
+            .toLowerCase()
+            .replace(/[^a-z0-9 ]/g, "")
+            .split(" ")
+            .filter((w) => w.length > 2);
+          trackRecommenderSignal({
+            type: "search",
+            keywords: kws,
+            path: window.location.pathname,
+          });
+        } catch {}
+      }
+
       const [posts, dirProducts, sellerProds, businesses, suppliers, users] = await Promise.all([
         supabase
           .from("blog_posts")
