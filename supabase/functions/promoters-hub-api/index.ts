@@ -1,57 +1,30 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const HUB_BASE_URL = Deno.env.get("PROMOTERS_HUB_API_URL") || "https://xdfulgwlhqvwpntzbgeq.supabase.co/functions/v1/promoters-hub-api";
-const HUB_API_KEY = Deno.env.get("HUB_SUPABASE_ANON_KEY") || "";
-const REQUEST_TIMEOUT_MS = 12_000;
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-};
-
-const ALLOWED_PATHS = new Set([
-  "/api/health", "/api/promoters", "/api/promoter-channels", "/api/campaigns", "/api/campaign-promoters",
-  "/api/promotions", "/api/promotion", "/api/campaign-stats", "/api/promoter-wallet", "/api/wallet-transactions",
-  "/api/withdrawals", "/api/promoter-stats", "/api/webhooks",
-]);
-
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-}
-function normalizePath(path: string) { const clean = path.trim().split("?")[0]; return clean.startsWith("/") ? clean : `/${clean}`; }
-function isAllowedPath(path: string) {
-  if (ALLOWED_PATHS.has(path)) return true;
-  return [
-    /^\/api\/promoters\/[^/]+$/, /^\/api\/promoter-channels\/[^/]+$/, /^\/api\/campaigns\/[^/]+$/,
-    /^\/api\/campaigns\/[^/]+\/stats$/, /^\/api\/campaigns\/[^/]+\/promotions$/, /^\/api\/campaign-promoters\/[^/]+$/,
-    /^\/api\/promotions\/[^/]+$/, /^\/api\/promotion\/[^/]+$/, /^\/api\/promoter-wallet\/[^/]+$/,
-    /^\/api\/wallet-transactions\/[^/]+$/, /^\/api\/withdrawals\/[^/]+$/, /^\/api\/promoter-stats\/[^/]+$/,
-  ].some((pattern) => pattern.test(path));
-}
-
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
-  const authorization = req.headers.get("Authorization") || "";
-  if (!authorization.toLowerCase().startsWith("bearer ")) return json({ error: "Authentication required" }, 401);
-  let payload: { path?: string; method?: string; query?: Record<string, unknown>; body?: unknown } = {};
-  try { payload = await req.json(); } catch {}
-  const requestedPath = typeof payload.path === "string" ? payload.path : new URL(req.url).searchParams.get("path") || "/api/health";
-  const targetPath = normalizePath(requestedPath);
-  if (!isAllowedPath(targetPath)) return json({ error: "Unsupported Promoters Hub route" }, 400);
-  const method = typeof payload.method === "string" ? payload.method.toUpperCase() : req.method.toUpperCase();
-  if (!["GET", "POST", "PUT", "PATCH", "DELETE"].includes(method)) return json({ error: "Unsupported method" }, 405);
-  if (!HUB_API_KEY) return json({ error: "Promoters Hub credential is not configured" }, 503);
-  const targetUrl = new URL(`${HUB_BASE_URL.replace(/\/$/, "")}${targetPath}`);
-  const query = payload.query && typeof payload.query === "object" ? payload.query : {};
-  for (const [key, value] of Object.entries(query)) if (value !== undefined && value !== null) targetUrl.searchParams.set(key, String(value));
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const upstream = await fetch(targetUrl, { method, headers: { Authorization: authorization, apikey: HUB_API_KEY, Accept: "application/json", ...(payload.body !== undefined ? { "Content-Type": "application/json" } : {}) }, ...(payload.body !== undefined ? { body: JSON.stringify(payload.body) } : {}), signal: controller.signal });
-    const text = await upstream.text(); let data: unknown = text; try { data = JSON.parse(text); } catch {}
-    return json(data, upstream.status);
-  } catch (error) {
-    const message = error instanceof DOMException && error.name === "AbortError" ? "Promoters Hub request timed out" : "Promoters Hub request failed";
-    console.error(message, error instanceof Error ? error.message : String(error)); return json({ error: message }, 502);
-  } finally { clearTimeout(timeout); }
-});
+const HUB_URL = Deno.env.get("SUPABASE_URL")!;
+const HUB_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const TV_URL = Deno.env.get("TV_SUPABASE_URL") || "https://gndcgttnpxsjufmehgyi.supabase.co";
+const TV_ANON_KEY = Deno.env.get("TV_SUPABASE_ANON_KEY") || "";
+const db = createClient(HUB_URL, HUB_SERVICE_KEY);
+const corsHeaders = {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type, x-wallet-pin","Access-Control-Allow-Methods":"GET, POST, PUT, PATCH, DELETE, OPTIONS","Content-Type":"application/json"};
+function json(body: unknown,status=200){return new Response(JSON.stringify(body),{status,headers:corsHeaders});}
+function ok(data:unknown,status=200){return json({success:true,data},status)}
+function fail(message:string,status=400,code?:string){return json({success:false,error:{message,...(code?{code}:{})}},status)}
+function pathOf(req:Request){const u=new URL(req.url);let p=u.pathname;const i=p.indexOf("/api/");if(i>=0)p=p.slice(i);else if(!p||p==="/functions/v1/promoters-hub-api")p="/api/health";return p.replace(/\/+/g,"/").replace(/\/$/,"")||"/api/health"}
+function uuid(v:unknown){return typeof v==="string"&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v)}
+async function body(req:Request){try{return await req.json()}catch{return {}}}
+async function authenticate(req:Request){const auth=req.headers.get("Authorization")||"";if(!auth.toLowerCase().startsWith("bearer "))return{error:fail("Authentication required",401,"AUTH_REQUIRED")};const token=auth.slice(7).trim();if(!token)return{error:fail("Authentication required",401,"AUTH_REQUIRED")};if(!TV_ANON_KEY)return{error:fail("TV authentication is not configured on the Hub",503,"TV_AUTH_NOT_CONFIGURED")};try{const r=await fetch(`${TV_URL}/auth/v1/user`,{headers:{apikey:TV_ANON_KEY,Authorization:`Bearer ${token}`}});if(!r.ok)return{error:fail("Your TV session is invalid or expired",401,"INVALID_SESSION")};const user=await r.json();if(!user?.id||!uuid(user.id))return{error:fail("Invalid authenticated user",401,"INVALID_SESSION")};return{user}}catch(e){console.error("TV auth error",e);return{error:fail("Unable to validate TV session",502,"AUTH_UPSTREAM_ERROR")}}}
+async function owner(userId:string,promoterId:string){if(!uuid(promoterId))return{error:fail("Invalid promoter id")};const{data,error}=await db.from("promoters").select("*").eq("id",promoterId).maybeSingle();if(error)return{error:fail(error.message,500,"DB_ERROR")};if(!data)return{error:fail("Promoter profile not found",404,"NOT_FOUND")};if(data.external_user_id!==userId)return{error:fail("Not authorized",403,"FORBIDDEN")};return{promoter:data}}
+Deno.serve(async(req:Request)=>{if(req.method==="OPTIONS")return new Response("ok",{headers:corsHeaders});const p=pathOf(req);if(p==="/api/health"&&req.method==="GET")return ok({service:"whatsapp-promoters-hub",status:"healthy",database:"connected"});const auth=await authenticate(req);if(auth.error)return auth.error;const user=auth.user!;const b=await body(req);try{
+if(p==="/api/promoters"){if(req.method==="GET"){const external=new URL(req.url).searchParams.get("external_user_id")||user.id;if(external!==user.id)return fail("Not authorized",403,"FORBIDDEN");const{data,error}=await db.from("promoters").select("*").eq("external_user_id",user.id);if(error)return fail(error.message,500,"DB_ERROR");return ok(data||[])}if(req.method==="POST"){if(b.external_user_id!==user.id)return fail("Authenticated user does not match external_user_id",403,"FORBIDDEN");const display=typeof b.display_name==="string"?b.display_name.trim():"";if(!uuid(b.external_user_id)||!display)return fail("external_user_id and display_name are required",422,"VALIDATION_ERROR");const{data:existing}=await db.from("promoters").select("*").eq("external_user_id",user.id).maybeSingle();if(existing)return ok(existing);const phone=typeof b.phone_number==="string"?b.phone_number.trim():null;const whatsapp=typeof b.whatsapp_number==="string"?b.whatsapp_number.trim():phone;const{data:promoter,error}=await db.from("promoters").insert({external_user_id:user.id,display_name:display,phone_number:phone,whatsapp_number:whatsapp}).select("*").single();if(error)return fail(error.message,error.code==="23505"?409:500,error.code==="23505"?"ALREADY_EXISTS":"DB_ERROR");const{error:we}=await db.from("promoter_wallets").upsert({promoter_id:promoter.id},{onConflict:"promoter_id"});if(we){await db.from("promoters").delete().eq("id",promoter.id);return fail(we.message,500,"WALLET_CREATE_FAILED")}const{data:wallet}=await db.from("promoter_wallets").select("id,balance,lifetime_earnings,lifetime_withdrawals,created_at,updated_at,pin_set_at").eq("promoter_id",promoter.id).single();return ok({...promoter,wallet},201)}return fail("Method not allowed",405)}
+const m=p.match(/^\/api\/promoters\/([^/]+)(?:\/(.+))?$/);if(m){const id=decodeURIComponent(m[1]),sub=m[2]||"";const o=await owner(user.id,id);if(o.error)return o.error;if(!sub){if(req.method==="PATCH"||req.method==="PUT"){const patch:Record<string,unknown>={};for(const k of ["display_name","phone_number","whatsapp_number"])if(k in b)patch[k]=b[k];patch.updated_at=new Date().toISOString();const{data,error}=await db.from("promoters").update(patch).eq("id",id).select("*").single();if(error)return fail(error.message,500,"DB_ERROR");return ok(data)}return ok(o.promoter)}
+if(sub==="wallet"&&req.method==="GET"){const{data,error}=await db.from("promoter_wallets").select("id,promoter_id,balance,lifetime_earnings,lifetime_withdrawals,created_at,updated_at,pin_set_at,pin_failed_attempts,pin_locked_until").eq("promoter_id",id).maybeSingle();if(error)return fail(error.message,500,"DB_ERROR");return ok(data)}
+if(sub==="wallet/pin"&&req.method==="POST"){if(typeof b.pin!=="string"||!/^[0-9]{4}$/.test(b.pin)||b.pin!==b.confirm_pin)return fail("PIN must be 4 digits and both entries must match",422,"INVALID_PIN");const{error}=await db.rpc("set_promoter_wallet_pin",{p_promoter_id:id,p_pin:b.pin});if(error)return fail(error.message,422,"PIN_SET_FAILED");return ok({pin_set:true})}
+if(sub==="wallet/verify-pin"&&req.method==="POST"){const pin=req.headers.get("X-Wallet-PIN")||b.pin;if(typeof pin!=="string"||!/^[0-9]{4}$/.test(pin))return fail("4-digit wallet PIN required",422,"INVALID_PIN");const{data,error}=await db.rpc("verify_promoter_wallet_pin",{p_promoter_id:id,p_pin:pin});if(error)return fail(error.message,422,"PIN_VERIFY_FAILED");return ok({verified:data===true})}
+if(sub==="channels"){if(req.method==="GET"){const{data,error}=await db.from("promoter_channels").select("*").eq("promoter_id",id).order("created_at",{ascending:false});if(error)return fail(error.message,500);return ok(data||[])}if(req.method==="POST"){const row={promoter_id:id,channel_name:String(b.channel_name||"").trim(),whatsapp_group_id:b.whatsapp_group_id||null,whatsapp_group_name:b.whatsapp_group_name||null,member_count:Number(b.member_count||0)};if(!row.channel_name)return fail("channel_name is required",422);const{data,error}=await db.from("promoter_channels").insert(row).select("*").single();if(error)return fail(error.message,500);return ok(data,201)}}
+if(sub==="transactions"&&req.method==="GET"){const{data,error}=await db.from("wallet_transactions").select("*").eq("promoter_id",id).order("created_at",{ascending:false});if(error)return fail(error.message,500);return ok(data||[])}
+if(sub==="withdrawals"){if(req.method==="GET"){const{data,error}=await db.from("withdrawal_requests").select("*").eq("promoter_id",id).order("created_at",{ascending:false});if(error)return fail(error.message,500);return ok(data||[])}if(req.method==="POST"){const pin=req.headers.get("X-Wallet-PIN")||b.wallet_pin||b.pin;if(typeof pin!=="string"||!/^[0-9]{4}$/.test(pin))return fail("4-digit wallet PIN required",422,"WALLET_PIN_REQUIRED");const amount=Number(b.amount);if(!Number.isFinite(amount)||amount<=0)return fail("Valid withdrawal amount is required",422,"INVALID_AMOUNT");const{data,error}=await db.rpc("request_withdrawal",{p_promoter_id:id,p_amount:amount,p_payment_method:b.payment_method||null,p_account_name:b.account_name||null,p_account_number:b.account_number||null,p_bank_name:b.bank_name||null,p_wallet_pin:pin});if(error)return fail(error.message,422,"WITHDRAWAL_FAILED");return ok(data,201)}}return fail("Promoter route not found",404,"NOT_FOUND")}
+if(p==="/api/campaigns"&&req.method==="GET"){const external=new URL(req.url).searchParams.get("external_user_id")||user.id;if(external!==user.id)return fail("Not authorized",403);const{data,error}=await db.from("campaigns").select("*").eq("external_user_id",user.id).order("created_at",{ascending:false});if(error)return fail(error.message,500);return ok(data||[])}
+if(p==="/api/campaigns"&&req.method==="POST"){const name=String(b.campaign_name||"").trim(),message=String(b.message||"").trim();if(!name||!message)return fail("campaign_name and message are required",422);const{data,error}=await db.from("campaigns").insert({external_user_id:user.id,campaign_name:name,description:b.description||null,message,media_url:b.media_url||null,destination_url:b.destination_url||null,budget:Number(b.budget||0),cost_per_promotion:Number(b.cost_per_promotion||0),target_promoters:Number(b.target_promoters||0)}).select("*").single();if(error)return fail(error.message,500);return ok(data,201)}
+const cm=p.match(/^\/api\/campaigns\/([^/]+)\/promotions$/);if(cm&&req.method==="GET"){const cid=decodeURIComponent(cm[1]);const{data:c,error:ce}=await db.from("campaigns").select("id").eq("id",cid).eq("external_user_id",user.id).maybeSingle();if(ce)return fail(ce.message,500);if(!c)return fail("Not authorized",403);const{data,error}=await db.from("promotions").select("*").eq("campaign_id",cid).order("created_at",{ascending:false});if(error)return fail(error.message,500);return ok(data||[])}
+return fail("Unsupported Promoters Hub route",404,"NOT_FOUND")}catch(e){console.error("Promoters Hub API error",e);return fail(e instanceof Error?e.message:"Internal server error",500,"INTERNAL_ERROR")}});
