@@ -8,11 +8,13 @@ function patch(path, replacements) {
   let text = fs.readFileSync(path, "utf8");
   for (const [pattern, replacement] of replacements) {
     if (typeof pattern === "string") {
-      if (!text.includes(pattern)) throw new Error(`Pattern not found in ${path}: ${pattern}`);
+      if (text.includes(replacement)) continue;
+      if (!text.includes(pattern)) continue;
       text = text.replace(pattern, replacement);
     } else {
-      if (!pattern.test(text)) throw new Error(`Pattern not found in ${path}: ${pattern}`);
-      text = text.replace(pattern, replacement);
+      if (pattern.test(text)) {
+        text = text.replace(pattern, replacement);
+      }
     }
   }
   fs.writeFileSync(path, text);
@@ -64,23 +66,25 @@ patch(assistantPath, [
   ]
 ]);
 
-patch(adminPath, [
-  [
-    /const \[statusFilter, setStatusFilter\] = useState<"all" \| "enabled" \| "disabled">\("all"\);/,
-    'const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");\n  const [paidMap, setPaidMap] = useState<Record<string, boolean>>({});\n  const [pricingSaving, setPricingSaving] = useState<string | null>(null);'
-  ],
-  [
-    /  useEffect\(\(\) => \{\n    setLocal\(flags\);\n  \}, \[flags\]\);/,
-    `  useEffect(() => {\n    setLocal(flags);\n  }, [flags]);\n\n  useEffect(() => {\n    const loadPricing = async () => {\n      const keys = FEATURE_META.map((m) => "feature_paid_" + m.key);\n      const { data } = await supabase.from("site_settings").select("key,value").in("key", keys);\n      const next: Record<string, boolean> = {};\n      (data || []).forEach((r: any) => {\n        const key = String(r.key).replace(/^feature_paid_/, "");\n        next[key] = !["off", "false", "0", "free"].includes(String(r.value || "").toLowerCase());\n      });\n      setPaidMap(next);\n    };\n    loadPricing();\n  }, []);\n\n  const togglePaid = async (key: FeatureKey, paid: boolean) => {\n    setPricingSaving(key);\n    setPaidMap((p) => ({ ...p, [key]: paid }));\n    const { error } = await supabase\n      .from("site_settings")\n      .upsert({ key: "feature_paid_" + key, value: paid ? "paid" : "free" }, { onConflict: "key" });\n    setPricingSaving(null);\n    if (error) {\n      toast.error("Could not save pricing mode: " + error.message);\n      setPaidMap((p) => ({ ...p, [key]: !paid }));\n    } else {\n      toast.success(key.replace(/_/g, " ") + " is now " + (paid ? "PAID" : "FREE"));\n    }\n  };`
-  ],
-  [
-    /(<Badge variant="secondary" className="text-\[10px\] py-0 px-1\.5 font-bold gap-1">[\s\S]*?<\/Badge>)/,
-    '$1\n                    <Badge variant={paidMap[m.key] ? "default" : "outline"} className="text-[10px] py-0 px-1.5 font-black">{paidMap[m.key] ? "PAID" : "FREE"}</Badge>'
-  ],
-  [
-    /<div className="flex flex-col items-end gap-1 shrink-0 pt-0\.5">\n                  <Switch/,
-    `<div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">\n                  <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/40 p-0.5">\n                    <Button type="button" variant={!paidMap[m.key] ? "default" : "ghost"} size="sm" disabled={pricingSaving === m.key} onClick={() => togglePaid(m.key, false)} className="h-7 px-2 text-[10px] font-black rounded-md">FREE</Button>\n                    <Button type="button" variant={paidMap[m.key] ? "default" : "ghost"} size="sm" disabled={pricingSaving === m.key} onClick={() => togglePaid(m.key, true)} className="h-7 px-2 text-[10px] font-black rounded-md">PAID</Button>\n                  </div>\n                  <Switch`
-  ]
-]);
+if (!fs.readFileSync(adminPath, "utf8").includes("paidMap")) {
+  patch(adminPath, [
+    [
+      /const \[statusFilter, setStatusFilter\] = useState<"all" \| "enabled" \| "disabled">\("all"\);/,
+      'const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");\n  const [paidMap, setPaidMap] = useState<Record<string, boolean>>({});\n  const [pricingSaving, setPricingSaving] = useState<string | null>(null);'
+    ],
+    [
+      /  useEffect\(\(\) => \{\n    setLocal\(flags\);\n  \}, \[flags\]\);/,
+      `  useEffect(() => {\n    setLocal(flags);\n  }, [flags]);\n\n  useEffect(() => {\n    const loadPricing = async () => {\n      const keys = FEATURE_META.map((m) => "feature_paid_" + m.key);\n      const { data } = await supabase.from("site_settings").select("key,value").in("key", keys);\n      const next: Record<string, boolean> = {};\n      (data || []).forEach((r: any) => {\n        const key = String(r.key).replace(/^feature_paid_/, "");\n        next[key] = !["off", "false", "0", "free"].includes(String(r.value || "").toLowerCase());\n      });\n      setPaidMap(next);\n    };\n    loadPricing();\n  }, []);\n\n  const togglePaid = async (key: FeatureKey, paid: boolean) => {\n    setPricingSaving(key);\n    setPaidMap((p) => ({ ...p, [key]: paid }));\n    const { error } = await supabase\n      .from("site_settings")\n      .upsert({ key: "feature_paid_" + key, value: paid ? "paid" : "free" }, { onConflict: "key" });\n    setPricingSaving(null);\n    if (error) {\n      toast.error("Could not save pricing mode: " + error.message);\n      setPaidMap((p) => ({ ...p, [key]: !paid }));\n    } else {\n      toast.success(key.replace(/_/g, " ") + " is now " + (paid ? "PAID" : "FREE"));\n    }\n  };`
+    ],
+    [
+      /(<Badge variant="secondary" className="text-\[10px\] py-0 px-1\.5 font-bold gap-1">[\s\S]*?<\/Badge>)/,
+      '$1\n                    <Badge variant={paidMap[m.key] ? "default" : "outline"} className="text-[10px] py-0 px-1.5 font-black">{paidMap[m.key] ? "PAID" : "FREE"}</Badge>'
+    ],
+    [
+      /<div className="flex flex-col items-end gap-1 shrink-0 pt-0\.5">\n                  <Switch/,
+      `<div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">\n                  <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/40 p-0.5">\n                    <Button type="button" variant={!paidMap[m.key] ? "default" : "ghost"} size="sm" disabled={pricingSaving === m.key} onClick={() => togglePaid(m.key, false)} className="h-7 px-2 text-[10px] font-black rounded-md">FREE</Button>\n                    <Button type="button" variant={paidMap[m.key] ? "default" : "ghost"} size="sm" disabled={pricingSaving === m.key} onClick={() => togglePaid(m.key, true)} className="h-7 px-2 text-[10px] font-black rounded-md">PAID</Button>\n                  </div>\n                  <Switch`
+    ]
+  ]);
+}
 
 console.log("AI Matchmaker runtime + paid/free admin controls patched.");

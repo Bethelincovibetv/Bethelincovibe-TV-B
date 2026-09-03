@@ -34,10 +34,41 @@ export default function AdminFeatures() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "enabled" | "disabled">("all");
+  const [paidMap, setPaidMap] = useState<Record<string, boolean>>({});
+  const [pricingSaving, setPricingSaving] = useState<string | null>(null);
 
   useEffect(() => {
     setLocal(flags);
   }, [flags]);
+
+  useEffect(() => {
+    const loadPricing = async () => {
+      const keys = FEATURE_META.map((m) => "feature_paid_" + m.key);
+      const { data } = await supabase.from("site_settings").select("key,value").in("key", keys);
+      const next: Record<string, boolean> = {};
+      (data || []).forEach((r: any) => {
+        const key = String(r.key).replace(/^feature_paid_/, "");
+        next[key] = !["off", "false", "0", "free"].includes(String(r.value || "").toLowerCase());
+      });
+      setPaidMap(next);
+    };
+    loadPricing();
+  }, []);
+
+  const togglePaid = async (key: FeatureKey, paid: boolean) => {
+    setPricingSaving(key);
+    setPaidMap((p) => ({ ...p, [key]: paid }));
+    const { error } = await supabase
+      .from("site_settings")
+      .upsert({ key: "feature_paid_" + key, value: paid ? "paid" : "free" }, { onConflict: "key" });
+    setPricingSaving(null);
+    if (error) {
+      toast.error("Could not save pricing mode: " + error.message);
+      setPaidMap((p) => ({ ...p, [key]: !paid }));
+    } else {
+      toast.success(key.replace(/_/g, " ") + " is now " + (paid ? "PAID" : "FREE"));
+    }
+  };
 
   const toggle = async (key: FeatureKey, next: boolean) => {
     setSaving(key);
@@ -296,12 +327,18 @@ export default function AdminFeatures() {
                       <CategoryIcon className={`h-2.5 w-2.5 ${catInfo.color}`} />
                       {catInfo.label}
                     </Badge>
+                    <Badge variant={paidMap[m.key] ? "default" : "outline"} className="text-[10px] py-0 px-1.5 font-black">{paidMap[m.key] ? "PAID" : "FREE"}</Badge>
+                    <Badge variant={paidMap[m.key] ? "default" : "outline"} className="text-[10px] py-0 px-1.5 font-black">{paidMap[m.key] ? "PAID" : "FREE"}</Badge>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1.5 leading-relaxed font-normal">
                     {m.description}
                   </p>
                 </div>
-                <div className="flex flex-col items-end gap-1 shrink-0 pt-0.5">
+                <div className="flex flex-col items-end gap-2 shrink-0 pt-0.5">
+                  <div className="flex items-center gap-1 rounded-lg border border-border/70 bg-muted/40 p-0.5">
+                    <Button type="button" variant={!paidMap[m.key] ? "default" : "ghost"} size="sm" disabled={pricingSaving === m.key} onClick={() => togglePaid(m.key, false)} className="h-7 px-2 text-[10px] font-black rounded-md">FREE</Button>
+                    <Button type="button" variant={paidMap[m.key] ? "default" : "ghost"} size="sm" disabled={pricingSaving === m.key} onClick={() => togglePaid(m.key, true)} className="h-7 px-2 text-[10px] font-black rounded-md">PAID</Button>
+                  </div>
                   <Switch
                     checked={isChecked}
                     disabled={saving === m.key || batchSaving}

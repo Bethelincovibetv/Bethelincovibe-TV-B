@@ -165,7 +165,7 @@ export default function AdminEmailSettings() {
     try {
       const msgId = await sendViaSpecificProvider(
         prov,
-        prov.fromEmail || "bethelchukwunyere1@gmail.com",
+        prov.fromEmail || "notifications@bethelincovibetv.com.ng",
         `🧪 ${prov.name} Admin API Key Verification`,
         `<div style="font-family:sans-serif; padding:24px; border:1px solid #e2e8f0; border-radius:16px;">
           <h2 style="color:#4f46e5; margin-top:0;">${prov.name} Connected! ✅</h2>
@@ -284,7 +284,7 @@ export default function AdminEmailSettings() {
         try {
           const msgId = await sendViaSpecificProvider(
             prov,
-            prov.fromEmail || "bethelchukwunyere1@gmail.com",
+            prov.fromEmail || "notifications@bethelincovibetv.com.ng",
             `🧪 ${prov.name} Health Check Test`,
             `<div style="font-family:sans-serif; padding:24px; border:1px solid #e2e8f0; border-radius:16px;">
               <h2 style="color:#4f46e5; margin-top:0;">${prov.name} Health Check Passed! ✅</h2>

@@ -574,7 +574,7 @@ export default function UserNotificationsPage() {
               <div className="p-4 rounded-xl bg-muted/40 border border-border/80 text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">
                 {selectedNotification.body
                   ? personalizeNotificationBody(selectedNotification.body, userName)
-                  : `Hi ${userName}, no additional text content provided for this notification.`}
+                  : "No additional text content provided for this notification."}
               </div>
 
               {/* Action Buttons */}

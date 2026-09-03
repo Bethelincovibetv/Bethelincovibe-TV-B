@@ -48,7 +48,7 @@ export default function AdminEmailProviders() {
   const [selectedType, setSelectedType] = useState<EmailProviderType>("brevo");
   const [name, setName] = useState("Brevo (Sendinblue)");
   const [apiKey, setApiKey] = useState("");
-  const [fromEmail, setFromEmail] = useState("bethelchukwunyere1@gmail.com");
+  const [fromEmail, setFromEmail] = useState("notifications@bethelincovibetv.com.ng");
   const [fromName, setFromName] = useState("Bethelincovibe TV");
   const [domainOrRegion, setDomainOrRegion] = useState("");
   const [showApiKey, setShowApiKey] = useState(false);
@@ -66,7 +66,7 @@ export default function AdminEmailProviders() {
     setSelectedType(preset.type);
     setName(preset.name);
     setApiKey("");
-    setFromEmail("bethelchukwunyere1@gmail.com");
+    setFromEmail("notifications@bethelincovibetv.com.ng");
     setFromName("Bethelincovibe TV");
     setDomainOrRegion("");
     setShowApiKey(false);

@@ -39,11 +39,12 @@ import {
 import {
   getAllRequests,
   getAllOffers,
-  saveAllRequests,
   getAdminMatchingConfig,
   saveAdminMatchingConfig,
   getOpportunityAnalyticsMetrics,
-} from "@/services/opportunityMatchingService";
+  DEFAULT_ADMIN_MATCHING_CONFIG,
+} from "@/services/opportunityMatchingRealtimeService";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BusinessRequest,
   ProviderOffer,
@@ -56,38 +57,70 @@ export default function AdminBusinessRequests() {
   const [requests, setRequests] = useState<BusinessRequest[]>([]);
   const [offers, setOffers] = useState<ProviderOffer[]>([]);
   const [metrics, setMetrics] = useState<RequestAnalyticsMetrics | null>(null);
-  const [config, setConfig] = useState<AdminMatchingConfig>(getAdminMatchingConfig());
+  const [config, setConfig] = useState<AdminMatchingConfig>(DEFAULT_ADMIN_MATCHING_CONFIG);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [inspectRequest, setInspectRequest] = useState<BusinessRequest | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadAdminData();
+
+    const channel = supabase
+      .channel("admin_matchmaker_feed")
+      .on("postgres_changes", { event: "*", schema: "public", table: "business_requests" }, () => {
+        loadAdminData();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "provider_offers" }, () => {
+        loadAdminData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
-  const loadAdminData = () => {
-    const allReqs = getAllRequests();
-    const allOffs = getAllOffers();
-    setRequests(allReqs);
-    setOffers(allOffs);
-    setMetrics(getOpportunityAnalyticsMetrics());
-    setConfig(getAdminMatchingConfig());
+  const loadAdminData = async () => {
+    try {
+      const [allReqs, allOffs, analytics, admConfig] = await Promise.all([
+        getAllRequests(),
+        getAllOffers(),
+        getOpportunityAnalyticsMetrics(),
+        getAdminMatchingConfig(),
+      ]);
+      setRequests(allReqs);
+      setOffers(allOffs);
+      setMetrics(analytics);
+      setConfig(admConfig);
+    } catch (err: any) {
+      console.error("Error loading admin matchmaker data:", err);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleConfigChange = (key: keyof AdminMatchingConfig, value: any) => {
+  const handleConfigChange = async (key: keyof AdminMatchingConfig, value: any) => {
     const updated = { ...config, [key]: value };
     setConfig(updated);
-    saveAdminMatchingConfig(updated);
-    toast.success("Matching configuration updated");
+    try {
+      await saveAdminMatchingConfig(updated);
+      toast.success("Matching configuration updated in database");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to save configuration");
+    }
   };
 
-  const handleDeleteRequest = (id: string) => {
+  const handleDeleteRequest = async (id: string) => {
     if (!confirm("Are you sure you want to remove this request from the marketplace?")) return;
-    const updated = requests.filter((r) => r.id !== id);
-    setRequests(updated);
-    saveAllRequests(updated);
-    setMetrics(getOpportunityAnalyticsMetrics());
-    toast.success("Request removed successfully");
+    try {
+      const { error } = await supabase.from("business_requests").delete().eq("id", id);
+      if (error) throw error;
+      toast.success("Request removed successfully");
+      loadAdminData();
+    } catch (err: any) {
+      toast.error(err.message || "Could not delete request");
+    }
   };
 
   const filteredRequests = requests.filter((r) => {

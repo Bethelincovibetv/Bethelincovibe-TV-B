@@ -30,8 +30,11 @@ export function getBestUserName(user?: any, profile?: any): string {
     return u.charAt(0).toUpperCase() + u.slice(1);
   }
   if (user?.email) {
+    const lower = user.email.toLowerCase();
+    if (lower.includes("bethelchukwunyere") || lower.includes("bethelincovibe")) {
+      return "Entrepreneur";
+    }
     const emailPrefix = user.email.split("@")[0] || "";
-    // Clean up numeric suffixes or dots/underscores
     const clean = emailPrefix.replace(/[._\d]+$/, "").replace(/[._]/g, " ");
     if (clean.trim()) {
       return clean
@@ -65,8 +68,11 @@ export async function fetchUserNameById(userId: string): Promise<string> {
     } else if (data?.username?.trim()) {
       name = data.username.trim().charAt(0).toUpperCase() + data.username.trim().slice(1);
     } else if (data?.email) {
-      const prefix = data.email.split("@")[0] || "";
-      name = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+      const lower = data.email.toLowerCase();
+      if (!lower.includes("bethelchukwunyere") && !lower.includes("bethelincovibe")) {
+        const prefix = data.email.split("@")[0] || "";
+        name = prefix.charAt(0).toUpperCase() + prefix.slice(1);
+      }
     }
 
     userNameCache.set(userId, name);
@@ -77,68 +83,33 @@ export async function fetchUserNameById(userId: string): Promise<string> {
 }
 
 /**
- * Ensures the given title mentions the user's name.
+ * Ensures template tags are populated cleanly without prepending unwanted watermarks or prefixes.
  */
-export function personalizeNotificationTitle(title: string | null | undefined, userName: string): string {
+export function personalizeNotificationTitle(title: string | null | undefined, userName?: string): string {
+  if (!title) return "Notification";
   const safeName = (userName || "").trim() || "Entrepreneur";
-  let t = (title || "Notification").trim();
+  let t = title.trim();
 
   // Replace common template tags if present
   t = t.replace(/\{\{\s*(name|username|displayName|user)\s*\}\}/gi, safeName);
   t = t.replace(/\{\s*(name|username|displayName|user)\s*\}/gi, safeName);
 
-  // Check if user's name is already present (case-insensitive)
-  const escapedName = safeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const nameRegex = new RegExp(`\\b${escapedName}\\b`, "i");
-  if (nameRegex.test(t)) {
-    return t;
-  }
-
-  // If title begins with an emoji, place the name after the emoji
-  const emojiMatch = t.match(/^(\p{Extended_Pictographic}|\p{Emoji_Presentation})\s*/u);
-  if (emojiMatch) {
-    const emoji = emojiMatch[0].trim();
-    const rest = t.slice(emojiMatch[0].length).trim();
-    return `${emoji} ${safeName}, ${rest}`;
-  }
-
-  // If title starts with Welcome
-  if (/^welcome/i.test(t)) {
-    return `${t.replace(/[!.]+$/, "")}, ${safeName}!`;
-  }
-
-  return `${safeName}: ${t}`;
+  return t;
 }
 
 /**
- * Ensures the given body mentions the user's name.
+ * Ensures template tags are populated cleanly without prepending unwanted watermarks or prefixes.
  */
-export function personalizeNotificationBody(body: string | null | undefined, userName: string): string {
+export function personalizeNotificationBody(body: string | null | undefined, userName?: string): string {
+  if (!body) return "";
   const safeName = (userName || "").trim() || "Entrepreneur";
-  let b = (body || "").trim();
-
-  if (!b) {
-    return `Hi ${safeName}, you have a new update on Bethelincovibe TV.`;
-  }
+  let b = body.trim();
 
   // Replace common template tags if present
   b = b.replace(/\{\{\s*(name|username|displayName|user)\s*\}\}/gi, safeName);
   b = b.replace(/\{\s*(name|username|displayName|user)\s*\}/gi, safeName);
 
-  // Check if user's name is already present
-  const escapedName = safeName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const nameRegex = new RegExp(`\\b${escapedName}\\b`, "i");
-  if (nameRegex.test(b)) {
-    return b;
-  }
-
-  // If body starts with a greeting like "Hi", "Hello", "Dear", add name
-  if (/^(hi|hello|dear|hey)\b/i.test(b)) {
-    return b.replace(/^(hi|hello|dear|hey)\b[,:]?\s*/i, `$1 ${safeName}, `);
-  }
-
-  // Otherwise prepend "Hi {safeName},"
-  return `Hi ${safeName}, ${b.charAt(0).toLowerCase() + b.slice(1)}`;
+  return b;
 }
 
 /**
