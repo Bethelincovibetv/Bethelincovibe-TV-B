@@ -12,11 +12,12 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2, ArrowLeft, Wand2, Crown } from "lucide-react";
+import { Building2, Plus, Eye, MousePointerClick, Sparkles, Pencil, ExternalLink, TrendingUp, Trash2, ArrowLeft, Wand2, Crown, Store } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
 import BusinessDefaultLogo from "@/components/directory/BusinessDefaultLogo";
 import AILogoGeneratorModal from "@/components/AILogoGeneratorModal";
 import QueenServiceConciergeModal from "@/components/admin/business/QueenServiceConciergeModal";
+import RealLife3DShopModal from "@/components/shop/RealLife3DShopModal";
 
 export default function UserBusinesses() {
   const { user, loading } = useAuth();
@@ -27,6 +28,8 @@ export default function UserBusinesses() {
   const [activeLogoBiz, setActiveLogoBiz] = useState<any | null>(null);
   const [queenModalOpen, setQueenModalOpen] = useState(false);
   const [selectedQueenBiz, setSelectedQueenBiz] = useState<any | null>(null);
+  const [shop3DOpen, setShop3DOpen] = useState(false);
+  const [selected3DBiz, setSelected3DBiz] = useState<any | null>(null);
 
   const removeListing = async (id: string) => {
     await supabase.from("supplier_images").delete().eq("supplier_id", id);
@@ -205,6 +208,18 @@ export default function UserBusinesses() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
+                          setSelected3DBiz(b);
+                          setShop3DOpen(true);
+                        }}
+                        className="rounded-xl font-extrabold border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20"
+                      >
+                        <Store className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                        3D Real Life Shop
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
                           setSelectedQueenBiz(b);
                           setQueenModalOpen(true);
                         }}
@@ -303,6 +318,19 @@ export default function UserBusinesses() {
               )
             );
           }}
+        />
+      )}
+
+      {/* 3D Real Life Shop Modal */}
+      {selected3DBiz && (
+        <RealLife3DShopModal
+          open={shop3DOpen}
+          onOpenChange={(open) => {
+            setShop3DOpen(open);
+            if (!open) setSelected3DBiz(null);
+          }}
+          business={selected3DBiz}
+          services={selected3DBiz.services || []}
         />
       )}
     </>

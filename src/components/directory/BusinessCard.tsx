@@ -195,6 +195,11 @@ export default function BusinessCard({
               {categoryName}
             </span>
           )}
+          {/* 3D Real Life Shop Badge */}
+          <span className="absolute bottom-2 right-2 rounded-full bg-neutral-950/85 backdrop-blur-md px-2 py-0.5 text-[9px] font-black text-amber-300 border border-amber-500/40 shadow-sm z-10 flex items-center gap-1">
+            <Store className="h-3 w-3 text-amber-400" />
+            <span>3D Shop</span>
+          </span>
         </div>
 
         <div className="flex flex-1 flex-col gap-2 p-4 pt-0">

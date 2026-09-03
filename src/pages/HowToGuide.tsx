@@ -7,7 +7,7 @@ import {
   CreditCard, QrCode, Share2, ArrowRight, ExternalLink, CheckCircle2, ChevronRight,
   Lightbulb, Layers, HelpCircle, Flame, Star, Bot, Megaphone, Clock, Check,
   Palette, Film, MessageCircle, ChevronDown, ChevronUp, Play, Zap, Monitor,
-  AlertTriangle, Target, Compass, Sparkle, RefreshCw, Smartphone
+  AlertTriangle, Target, Compass, Sparkle, RefreshCw, Smartphone, Store
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import SEO from "@/components/SEO";
 import { PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
+import Platform3DAnimatedAdvert from "@/components/how-it-works/Platform3DAnimatedAdvert";
 
 interface GuideStep {
   step: number;
@@ -58,6 +59,48 @@ interface FeatureGuide {
 }
 
 const GUIDES_DATA: FeatureGuide[] = [
+  {
+    id: "3d-real-life-shop",
+    title: "3D Real-Life Virtual Shop Mode & Showroom Walkthrough",
+    category: "directory",
+    categoryLabel: "3D Virtual Storefront",
+    badge: "Interactive 3D",
+    badgeColor: "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+    gradient: "from-amber-500 via-orange-500 to-rose-500",
+    icon: Store,
+    summary: "Transform your business profile into an interactive 3D virtual showroom. Customers can orbit 360°, inspect product pedestals, listen to boutique audio ambience, and order directly on WhatsApp.",
+    estimatedTime: "Instant",
+    actionUrl: "/businesses",
+    actionLabel: "Explore 3D Directory",
+    whatIsThis: "A real-time 3D spatial storefront engine built natively with WebGL and CSS 3D transforms. Zero mobile app download required for customers.",
+    problemSolved: "Traditional 2D catalogs feel flat and impersonal. 3D Shop Mode provides real-life boutique immersion with illuminated shelves, VIP spotlight pedestals, and ambient chime sound effects.",
+    whyUseIt: "Boosts customer dwell time by 4x and drives higher trust for high-value orders across Nigeria.",
+    whatToEnter: [
+      { label: "Business Profile & Cover", placeholder: "Set high-resolution cover photo and logo in Business Profile", advice: "Used as the 3D storefront backdrop and official logo plaque." },
+      { label: "Product Catalog", placeholder: "Add in-stock products with Naira prices and photos", advice: "Each product automatically receives a glowing 3D pedestal with tap-to-inspect details." },
+      { label: "WhatsApp & Phone", placeholder: "+234 801 234 5678", advice: "Directly wired into the 3D shop Cashier & Order Desk." }
+    ],
+    steps: [
+      { step: 1, title: "Add Your Business & Products", desc: "List your business in the directory with your logo, cover banner, and product inventory.", fieldExample: "Navigate to Dashboard › My Businesses." },
+      { step: 2, title: "Launch 3D Real Life Shop Mode", desc: "Click the '3D Real Life Shop' button on your profile or Google Ad featured card.", fieldExample: "You and your customers will enter the 3D virtual boutique instantly." },
+      { step: 3, title: "Interact with 3D Shelves", desc: "Drag to look around (yaw & pitch), zoom in/out, or tap any product pedestal to view specs and prices.", fieldExample: "Includes synthesized Web Audio chimes for realistic store ambience." },
+      { step: 4, title: "Share 3D Link on WhatsApp Status", desc: "Share your business link with '?shop3d=true' to let contacts step right into your 3D shop.", fieldExample: "E.g. bethelincovibe.tv/businesses/my-brand?shop3d=true" }
+    ],
+    expectedResult: {
+      format: "Interactive 3D Virtual Showroom (60 FPS)",
+      details: "Full spatial 3D experience with camera controls, VIP showcase pedestals, Escrow checkout counter, and sound synthesis."
+    },
+    nextSteps: [
+      "Share your 3D store link in your WhatsApp status and Instagram bio.",
+      "Add seasonal banners to your product catalog to keep your 3D shelves fresh.",
+      "Feature your business on the homepage Google Ad slider for maximum 3D walkthrough traffic."
+    ],
+    proTips: [
+      "Customers can tap the speaker icon inside the 3D store to toggle real boutique ambient audio.",
+      "Products with clear photos and transparent backgrounds look stunning on the 3D pedestals."
+    ],
+    mockupType: "directory_inquiry"
+  },
   {
     id: "graphic-designer",
     title: "AI Graphic Designer & Commercial Flyer Studio",
@@ -739,6 +782,29 @@ export default function HowToGuide() {
       </div>
 
       <div className="container mx-auto max-w-5xl px-4 mt-8 space-y-8">
+        {/* 3D Animated Platform Commercial / Advert */}
+        <section className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30 text-[10px] font-black tracking-wider uppercase px-2 py-0.5">
+                  <Sparkles className="h-3 w-3 mr-1 fill-amber-500 text-amber-500" />
+                  3D Interactive Walkthrough
+                </Badge>
+                <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
+                <span className="text-xs text-muted-foreground hidden sm:inline">
+                  Spatial Platform Commercial Explaining All 5 Core Systems
+                </span>
+              </div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
+                How Bethelincovibe TV Works in 3D
+              </h2>
+            </div>
+          </div>
+
+          <Platform3DAnimatedAdvert />
+        </section>
+
         {/* Category Filter Chips */}
         <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
           {[

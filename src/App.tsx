@@ -325,6 +325,9 @@ const App = () => (
               <Route path="/dashboard/how-to" element={<HowToGuide />} />
               <Route path="/dashboard/guides" element={<HowToGuide />} />
               <Route path="/how-to" element={<HowToGuide />} />
+              <Route path="/how-it-works" element={<HowToGuide />} />
+              <Route path="/how-to-use" element={<HowToGuide />} />
+              <Route path="/guides" element={<HowToGuide />} />
               <Route path="/dashboard/submit-blog" element={<FeatureGate feature="guest_blog"><SubmitBlog /></FeatureGate>} />
               <Route path="/dashboard/my-blogs" element={<UserMyBlogs />} />
               <Route path="/dashboard/blogs" element={<UserMyBlogs />} />
