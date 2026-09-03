@@ -5,12 +5,10 @@ export type CommunityType = "group" | "channel" | "status_audience";
 export type VerificationStatus = "submitted" | "under_review" | "verified" | "rejected" | "suspended";
 
 export interface WhatsAppCommunity {
-  id: string; promoter_id: string; name: string; category_id: string | null;
-  community_type: CommunityType; member_count: number; active_daily_views: number;
-  country_primary: string; demographics_summary: string | null; proof_screenshot_url: string;
-  verification_status: VerificationStatus; is_published: boolean; rejection_reason: string | null;
+  id: string; promoter_id: string; name: string; category_id: string | null; category?: { id: string; name: string; slug: string } | null;
+  community_type: CommunityType; member_count: number; active_daily_views: number; country_primary: string; demographics_summary: string | null;
+  proof_screenshot_url: string; verification_status: VerificationStatus; is_published: boolean; rejection_reason: string | null;
   verified_at: string | null; created_at: string; updated_at: string;
-  category?: { id: string; name: string; slug: string } | null;
 }
 
 export const COMMUNITY_TYPES = [
@@ -27,12 +25,6 @@ export const DEFAULT_COMMUNITY_CATEGORIES = [
   { id: "cat-services", name: "Local Services & Trades", slug: "services" },
 ];
 
-function isSchemaMissingError(error: any): boolean {
-  if (!error) return false;
-  const code = String(error.code || ""); const msg = String(error.message || "").toLowerCase();
-  return code === "PGRST205" || code === "42P01" || msg.includes("schema cache") || msg.includes("could not find the table") || (msg.includes("relation") && msg.includes("does not exist"));
-}
-
 export function canEditCommunity(community: { verification_status?: string; is_published?: boolean }, isAdmin = false) {
   if (isAdmin) return { allowed: true };
   if (community.verification_status === "verified" && community.is_published) return { allowed: false, reason: "This audience is verified and cannot be edited directly. Contact an administrator if important information needs to be changed." };
@@ -48,115 +40,59 @@ export function validateCommunityInput(params: { name: string; communityType: Co
   return { isValid: true };
 }
 
-async function resolveTvPromoterProfileId(promoterId: string): Promise<string> {
-  const { data: authData, error: authError } = await supabase.auth.getUser();
-  if (authError || !authData.user) throw new Error("Authentication required to manage WhatsApp audiences.");
-  const userId = authData.user.id;
-
-  const { data: byId, error: byIdError } = await supabase.from("promoter_profiles").select("id,user_id").eq("id", promoterId).maybeSingle();
-  if (byIdError) throw new Error(`Failed to resolve promoter profile: ${byIdError.message}`);
-  if (byId) {
-    if (byId.user_id !== userId) throw new Error("This promoter profile does not belong to the signed-in account.");
-    return byId.id;
-  }
-
-  // The UI historically passed the Hub promoter UUID. Resolve that UUID through
-  // the direct Hub API, then bind it to the single existing TV auth identity.
-  const hubPromoter = await whatsappPromotersHub.getPromoter();
-  if (!hubPromoter?.id || hubPromoter.id !== promoterId) {
-    throw new Error("Your WhatsApp Promoter profile could not be matched to this account. Please refresh and try again.");
-  }
-  if (hubPromoter.external_user_id !== userId) {
-    throw new Error("The promoter profile belongs to a different account.");
-  }
-
-  const { data: existing, error: existingError } = await supabase.from("promoter_profiles").select("id,user_id").eq("user_id", userId).maybeSingle();
-  if (existingError) throw new Error(`Failed to load your promoter profile: ${existingError.message}`);
-  if (existing) return existing.id;
-
-  const phone = hubPromoter.phone_number || hubPromoter.whatsapp_number || null;
-  const displayName = hubPromoter.display_name || hubPromoter.name || "WhatsApp Promoter";
-  const { data: created, error: createError } = await supabase.from("promoter_profiles").insert({
-    user_id: userId,
-    display_name: String(displayName).trim(),
-    phone_whatsapp: phone ? String(phone).trim() : null,
-    bio: hubPromoter.bio ? String(hubPromoter.bio).trim() : null,
-    niche: Array.isArray(hubPromoter.niche) ? hubPromoter.niche.map(String) : null,
-  }).select("id").single();
-  if (createError) throw new Error(`Failed to create your TV promoter profile: ${createError.message}`);
-  return created.id;
-}
-
 export async function uploadCommunityProofScreenshot(file: File, promoterId: string): Promise<string> {
   if (!file) throw new Error("No image file provided for upload.");
   if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) throw new Error("Invalid image format. Supported formats: JPG, PNG, WEBP, GIF.");
   if (file.size > 10 * 1024 * 1024) throw new Error("Screenshot image size exceeds 10MB limit.");
-  const ext = file.name.split(".").pop() || "png"; const path = `promoter-proofs/${promoterId}/community-proof-${Date.now()}.${ext}`;
+  const ext = file.name.split(".").pop() || "png";
+  const path = `promoter-proofs/${promoterId}/community-proof-${Date.now()}.${ext}`;
   const { error } = await supabase.storage.from("business-media").upload(path, file, { upsert: true, contentType: file.type });
   if (error) throw new Error(`Failed to upload audience proof: ${error.message}`);
   return supabase.storage.from("business-media").getPublicUrl(path).data.publicUrl;
 }
 
-export async function getMyCommunities(promoterId: string): Promise<WhatsAppCommunity[]> {
-  const tvPromoterId = await resolveTvPromoterProfileId(promoterId);
-  const { data, error } = await supabase.from("whatsapp_communities").select(`*, category:categories(id,name,slug)`).eq("promoter_id", tvPromoterId).order("created_at", { ascending: false });
-  if (error) throw new Error(`Failed to load WhatsApp audiences: ${error.message}`);
-  return (data || []) as unknown as WhatsAppCommunity[];
+export async function getMyCommunities(_promoterId: string): Promise<WhatsAppCommunity[]> {
+  const data = await whatsappPromotersHub.audiences();
+  return (data || []) as WhatsAppCommunity[];
 }
 
 export async function getCommunityById(communityId: string): Promise<WhatsAppCommunity | null> {
   if (!communityId) return null;
-  const { data, error } = await supabase.from("whatsapp_communities").select(`*, category:categories(id,name,slug)`).eq("id", communityId).maybeSingle();
-  if (error) throw new Error(`Failed to load WhatsApp audience: ${error.message}`);
-  return data as unknown as WhatsAppCommunity | null;
+  try { return await whatsappPromotersHub.getAudience(communityId) as WhatsAppCommunity; } catch (error) {
+    if (error instanceof Error && /not found/i.test(error.message)) return null;
+    throw new Error(`Failed to load WhatsApp audience: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 export async function createCommunity(params: { promoterId: string; name: string; categoryId?: string | null; communityType: CommunityType; memberCount: number; activeDailyViews?: number; countryPrimary?: string; demographicsSummary?: string | null; proofScreenshotUrl: string }): Promise<WhatsAppCommunity> {
   const validation = validateCommunityInput({ name: params.name, communityType: params.communityType, memberCount: params.memberCount, activeDailyViews: params.activeDailyViews });
   if (!validation.isValid) throw new Error(validation.error);
   if (!params.proofScreenshotUrl) throw new Error("Audience proof screenshot is mandatory for verification.");
-  const tvPromoterId = await resolveTvPromoterProfileId(params.promoterId);
-  const { data, error } = await supabase.from("whatsapp_communities").insert({
-    promoter_id: tvPromoterId, name: params.name.trim(), category_id: params.categoryId || null,
-    community_type: params.communityType, member_count: Math.floor(params.memberCount), active_daily_views: Math.floor(params.activeDailyViews || 0),
-    country_primary: params.countryPrimary?.trim() || "Nigeria", demographics_summary: params.demographicsSummary?.trim() || null,
-    proof_screenshot_url: params.proofScreenshotUrl,
-  }).select(`*, category:categories(id,name,slug)`).single();
-  if (error) throw new Error(`Failed to submit WhatsApp audience: ${error.message}`);
-  return data as unknown as WhatsAppCommunity;
+  return await whatsappPromotersHub.createAudience({ name: params.name.trim(), category_id: params.categoryId || null, community_type: params.communityType, member_count: Math.floor(params.memberCount), active_daily_views: Math.floor(params.activeDailyViews || 0), country_primary: params.countryPrimary?.trim() || "Nigeria", demographics_summary: params.demographicsSummary?.trim() || null, proof_screenshot_url: params.proofScreenshotUrl }) as WhatsAppCommunity;
 }
 
 export async function updateCommunity(params: { communityId: string; name: string; categoryId?: string | null; communityType: CommunityType; memberCount: number; activeDailyViews?: number; countryPrimary?: string; demographicsSummary?: string | null; proofScreenshotUrl?: string; isAdmin?: boolean }): Promise<WhatsAppCommunity> {
   const validation = validateCommunityInput({ name: params.name, communityType: params.communityType, memberCount: params.memberCount, activeDailyViews: params.activeDailyViews });
   if (!validation.isValid) throw new Error(validation.error);
-  const { data: existing, error: existingError } = await supabase.from("whatsapp_communities").select("verification_status,is_published").eq("id", params.communityId).single();
-  if (existingError) throw new Error(`Failed to load audience before update: ${existingError.message}`);
-  const check = canEditCommunity(existing, params.isAdmin); if (!check.allowed) throw new Error(check.reason);
-  const payload: Record<string, any> = { name: params.name.trim(), category_id: params.categoryId || null, community_type: params.communityType, member_count: Math.floor(params.memberCount), active_daily_views: Math.floor(params.activeDailyViews || 0), country_primary: params.countryPrimary?.trim() || "Nigeria", demographics_summary: params.demographicsSummary?.trim() || null };
-  if (params.proofScreenshotUrl) payload.proof_screenshot_url = params.proofScreenshotUrl;
-  const { data, error } = await supabase.from("whatsapp_communities").update(payload).eq("id", params.communityId).select(`*, category:categories(id,name,slug)`).single();
-  if (error) throw new Error(`Failed to update WhatsApp audience: ${error.message}`);
-  return data as unknown as WhatsAppCommunity;
+  return await whatsappPromotersHub.updateAudience(params.communityId, { name: params.name.trim(), category_id: params.categoryId || null, community_type: params.communityType, member_count: Math.floor(params.memberCount), active_daily_views: Math.floor(params.activeDailyViews || 0), country_primary: params.countryPrimary?.trim() || "Nigeria", demographics_summary: params.demographicsSummary?.trim() || null, ...(params.proofScreenshotUrl ? { proof_screenshot_url: params.proofScreenshotUrl } : {}) }) as WhatsAppCommunity;
 }
 
-export async function deleteCommunity(communityId: string): Promise<void> {
-  const { error } = await supabase.from("whatsapp_communities").delete().eq("id", communityId);
-  if (error && !isSchemaMissingError(error)) throw new Error(`Failed to delete WhatsApp audience: ${error.message}`);
-}
+export async function deleteCommunity(communityId: string): Promise<void> { await whatsappPromotersHub.deleteAudience(communityId); }
 
-export async function getCommunityCategories(): Promise<Array<{ id: string; name: string; slug: string }>> {
-  const { data, error } = await supabase.from("categories").select("id,name,slug").order("name", { ascending: true });
-  if (error || !data?.length) return DEFAULT_COMMUNITY_CATEGORIES;
-  return data;
-}
+export async function getCommunityCategories(): Promise<Array<{ id: string; name: string; slug: string }>> { return DEFAULT_COMMUNITY_CATEGORIES; }
 
 export async function getPublicVerifiedCommunities(filters?: { categoryId?: string; communityType?: CommunityType; country?: string; minMembers?: number }): Promise<WhatsAppCommunity[]> {
-  let query = supabase.from("whatsapp_communities").select(`*, category:categories(id,name,slug)`).eq("is_published", true).eq("verification_status", "verified");
-  if (filters?.categoryId) query = query.eq("category_id", filters.categoryId);
-  if (filters?.communityType) query = query.eq("community_type", filters.communityType);
-  if (filters?.country) query = query.eq("country_primary", filters.country);
-  if (filters?.minMembers && filters.minMembers > 0) query = query.gte("member_count", filters.minMembers);
-  const { data, error } = await query.order("member_count", { ascending: false });
-  if (error) throw new Error(`Failed to load verified WhatsApp audiences: ${error.message}`);
-  return (data || []) as unknown as WhatsAppCommunity[];
+  return await promotersHubPublicAudiences(filters);
+}
+
+async function promotersHubPublicAudiences(filters?: { categoryId?: string; communityType?: CommunityType; country?: string; minMembers?: number }): Promise<WhatsAppCommunity[]> {
+  return await whatsappPromotersHubRequestPublic("/api/public/audiences", "GET", undefined, filters) as WhatsAppCommunity[];
+}
+
+async function whatsappPromotersHubRequestPublic(path: string, method: "GET" = "GET", body?: unknown, query?: Record<string, string | number | boolean | null | undefined>) {
+  return whatsappPromotersHubRequestInternal(path, method, body, query);
+}
+
+async function whatsappPromotersHubRequestInternal(path: string, method: "GET", body?: unknown, query?: Record<string, string | number | boolean | null | undefined>) {
+  return whatsappPromotersHub.promotersHubRequest ? (whatsappPromotersHub as any).promotersHubRequest(path, method, body, query) : [];
 }
