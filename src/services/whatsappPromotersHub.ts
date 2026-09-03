@@ -1,8 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const HUB_API_URL = (import.meta.env.VITE_PROMOTERS_HUB_API_URL || "https://xdfulgwlhqvwpntzbgeq.supabase.co/functions/v1/promoters-hub-api")
-  .replace(/\/$/, "")
-  .replace(/\/api\/?$/, "");
+const HUB_API_URL = (import.meta.env.VITE_PROMOTERS_HUB_API_URL || "https://xdfulgwlhqvwpntzbgeq.supabase.co/functions/v1/promoters-hub-api").replace(/\/$/, "").replace(/\/api\/?$/, "");
 
 export interface HubHealth { ok?: boolean; status?: string; [key: string]: unknown }
 export interface HubResponse<T> { success: boolean; data?: T; error?: { code?: string; message?: string } }
@@ -11,28 +9,17 @@ async function hubFetch<T>(path: string, method: "GET" | "POST" | "PUT" | "PATCH
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("You must be signed in to use WhatsApp Promoters.");
-
   const normalizedPath = path.startsWith("/api/") ? path : `/api/${path.replace(/^\/+/, "")}`;
   const url = new URL(`${HUB_API_URL}${normalizedPath}`);
   Object.entries(query || {}).forEach(([key, value]) => { if (value !== undefined && value !== null) url.searchParams.set(key, String(value)); });
-  const response = await fetch(url.toString(), {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
-      ...(walletPin ? { "X-Wallet-PIN": walletPin } : {}),
-    },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  const response = await fetch(url.toString(), { method, headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...(walletPin ? { "X-Wallet-PIN": walletPin } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
   let payload: HubResponse<T>;
   try { payload = await response.json(); } catch { throw new Error(`Promoters Hub returned HTTP ${response.status}`); }
   if (!response.ok || payload?.success === false) throw new Error(payload?.error?.message || `Promoters Hub request failed (${response.status})`);
   return (payload?.data ?? payload) as T;
 }
 
-export async function promotersHubRequest<T = unknown>(path: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET", body?: unknown, query?: Record<string, string | number | boolean | null | undefined>, walletPin?: string): Promise<T> {
-  return hubFetch<T>(path, method, body, query, walletPin);
-}
+export async function promotersHubRequest<T = unknown>(path: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET", body?: unknown, query?: Record<string, string | number | boolean | null | undefined>, walletPin?: string): Promise<T> { return hubFetch<T>(path, method, body, query, walletPin); }
 
 async function currentPromoter() {
   const { data: sessionData } = await supabase.auth.getSession();
@@ -49,6 +36,14 @@ export const whatsappPromotersHub = {
   getPromoter: () => currentPromoter(),
   createPromoter: (payload: Record<string, unknown>) => promotersHubRequest("/api/promoters", "POST", payload),
   updatePromoter: (promoterId: string, payload: Record<string, unknown>) => promotersHubRequest(`/api/promoters/${encodeURIComponent(promoterId)}`, "PATCH", payload),
+  audiences: async () => { const promoter = await currentPromoter(); return promotersHubRequest<any[]>(`/api/promoters/${encodeURIComponent(promoter.id)}/audiences`); },
+  getAudience: (audienceId: string) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}`),
+  createAudience: async (payload: Record<string, unknown>) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/audiences`, "POST", payload); },
+  updateAudience: (audienceId: string, payload: Record<string, unknown>) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}`, "PATCH", payload),
+  deleteAudience: (audienceId: string) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}`, "DELETE"),
+  submitAudience: (audienceId: string) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}/submit`, "POST"),
+  adminAudiences: (query?: Record<string, string | number | boolean | null | undefined>) => promotersHubRequest<any[]>("/api/admin/audiences", "GET", undefined, query),
+  adminAudienceStatus: (audienceId: string, payload: Record<string, unknown>) => promotersHubRequest(`/api/admin/audiences/${encodeURIComponent(audienceId)}/status`, "PATCH", payload),
   channels: async () => { const promoter = await currentPromoter(); return promotersHubRequest<any[]>(`/api/promoters/${promoter.id}/channels`); },
   campaigns: async () => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/campaigns`, "GET", undefined, { external_user_id: promoter.external_user_id }); },
   promotions: async () => { const promoter = await currentPromoter(); const campaigns = await promotersHubRequest<any[]>("/api/campaigns", "GET", undefined, { external_user_id: promoter.external_user_id }); const results = await Promise.all((campaigns || []).map((campaign) => promotersHubRequest<any[]>(`/api/campaigns/${campaign.id}/promotions`))); return results.flat(); },
