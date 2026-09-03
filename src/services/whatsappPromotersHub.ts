@@ -1,43 +1,132 @@
 import { supabase } from "@/integrations/supabase/client";
 
 const HUB_API_URL = (import.meta.env.VITE_PROMOTERS_HUB_API_URL || "https://xdfulgwlhqvwpntzbgeq.supabase.co/functions/v1/promoters-hub-api").replace(/\/$/, "").replace(/\/api\/?$/, "");
+
 export interface HubHealth { ok?: boolean; status?: string; [key: string]: unknown }
 export interface HubResponse<T> { success: boolean; data?: T; error?: { code?: string; message?: string } }
 
-async function hubFetch<T>(path: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET", body?: unknown, query?: Record<string, string | number | boolean | null | undefined>, walletPin?: string): Promise<T> {
-  const { data: sessionData } = await supabase.auth.getSession(); const token = sessionData.session?.access_token;
-  if (!token) throw new Error("You must be signed in to use WhatsApp Promoters.");
-  const normalizedPath = path.startsWith("/api/") ? path : `/api/${path.replace(/^\/+/, "")}`; const url = new URL(`${HUB_API_URL}${normalizedPath}`);
-  Object.entries(query || {}).forEach(([key, value]) => { if (value !== undefined && value !== null) url.searchParams.set(key, String(value)); });
-  const response = await fetch(url.toString(), { method, headers: { Authorization: `Bearer ${token}`, ...(body === undefined ? {} : { "Content-Type": "application/json" }), ...(walletPin ? { "X-Wallet-PIN": walletPin } : {}) }, body: body === undefined ? undefined : JSON.stringify(body) });
-  let payload: HubResponse<T>; try { payload = await response.json(); } catch { throw new Error(`Promoters Hub returned HTTP ${response.status}`); }
-  if (!response.ok || payload?.success === false) throw new Error(payload?.error?.message || `Promoters Hub request failed (${response.status})`);
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+type Query = Record<string, string | number | boolean | null | undefined>;
+
+async function getAccessToken(refresh = false) {
+  if (refresh) await supabase.auth.refreshSession();
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token || null;
+}
+
+async function requestWithToken<T>(path: string, method: Method, token: string, body?: unknown, query?: Query, walletPin?: string) {
+  const normalizedPath = path.startsWith("/api/") ? path : `/api/${path.replace(/^\/+/, "")}`;
+  const url = new URL(`${HUB_API_URL}${normalizedPath}`);
+  Object.entries(query || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+  });
+  const response = await fetch(url.toString(), {
+    method,
+    headers: {
+      Authorization: `Bearer ${token}`,
+      ...(body === undefined ? {} : { "Content-Type": "application/json" }),
+      ...(walletPin ? { "X-Wallet-PIN": walletPin } : {}),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  let payload: HubResponse<T> | null = null;
+  try { payload = await response.json(); } catch { throw new Error(`Promoters Hub returned HTTP ${response.status}`); }
+  if (!response.ok || payload?.success === false) {
+    const error = new Error(payload?.error?.message || `Promoters Hub request failed (${response.status})`);
+    (error as Error & { status?: number; code?: string }).status = response.status;
+    (error as Error & { status?: number; code?: string }).code = payload?.error?.code;
+    throw error;
+  }
   return (payload?.data ?? payload) as T;
 }
-export async function promotersHubRequest<T = unknown>(path: string, method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET", body?: unknown, query?: Record<string, string | number | boolean | null | undefined>, walletPin?: string): Promise<T> { return hubFetch<T>(path, method, body, query, walletPin); }
 
-async function currentPromoter() { const { data: sessionData } = await supabase.auth.getSession(); const externalUserId = sessionData.session?.user?.id; if (!externalUserId) throw new Error("You must be signed in to use WhatsApp Promoters."); const promoters = await promotersHubRequest<any[]>("/api/promoters", "GET", undefined, { external_user_id: externalUserId }); const promoter = Array.isArray(promoters) ? promoters[0] : promoters; if (!promoter) throw new Error("Your WhatsApp Promoter profile has not been created yet."); return promoter; }
+async function hubFetch<T>(path: string, method: Method = "GET", body?: unknown, query?: Query, walletPin?: string): Promise<T> {
+  let token = await getAccessToken();
+  if (!token) throw new Error("You must be signed in to use WhatsApp Promoters.");
+  try {
+    return await requestWithToken<T>(path, method, token, body, query, walletPin);
+  } catch (error) {
+    const status = (error as Error & { status?: number }).status;
+    if (status !== 401) throw error;
+    token = await getAccessToken(true);
+    if (!token) throw new Error("Your session has expired. Please sign in again.");
+    return requestWithToken<T>(path, method, token, body, query, walletPin);
+  }
+}
+
+export async function promotersHubRequest<T = unknown>(path: string, method: Method = "GET", body?: unknown, query?: Query, walletPin?: string): Promise<T> {
+  return hubFetch<T>(path, method, body, query, walletPin);
+}
+
+async function currentPromoter() {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const externalUserId = sessionData.session?.user?.id;
+  if (!externalUserId) throw new Error("You must be signed in to use WhatsApp Promoters.");
+  const promoters = await promotersHubRequest<any[]>("/api/promoters", "GET", undefined, { external_user_id: externalUserId });
+  const promoter = Array.isArray(promoters) ? promoters[0] : promoters;
+  if (!promoter) throw new Error("Your WhatsApp Promoter profile has not been created yet.");
+  return promoter;
+}
 
 export const whatsappPromotersHub = {
-  health: () => promotersHubRequest<HubHealth>("/api/health"), getPromoter: () => currentPromoter(),
+  health: () => promotersHubRequest<HubHealth>("/api/health"),
+  getPromoter: () => currentPromoter(),
   createPromoter: (payload: Record<string, unknown>) => promotersHubRequest("/api/promoters", "POST", payload),
   updatePromoter: (promoterId: string, payload: Record<string, unknown>) => promotersHubRequest(`/api/promoters/${encodeURIComponent(promoterId)}`, "PATCH", payload),
-  audiences: async () => { const promoter = await currentPromoter(); return promotersHubRequest<any[]>(`/api/promoters/${encodeURIComponent(promoter.id)}/audiences`); },
+
+  // Audience reads/writes are always routed through the Promoters Hub API.
+  audiences: async () => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest<any[]>(`/api/promoters/${encodeURIComponent(promoter.id)}/audiences`);
+  },
   getAudience: (audienceId: string) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}`),
-  createAudience: async (payload: Record<string, unknown>) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/audiences`, "POST", payload); },
+  createAudience: async (payload: Record<string, unknown>) => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/audiences`, "POST", payload);
+  },
   updateAudience: (audienceId: string, payload: Record<string, unknown>) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}`, "PATCH", payload),
   deleteAudience: (audienceId: string) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}`, "DELETE"),
   submitAudience: (audienceId: string) => promotersHubRequest(`/api/audiences/${encodeURIComponent(audienceId)}/submit`, "POST"),
-  publicAudiences: (query?: Record<string, string | number | boolean | null | undefined>) => promotersHubRequest<any[]>("/api/public/audiences", "GET", undefined, query),
-  adminAudiences: (query?: Record<string, string | number | boolean | null | undefined>) => promotersHubRequest<any[]>("/api/admin/audiences", "GET", undefined, query),
+  publicAudiences: (query?: Query) => promotersHubRequest<any[]>("/api/public/audiences", "GET", undefined, query),
+  adminAudiences: (query?: Query) => promotersHubRequest<any[]>("/api/admin/audiences", "GET", undefined, query),
   adminAudienceStatus: (audienceId: string, payload: Record<string, unknown>) => promotersHubRequest(`/api/admin/audiences/${encodeURIComponent(audienceId)}/status`, "PATCH", payload),
-  channels: async () => { const promoter = await currentPromoter(); return promotersHubRequest<any[]>(`/api/promoters/${promoter.id}/channels`); },
-  campaigns: async () => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/campaigns`, "GET", undefined, { external_user_id: promoter.external_user_id }); },
-  promotions: async () => { const promoter = await currentPromoter(); const campaigns = await promotersHubRequest<any[]>("/api/campaigns", "GET", undefined, { external_user_id: promoter.external_user_id }); const results = await Promise.all((campaigns || []).map((campaign) => promotersHubRequest<any[]>(`/api/campaigns/${campaign.id}/promotions`))); return results.flat(); },
-  wallet: async () => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/wallet`); },
-  transactions: async () => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/transactions`); },
-  withdrawals: async (walletPin?: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/withdrawals`, "GET", undefined, undefined, walletPin); },
-  requestWithdrawal: async (payload: Record<string, unknown>, walletPin: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/withdrawals`, "POST", payload, undefined, walletPin); },
-  setWalletPin: async (pin: string, confirmPin: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/wallet/pin`, "POST", { pin, confirm_pin: confirmPin }); },
-  verifyWalletPin: async (pin: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/wallet/verify-pin`, "POST", undefined, undefined, pin); },
+
+  channels: async () => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest<any[]>(`/api/promoters/${encodeURIComponent(promoter.id)}/channels`);
+  },
+  campaigns: async () => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest("/api/campaigns", "GET", undefined, { external_user_id: promoter.external_user_id });
+  },
+  promotions: async () => {
+    const promoter = await currentPromoter();
+    const campaigns = await promotersHubRequest<any[]>("/api/campaigns", "GET", undefined, { external_user_id: promoter.external_user_id });
+    const results = await Promise.all((campaigns || []).map((campaign) => promotersHubRequest<any[]>(`/api/campaigns/${campaign.id}/promotions`)));
+    return results.flat();
+  },
+  wallet: async () => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/wallet`);
+  },
+  transactions: async () => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/transactions`);
+  },
+  withdrawals: async (walletPin?: string) => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/withdrawals`, "GET", undefined, undefined, walletPin);
+  },
+  requestWithdrawal: async (payload: Record<string, unknown>, walletPin: string) => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/withdrawals`, "POST", payload, undefined, walletPin);
+  },
+  setWalletPin: async (pin: string, confirmPin: string) => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/wallet/pin`, "POST", { pin, confirm_pin: confirmPin });
+  },
+  verifyWalletPin: async (pin: string) => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest(`/api/promoters/${encodeURIComponent(promoter.id)}/wallet/verify-pin`, "POST", undefined, undefined, pin);
+  },
 };
