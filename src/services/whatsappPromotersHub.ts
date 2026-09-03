@@ -5,14 +5,23 @@ const FUNCTION_NAME = "promoters-hub-api";
 export interface HubHealth { ok?: boolean; status?: string; [key: string]: unknown }
 export interface HubResponse<T> { success: boolean; data?: T; error?: { code?: string; message?: string } }
 
-async function request<T>(path: string, method: "GET" | "POST" | "PATCH" | "DELETE" = "GET", body?: unknown): Promise<T> {
+export async function promotersHubRequest<T = unknown>(
+  path: string,
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE" = "GET",
+  body?: unknown,
+  query?: Record<string, string | number | boolean | null | undefined>,
+): Promise<T> {
   const { data: sessionData } = await supabase.auth.getSession();
   const token = sessionData.session?.access_token;
-  const userId = sessionData.session?.user?.id;
-  if (!token || !userId) throw new Error("You must be signed in to use WhatsApp Promoters.");
+  if (!token) throw new Error("You must be signed in to use WhatsApp Promoters.");
 
   const { data, error } = await supabase.functions.invoke(FUNCTION_NAME, {
-    body: { path, method, ...(body === undefined ? {} : { body }) },
+    body: {
+      path,
+      method,
+      ...(query ? { query } : {}),
+      ...(body === undefined ? {} : { body }),
+    },
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -29,40 +38,43 @@ async function currentPromoter() {
   const externalUserId = sessionData.session?.user?.id;
   if (!externalUserId) throw new Error("You must be signed in to use WhatsApp Promoters.");
 
-  const promoters = await request<any[]>(`/api/promoters?external_user_id=${encodeURIComponent(externalUserId)}`);
-  const promoter = promoters?.[0];
+  const promoters = await promotersHubRequest<any[]>("/api/promoters", "GET", undefined, { external_user_id: externalUserId });
+  const promoter = Array.isArray(promoters) ? promoters[0] : promoters;
   if (!promoter) throw new Error("Your WhatsApp Promoter profile has not been created yet.");
   return promoter;
 }
 
-/** Browser client for the live WhatsApp Promoters Hub through the main app Edge Function bridge. */
+/** Browser client for the independent live WhatsApp Promoters Hub through the main app Edge Function bridge. */
 export const whatsappPromotersHub = {
-  health: () => request<HubHealth>("/api/health"),
+  health: () => promotersHubRequest<HubHealth>("/api/health"),
   getPromoter: () => currentPromoter(),
+  createPromoter: (payload: Record<string, unknown>) => promotersHubRequest("/api/promoters", "POST", payload),
+  updatePromoter: (promoterId: string, payload: Record<string, unknown>) =>
+    promotersHubRequest(`/api/promoters/${encodeURIComponent(promoterId)}`, "PATCH", payload),
   campaigns: async () => {
     const promoter = await currentPromoter();
-    return request(`/api/campaigns?external_user_id=${encodeURIComponent(promoter.external_user_id)}`);
+    return promotersHubRequest(`/api/campaigns`, "GET", undefined, { external_user_id: promoter.external_user_id });
   },
   promotions: async () => {
     const promoter = await currentPromoter();
-    const campaigns = await request<any[]>(`/api/campaigns?external_user_id=${encodeURIComponent(promoter.external_user_id)}`);
-    const results = await Promise.all((campaigns || []).map((campaign) => request<any[]>(`/api/campaigns/${campaign.id}/promotions`)));
+    const campaigns = await promotersHubRequest<any[]>("/api/campaigns", "GET", undefined, { external_user_id: promoter.external_user_id });
+    const results = await Promise.all((campaigns || []).map((campaign) => promotersHubRequest<any[]>(`/api/campaigns/${campaign.id}/promotions`)));
     return results.flat();
   },
   wallet: async () => {
     const promoter = await currentPromoter();
-    return request(`/api/promoters/${promoter.id}/wallet`);
+    return promotersHubRequest(`/api/promoters/${promoter.id}/wallet`);
   },
   transactions: async () => {
     const promoter = await currentPromoter();
-    return request(`/api/promoters/${promoter.id}/transactions`);
+    return promotersHubRequest(`/api/promoters/${promoter.id}/transactions`);
   },
   withdrawals: async () => {
     const promoter = await currentPromoter();
-    return request(`/api/promoters/${promoter.id}/withdrawals`);
+    return promotersHubRequest(`/api/promoters/${promoter.id}/withdrawals`);
   },
   stats: async () => {
     const promoter = await currentPromoter();
-    return request(`/api/promoters/${promoter.id}/stats`);
+    return promotersHubRequest(`/api/promoters/${promoter.id}/stats`);
   },
 };
