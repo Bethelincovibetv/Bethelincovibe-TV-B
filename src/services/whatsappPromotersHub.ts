@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 
-const HUB_API_URL = (import.meta.env.VITE_PROMOTERS_HUB_API_URL || "https://xdfulgwlhqvwpntzbgeq.supabase.co/functions/v1/promoters-hub-api").replace(/\/$/, "");
+const HUB_API_URL = (import.meta.env.VITE_PROMOTERS_HUB_API_URL || "https://xdfulgwlhqvwpntzbgeq.supabase.co/functions/v1/promoters-hub-api")
+  .replace(/\/$/, "")
+  .replace(/\/api\/?$/, "");
 
 export interface HubHealth { ok?: boolean; status?: string; [key: string]: unknown }
 export interface HubResponse<T> { success: boolean; data?: T; error?: { code?: string; message?: string } }
@@ -10,7 +12,8 @@ async function hubFetch<T>(path: string, method: "GET" | "POST" | "PUT" | "PATCH
   const token = sessionData.session?.access_token;
   if (!token) throw new Error("You must be signed in to use WhatsApp Promoters.");
 
-  const url = new URL(`${HUB_API_URL}${path.startsWith("/") ? path : `/${path}`}`);
+  const normalizedPath = path.startsWith("/api/") ? path : `/api/${path.replace(/^\/+/, "")}`;
+  const url = new URL(`${HUB_API_URL}${normalizedPath}`);
   Object.entries(query || {}).forEach(([key, value]) => { if (value !== undefined && value !== null) url.searchParams.set(key, String(value)); });
   const response = await fetch(url.toString(), {
     method,
@@ -53,7 +56,6 @@ export const whatsappPromotersHub = {
   transactions: async () => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/transactions`); },
   withdrawals: async (walletPin?: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/withdrawals`, "GET", undefined, undefined, walletPin); },
   requestWithdrawal: async (payload: Record<string, unknown>, walletPin: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/withdrawals`, "POST", payload, undefined, walletPin); },
-  stats: async () => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/stats`); },
   setWalletPin: async (pin: string, confirmPin: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/wallet/pin`, "POST", { pin, confirm_pin: confirmPin }); },
   verifyWalletPin: async (pin: string) => { const promoter = await currentPromoter(); return promotersHubRequest(`/api/promoters/${promoter.id}/wallet/verify-pin`, "POST", undefined, undefined, pin); },
 };
