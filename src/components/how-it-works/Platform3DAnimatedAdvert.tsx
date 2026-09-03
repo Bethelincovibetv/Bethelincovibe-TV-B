@@ -32,7 +32,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { audio3D } from "@/lib/audio3DStoreEngine";
-import RealLife3DShopModal from "@/components/shop/RealLife3DShopModal";
 import mayaAvatar from "@/assets/images/ai_match_avatar_1788303151852.jpg";
 
 interface AdvertSection {
@@ -247,7 +246,6 @@ export default function Platform3DAnimatedAdvert() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [yaw, setYaw] = useState(0);
   const [pitch, setPitch] = useState(0);
-  const [demo3DOpen, setDemo3DOpen] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const currentSection = ADVERT_SECTIONS[currentIdx];
@@ -781,13 +779,6 @@ export default function Platform3DAnimatedAdvert() {
           </Button>
         </div>
       </div>
-
-      {/* 3D Real Life Shop Modal (Triggerable from advert) */}
-      <RealLife3DShopModal
-        open={demo3DOpen}
-        onOpenChange={setDemo3DOpen}
-        business={sampleBusiness}
-      />
     </div>
   );
 }

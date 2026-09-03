@@ -29,7 +29,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 import { toast } from "sonner";
 import BrandedLoader from "@/components/BrandedLoader";
 import { trackRecommenderSignal } from "@/lib/aiBusinessRecommenderEngine";
-import RealLife3DShopModal from "@/components/shop/RealLife3DShopModal";
+import Business3DAIAvatarGreeter from "@/components/greeter/Business3DAIAvatarGreeter";
 
 type Biz = any;
 
@@ -50,15 +50,6 @@ export default function BusinessProfile() {
   const [ownerProfile, setOwnerProfile] = useState<any | null>(null);
   const [related, setRelated] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [show3DShopModal, setShow3DShopModal] = useState(false);
-
-  useEffect(() => {
-    // Check if URL specifies shop3d=true or #3d to auto-open 3D mode
-    const searchParams = new URLSearchParams(window.location.search);
-    if (searchParams.get("shop3d") === "true" || window.location.hash === "#3d") {
-      setShow3DShopModal(true);
-    }
-  }, []);
 
   useEffect(() => {
     (async () => {
@@ -389,35 +380,14 @@ export default function BusinessProfile() {
             </CardContent>
           </Card>
 
-          {/* 3D Real Life Shop Entrance Banner */}
-          <Card className="mt-4 border-2 border-amber-500/40 bg-gradient-to-r from-neutral-950 via-neutral-900 to-amber-950/40 text-white overflow-hidden shadow-xl rounded-2xl">
-            <CardContent className="p-4 sm:p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
-                <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-neutral-950 flex items-center justify-center font-black shadow-lg shrink-0">
-                  <Store className="h-6 w-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-black text-base sm:text-lg text-white">
-                      Step Inside Our 3D Real Life Showroom
-                    </h3>
-                    <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] font-black uppercase">
-                      3D Boutique
-                    </Badge>
-                  </div>
-                  <p className="text-xs sm:text-sm text-neutral-300 mt-0.5">
-                    Walk through virtual aisles, inspect products on 3D pedestals, and order directly with zero middleman markup.
-                  </p>
-                </div>
-              </div>
-              <Button
-                onClick={() => setShow3DShopModal(true)}
-                className="w-full sm:w-auto bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 hover:opacity-90 text-white font-extrabold rounded-xl h-10 px-5 gap-2 shadow-xl shrink-0 active:scale-95"
-              >
-                <Store className="h-4 w-4" /> Enter 3D Storefront
-              </Button>
-            </CardContent>
-          </Card>
+          {/* 3D AI Greeter Avatar & Virtual Concierge */}
+          <div className="mt-5">
+            <Business3DAIAvatarGreeter
+              business={biz}
+              products={products}
+              services={services}
+            />
+          </div>
 
           {/* WhatsApp Community Banner */}
           {waGroupUrl && (
@@ -686,15 +656,6 @@ export default function BusinessProfile() {
             <Button variant="outline" size="sm" onClick={onShare}><Share2 className="h-4 w-4" /></Button>
           </div>
         </div>
-
-        {/* Real Life 3D Shop Modal */}
-        <RealLife3DShopModal
-          open={show3DShopModal}
-          onOpenChange={setShow3DShopModal}
-          business={biz}
-          products={products}
-          services={services}
-        />
       </div>
     </>
   );

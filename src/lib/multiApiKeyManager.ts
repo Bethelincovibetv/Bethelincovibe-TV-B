@@ -171,6 +171,15 @@ export const PLATFORM_AI_FEATURES: AiFeatureConnectionConfig[] = [
     assignedKeyId: "auto",
     category: "admin",
   },
+  {
+    featureKey: "greeter_ai",
+    name: "3D Virtual Shop Greeter & Concierge",
+    description: "Real-time 3D voice and conversational concierge introducing business catalog, services & answering visitor questions.",
+    icon: "User",
+    enabled: true,
+    assignedKeyId: "auto",
+    category: "specialist",
+  },
 ];
 
 // Memory cache of keys to avoid excessive database reads
@@ -396,7 +405,7 @@ export async function testApiKeyConnection(
   try {
     const ai = new GoogleGenAI({ apiKey: cleanKey });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: "ping",
       config: {
         maxOutputTokens: 2,

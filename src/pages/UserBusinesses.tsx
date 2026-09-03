@@ -17,7 +17,8 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, Tooltip } from "recharts";
 import BusinessDefaultLogo from "@/components/directory/BusinessDefaultLogo";
 import AILogoGeneratorModal from "@/components/AILogoGeneratorModal";
 import QueenServiceConciergeModal from "@/components/admin/business/QueenServiceConciergeModal";
-import RealLife3DShopModal from "@/components/shop/RealLife3DShopModal";
+import Business3DAIAvatarGreeter from "@/components/greeter/Business3DAIAvatarGreeter";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function UserBusinesses() {
   const { user, loading } = useAuth();
@@ -28,8 +29,8 @@ export default function UserBusinesses() {
   const [activeLogoBiz, setActiveLogoBiz] = useState<any | null>(null);
   const [queenModalOpen, setQueenModalOpen] = useState(false);
   const [selectedQueenBiz, setSelectedQueenBiz] = useState<any | null>(null);
-  const [shop3DOpen, setShop3DOpen] = useState(false);
-  const [selected3DBiz, setSelected3DBiz] = useState<any | null>(null);
+  const [greeterModalOpen, setGreeterModalOpen] = useState(false);
+  const [selectedGreeterBiz, setSelectedGreeterBiz] = useState<any | null>(null);
 
   const removeListing = async (id: string) => {
     await supabase.from("supplier_images").delete().eq("supplier_id", id);
@@ -208,13 +209,13 @@ export default function UserBusinesses() {
                         size="sm"
                         variant="outline"
                         onClick={() => {
-                          setSelected3DBiz(b);
-                          setShop3DOpen(true);
+                          setSelectedGreeterBiz(b);
+                          setGreeterModalOpen(true);
                         }}
                         className="rounded-xl font-extrabold border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20"
                       >
-                        <Store className="h-3.5 w-3.5 mr-1 text-amber-500" />
-                        3D Real Life Shop
+                        <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                        3D AI Greeter
                       </Button>
                       <Button
                         size="sm"
@@ -321,17 +322,34 @@ export default function UserBusinesses() {
         />
       )}
 
-      {/* 3D Real Life Shop Modal */}
-      {selected3DBiz && (
-        <RealLife3DShopModal
-          open={shop3DOpen}
+      {/* 3D AI Greeter Preview Modal */}
+      {selectedGreeterBiz && (
+        <Dialog
+          open={greeterModalOpen}
           onOpenChange={(open) => {
-            setShop3DOpen(open);
-            if (!open) setSelected3DBiz(null);
+            setGreeterModalOpen(open);
+            if (!open) setSelectedGreeterBiz(null);
           }}
-          business={selected3DBiz}
-          services={selected3DBiz.services || []}
-        />
+        >
+          <DialogContent className="max-w-4xl p-0 overflow-hidden bg-neutral-950 border-amber-500/40 text-white rounded-3xl">
+            <DialogHeader className="p-4 sm:p-6 pb-0">
+              <DialogTitle className="text-xl font-black flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-amber-400" />
+                3D AI Greeter Preview &amp; Attendant Test
+              </DialogTitle>
+              <DialogDescription className="text-neutral-400 text-xs sm:text-sm">
+                This is how visitors will be welcomed to {selectedGreeterBiz.name} on your public profile.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="p-4 sm:p-6 pt-2">
+              <Business3DAIAvatarGreeter
+                business={selectedGreeterBiz}
+                services={selectedGreeterBiz.services || []}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </>
   );
