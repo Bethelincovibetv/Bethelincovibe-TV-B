@@ -27,9 +27,7 @@ export async function promotersHubRequest<T = unknown>(
 
   if (error) throw new Error(error.message || "Promoters Hub request failed");
   const response = data as HubResponse<T>;
-  if (response?.success === false) {
-    throw new Error(response.error?.message || "Promoters Hub request failed");
-  }
+  if (response?.success === false) throw new Error(response.error?.message || "Promoters Hub request failed");
   return (response?.data ?? response) as T;
 }
 
@@ -37,7 +35,6 @@ async function currentPromoter() {
   const { data: sessionData } = await supabase.auth.getSession();
   const externalUserId = sessionData.session?.user?.id;
   if (!externalUserId) throw new Error("You must be signed in to use WhatsApp Promoters.");
-
   const promoters = await promotersHubRequest<any[]>("/api/promoters", "GET", undefined, { external_user_id: externalUserId });
   const promoter = Array.isArray(promoters) ? promoters[0] : promoters;
   if (!promoter) throw new Error("Your WhatsApp Promoter profile has not been created yet.");
@@ -49,8 +46,11 @@ export const whatsappPromotersHub = {
   health: () => promotersHubRequest<HubHealth>("/api/health"),
   getPromoter: () => currentPromoter(),
   createPromoter: (payload: Record<string, unknown>) => promotersHubRequest("/api/promoters", "POST", payload),
-  updatePromoter: (promoterId: string, payload: Record<string, unknown>) =>
-    promotersHubRequest(`/api/promoters/${encodeURIComponent(promoterId)}`, "PATCH", payload),
+  updatePromoter: (promoterId: string, payload: Record<string, unknown>) => promotersHubRequest(`/api/promoters/${encodeURIComponent(promoterId)}`, "PATCH", payload),
+  channels: async () => {
+    const promoter = await currentPromoter();
+    return promotersHubRequest<any[]>("/api/promoter-channels", "GET", undefined, { promoter_id: promoter.id });
+  },
   campaigns: async () => {
     const promoter = await currentPromoter();
     return promotersHubRequest(`/api/campaigns`, "GET", undefined, { external_user_id: promoter.external_user_id });
@@ -63,18 +63,18 @@ export const whatsappPromotersHub = {
   },
   wallet: async () => {
     const promoter = await currentPromoter();
-    return promotersHubRequest(`/api/promoters/${promoter.id}/wallet`);
+    return promotersHubRequest(`/api/promoter-wallet/${promoter.id}`);
   },
   transactions: async () => {
     const promoter = await currentPromoter();
-    return promotersHubRequest(`/api/promoters/${promoter.id}/transactions`);
+    return promotersHubRequest(`/api/wallet-transactions/${promoter.id}`);
   },
   withdrawals: async () => {
     const promoter = await currentPromoter();
-    return promotersHubRequest(`/api/promoters/${promoter.id}/withdrawals`);
+    return promotersHubRequest(`/api/withdrawals/${promoter.id}`);
   },
   stats: async () => {
     const promoter = await currentPromoter();
-    return promotersHubRequest(`/api/promoters/${promoter.id}/stats`);
+    return promotersHubRequest(`/api/promoter-stats/${promoter.id}`);
   },
 };
