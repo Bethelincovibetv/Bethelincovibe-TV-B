@@ -17,6 +17,7 @@ import OnboardingSetupWizard from "@/components/OnboardingSetupWizard";
 import QRCodeDialog from "@/components/QRCodeDialog";
 import ProgrammaticAdBanner from "@/components/ProgrammaticAdBanner";
 import PostRequestBanner from "@/components/requests/PostRequestBanner";
+import DashboardAIMatchmakerWidget from "@/components/ai-match/DashboardAIMatchmakerWidget";
 
 export default function UserDashboard() {
   const { user, loading, isAdmin } = useAuth();
@@ -304,6 +305,9 @@ export default function UserDashboard() {
           profile={profile}
           onProfileUpdated={fetchUserData}
         />
+
+        {/* Maya AI Matchmaker & Intelligent Recommendations */}
+        <DashboardAIMatchmakerWidget />
 
         {/* Smart Opportunity & Request Matcher Banner */}
         <PostRequestBanner variant="compact" />

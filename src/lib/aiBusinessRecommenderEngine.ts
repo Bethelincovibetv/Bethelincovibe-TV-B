@@ -15,6 +15,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
 import { generateMatchDialogue, DialogueOutput, HumourStyle } from "@/lib/recommenderHumourLibrary";
+import { getGeminiClient } from "@/lib/aiCollaborationEngine";
 
 // Signal types and their intent weights
 export type SignalType =
@@ -809,8 +810,8 @@ export async function findBestBusinessMatch(options?: {
     const biz = topCandidate.business;
     const catName = biz.categories?.name || profile.primaryInterests[0]?.categoryName || "Verified Services";
 
-    // 4. Generate dialogue with psychological hook
-    const dialogue = generateMatchDialogue({
+    // 4. Generate dialogue with psychological hook & Gemini Platform AI synthesis
+    let dialogue = generateMatchDialogue({
       categoryName: catName,
       categorySlug: biz.categories?.slug || primarySlug,
       keywords: topCandidate.matchedKeywords,
@@ -819,6 +820,53 @@ export async function findBestBusinessMatch(options?: {
       style: adminConfig.humour_style,
       signalsCount: profile.totalSignalsCount,
     });
+
+    // Intelligent Gemini enhancement if online
+    try {
+      const gemini = await getGeminiClient("ai_matchmaker");
+      if (gemini) {
+        const prompt = `You are Maya, the witty, respectful, and intelligent AI Business Match Specialist at Bethelincovibe.
+Generate a non-disruptive, creative, friendly 2-sentence match recommendation for a user based on their active intent.
+
+User Intent: "${profile.recentIntent || catName}"
+Matched Keywords: ${topCandidate.matchedKeywords.join(", ") || catName}
+Matched Business: "${biz.name}" (${catName}, ${biz.city || biz.state || "Nigeria"})
+Verified: ${Boolean(biz.is_verified || biz.verified)}
+
+Respond ONLY in strict JSON format:
+{
+  "hook": "A short, engaging, non-disruptive 1-line observation (e.g. 'I noticed you've been checking out quality wholesale tech supplies.')",
+  "body": "A clear, tailored 1-sentence value proposition connecting them to this verified business without marketing spam.",
+  "ctaLabel": "Action-oriented short button text (e.g. 'View Verified Profile' or 'Connect on WhatsApp')",
+  "whyExplanation": "Why this specific business was matched (1 concise sentence)"
+}`;
+
+        const aiRes = await gemini.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            temperature: 0.3,
+          },
+        });
+
+        const raw = aiRes.text;
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (parsed.hook && parsed.body) {
+            dialogue = {
+              ...dialogue,
+              hook: parsed.hook,
+              body: parsed.body,
+              ctaLabel: parsed.ctaLabel || dialogue.ctaLabel,
+              whyExplanation: parsed.whyExplanation || dialogue.whyExplanation,
+            };
+          }
+        }
+      }
+    } catch {
+      // Graceful fallback to heuristic dialogue
+    }
 
     const result: BusinessMatchResult = {
       business: biz,

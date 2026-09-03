@@ -202,13 +202,20 @@ export async function sendFcmNotificationToUser(params: {
   icon?: string;
   image?: string;
 }) {
+  if (!params.userId || typeof params.userId !== "string" || !params.userId.trim()) {
+    console.warn("sendFcmNotificationToUser aborted: target userId is required.");
+    return;
+  }
+
+  const targetUserId = params.userId.trim();
+
   try {
-    const recipientName = await fetchUserNameById(params.userId);
+    const recipientName = await fetchUserNameById(targetUserId);
     const personalizedTitle = personalizeNotificationTitle(params.title, recipientName);
     const personalizedBody = personalizeNotificationBody(params.body, recipientName);
 
     await supabase.from("user_notifications").insert({
-      user_id: params.userId,
+      user_id: targetUserId,
       title: personalizedTitle,
       body: personalizedBody,
       url: params.url || "/dashboard",
@@ -216,23 +223,31 @@ export async function sendFcmNotificationToUser(params: {
       is_read: false,
     });
 
-    const prefs = await getUserNotificationPreferences(params.userId);
+    const prefs = await getUserNotificationPreferences(targetUserId);
     if (!prefs.enabled) return;
     const category = params.type || "system";
     if (category in prefs && !(prefs as any)[category]) return;
 
-    // Push delivery is handled exclusively by the server/OneSignal target.
-    // Do NOT also create a local browser notification here: doing both causes
-    // the same event to appear twice on the current user's device.
-    await supabase.functions.invoke("onesignal-send", {
-      body: {
-        title: personalizedTitle,
-        message: personalizedBody,
-        url: params.url || "/dashboard",
-        mode: "users",
-        user_ids: [params.userId],
-      },
-    }).catch(() => {});
+    // Push delivery is handled securely by targeted OneSignal + FCM Instant Push gateways
+    await Promise.allSettled([
+      supabase.functions.invoke("onesignal-send", {
+        body: {
+          title: personalizedTitle,
+          message: personalizedBody,
+          url: params.url || "/dashboard",
+          mode: "users",
+          user_ids: [targetUserId],
+        },
+      }),
+      supabase.functions.invoke("send-push", {
+        body: {
+          title: personalizedTitle,
+          body: personalizedBody,
+          url: params.url || "/dashboard",
+          user_id: targetUserId,
+        },
+      }),
+    ]);
   } catch (err) {
     console.warn("Failed sending FCM notification:", err);
   }

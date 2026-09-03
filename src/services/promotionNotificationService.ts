@@ -29,21 +29,24 @@ export interface PromotionNotification {
   created_at: string;
 }
 
-const NOTIFICATIONS_STORAGE_KEY = "bincovibe_user_notifications_all";
+const getStorageKey = (userId?: string) =>
+  userId ? `bincovibe_user_notifications_${userId}` : "bincovibe_user_notifications_session";
 
-// Local storage helpers for resiliency and offline/test support
-export function getLocalStoredNotifications(): PromotionNotification[] {
+// Local storage helpers for resiliency and offline/test support (strictly user-gated)
+export function getLocalStoredNotifications(userId?: string): PromotionNotification[] {
   try {
-    const data = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    const key = getStorageKey(userId);
+    const data = localStorage.getItem(key);
     return data ? JSON.parse(data) : [];
   } catch {
     return [];
   }
 }
 
-export function saveLocalStoredNotifications(notifications: PromotionNotification[]): void {
+export function saveLocalStoredNotifications(notifications: PromotionNotification[], userId?: string): void {
   try {
-    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+    const key = getStorageKey(userId);
+    localStorage.setItem(key, JSON.stringify(notifications));
   } catch (err) {
     console.error("Failed to save notifications to local storage", err);
   }
@@ -97,10 +100,10 @@ export async function dispatchPromotionNotification(input: {
       created_at: nowIso,
     };
 
-    // 1. Save to local storage for test & client cache
-    const existing = getLocalStoredNotifications();
+    // 1. Save to user-scoped local storage for test & client cache
+    const existing = getLocalStoredNotifications(input.userId);
     existing.unshift(notification);
-    saveLocalStoredNotifications(existing);
+    saveLocalStoredNotifications(existing, input.userId);
 
     // 2. Synchronize to Supabase user_notifications table if available
     try {
@@ -121,6 +124,25 @@ export async function dispatchPromotionNotification(input: {
       }
     } catch (dbErr) {
       // Non-blocking write
+    }
+
+    // 3. Trigger Instant Push (OneSignal / FCM Edge Gateway) strictly for this exact recipient
+    try {
+      if (supabase && typeof supabase.functions?.invoke === "function") {
+        supabase.functions
+          .invoke("onesignal-send", {
+            body: {
+              title: personalizedTitle,
+              message: personalizedBody,
+              url: input.url || "/dashboard",
+              mode: "users",
+              user_ids: [input.userId],
+            },
+          })
+          .catch(() => {});
+      }
+    } catch {
+      // Non-blocking push delivery
     }
 
     return { success: true, notification };
@@ -429,8 +451,36 @@ export async function getNotificationsForUser(
     };
   }
 
-  const all = getLocalStoredNotifications();
-  const userNotifs = all
+  // Attempt live Supabase query strictly gated to targetUserId
+  try {
+    const { data: dbNotifs, error: dbErr } = await supabase
+      .from("user_notifications")
+      .select("*")
+      .eq("user_id", targetUserId)
+      .order("created_at", { ascending: false });
+
+    if (!dbErr && Array.isArray(dbNotifs) && dbNotifs.length > 0) {
+      const mapped: PromotionNotification[] = dbNotifs.map((row: any) => ({
+        id: row.id,
+        user_id: row.user_id,
+        title: row.title,
+        body: row.body || "",
+        url: row.url || "/dashboard",
+        type: (row.type as any) || "system",
+        event_type: (row.event_type as any) || "system",
+        order_id: row.order_id,
+        order_reference: row.order_reference,
+        is_read: Boolean(row.is_read),
+        created_at: row.created_at || new Date().toISOString(),
+      }));
+
+      saveLocalStoredNotifications(mapped, targetUserId);
+      const unreadCount = mapped.filter((n) => !n.is_read).length;
+      return { notifications: mapped, unreadCount, error: null };
+    }
+  } catch {}
+
+  const userNotifs = getLocalStoredNotifications(targetUserId)
     .filter((n) => n.user_id === targetUserId)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -465,14 +515,12 @@ export async function markNotificationAsRead(
     };
   }
 
-  const all = getLocalStoredNotifications();
+  const all = getLocalStoredNotifications(targetUserId);
   const index = all.findIndex((n) => n.id === notificationId && n.user_id === targetUserId);
-  if (index === -1) {
-    return { success: false, error: "Notification not found or access denied." };
+  if (index !== -1) {
+    all[index].is_read = true;
+    saveLocalStoredNotifications(all, targetUserId);
   }
-
-  all[index].is_read = true;
-  saveLocalStoredNotifications(all);
 
   try {
     await supabase
@@ -512,7 +560,7 @@ export async function markAllUserNotificationsAsRead(
     };
   }
 
-  const all = getLocalStoredNotifications();
+  const all = getLocalStoredNotifications(targetUserId);
   let updatedCount = 0;
   for (const notif of all) {
     if (notif.user_id === targetUserId && !notif.is_read) {
@@ -522,7 +570,7 @@ export async function markAllUserNotificationsAsRead(
   }
 
   if (updatedCount > 0) {
-    saveLocalStoredNotifications(all);
+    saveLocalStoredNotifications(all, targetUserId);
   }
 
   try {
@@ -563,9 +611,9 @@ export async function deleteUserNotification(
     };
   }
 
-  const all = getLocalStoredNotifications();
+  const all = getLocalStoredNotifications(targetUserId);
   const filtered = all.filter((n) => !(n.id === notificationId && n.user_id === targetUserId));
-  saveLocalStoredNotifications(filtered);
+  saveLocalStoredNotifications(filtered, targetUserId);
 
   try {
     await supabase

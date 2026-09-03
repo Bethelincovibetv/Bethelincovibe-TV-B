@@ -10,17 +10,30 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { title, body, url } = await req.json();
+    const bodyJson = await req.json();
+    const title = bodyJson.title;
+    const body = bodyJson.body || bodyJson.message;
+    const url = bodyJson.url || "/dashboard";
+    const targetUserId = bodyJson.user_id || bodyJson.userId || bodyJson.target_user_id;
+    const targetUserIds = bodyJson.user_ids || bodyJson.userIds;
+
     if (!title || !body) throw new Error("Title and body required");
 
     const sbUrl = Deno.env.get("SUPABASE_URL")!;
     const sbKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const sb = createClient(sbUrl, sbKey);
 
-    // Get all subscriptions
-    const { data: subs } = await sb.from("push_subscriptions").select("*");
+    // Get subscriptions strictly for targeted user(s) or all if explicitly broadcast
+    let subsQuery = sb.from("push_subscriptions").select("*");
+    if (targetUserId) {
+      subsQuery = subsQuery.eq("user_id", targetUserId);
+    } else if (Array.isArray(targetUserIds) && targetUserIds.length > 0) {
+      subsQuery = subsQuery.in("user_id", targetUserIds);
+    }
+
+    const { data: subs } = await subsQuery;
     if (!subs || subs.length === 0) {
-      return new Response(JSON.stringify({ sent: 0, message: "No subscribers" }), {
+      return new Response(JSON.stringify({ sent: 0, message: "No subscribers found for target user(s)" }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }

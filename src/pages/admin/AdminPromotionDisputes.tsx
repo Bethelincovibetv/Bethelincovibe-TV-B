@@ -50,6 +50,10 @@ import {
 } from "@/services/promotionReviewService";
 import { PromotionOrderCollaboration } from "@/components/promoter/PromotionOrderCollaboration";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  generateAIDisputeRecommendation,
+  AIDisputeRecommendation,
+} from "@/lib/aiDisputeArbiterEngine";
 
 export default function AdminPromotionDisputes() {
   const { user } = useAuth();
@@ -64,9 +68,23 @@ export default function AdminPromotionDisputes() {
   const [reason, setReason] = useState("");
   const [adminNotes, setAdminNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [aiRecommendation, setAiRecommendation] = useState<AIDisputeRecommendation | null>(null);
+  const [loadingAi, setLoadingAi] = useState(false);
 
   // Detail inspection modal
   const [inspectOrder, setInspectOrder] = useState<PromotionOrder | null>(null);
+
+  const fetchAiRecommendation = async (order: PromotionOrder) => {
+    setLoadingAi(true);
+    try {
+      const rec = await generateAIDisputeRecommendation(order);
+      setAiRecommendation(rec);
+    } catch (e) {
+      console.warn("AI Dispute Arbiter loading error:", e);
+    } finally {
+      setLoadingAi(false);
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -112,6 +130,7 @@ export default function AdminPromotionDisputes() {
     setArbitrationAction(action);
     setReason("");
     setAdminNotes("");
+    fetchAiRecommendation(order);
   };
 
   const handleExecuteArbitration = async () => {
@@ -507,6 +526,62 @@ export default function AdminPromotionDisputes() {
             </DialogHeader>
 
             <div className="space-y-4 py-2">
+              {/* Platform AI Dispute Arbiter Intelligence Card */}
+              <div className="p-3.5 rounded-2xl border border-primary/20 bg-primary/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-primary">
+                    <Sparkles className="h-4 w-4 text-primary animate-pulse" />
+                    <span>Platform AI Dispute Arbiter</span>
+                  </div>
+                  {loadingAi ? (
+                    <Badge variant="outline" className="text-[10px] gap-1 animate-pulse border-primary/30">
+                      <RefreshCw className="h-3 w-3 animate-spin" /> Analyzing Evidence...
+                    </Badge>
+                  ) : aiRecommendation ? (
+                    <Badge className="text-[10px] bg-primary/20 text-primary hover:bg-primary/30 border-0">
+                      {aiRecommendation.confidenceScore}% AI Confidence
+                    </Badge>
+                  ) : null}
+                </div>
+
+                {loadingAi ? (
+                  <p className="text-xs text-muted-foreground italic">
+                    AI Arbiter is analyzing promotional brief, submitted proof files, channel metrics, and dispute timeline...
+                  </p>
+                ) : aiRecommendation ? (
+                  <div className="space-y-2 text-xs">
+                    <div className="font-semibold text-foreground">
+                      💡 {aiRecommendation.headline}
+                    </div>
+                    <p className="text-muted-foreground leading-relaxed">
+                      {aiRecommendation.summaryReasoning}
+                    </p>
+
+                    {aiRecommendation.creativeSolutionSuggestion && (
+                      <div className="p-2 rounded-xl bg-background/80 border border-border/50 text-[11px] text-muted-foreground">
+                        <strong className="text-foreground">Creative Mediation Tip:</strong> {aiRecommendation.creativeSolutionSuggestion}
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-muted-foreground font-mono">
+                        {aiRecommendation.policyReference}
+                      </span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setReason(aiRecommendation.suggestedAdminJustification)}
+                        className="h-7 text-[11px] font-bold rounded-lg gap-1"
+                      >
+                        <Sparkles className="h-3 w-3 text-amber-500" />
+                        Apply AI Justification
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
               <div
                 className={`p-3.5 rounded-2xl border text-xs leading-relaxed ${
                   arbitrationAction === "release_to_promoter"
