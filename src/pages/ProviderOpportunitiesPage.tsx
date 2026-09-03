@@ -27,8 +27,7 @@ export default function ProviderOpportunitiesPage() {
       try {
         const [data, prefs] = await Promise.all([getRequestsForUser(user.id), getProviderPreferences(user.id)]);
         if (mounted) { setRequests(data.filter(r => r.user_id !== user.id)); setPreferences(prefs); }
-      } catch (error) {
-        console.error("Failed to load provider opportunities", error);
+      } catch {
         if (mounted) setRequests([]);
       }
     };

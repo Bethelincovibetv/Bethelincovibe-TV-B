@@ -149,7 +149,9 @@ const queryClient = new QueryClient({
 
 function FeatureAwareServices() {
   const { flags } = useFeatureFlags();
-  const isHome = useLocation().pathname === "/";
+  const location = useLocation();
+  const isHome = location.pathname === "/";
+  const isAdmin = location.pathname.startsWith("/admin");
   return (
     <ErrorBoundary label="Services" fallback={null}>
       <AdBlocker />
@@ -167,7 +169,7 @@ function FeatureAwareServices() {
       <AdClickTracker />
       <WhatsAppCommunityBanner />
       {isHome && <BackgroundJingle />}
-      {flags.ai_recommender !== false && <AIBusinessMatchAssistant />}
+      {flags.ai_recommender !== false && !isAdmin && <AIBusinessMatchAssistant />}
     </ErrorBoundary>
   );
 }

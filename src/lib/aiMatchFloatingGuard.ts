@@ -1,8 +1,9 @@
 const STORAGE_KEY = "bicv-ai-match-position";
 let installed = false;
 
-function isBusinessListing(pathname: string) {
+function isHiddenRoute(pathname: string) {
   return (
+    pathname.startsWith("/admin") ||
     /^\/businesses\/(?!list$|category\/)[^/]+$/.test(pathname) ||
     /^\/directory\/(?!category\/)[^/]+$/.test(pathname) ||
     /^\/suppliers\/(?!category\/|submit$)[^/]+$/.test(pathname)
@@ -109,7 +110,7 @@ function setupDraggable(el: HTMLElement) {
 function sync() {
   const assistants = Array.from(document.querySelectorAll<HTMLElement>('aside[aria-label="AI Business Match Assistant"]'));
   for (const el of assistants) {
-    if (isBusinessListing(window.location.pathname)) {
+    if (isHiddenRoute(window.location.pathname)) {
       el.style.display = "none";
       el.setAttribute("aria-hidden", "true");
       continue;

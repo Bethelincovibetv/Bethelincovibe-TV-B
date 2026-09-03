@@ -23,8 +23,7 @@ export default function CustomerMyRequests() {
       try {
         const data = await getRequestsForUser(user.id);
         if (mounted) setRequests(data.filter(r => r.user_id === user.id));
-      } catch (error) {
-        console.error("Failed to load customer requests", error);
+      } catch {
         if (mounted) setRequests([]);
       }
     };
