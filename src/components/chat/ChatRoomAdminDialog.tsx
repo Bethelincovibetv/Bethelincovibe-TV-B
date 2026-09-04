@@ -39,6 +39,8 @@ import {
   removeMemberFromChatRoom,
   promoteMemberToAdmin,
   demoteAdminToMember,
+  promoteMemberToModerator,
+  demoteModeratorToMember,
   updateChatRoomDetails,
   deleteChatRoom,
   isPlatformAdminEmail,
@@ -244,6 +246,32 @@ export function ChatRoomAdminDialog({
     }
   };
 
+  const handlePromoteModerator = async (memberId: string, memberName: string) => {
+    if (!isGroupAdmin) {
+      toast.error("Only group admins can assign moderator roles");
+      return;
+    }
+    try {
+      await promoteMemberToModerator(room.id, memberId);
+      toast.success(`${memberName} is now a Group Moderator! 🛡️`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to promote moderator");
+    }
+  };
+
+  const handleDemoteModerator = async (memberId: string, memberName: string) => {
+    if (!isGroupAdmin) {
+      toast.error("Only group admins can modify roles");
+      return;
+    }
+    try {
+      await demoteModeratorToMember(room.id, memberId);
+      toast.success(`${memberName} demoted to regular member`);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to demote moderator");
+    }
+  };
+
   const handleDeleteGroup = async () => {
     if (!isCreator && !isPlatformAdmin) {
       toast.error("Only the creator or platform administrator can delete this group");
@@ -348,6 +376,7 @@ export function ChatRoomAdminDialog({
                 const memberAvatar = room.participantAvatars?.[memberId];
                 const isMemberCreator = memberId === room.creatorId;
                 const isMemberAdmin = isMemberCreator || (room.adminIds || []).includes(memberId);
+                const isMemberModerator = !isMemberAdmin && (room.moderatorIds || []).includes(memberId);
 
                 return (
                   <div key={memberId} className="py-2.5 flex items-center justify-between gap-3">
@@ -376,6 +405,10 @@ export function ChatRoomAdminDialog({
                             <Badge variant="outline" className="text-[9px] py-0 px-1.5 bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-bold gap-0.5">
                               <ShieldCheck className="w-2.5 h-2.5" /> Group Admin
                             </Badge>
+                          ) : isMemberModerator ? (
+                            <Badge variant="outline" className="text-[9px] py-0 px-1.5 bg-blue-500/10 text-blue-600 border-blue-500/30 font-bold gap-0.5">
+                              <Shield className="w-2.5 h-2.5" /> Moderator
+                            </Badge>
                           ) : (
                             <span className="text-[10px] text-muted-foreground">Participant</span>
                           )}
@@ -387,16 +420,40 @@ export function ChatRoomAdminDialog({
                     {isGroupAdmin && memberId !== currentUserId && !isMemberCreator && (
                       <div className="flex items-center gap-1 shrink-0">
                         {!isMemberAdmin ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handlePromoteAdmin(memberId, memberName)}
-                            title="Promote to Group Admin"
-                            className="h-8 px-2 rounded-xl text-[11px] font-bold text-emerald-600 hover:bg-emerald-500/10"
-                          >
-                            <Shield className="w-3.5 h-3.5 mr-1" />
-                            Make Admin
-                          </Button>
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePromoteAdmin(memberId, memberName)}
+                              title="Promote to Group Admin"
+                              className="h-8 px-2 rounded-xl text-[11px] font-bold text-emerald-600 hover:bg-emerald-500/10"
+                            >
+                              <ShieldCheck className="w-3.5 h-3.5 mr-1" />
+                              Admin
+                            </Button>
+                            {!isMemberModerator ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handlePromoteModerator(memberId, memberName)}
+                                title="Promote to Moderator"
+                                className="h-8 px-2 rounded-xl text-[11px] font-bold text-blue-600 hover:bg-blue-500/10"
+                              >
+                                <Shield className="w-3.5 h-3.5 mr-1" />
+                                Mod
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDemoteModerator(memberId, memberName)}
+                                title="Dismiss Moderator"
+                                className="h-8 px-2 rounded-xl text-[11px] font-bold text-blue-600 hover:bg-blue-500/10"
+                              >
+                                Dismiss Mod
+                              </Button>
+                            )}
+                          </>
                         ) : (
                           <Button
                             variant="ghost"

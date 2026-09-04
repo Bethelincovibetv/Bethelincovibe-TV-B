@@ -8,11 +8,13 @@ import { collection, getDocs, query, where } from "firebase/firestore";
 import { supabase } from "@/integrations/supabase/client";
 import { firestoreDb } from "@/lib/firebaseChat";
 import { addIceCandidate, CallRecord, createCall, endCall, listenForIncomingCalls, listenForIceCandidates, listenToCall, listenToPeerSignal, peerKey, updateCallState, writePeerAnswer, writePeerOffer } from "@/lib/webrtcCallService";
+import { chatSounds } from "@/lib/chatSounds";
 
 export interface WebRTCCallModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   targetUser?: { id?: string; name?: string; avatar?: string; role?: string };
+  participantIds?: string[];
   contactName?: string;
   contactAvatar?: string;
   contactRole?: string;
@@ -34,6 +36,7 @@ export function WebRTCCallModal({
   open,
   onOpenChange,
   targetUser,
+  participantIds,
   contactName,
   contactAvatar,
   contactRole,
@@ -56,6 +59,24 @@ export function WebRTCCallModal({
   const unsubRef = useRef<(() => void)[]>([]);
   const startedPeersRef = useRef<Set<string>>(new Set());
   const incomingSeenRef = useRef<Set<string>>(new Set());
+
+  // Ringtone and call audio sound effects
+  useEffect(() => {
+    if (!open && !internalOpen) {
+      chatSounds.stopRingtone();
+      return;
+    }
+    if (status === "ringing" || status === "calling") {
+      chatSounds.playRingtone();
+    } else if (status === "connected") {
+      chatSounds.playCallConnected();
+    } else if (status === "ended" || status === "declined") {
+      chatSounds.playCallEnded();
+    }
+    return () => {
+      chatSounds.stopRingtone();
+    };
+  }, [status, open, internalOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -117,8 +138,9 @@ export function WebRTCCallModal({
           }
         });
 
-        const participants = room?.participants?.filter((id: string) => id !== localUserId)
-          || (targetId ? [targetId] : []);
+        const participants = (participantIds && participantIds.length > 0)
+          ? participantIds.filter((id: string) => id !== localUserId)
+          : room?.participants?.filter((id: string) => id !== localUserId) || (targetId ? [targetId] : []);
         if (!participants.length) throw new Error("No callable participant found in this conversation");
 
         const kind = isVideo ? "video" : "voice";

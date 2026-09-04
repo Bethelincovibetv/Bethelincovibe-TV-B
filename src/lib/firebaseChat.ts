@@ -16,6 +16,7 @@ import {
   onSnapshot,
   serverTimestamp,
   Timestamp,
+  increment,
   Unsubscribe,
 } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
@@ -133,6 +134,9 @@ export interface RealtimeChatRoom {
   avatarUrl?: string;
   creatorId?: string;
   adminIds?: string[];
+  moderatorIds?: string[];
+  roles?: Record<string, "owner" | "admin" | "moderator" | "member">;
+  unreadCounts?: Record<string, number>;
   isOfficial?: boolean;
   participants: string[];
   participantNames: Record<string, string>;
@@ -186,6 +190,8 @@ export interface UserPresenceState {
   lastSeen?: string;
 }
 
+let authInitPromise: Promise<string> | null = null;
+
 /**
  * Ensures Firebase Auth has an active session
  */
@@ -193,13 +199,18 @@ export async function ensureFirebaseAuth(): Promise<string> {
   if (firebaseAuth.currentUser) {
     return firebaseAuth.currentUser.uid;
   }
-  try {
-    const cred = await signInAnonymously(firebaseAuth);
-    return cred.user.uid;
-  } catch (err) {
-    console.warn("Firebase Auth fallback session:", err);
-    return "guest_user";
+  if (!authInitPromise) {
+    authInitPromise = signInAnonymously(firebaseAuth)
+      .then((cred) => cred.user.uid)
+      .catch((err) => {
+        console.warn("Firebase Auth fallback session:", err);
+        return "guest_user";
+      })
+      .finally(() => {
+        authInitPromise = null;
+      });
   }
+  return authInitPromise;
 }
 
 export const BETHELINCO_GENERAL_ROOM_ID = "room_bethelincovibetv_general";
@@ -735,6 +746,64 @@ export async function demoteAdminToMember(
 }
 
 /**
+ * Group Admin Action: Promote member to Group Moderator
+ */
+export async function promoteMemberToModerator(
+  chatId: string,
+  memberId: string
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const moderatorIds = Array.from(new Set([...(data.moderatorIds || []), memberId]));
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          moderatorIds,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+    throw err;
+  }
+}
+
+/**
+ * Group Admin Action: Demote Group Moderator to regular member
+ */
+export async function demoteModeratorToMember(
+  chatId: string,
+  memberId: string
+): Promise<void> {
+  await ensureFirebaseAuth();
+  try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    const snap = await getDoc(roomRef);
+    if (snap.exists()) {
+      const data = snap.data();
+      const moderatorIds = (data.moderatorIds || []).filter((id: string) => id !== memberId);
+      await setDoc(
+        roomRef,
+        sanitizeFirestoreObject({
+          moderatorIds,
+          updatedAt: serverTimestamp(),
+        }),
+        { merge: true }
+      );
+    }
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `chats/${chatId}`);
+    throw err;
+  }
+}
+
+/**
  * Deletes an entire chat room (Creator or Platform Admin only)
  */
 export async function deleteChatRoom(chatId: string): Promise<void> {
@@ -771,6 +840,7 @@ export function subscribeToUserChats(
           const data = d.data();
           list.push({
             id: d.id,
+            ...data,
             name: data.name,
             description: data.description,
             roomType: data.roomType,
@@ -778,6 +848,8 @@ export function subscribeToUserChats(
             avatarUrl: data.avatarUrl,
             creatorId: data.creatorId,
             adminIds: data.adminIds || [],
+            moderatorIds: data.moderatorIds || [],
+            roles: data.roles || {},
             isOfficial: data.isOfficial,
             participants: data.participants || [],
             participantNames: data.participantNames || {},
@@ -1050,15 +1122,30 @@ export async function sendMessageToChat(
     }
 
     const roomRef = doc(firestoreDb, "chats", chatId);
+    const roomUpdates: Record<string, any> = {
+      lastMessageText: snippet,
+      lastMessageSenderId: senderId,
+      lastMessageSenderName: senderName,
+      lastMessageTime: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    try {
+      const roomSnap = await getDoc(roomRef);
+      if (roomSnap.exists()) {
+        const roomData = roomSnap.data();
+        const participants: string[] = roomData.participants || [];
+        participants.forEach((pid) => {
+          if (pid !== senderId) {
+            roomUpdates[`unreadCount_${pid}`] = increment(1);
+          }
+        });
+      }
+    } catch {}
+
     await setDoc(
       roomRef,
-      sanitizeFirestoreObject({
-        lastMessageText: snippet,
-        lastMessageSenderId: senderId,
-        lastMessageSenderName: senderName,
-        lastMessageTime: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      }),
+      sanitizeFirestoreObject(roomUpdates),
       { merge: true }
     );
 
@@ -1138,9 +1225,20 @@ export async function toggleMessageReaction(
 export async function markMessagesAsRead(chatId: string, userId: string): Promise<void> {
   await ensureFirebaseAuth();
   try {
+    const roomRef = doc(firestoreDb, "chats", chatId);
+    await setDoc(
+      roomRef,
+      sanitizeFirestoreObject({
+        [`unreadCount_${userId}`]: 0,
+        [`lastRead_${userId}`]: serverTimestamp(),
+      }),
+      { merge: true }
+    );
+
     const msgsQuery = query(
       collection(firestoreDb, "chats", chatId, "messages"),
-      limit(20)
+      orderBy("createdAt", "desc"),
+      limit(50)
     );
     const snap = await getDocs(msgsQuery);
     const updates = snap.docs.filter((d) => {
@@ -1228,9 +1326,13 @@ export function subscribeToChatTyping(
       typingCol,
       (snapshot) => {
         const users: string[] = [];
+        const now = Date.now();
         snapshot.forEach((d) => {
           const data = d.data();
-          if (data.isTyping && data.userId !== currentUserId && data.userName) {
+          const updatedMs = data.updatedAt?.toMillis?.() || (data.updatedAt ? new Date(data.updatedAt).getTime() : now);
+          // Only show as typing if the indicator was updated within the last 10 seconds
+          const isFresh = now - updatedMs < 10000;
+          if (data.isTyping && isFresh && data.userId !== currentUserId && data.userName) {
             users.push(data.userName);
           }
         });
@@ -1268,4 +1370,42 @@ export async function updateUserPresence(
       { merge: true }
     );
   } catch {}
+}
+
+/**
+ * Subscribes to real-time presence and last seen state for a specific user
+ */
+export function subscribeToUserPresence(
+  userId: string,
+  callback: (presence: { status: "online" | "offline"; lastSeen?: any; userName?: string } | null) => void
+): Unsubscribe {
+  if (!userId) {
+    callback(null);
+    return () => {};
+  }
+  ensureFirebaseAuth();
+  try {
+    const presenceRef = doc(firestoreDb, "presence", userId);
+    const unsubscribe = onSnapshot(
+      presenceRef,
+      (snap) => {
+        if (!snap.exists()) {
+          callback(null);
+          return;
+        }
+        const data = snap.data();
+        callback({
+          status: data.status === "online" ? "online" : "offline",
+          lastSeen: data.lastSeen,
+          userName: data.userName,
+        });
+      },
+      () => {
+        callback(null);
+      }
+    );
+    return unsubscribe;
+  } catch {
+    return () => {};
+  }
 }

@@ -75,7 +75,10 @@ import {
   markMessagesAsRead,
   isPlatformAdminEmail,
   ensureFirebaseAuth,
+  updateUserPresence,
+  subscribeToUserPresence,
 } from "@/lib/firebaseChat";
+import { uploadChatAttachment } from "@/lib/chatStorage";
 
 export default function UserMessages() {
   const { user, loading: authLoading } = useAuth();
@@ -97,7 +100,6 @@ export default function UserMessages() {
   // Rooms & Active Chat State
   const [userRooms, setUserRooms] = useState<RealtimeChatRoom[]>([]);
   const [publicRooms, setPublicRooms] = useState<RealtimeChatRoom[]>([]);
-  const [optimisticRooms, setOptimisticRooms] = useState<Record<string, RealtimeChatRoom>>({});
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,7 +150,6 @@ export default function UserMessages() {
   // Combine user rooms, public rooms, and optimistic instantaneous rooms
   const allRooms = useMemo(() => {
     const map = new Map<string, RealtimeChatRoom>();
-    Object.values(optimisticRooms).forEach((r) => map.set(r.id, r));
     userRooms.forEach((r) => map.set(r.id, r));
     publicRooms.forEach((r) => {
       if (!map.has(r.id)) map.set(r.id, r);
@@ -158,7 +159,7 @@ export default function UserMessages() {
       const tB = new Date(b.lastMessageTime || b.createdAt || 0).getTime();
       return tB - tA;
     });
-  }, [userRooms, publicRooms, optimisticRooms]);
+  }, [userRooms, publicRooms]);
 
   const activeRoom = useMemo(() => {
     return allRooms.find((r) => r.id === activeRoomId) || null;
@@ -184,6 +185,59 @@ export default function UserMessages() {
     if (!activeRoom.onlyAdminsCanPost) return true;
     return isRoomAdmin;
   }, [activeRoom, isRoomAdmin]);
+
+  // Real-time presence for contact in active direct chat
+  const [otherPresence, setOtherPresence] = useState<{
+    status: "online" | "offline";
+    lastSeen?: any;
+    userName?: string;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!otherUserId) {
+      setOtherPresence(null);
+      return;
+    }
+    const unsub = subscribeToUserPresence(otherUserId, (presence) => {
+      setOtherPresence(presence);
+    });
+    return () => unsub();
+  }, [otherUserId]);
+
+  // Current user presence heartbeat and visibility listener
+  useEffect(() => {
+    if (!currentUserId || currentUserId.startsWith("guest_")) return;
+
+    updateUserPresence(currentUserId, currentUserName, "online");
+
+    const heartbeat = setInterval(() => {
+      if (document.visibilityState === "visible") {
+        updateUserPresence(currentUserId, currentUserName, "online");
+      }
+    }, 45000);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        updateUserPresence(currentUserId, currentUserName, "online");
+      } else {
+        updateUserPresence(currentUserId, currentUserName, "offline");
+      }
+    };
+
+    const onBeforeUnload = () => {
+      updateUserPresence(currentUserId, currentUserName, "offline");
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    return () => {
+      clearInterval(heartbeat);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      updateUserPresence(currentUserId, currentUserName, "offline");
+    };
+  }, [currentUserId, currentUserName]);
 
   // Initial Firebase setup & auto-provisioning official rooms
   useEffect(() => {
@@ -228,37 +282,8 @@ export default function UserMessages() {
         setLoading(false);
       });
     } else if (targetUserParam) {
-      const sortedIds = [currentUserId, targetUserParam].sort();
-      const directRoomId = `room_${sortedIds[0].replace(/[^a-zA-Z0-9_]/g, "_")}_${sortedIds[1].replace(/[^a-zA-Z0-9_]/g, "_")}`;
       const tName = targetNameParam || "Bethelincovibe Member";
-      
-      const syntheticRoom: RealtimeChatRoom = {
-        id: directRoomId,
-        name: tName,
-        description: `Direct conversation with ${tName}`,
-        roomType: "direct",
-        avatarUrl: targetAvatarParam || "",
-        avatarEmoji: "👤",
-        creatorId: currentUserId,
-        adminIds: [currentUserId, targetUserParam],
-        participants: [currentUserId, targetUserParam],
-        participantNames: {
-          [currentUserId]: currentUserName,
-          [targetUserParam]: tName,
-        },
-        participantAvatars: {
-          [currentUserId]: currentUserAvatar,
-          [targetUserParam]: targetAvatarParam || "",
-        },
-        createdAt: new Date().toISOString(),
-      };
-
-      setOptimisticRooms((prev) => ({ ...prev, [directRoomId]: syntheticRoom }));
-      setActiveRoomId(directRoomId);
-      setMobileView("chat");
-      setLoading(false);
-
-      // In background, ensure Firestore record is created / synchronized
+      setLoading(true);
       getOrCreateChatRoom(
         currentUserId,
         currentUserName,
@@ -267,7 +292,15 @@ export default function UserMessages() {
         targetAvatarParam || undefined,
         undefined,
         currentUserAvatar
-      ).catch(console.warn);
+      ).then((room) => {
+        const id = typeof room === "string" ? room : (room as any)?.id;
+        if (id) setActiveRoomId(id);
+        setMobileView("chat");
+        setLoading(false);
+      }).catch((err) => {
+        setLoading(false);
+        toast.error(err?.message || "Could not create this conversation");
+      });
     }
   }, [roomIdParam, officialRoomParam, targetUserParam, targetNameParam, targetAvatarParam, currentUserId, currentUserName, currentUserAvatar]);
 
@@ -473,7 +506,7 @@ export default function UserMessages() {
 
     // Read audio blob to base64 for instant optimistic preview
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const base64Url = event.target?.result as string;
 
       const optimisticVoiceMsg: RealtimeChatMessage = {
@@ -495,26 +528,36 @@ export default function UserMessages() {
       chatSounds.playSend();
       setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 20);
 
-      sendMessageToChat({
-        chatId: activeRoomId,
-        senderId: currentUserId,
-        senderName: currentUserName,
-        senderAvatar: currentUserAvatar,
-        text: `🎙️ Voice Note (${Math.round(durationSeconds)}s)`,
-        type: "voice_note",
-        mediaUrl: base64Url,
-        mediaDuration: durationSeconds,
-        replyTo: replyToSend,
-      }).catch((err: any) => {
+      try {
+        let permanentUrl = base64Url;
+        try {
+          const uploaded = await uploadChatAttachment(audioBlob, "voice_notes", `vn_${Date.now()}.webm`);
+          if (uploaded) permanentUrl = uploaded;
+        } catch {
+          // Keep base64 fallback if storage upload encounters network constraint
+        }
+
+        await sendMessageToChat({
+          chatId: activeRoomId,
+          senderId: currentUserId,
+          senderName: currentUserName,
+          senderAvatar: currentUserAvatar,
+          text: `🎙️ Voice Note (${Math.round(durationSeconds)}s)`,
+          type: "voice_note",
+          mediaUrl: permanentUrl,
+          mediaDuration: durationSeconds,
+          replyTo: replyToSend,
+        });
+      } catch (err: any) {
         toast.error(err?.message || "Failed to send voice note");
         setMessages((prev) => prev.filter((m) => m.id !== tempId));
-      });
+      }
     };
     reader.readAsDataURL(audioBlob);
   };
 
   // Media file select handler
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -524,27 +567,45 @@ export default function UserMessages() {
     }
 
     setIsUploadingMedia(true);
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64Url = event.target?.result as string;
-      let mediaType: "image" | "video" | "file" = "file";
-      if (file.type.startsWith("image/")) mediaType = "image";
-      else if (file.type.startsWith("video/")) mediaType = "video";
+    let mediaType: "image" | "video" | "file" = "file";
+    let folder: "images" | "videos" | "files" = "files";
+    if (file.type.startsWith("image/")) {
+      mediaType = "image";
+      folder = "images";
+    } else if (file.type.startsWith("video/")) {
+      mediaType = "video";
+      folder = "videos";
+    }
 
+    try {
+      const uploadedUrl = await uploadChatAttachment(file, folder, file.name);
       setSelectedMedia({
-        url: base64Url,
+        url: uploadedUrl,
         type: mediaType,
         fileName: file.name,
         fileSize: file.size,
       });
-      setIsUploadingMedia(false);
       toast.success(`${file.name} ready to send`);
-    };
-    reader.onerror = () => {
+    } catch {
+      // Fallback to data URL for seamless offline/local preview
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const base64Url = event.target?.result as string;
+        setSelectedMedia({
+          url: base64Url,
+          type: mediaType,
+          fileName: file.name,
+          fileSize: file.size,
+        });
+        toast.success(`${file.name} ready to send`);
+      };
+      reader.onerror = () => {
+        toast.error("Failed to read file");
+      };
+      reader.readAsDataURL(file);
+    } finally {
       setIsUploadingMedia(false);
-      toast.error("Failed to read file");
-    };
-    reader.readAsDataURL(file);
+    }
   };
 
   // Reaction toggle
@@ -598,48 +659,28 @@ export default function UserMessages() {
 
   // Start direct chat with user from directory (Instant Optimistic Room)
   const handleStartDirectChat = async (contact: { id: string; name: string; avatar?: string }) => {
-    const sortedIds = [currentUserId, contact.id].sort();
-    const directRoomId = `room_${sortedIds[0].replace(/[^a-zA-Z0-9_]/g, "_")}_${sortedIds[1].replace(/[^a-zA-Z0-9_]/g, "_")}`;
-    
-    const syntheticRoom: RealtimeChatRoom = {
-      id: directRoomId,
-      name: contact.name,
-      description: `Direct conversation with ${contact.name}`,
-      roomType: "direct",
-      avatarUrl: contact.avatar || "",
-      avatarEmoji: "👤",
-      creatorId: currentUserId,
-      adminIds: [currentUserId, contact.id],
-      participants: [currentUserId, contact.id],
-      participantNames: {
-        [currentUserId]: currentUserName,
-        [contact.id]: contact.name,
-      },
-      participantAvatars: {
-        [currentUserId]: currentUserAvatar,
-        [contact.id]: contact.avatar || "",
-      },
-      createdAt: new Date().toISOString(),
-    };
-
-    setOptimisticRooms((prev) => ({ ...prev, [directRoomId]: syntheticRoom }));
-    setActiveRoomId(directRoomId);
-    setDirectorySearch("");
-    setDiscoveredContacts([]);
-    setMobileView("chat");
-    setLoading(false);
-    toast.success(`Connected to chat with ${contact.name}`);
-
-    // In background, ensure Firestore record is created / synchronized
-    getOrCreateChatRoom(
-      currentUserId,
-      currentUserName,
-      contact.id,
-      contact.name,
-      contact.avatar,
-      undefined,
-      currentUserAvatar
-    ).catch(console.warn);
+    try {
+      setLoading(true);
+      const room = await getOrCreateChatRoom(
+        currentUserId,
+        currentUserName,
+        contact.id,
+        contact.name,
+        contact.avatar,
+        undefined,
+        currentUserAvatar
+      );
+      const targetRoomId = typeof room === "string" ? room : (room as any)?.id;
+      if (targetRoomId) setActiveRoomId(targetRoomId);
+      setDirectorySearch("");
+      setDiscoveredContacts([]);
+      setMobileView("chat");
+      setLoading(false);
+      toast.success(`Connected to chat with ${contact.name}`);
+    } catch (err) {
+      setLoading(false);
+      toast.error(err?.message || "Could not start this conversation");
+    }
   };
 
   // Filtered rooms list by search query
@@ -821,6 +862,8 @@ export default function UserMessages() {
                   displayAvatar = room.participantAvatars?.[otherId] || displayAvatar;
                 }
 
+                const unreadCount = (room as any)[`unreadCount_${currentUserId}`] || (room.unreadCounts as any)?.[currentUserId] || 0;
+
                 return (
                   <button
                     key={room.id}
@@ -870,7 +913,7 @@ export default function UserMessages() {
                             </Badge>
                           )}
                         </div>
-                        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                        <span className={`text-[10px] whitespace-nowrap ${unreadCount > 0 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
                           {room.lastMessageTime
                             ? formatDistanceToNow(new Date(room.lastMessageTime), {
                                 addSuffix: false,
@@ -879,10 +922,17 @@ export default function UserMessages() {
                         </span>
                       </div>
 
-                      <p className="text-xs text-muted-foreground truncate mt-1 line-clamp-1 font-medium">
-                        {room.lastMessageSenderName ? `${room.lastMessageSenderName}: ` : ""}
-                        {room.lastMessageText || room.description || "Start chatting..."}
-                      </p>
+                      <div className="flex items-center justify-between gap-2 mt-1">
+                        <p className={`text-xs truncate line-clamp-1 ${unreadCount > 0 ? "text-foreground font-bold" : "text-muted-foreground font-medium"}`}>
+                          {room.lastMessageSenderName ? `${room.lastMessageSenderName}: ` : ""}
+                          {room.lastMessageText || room.description || "Start chatting..."}
+                        </p>
+                        {unreadCount > 0 && (
+                          <span className="shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center shadow-xs">
+                            {unreadCount > 99 ? "99+" : unreadCount}
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </button>
                 );
@@ -942,6 +992,22 @@ export default function UserMessages() {
                           {typingUsers.length > 0 ? (
                             <span className="text-emerald-500 font-bold animate-pulse">
                               {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
+                            </span>
+                          ) : otherPresence?.status === "online" ? (
+                            <span className="flex items-center gap-1 text-emerald-600 font-bold">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+                              Online
+                            </span>
+                          ) : otherPresence?.lastSeen ? (
+                            <span className="text-muted-foreground font-normal">
+                              Last seen {(() => {
+                                try {
+                                  const d = otherPresence.lastSeen?.toDate ? otherPresence.lastSeen.toDate() : new Date(otherPresence.lastSeen);
+                                  return formatDistanceToNow(d, { addSuffix: true });
+                                } catch {
+                                  return "recently";
+                                }
+                              })()}
                             </span>
                           ) : (
                             <span className="flex items-center gap-1 text-emerald-600 font-medium">
@@ -1288,6 +1354,16 @@ export default function UserMessages() {
         contactName={activeCall.contactName}
         contactAvatar={activeCall.contactAvatar}
         isVideo={activeCall.isVideo}
+        targetUser={
+          otherUserId
+            ? {
+                id: otherUserId,
+                name: activeCall.contactName,
+                avatar: activeCall.contactAvatar,
+              }
+            : undefined
+        }
+        participantIds={activeRoom?.participants?.filter((p) => p !== currentUserId)}
       />
     </div>
   );

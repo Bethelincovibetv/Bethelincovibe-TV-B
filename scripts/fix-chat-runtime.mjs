@@ -34,7 +34,8 @@ const newUrlBlock = `    } else if (targetUserParam) {
         undefined,
         currentUserAvatar
       ).then((room) => {
-        setActiveRoomId(room.id);
+        const id = typeof room === "string" ? room : (room?.id || "");
+        setActiveRoomId(id);
         setMobileView("chat");
         setLoading(false);
       }).catch((err) => {
@@ -57,7 +58,8 @@ const newDirectBlock = `  const handleStartDirectChat = async (contact: { id: st
         undefined,
         currentUserAvatar
       );
-      setActiveRoomId(room.id);
+      const targetRoomId = typeof room === "string" ? room : (room?.id || "");
+      setActiveRoomId(targetRoomId);
       setDirectorySearch("");
       setDiscoveredContacts([]);
       setMobileView("chat");
