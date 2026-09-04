@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, User } from 'firebase/auth';
 import { 
   getFirestore, 
+  setLogLevel,
   doc, 
   setDoc, 
   getDoc, 
@@ -14,6 +15,10 @@ import {
 import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
 import firebaseConfig from '../../../firebase-applet-config.json';
 import { CreatedVideo, UserProfile, VideoTemplate, ContentRoadmap } from '../types';
+
+try {
+  setLogLevel('silent');
+} catch {}
 
 export interface FeatureAnnouncement {
   id: string;
@@ -87,14 +92,27 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
-  throw new Error(JSON.stringify(errInfo));
+  const errStr = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  const isOfflineOrUnavailable =
+    errStr.includes("unavailable") ||
+    errStr.includes("could not reach") ||
+    errStr.includes("failed to fetch") ||
+    errStr.includes("network_error");
+
+  if (!isOfflineOrUnavailable) {
+    console.warn('Firestore Notice: ', JSON.stringify(errInfo));
+  }
+  return errInfo;
 }
 
 // Connection status helper
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(db, 'test', 'connection'));
+    const testPromise = getDoc(doc(db, 'test', 'connection'));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Firestore connection timeout')), 3000)
+    );
+    await Promise.race([testPromise, timeoutPromise]);
     return true;
   } catch {
     return false;

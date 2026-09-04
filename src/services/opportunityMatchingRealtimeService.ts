@@ -894,6 +894,20 @@ export async function awardOfferAndCloseOpportunity(params: {
     playNotificationSound();
   } catch {}
 
+  // 5. Dispatch instant in-memory event across tabs / window
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("btv_provider_offer_awarded", {
+        detail: { request: updatedRequest, offer: updatedOffer },
+      })
+    );
+    window.dispatchEvent(
+      new CustomEvent("btv_business_request_updated", {
+        detail: updatedRequest,
+      })
+    );
+  }
+
   return { request: updatedRequest, acceptedOffer: updatedOffer };
 }
 
@@ -1035,21 +1049,55 @@ export async function getOpportunityAnalyticsMetrics(): Promise<RequestAnalytics
  * Uses Firebase Firestore onSnapshot with zero page refresh!
  */
 export function subscribeToRequest(requestId: string, onChange: () => void): { unsubscribe: () => void } {
+  let active = true;
   let unsubReq: Unsubscribe | null = null;
   let unsubOffers: Unsubscribe | null = null;
 
-  try {
-    ensureFirebaseAuth();
-    unsubReq = onSnapshot(doc(firestoreDb, "business_requests", requestId), () => {
-      onChange();
-    });
-    const qOffers = query(collection(firestoreDb, "provider_offers"), where("request_id", "==", requestId));
-    unsubOffers = onSnapshot(qOffers, () => {
-      onChange();
-    });
-  } catch (err) {
-    console.warn("Firestore subscribeToRequest error:", err);
-  }
+  const startListeners = async () => {
+    try {
+      await ensureFirebaseAuth();
+      if (!active) return;
+
+      unsubReq = onSnapshot(
+        doc(firestoreDb, "business_requests", requestId),
+        (snap) => {
+          if (!active) return;
+          if (snap.exists()) {
+            const req = requestFromRow(snap.data());
+            const allReqs = getLocalStore<BusinessRequest[]>(REQUESTS_CACHE_KEY, []);
+            const idx = allReqs.findIndex((r) => r.id === req.id);
+            if (idx >= 0) allReqs[idx] = req;
+            else allReqs.unshift(req);
+            setLocalStore(REQUESTS_CACHE_KEY, allReqs);
+          }
+          onChange();
+        },
+        (err) => {
+          console.warn("Firestore live request subscription notice:", err);
+        }
+      );
+
+      const qOffers = query(collection(firestoreDb, "provider_offers"), where("request_id", "==", requestId));
+      unsubOffers = onSnapshot(
+        qOffers,
+        (snap) => {
+          if (!active) return;
+          const offers = snap.docs.map((d) => offerFromRow(d.data()));
+          const allOffers = getLocalStore<ProviderOffer[]>(OFFERS_CACHE_KEY, []);
+          const otherOffers = allOffers.filter((o) => o.request_id !== requestId);
+          setLocalStore(OFFERS_CACHE_KEY, [...offers, ...otherOffers]);
+          onChange();
+        },
+        (err) => {
+          console.warn("Firestore live offers subscription notice:", err);
+        }
+      );
+    } catch (err) {
+      console.warn("Could not start request listener:", err);
+    }
+  };
+
+  void startListeners();
 
   let subChannel: any = null;
   try {
@@ -1060,11 +1108,40 @@ export function subscribeToRequest(requestId: string, onChange: () => void): { u
       .subscribe();
   } catch {}
 
+  const handleCustomEvent = (e: any) => {
+    if (!active) return;
+    const detail = e?.detail;
+    if (
+      detail?.id === requestId ||
+      detail?.request?.id === requestId ||
+      detail?.offer?.request_id === requestId ||
+      detail?.requestId === requestId
+    ) {
+      onChange();
+    }
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("btv_provider_offer_submitted", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_awarded", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_declined", handleCustomEvent);
+    window.addEventListener("btv_business_request_updated", handleCustomEvent);
+    window.addEventListener("btv_business_request_completed", handleCustomEvent);
+  }
+
   return {
     unsubscribe: () => {
+      active = false;
       if (unsubReq) unsubReq();
       if (unsubOffers) unsubOffers();
       if (subChannel) supabase.removeChannel(subChannel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("btv_provider_offer_submitted", handleCustomEvent);
+        window.removeEventListener("btv_provider_offer_awarded", handleCustomEvent);
+        window.removeEventListener("btv_provider_offer_declined", handleCustomEvent);
+        window.removeEventListener("btv_business_request_updated", handleCustomEvent);
+        window.removeEventListener("btv_business_request_completed", handleCustomEvent);
+      }
     },
   };
 }
@@ -1075,25 +1152,60 @@ export function subscribeToRequest(requestId: string, onChange: () => void): { u
  * the user receives instant live updates without refreshing!
  */
 export function subscribeToUserRequests(userId: string, onChange: () => void): { unsubscribe: () => void } {
-  let unsub: Unsubscribe | null = null;
+  let active = true;
+  let unsubReqs: Unsubscribe | null = null;
+  let unsubOffers: Unsubscribe | null = null;
 
-  try {
-    ensureFirebaseAuth();
-    unsub = onSnapshot(collection(firestoreDb, "business_requests"), (snapshot) => {
-      let relevant = false;
-      snapshot.docChanges().forEach((change) => {
-        const d = change.doc.data();
-        if (d.user_id === userId || (d.matched_provider_ids || []).includes(userId)) {
-          relevant = true;
+  const startListeners = async () => {
+    try {
+      await ensureFirebaseAuth();
+      if (!active) return;
+
+      unsubReqs = onSnapshot(
+        collection(firestoreDb, "business_requests"),
+        (snapshot) => {
+          if (!active) return;
+          let relevant = false;
+          snapshot.docChanges().forEach((change) => {
+            const d = change.doc.data();
+            if (d.user_id === userId || (d.matched_provider_ids || []).includes(userId)) {
+              relevant = true;
+            }
+          });
+          if (relevant || snapshot.size > 0) {
+            onChange();
+          }
+        },
+        (err) => {
+          console.warn("Firestore user requests subscription notice:", err);
         }
-      });
-      if (relevant || snapshot.size > 0) {
-        onChange();
-      }
-    });
-  } catch (err) {
-    console.warn("Firestore subscribeToUserRequests error:", err);
-  }
+      );
+
+      unsubOffers = onSnapshot(
+        collection(firestoreDb, "provider_offers"),
+        (snapshot) => {
+          if (!active) return;
+          let relevant = false;
+          snapshot.docChanges().forEach((change) => {
+            const d = change.doc.data();
+            if (d.provider_user_id === userId) {
+              relevant = true;
+            }
+          });
+          if (relevant || snapshot.size > 0) {
+            onChange();
+          }
+        },
+        (err) => {
+          console.warn("Firestore user offers subscription notice:", err);
+        }
+      );
+    } catch (err) {
+      console.warn("Could not start user requests listener:", err);
+    }
+  };
+
+  void startListeners();
 
   let subChannel: any = null;
   try {
@@ -1104,10 +1216,33 @@ export function subscribeToUserRequests(userId: string, onChange: () => void): {
       .subscribe();
   } catch {}
 
+  const handleCustomEvent = () => {
+    if (active) onChange();
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("btv_business_request_created", handleCustomEvent);
+    window.addEventListener("btv_business_request_updated", handleCustomEvent);
+    window.addEventListener("btv_business_request_completed", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_submitted", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_awarded", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_declined", handleCustomEvent);
+  }
+
   return {
     unsubscribe: () => {
-      if (unsub) unsub();
+      active = false;
+      if (unsubReqs) unsubReqs();
+      if (unsubOffers) unsubOffers();
       if (subChannel) supabase.removeChannel(subChannel);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("btv_business_request_created", handleCustomEvent);
+        window.removeEventListener("btv_business_request_updated", handleCustomEvent);
+        window.removeEventListener("btv_business_request_completed", handleCustomEvent);
+        window.removeEventListener("btv_provider_offer_submitted", handleCustomEvent);
+        window.removeEventListener("btv_provider_offer_awarded", handleCustomEvent);
+        window.removeEventListener("btv_provider_offer_declined", handleCustomEvent);
+      }
     },
   };
 }
@@ -1119,29 +1254,41 @@ export function subscribeToProviderPreferences(
   userId: string,
   onChange: (prefs?: ProviderOpportunityPreferences) => void
 ): { unsubscribe: () => void } {
+  let active = true;
   let unsub: Unsubscribe | null = null;
 
-  try {
-    ensureFirebaseAuth();
-    unsub = onSnapshot(doc(firestoreDb, "provider_opportunity_preferences", userId), (snap) => {
-      if (snap.exists()) {
-        onChange(snap.data() as ProviderOpportunityPreferences);
-      }
-    });
-  } catch {}
+  const startListener = async () => {
+    try {
+      await ensureFirebaseAuth();
+      if (!active) return;
+      unsub = onSnapshot(
+        doc(firestoreDb, "provider_opportunity_preferences", userId),
+        (snap) => {
+          if (!active) return;
+          if (snap.exists()) {
+            onChange(snap.data() as ProviderOpportunityPreferences);
+          }
+        },
+        () => {}
+      );
+    } catch {}
+  };
+
+  void startListener();
 
   let subChannel: any = null;
   try {
     subChannel = supabase
       .channel(`matchmaker-prefs-${userId}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "provider_opportunity_preferences", filter: `user_id=eq.${userId}` }, (payload) => {
-        onChange(payload.new as any);
+        if (active) onChange(payload.new as any);
       })
       .subscribe();
   } catch {}
 
   return {
     unsubscribe: () => {
+      active = false;
       if (unsub) unsub();
       if (subChannel) supabase.removeChannel(subChannel);
     },
@@ -1153,23 +1300,75 @@ export function subscribeToProviderPreferences(
  * Updates immediately when any client creates an opportunity!
  */
 export function subscribeToAllRequests(onChange: (requests: BusinessRequest[]) => void): () => void {
+  let active = true;
+  let unsubFirestore: Unsubscribe | null = null;
+
+  const startListener = async () => {
+    try {
+      await ensureFirebaseAuth();
+      if (!active) return;
+
+      unsubFirestore = onSnapshot(
+        collection(firestoreDb, "business_requests"),
+        (snapshot) => {
+          if (!active) return;
+          const list = snapshot.docs
+            .map((d) => requestFromRow(d.data()))
+            .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+          setLocalStore(REQUESTS_CACHE_KEY, list);
+          onChange(list);
+        },
+        (err) => {
+          console.warn("Firestore all requests live listener notice:", err);
+        }
+      );
+    } catch (err) {
+      console.warn("Could not start all requests listener:", err);
+    }
+  };
+
+  void startListener();
+
+  let subChannel: any = null;
   try {
-    ensureFirebaseAuth();
-    const q = query(collection(firestoreDb, "business_requests"), orderBy("created_at", "desc"), limit(100));
-    return onSnapshot(
-      q,
-      (snapshot) => {
-        const list = snapshot.docs.map((d) => requestFromRow(d.data()));
-        setLocalStore(REQUESTS_CACHE_KEY, list);
-        onChange(list);
-      },
-      (err) => {
-        console.warn("Firestore live requests subscription notice:", err);
-      }
-    );
-  } catch {
-    return () => {};
+    subChannel = supabase
+      .channel("matchmaker-all-requests")
+      .on("postgres_changes", { event: "*", schema: "public", table: "business_requests" }, async () => {
+        if (!active) return;
+        const fresh = await getAllRequests();
+        onChange(fresh);
+      })
+      .subscribe();
+  } catch {}
+
+  const handleCustomEvent = () => {
+    if (!active) return;
+    const cached = getLocalStore<BusinessRequest[]>(REQUESTS_CACHE_KEY, []);
+    onChange(cached);
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("btv_business_request_created", handleCustomEvent);
+    window.addEventListener("btv_business_request_updated", handleCustomEvent);
+    window.addEventListener("btv_business_request_completed", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_submitted", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_awarded", handleCustomEvent);
+    window.addEventListener("btv_provider_offer_declined", handleCustomEvent);
   }
+
+  return () => {
+    active = false;
+    if (unsubFirestore) unsubFirestore();
+    if (subChannel) supabase.removeChannel(subChannel);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("btv_business_request_created", handleCustomEvent);
+      window.removeEventListener("btv_business_request_updated", handleCustomEvent);
+      window.removeEventListener("btv_business_request_completed", handleCustomEvent);
+      window.removeEventListener("btv_provider_offer_submitted", handleCustomEvent);
+      window.removeEventListener("btv_provider_offer_awarded", handleCustomEvent);
+      window.removeEventListener("btv_provider_offer_declined", handleCustomEvent);
+    }
+  };
 }
 
 export const subscribeToAllOpenOpportunities = subscribeToAllRequests;

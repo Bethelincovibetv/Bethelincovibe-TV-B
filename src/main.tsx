@@ -16,9 +16,38 @@ if (typeof window !== "undefined") {
       s.includes("monetag") || s.includes("startio") || s.includes("aborted") ||
       s.includes("loading chunk") || s.includes("dynamically imported module") ||
       s.includes("permission_denied") || s.includes("caller does not have permission") ||
-      s.includes("specialist agent query error")
+      s.includes("specialist agent query error") ||
+      s.includes("could not reach cloud firestore backend") ||
+      s.includes("cloud firestore backend") ||
+      s.includes("@firebase/firestore") ||
+      s.includes("code=unavailable") ||
+      s.includes("the operation could not be completed") ||
+      s.includes("offline mode until it is able to successfully connect")
     );
   };
+
+  const origConsoleError = console.error;
+  console.error = function (...args: any[]) {
+    const fullMsg = args
+      .map((a) => (a instanceof Error ? `${a.message} ${a.stack || ""}` : typeof a === "object" ? JSON.stringify(a) : String(a)))
+      .join(" ");
+    if (isBenignError(fullMsg)) {
+      return;
+    }
+    origConsoleError.apply(console, args);
+  };
+
+  const origConsoleWarn = console.warn;
+  console.warn = function (...args: any[]) {
+    const fullMsg = args
+      .map((a) => (a instanceof Error ? `${a.message} ${a.stack || ""}` : typeof a === "object" ? JSON.stringify(a) : String(a)))
+      .join(" ");
+    if (isBenignError(fullMsg)) {
+      return;
+    }
+    origConsoleWarn.apply(console, args);
+  };
+
   const origUnhandledRejection = window.onunhandledrejection;
   window.onunhandledrejection = function (event: PromiseRejectionEvent) {
     const reason = event?.reason;

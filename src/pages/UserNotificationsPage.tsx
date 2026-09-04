@@ -25,7 +25,13 @@ import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
-import { subscribeToUserRealtimeNotifications } from "@/services/firebaseRealtimeNotificationService";
+import {
+  subscribeToUserRealtimeNotifications,
+  subscribeToUserNotificationsList,
+  fetchUserNotificationsLive,
+  markNotificationReadInRealtime,
+  markAllNotificationsReadInRealtime,
+} from "@/services/firebaseRealtimeNotificationService";
 
 export type NotificationItem = {
   id: string;
@@ -65,19 +71,21 @@ export default function UserNotificationsPage() {
   const loadNotifications = async (isRealtimeUpdate = false) => {
     if (!user) return;
     setFetching(true);
-    const { data, error } = await supabase
-      .from("user_notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error loading notifications:", error);
-    } else {
+    try {
+      const liveData = await fetchUserNotificationsLive(user.id);
       if (isRealtimeUpdate) {
         playNotificationSound();
       }
-      const loadedList = (data as NotificationItem[]) || [];
+      const loadedList: NotificationItem[] = liveData.map((d) => ({
+        id: d.id,
+        user_id: d.recipient_user_id,
+        title: d.title,
+        body: d.body,
+        url: d.url || null,
+        type: d.type || "system",
+        is_read: d.is_read,
+        created_at: d.created_at,
+      }));
       setNotifications(loadedList);
 
       // Check if URL contains an ID to open directly
@@ -92,24 +100,43 @@ export default function UserNotificationsPage() {
           }
         }
       }
+    } catch (err) {
+      console.error("Error loading notifications:", err);
+    } finally {
+      setFetching(false);
     }
-    setFetching(false);
   };
 
   useEffect(() => {
     if (!user) return;
     loadNotifications(false);
 
-    // 1. Firebase Firestore real-time subscription
+    // 1. Firebase Firestore real-time list subscription (receives snapshot updates on add, update, read)
+    const unsubList = subscribeToUserNotificationsList(user.id, (liveList) => {
+      const formatted: NotificationItem[] = liveList.map((d) => ({
+        id: d.id,
+        user_id: d.recipient_user_id,
+        title: d.title,
+        body: d.body,
+        url: d.url || null,
+        type: d.type || "system",
+        is_read: d.is_read,
+        created_at: d.created_at,
+      }));
+      setNotifications(formatted);
+      setFetching(false);
+    });
+
+    // 2. Firebase Firestore real-time audio/toast alert subscription
     const unsubFirestore = subscribeToUserRealtimeNotifications(user.id, () => {
       loadNotifications(true);
     });
 
-    // 2. Custom window event listener
+    // 3. Custom window event listener
     const handleWindowNotif = () => loadNotifications(true);
     window.addEventListener("btv_realtime_notification", handleWindowNotif);
 
-    // 3. Supabase Postgres channel fallback
+    // 4. Supabase Postgres channel fallback
     const channel = supabase
       .channel(`page_notif_${user.id}_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
@@ -118,6 +145,7 @@ export default function UserNotificationsPage() {
       .subscribe();
 
     return () => {
+      unsubList();
       unsubFirestore();
       window.removeEventListener("btv_realtime_notification", handleWindowNotif);
       supabase.removeChannel(channel);
@@ -181,35 +209,35 @@ export default function UserNotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
 
   const markAllAsRead = async () => {
-    const { error } = await supabase
-      .from("user_notifications")
-      .update({ is_read: true })
-      .eq("user_id", user.id)
-      .eq("is_read", false);
-
-    if (error) {
-      toast.error("Failed to mark notifications as read");
-    } else {
+    try {
+      await markAllNotificationsReadInRealtime(user.id);
       toast.success("All notifications marked as read!");
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    } catch {
+      toast.error("Failed to mark notifications as read");
     }
   };
 
   const markSingleRead = async (id: string, currentReadState: boolean) => {
     const nextState = !currentReadState;
-    const { error } = await supabase
-      .from("user_notifications")
-      .update({ is_read: nextState })
-      .eq("id", id)
-      .eq("user_id", user.id);
-
-    if (!error) {
+    try {
+      if (nextState) {
+        await markNotificationReadInRealtime(id, user.id);
+      } else {
+        await supabase
+          .from("user_notifications")
+          .update({ is_read: false })
+          .eq("id", id)
+          .eq("user_id", user.id);
+      }
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, is_read: nextState } : n))
       );
       if (selectedNotification?.id === id) {
         setSelectedNotification((prev) => prev ? { ...prev, is_read: nextState } : null);
       }
+    } catch {
+      // Graceful fallback
     }
   };
 

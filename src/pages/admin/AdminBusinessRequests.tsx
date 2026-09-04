@@ -43,6 +43,7 @@ import {
   saveAdminMatchingConfig,
   getOpportunityAnalyticsMetrics,
   DEFAULT_ADMIN_MATCHING_CONFIG,
+  subscribeToAllRequests,
 } from "@/services/opportunityMatchingRealtimeService";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -66,6 +67,12 @@ export default function AdminBusinessRequests() {
   useEffect(() => {
     loadAdminData();
 
+    // 1. Firebase Firestore real-time requests listener
+    const unsubRequests = subscribeToAllRequests(() => {
+      loadAdminData();
+    });
+
+    // 2. Supabase postgres changes channel
     const channel = supabase
       .channel("admin_matchmaker_feed")
       .on("postgres_changes", { event: "*", schema: "public", table: "business_requests" }, () => {
@@ -77,6 +84,7 @@ export default function AdminBusinessRequests() {
       .subscribe();
 
     return () => {
+      unsubRequests();
       supabase.removeChannel(channel);
     };
   }, []);

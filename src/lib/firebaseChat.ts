@@ -1,7 +1,9 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
 import { getAuth, signInAnonymously } from "firebase/auth";
 import {
+  initializeFirestore,
   getFirestore,
+  setLogLevel,
   collection,
   doc,
   setDoc,
@@ -22,13 +24,29 @@ import {
 import firebaseConfig from "../../firebase-applet-config.json";
 import { supabase } from "@/integrations/supabase/client";
 
+// Silence internal verbose connection retry logs from Firebase SDK
+try {
+  setLogLevel("silent");
+} catch {}
+
 // Initialize Firebase App
 export const firebaseApp = !getApps().length
   ? initializeApp(firebaseConfig)
   : getApp();
 
 export const firebaseAuth = getAuth(firebaseApp);
-export const firestoreDb = getFirestore(firebaseApp);
+
+// Initialize resilient Firestore with auto-detect long polling for sandbox/iframe support
+export const firestoreDb = (() => {
+  try {
+    return initializeFirestore(firebaseApp, {
+      experimentalAutoDetectLongPolling: true,
+      ignoreUndefinedProperties: true,
+    });
+  } catch {
+    return getFirestore(firebaseApp);
+  }
+})();
 
 export enum OperationType {
   CREATE = "create",
@@ -100,7 +118,16 @@ export function handleFirestoreError(
     operationType,
     path,
   };
-  console.warn("Firestore Error: ", JSON.stringify(errInfo));
+  const errString = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  const isOfflineOrUnavailable =
+    errString.includes("unavailable") ||
+    errString.includes("could not reach") ||
+    errString.includes("failed to fetch") ||
+    errString.includes("network_error");
+
+  if (!isOfflineOrUnavailable) {
+    console.warn("Firestore Notice: ", JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 
@@ -118,9 +145,13 @@ export function isPlatformAdminEmail(email?: string | null): boolean {
 
 export async function testFirestoreConnection(): Promise<boolean> {
   try {
-    await getDocFromServer(doc(firestoreDb, "test", "connection"));
+    const testPromise = getDoc(doc(firestoreDb, "test", "connection"));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Firestore connection timeout")), 3000)
+    );
+    await Promise.race([testPromise, timeoutPromise]);
     return true;
-  } catch (error) {
+  } catch {
     return false;
   }
 }

@@ -9,7 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
-import { subscribeToUserRealtimeNotifications } from "@/services/firebaseRealtimeNotificationService";
+import {
+  subscribeToUserRealtimeNotifications,
+  subscribeToUserNotificationsList,
+  fetchUserNotificationsLive,
+  markNotificationReadInRealtime,
+  markAllNotificationsReadInRealtime,
+} from "@/services/firebaseRealtimeNotificationService";
 
 type N = { id: string; title: string; body: string | null; url: string | null; is_read: boolean; created_at: string; type: string };
 
@@ -30,33 +36,32 @@ export default function NotificationBell() {
 
   const load = async (isRealtimeUpdate = false) => {
     if (!user) return;
-    const { data } = await supabase
-      .from("user_notifications")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    
+    const list = await fetchUserNotificationsLive(user.id);
     if (isRealtimeUpdate) {
       playNotificationSound();
     }
-    setItems((data as any[]) || []);
+    setItems((list as any[]) || []);
   };
 
   useEffect(() => {
     if (!user) return;
     load(false);
 
-    // 1. Firebase Firestore real-time push subscription
+    // 1. Firebase Firestore real-time list subscription (receives snapshot updates on add, update, read)
+    const unsubList = subscribeToUserNotificationsList(user.id, (liveList) => {
+      setItems((liveList as any[]) || []);
+    });
+
+    // 2. Firebase Firestore real-time push alert subscription (toast and audio)
     const unsubFirestore = subscribeToUserRealtimeNotifications(user.id, () => {
       load(true);
     });
 
-    // 2. Custom window event listener for real-time internal updates
+    // 3. Custom window event listener for real-time internal updates
     const handleWindowNotif = () => load(true);
     window.addEventListener("btv_realtime_notification", handleWindowNotif);
 
-    // 3. Supabase Postgres channel fallback
+    // 4. Supabase Postgres channel fallback
     const channel = supabase
       .channel(`notif_${user.id}_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
@@ -65,6 +70,7 @@ export default function NotificationBell() {
       .subscribe();
 
     return () => {
+      unsubList();
       unsubFirestore();
       window.removeEventListener("btv_realtime_notification", handleWindowNotif);
       supabase.removeChannel(channel);
@@ -76,12 +82,12 @@ export default function NotificationBell() {
   const unread = items.filter((n) => !n.is_read).length;
 
   const markAllRead = async () => {
-    await supabase.from("user_notifications").update({ is_read: true }).eq("user_id", user.id).eq("is_read", false);
+    await markAllNotificationsReadInRealtime(user.id);
     load();
   };
 
   const markRead = async (id: string) => {
-    await supabase.from("user_notifications").update({ is_read: true }).eq("id", id).eq("user_id", user.id);
+    await markNotificationReadInRealtime(id, user.id);
     load();
   };
 

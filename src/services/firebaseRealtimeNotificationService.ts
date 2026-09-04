@@ -150,11 +150,14 @@ export function subscribeToUserRealtimeNotifications(
         initialLoad = false;
       },
       (error) => {
-        console.warn("Firestore real-time notification listener warning:", error);
+        const msg = String(error || "").toLowerCase();
+        if (!msg.includes("unavailable") && !msg.includes("could not reach")) {
+          console.warn("Firestore real-time notification listener notice:", error);
+        }
       }
     );
   } catch (err) {
-    console.warn("Could not attach Firestore notifications listener:", err);
+    // Silent fallback to Supabase channel below
   }
 
   // Also listen on Supabase channel as fallback
@@ -195,3 +198,221 @@ export function subscribeToUserRealtimeNotifications(
     }
   };
 }
+
+/**
+ * Fetches user notifications from Firebase Firestore with fallback / merge from Supabase
+ */
+export async function fetchUserNotificationsLive(userId: string): Promise<LivePersonalizedNotification[]> {
+  if (!userId) return [];
+  const map = new Map<string, LivePersonalizedNotification>();
+
+  // 1. Fetch from Firebase Firestore
+  try {
+    await ensureFirebaseAuth();
+    const q = query(
+      collection(firestoreDb, "user_notifications"),
+      where("recipient_user_id", "==", userId),
+      limit(50)
+    );
+    const snap = await getDocs(q);
+    snap.docs.forEach((d) => {
+      const data = d.data() as LivePersonalizedNotification;
+      map.set(data.id || d.id, { ...data, id: data.id || d.id });
+    });
+  } catch (err) {
+    console.warn("Firestore fetchUserNotificationsLive warning:", err);
+  }
+
+  // 2. Fetch from Supabase as fallback/supplement
+  try {
+    const { data, error } = await supabase
+      .from("user_notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (!error && data) {
+      data.forEach((row: any) => {
+        const id = String(row.id);
+        if (!map.has(id)) {
+          map.set(id, {
+            id,
+            recipient_user_id: row.user_id,
+            title: row.title,
+            body: row.body || "",
+            url: row.url || "/dashboard/notifications",
+            type: row.type || "system",
+            is_read: Boolean(row.is_read),
+            created_at: row.created_at || new Date().toISOString(),
+          });
+        }
+      });
+    }
+  } catch {}
+
+  const result = Array.from(map.values());
+  return result.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+}
+
+/**
+ * Subscribes to live user notifications list using Firebase Firestore onSnapshot.
+ * Updates immediately when any notification is added, read, or modified, with zero page refresh!
+ */
+export function subscribeToUserNotificationsList(
+  userId: string,
+  onUpdate: (notifications: LivePersonalizedNotification[]) => void
+): () => void {
+  if (!userId) return () => {};
+
+  let active = true;
+  let unsubscribeFirestore: Unsubscribe | null = null;
+  const memoryCache = new Map<string, LivePersonalizedNotification>();
+
+  const emit = () => {
+    if (!active) return;
+    const list = Array.from(memoryCache.values()).sort(
+      (a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
+    onUpdate(list);
+  };
+
+  // Initial load to hydrate cache fast
+  void fetchUserNotificationsLive(userId).then((initialList) => {
+    if (!active) return;
+    initialList.forEach((item) => memoryCache.set(item.id, item));
+    emit();
+  });
+
+  // Start Firestore live listener
+  const startFirestoreListener = async () => {
+    try {
+      await ensureFirebaseAuth();
+      if (!active) return;
+
+      const q = query(
+        collection(firestoreDb, "user_notifications"),
+        where("recipient_user_id", "==", userId)
+      );
+
+      unsubscribeFirestore = onSnapshot(
+        q,
+        (snapshot) => {
+          if (!active) return;
+          snapshot.docChanges().forEach((change) => {
+            const data = { ...change.doc.data(), id: change.doc.id } as LivePersonalizedNotification;
+            if (change.type === "removed") {
+              memoryCache.delete(data.id);
+            } else {
+              memoryCache.set(data.id, data);
+            }
+          });
+          emit();
+        },
+        (err) => {
+          console.warn("Firestore user notifications list listener notice:", err);
+        }
+      );
+    } catch (err) {
+      console.warn("Could not start Firestore notifications listener:", err);
+    }
+  };
+
+  void startFirestoreListener();
+
+  // Supabase fallback channel
+  let supabaseChannel: any = null;
+  try {
+    supabaseChannel = supabase
+      .channel(`live_notifs_list_${userId}_${Math.random().toString(36).slice(2)}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "user_notifications",
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          void fetchUserNotificationsLive(userId).then((list) => {
+            if (!active) return;
+            list.forEach((item) => memoryCache.set(item.id, item));
+            emit();
+          });
+        }
+      )
+      .subscribe();
+  } catch {}
+
+  const handleWindowNotif = (e: any) => {
+    if (!active) return;
+    const detail = e.detail;
+    if (detail && detail.recipient_user_id === userId) {
+      memoryCache.set(detail.id, detail);
+      emit();
+    }
+  };
+  if (typeof window !== "undefined") {
+    window.addEventListener("btv_realtime_notification", handleWindowNotif);
+  }
+
+  return () => {
+    active = false;
+    if (unsubscribeFirestore) unsubscribeFirestore();
+    if (supabaseChannel) supabase.removeChannel(supabaseChannel);
+    if (typeof window !== "undefined") {
+      window.removeEventListener("btv_realtime_notification", handleWindowNotif);
+    }
+  };
+}
+
+/**
+ * Mark a single notification as read in Firebase Firestore and Supabase
+ */
+export async function markNotificationReadInRealtime(notificationId: string, userId: string): Promise<void> {
+  if (!notificationId) return;
+
+  // 1. Firebase Firestore
+  try {
+    await ensureFirebaseAuth();
+    const ref = doc(firestoreDb, "user_notifications", notificationId);
+    await setDoc(ref, { is_read: true, updated_at: new Date().toISOString() }, { merge: true });
+  } catch (e) {
+    console.warn("Firestore markNotificationRead error:", e);
+  }
+
+  // 2. Supabase
+  try {
+    await supabase.from("user_notifications").update({ is_read: true }).eq("id", notificationId).eq("user_id", userId);
+  } catch {}
+}
+
+/**
+ * Mark all notifications as read in Firebase Firestore and Supabase
+ */
+export async function markAllNotificationsReadInRealtime(userId: string): Promise<void> {
+  if (!userId) return;
+
+  // 1. Firebase Firestore
+  try {
+    await ensureFirebaseAuth();
+    const q = query(
+      collection(firestoreDb, "user_notifications"),
+      where("recipient_user_id", "==", userId)
+    );
+    const snap = await getDocs(q);
+    const unreadDocs = snap.docs.filter((d) => !d.data().is_read);
+    await Promise.all(
+      unreadDocs.map((d) =>
+        setDoc(d.ref, { is_read: true, updated_at: new Date().toISOString() }, { merge: true })
+      )
+    );
+  } catch (e) {
+    console.warn("Firestore markAllNotificationsRead error:", e);
+  }
+
+  // 2. Supabase
+  try {
+    await supabase.from("user_notifications").update({ is_read: true }).eq("user_id", userId).eq("is_read", false);
+  } catch {}
+}
+
