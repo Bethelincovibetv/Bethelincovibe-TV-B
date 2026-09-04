@@ -238,6 +238,96 @@ export async function saveProviderPreferences(prefs: ProviderOpportunityPreferen
       console.warn("Preferences saved locally. Database update error:", err?.message || err);
     }
   }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("btv_opportunity_preferences_updated", { detail: prefs }));
+  }
+}
+
+/**
+ * Updates a customer request's budget and location preference in real time on the database
+ */
+export async function updateBusinessRequestBudgetAndLocation(params: {
+  requestId: string;
+  userId: string;
+  budget: number | null;
+  budgetFormatted: string;
+  budgetType?: "fixed" | "range" | "negotiable";
+  locationPreference: string;
+  deadline?: string;
+  specificRequirements?: string[];
+}): Promise<BusinessRequest> {
+  const existing = await getRequestById(params.requestId);
+  if (!existing || existing.user_id !== params.userId) {
+    throw new Error("Unauthorized: You can only edit your own business requests.");
+  }
+
+  const now = new Date().toISOString();
+  const patch: Partial<BusinessRequest> = {
+    budget: params.budget,
+    budget_formatted: params.budgetFormatted,
+    budget_type: params.budgetType || existing.budget_type,
+    location_preference: params.locationPreference,
+    deadline: params.deadline ?? existing.deadline,
+    specific_requirements: params.specificRequirements ?? existing.specific_requirements,
+    updated_at: now,
+  };
+
+  let updatedRequest: BusinessRequest = { ...existing, ...patch };
+
+  try {
+    const { data, error } = await supabase
+      .from("business_requests")
+      .update({
+        budget: params.budget,
+        budget_formatted: params.budgetFormatted,
+        budget_type: params.budgetType || existing.budget_type,
+        location_preference: params.locationPreference,
+        deadline: params.deadline ?? existing.deadline,
+        specific_requirements: params.specificRequirements ?? existing.specific_requirements,
+        updated_at: now,
+      })
+      .eq("id", params.requestId)
+      .eq("user_id", params.userId)
+      .select("*")
+      .single();
+
+    if (!error && data) {
+      updatedRequest = requestFromRow(data);
+    }
+  } catch (err) {
+    console.warn("Could not update business request on database, updating cached copy:", err);
+  }
+
+  // Update local cache
+  const allReqs = getLocalStore<BusinessRequest[]>(REQUESTS_CACHE_KEY, []);
+  const idx = allReqs.findIndex((r) => r.id === params.requestId);
+  if (idx >= 0) {
+    allReqs[idx] = updatedRequest;
+    setLocalStore(REQUESTS_CACHE_KEY, allReqs);
+  }
+
+  // Notify previously matched providers that terms were adjusted
+  if (updatedRequest.matched_provider_ids?.length > 0) {
+    try {
+      for (const providerId of updatedRequest.matched_provider_ids.slice(0, 5)) {
+        await supabase.from("user_notifications").insert({
+          user_id: providerId,
+          title: `📝 Updated Terms: ${updatedRequest.service_title}`,
+          body: `The client adjusted the budget (${updatedRequest.budget_formatted}) and location (${updatedRequest.location_preference}) for "${updatedRequest.service_title}".`,
+          url: `/dashboard/opportunities/${updatedRequest.id}`,
+          type: "lead",
+          is_read: false,
+        });
+      }
+    } catch {}
+  }
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("btv_business_request_updated", { detail: updatedRequest }));
+  }
+
+  return updatedRequest;
 }
 
 export async function getAdminMatchingConfig(): Promise<AdminMatchingConfig> {
@@ -810,8 +900,32 @@ export function subscribeToUserRequests(userId: string, onChange: () => void) {
         const row: any = payload.new;
         if (row.provider_user_id === userId) onChange();
       })
+      .on("postgres_changes", { event: "*", schema: "public", table: "provider_opportunity_preferences", filter: `user_id=eq.${userId}` }, () => {
+        onChange();
+      })
       .subscribe();
   } catch {
     return { unsubscribe: () => {} };
   }
 }
+
+/**
+ * Subscribes to realtime updates for a provider's matchmaker preferences
+ */
+export function subscribeToProviderPreferences(userId: string, onChange: (prefs?: ProviderOpportunityPreferences) => void) {
+  try {
+    return supabase.channel(`matchmaker-prefs-${userId}`)
+      .on("postgres_changes", {
+        event: "*",
+        schema: "public",
+        table: "provider_opportunity_preferences",
+        filter: `user_id=eq.${userId}`,
+      }, payload => {
+        onChange(payload.new as any);
+      })
+      .subscribe();
+  } catch {
+    return { unsubscribe: () => {} };
+  }
+}
+

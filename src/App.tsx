@@ -132,6 +132,7 @@ import CustomerMyRequests from "./pages/CustomerMyRequests";
 import CustomerRequestDetail from "./pages/CustomerRequestDetail";
 import ProviderOpportunitiesPage from "./pages/ProviderOpportunitiesPage";
 import ProviderOpportunityDetail from "./pages/ProviderOpportunityDetail";
+import ServiceManagementPage from "./pages/ServiceManagementPage";
 import AdminBusinessRequests from "./pages/admin/AdminBusinessRequests";
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -281,6 +282,12 @@ const App = () => (
               <Route path="/opportunities" element={<ProviderOpportunitiesPage />} />
               <Route path="/opportunities/:id" element={<ProviderOpportunityDetail />} />
               <Route path="/leads" element={<ProviderOpportunitiesPage />} />
+
+              {/* Step 8: Premium Service Management & Bookings */}
+              <Route path="/dashboard/services" element={<ServiceManagementPage />} />
+              <Route path="/dashboard/service-management" element={<ServiceManagementPage />} />
+              <Route path="/dashboard/bookings" element={<ServiceManagementPage />} />
+              <Route path="/services/manage" element={<ServiceManagementPage />} />
 
               <Route path="/dashboard/whatsapp-engine" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />
               <Route path="/dashboard/whatsapp-monetize" element={<FeatureGate feature="whatsapp_engine"><WhatsAppStatusEngine /></FeatureGate>} />

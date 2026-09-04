@@ -9,6 +9,7 @@ import { Phone, MessageCircle, Mail, Calendar, CheckCircle2, Loader2, Sparkles, 
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { recordBusinessLead } from "@/lib/leadCaptureEngine";
+import { createServiceBooking } from "@/services/serviceManagementService";
 
 interface DirectServiceBookingDialogProps {
   open?: boolean;
@@ -76,17 +77,32 @@ export default function DirectServiceBookingDialog({
     setSubmitting(true);
     try {
       if (ownerUserId) {
-        await recordBusinessLead({
-          userId: ownerUserId,
-          businessId,
-          businessName,
-          customerName: name,
-          customerPhone: phone,
-          customerEmail: email,
-          serviceTitle: serviceTitle || "General Service Booking",
-          message: `${message}${date ? ` | Preferred Date: ${date}` : ""}`,
-          source: "service_booking",
-        });
+        await Promise.allSettled([
+          recordBusinessLead({
+            userId: ownerUserId,
+            businessId,
+            businessName,
+            customerName: name,
+            customerPhone: phone,
+            customerEmail: email,
+            serviceTitle: serviceTitle || "General Service Booking",
+            message: `${message}${date ? ` | Preferred Date: ${date}` : ""}`,
+            source: "service_booking",
+          }),
+          createServiceBooking({
+            providerUserId: ownerUserId,
+            businessId,
+            businessName,
+            customerName: name,
+            customerPhone: phone,
+            customerEmail: email,
+            serviceTitle: serviceTitle || "General Service Booking",
+            servicePrice,
+            preferredDate: date,
+            message: `${message}${date ? ` | Preferred Date: ${date}` : ""}`,
+            source: "directory_booking",
+          }),
+        ]);
       }
 
       setSuccess(true);

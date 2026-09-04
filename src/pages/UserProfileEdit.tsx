@@ -856,6 +856,23 @@ export default function UserProfileEdit() {
 
             {/* Services Section */}
             <div className="space-y-3 border-t pt-5">
+              {/* Dedicated Service Flow Callout */}
+              <div className="bg-gradient-to-r from-primary/10 via-purple-500/10 to-indigo-500/10 border border-primary/20 rounded-2xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-black text-foreground flex items-center gap-1.5">
+                    <Sparkles className="w-4 h-4 text-primary" /> Dedicated Service &amp; Booking Dashboard
+                  </span>
+                  <p className="text-[11px] text-muted-foreground">
+                    Manage services with YouTube demo videos, portfolio samples, and real-time client booking orders directly.
+                  </p>
+                </div>
+                <Button asChild size="sm" className="rounded-xl text-xs font-bold shrink-0 bg-primary text-white shadow-xs">
+                  <Link to="/dashboard/services">
+                    Open Service Flow <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Link>
+                </Button>
+              </div>
+
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <div>
                   <Label className="flex items-center gap-1.5 text-xs font-black">

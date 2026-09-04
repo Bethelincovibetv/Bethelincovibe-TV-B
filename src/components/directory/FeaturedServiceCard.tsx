@@ -21,10 +21,22 @@ import {
   Clock,
   ArrowRight,
   Phone,
+  Play,
+  Video,
+  Layers,
 } from "lucide-react";
 import DirectServiceBookingDialog from "./DirectServiceBookingDialog";
 import BusinessChatDialog from "@/components/BusinessChatDialog";
+import { extractYouTubeId, getYouTubeEmbedUrl } from "@/services/serviceManagementService";
 import { toast } from "sonner";
+
+export interface ServicePortfolioSample {
+  id?: string;
+  title: string;
+  image_url?: string;
+  description?: string;
+  link_url?: string;
+}
 
 export interface ServiceData {
   title: string;
@@ -43,6 +55,8 @@ export interface ServiceData {
   keywords?: string[];
   duration?: string;
   category?: string;
+  youtube_video_url?: string;
+  samples?: ServicePortfolioSample[];
 }
 
 interface FeaturedServiceCardProps {
@@ -69,6 +83,7 @@ export default function FeaturedServiceCard({
   className = "",
 }: FeaturedServiceCardProps) {
   const [detailOpen, setDetailOpen] = useState(false);
+  const [activeSample, setActiveSample] = useState<ServicePortfolioSample | null>(null);
 
   const title = service?.title || "Professional Service";
   const desc = service?.description || "";
@@ -82,6 +97,12 @@ export default function FeaturedServiceCard({
   const ctaText = service?.cta_text || service?.ctaText || "Book Service";
   const keywords = Array.isArray(service?.keywords) ? service.keywords : [];
   const externalLink = service?.link_url || service?.url;
+  const duration = service?.duration;
+  const category = service?.category;
+  const youtubeUrl = service?.youtube_video_url;
+  const hasVideo = !!extractYouTubeId(youtubeUrl);
+  const embedVideoUrl = hasVideo ? getYouTubeEmbedUrl(youtubeUrl!) : null;
+  const samples = Array.isArray(service?.samples) ? service.samples : [];
 
   const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -104,76 +125,82 @@ export default function FeaturedServiceCard({
   return (
     <>
       <div
-        className={`group relative rounded-3xl border border-border/80 bg-card/95 hover:bg-card hover:border-primary/50 shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col h-full overflow-hidden ${className}`}
+        onClick={() => setDetailOpen(true)}
+        className={`group cursor-pointer rounded-2xl border border-border/80 bg-card overflow-hidden transition-all duration-300 hover:border-primary/50 hover:shadow-xl flex flex-col justify-between ${className}`}
       >
-        {/* Top Image / Visual Showcase */}
-        <div
-          onClick={() => setDetailOpen(true)}
-          className="aspect-[16/10] w-full bg-muted/60 overflow-hidden relative cursor-pointer select-none"
-        >
+        {/* Cover / Media Thumbnail Section */}
+        <div className="relative aspect-[16/9] w-full overflow-hidden bg-muted">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={title}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              loading="lazy"
+              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 via-indigo-500/10 to-emerald-500/20 flex flex-col items-center justify-center p-6 text-center relative">
-              <div className="w-14 h-14 rounded-2xl bg-background/80 backdrop-blur-md shadow-md border border-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                <Briefcase className="h-7 w-7" />
-              </div>
-              <p className="text-xs font-black text-foreground mt-3 tracking-wide">
-                {title}
-              </p>
+            <div className="flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/30 p-4 text-center">
+              <Briefcase className="h-10 w-10 text-primary/40 mb-2" />
+              <span className="text-xs font-bold text-muted-foreground">
+                {businessName}
+              </span>
             </div>
           )}
 
-          {/* Top Gradient Overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-80 group-hover:opacity-90 transition-opacity" />
+          {/* Gradient Overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
           {/* Top Badges */}
-          <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-2 z-10">
-            {isVerified && (
-              <Badge className="bg-emerald-600/90 hover:bg-emerald-600 text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full backdrop-blur-md shadow-xs flex items-center gap-1 border border-emerald-400/30">
-                <ShieldCheck className="h-3 w-3" /> Verified Service
-              </Badge>
-            )}
+          <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between gap-1">
+            <Badge className="bg-black/60 backdrop-blur-md text-white border-0 text-[10px] font-bold px-2 py-0.5">
+              {category || "Verified Service"}
+            </Badge>
 
-            <button
-              onClick={handleShare}
-              title="Share service"
-              className="ml-auto h-7 w-7 rounded-full bg-black/60 hover:bg-black/80 text-white backdrop-blur-md flex items-center justify-center transition-all active:scale-90"
-            >
-              <Share2 className="h-3.5 w-3.5" />
-            </button>
+            <div className="flex items-center gap-1">
+              {hasVideo && (
+                <span className="px-2 py-0.5 rounded-full bg-red-600 text-white text-[10px] font-black flex items-center gap-1 shadow-sm">
+                  <Play className="w-2.5 h-2.5 fill-white" /> Video
+                </span>
+              )}
+              {samples.length > 0 && (
+                <span className="px-2 py-0.5 rounded-full bg-purple-600 text-white text-[10px] font-black flex items-center gap-1 shadow-sm">
+                  <Layers className="w-2.5 h-2.5" /> {samples.length} Samples
+                </span>
+              )}
+              <button
+                onClick={handleShare}
+                className="h-7 w-7 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center text-white/80 hover:text-white hover:bg-black/80 transition-all"
+                title="Share service"
+              >
+                <Share2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
           </div>
 
-          {/* Price Overlay Banner */}
-          {price && (
-            <div className="absolute bottom-3 left-3 z-10">
-              <div className="bg-primary/95 text-primary-foreground text-xs font-black px-3 py-1 rounded-xl shadow-md backdrop-blur-md border border-white/20 flex items-center gap-1">
-                <span>{price}</span>
-              </div>
+          {/* Bottom Title & Price Overlay */}
+          <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-end justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              {duration && (
+                <span className="text-[10px] font-semibold text-white/90 flex items-center gap-1 mb-0.5 drop-shadow-sm">
+                  <Clock className="h-3 w-3" /> {duration}
+                </span>
+              )}
             </div>
-          )}
-
-          {/* Quick View Button on Hover */}
-          <div className="absolute bottom-3 right-3 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-            <span className="bg-black/70 hover:bg-black/90 text-white text-[10px] font-bold px-2 py-1 rounded-lg backdrop-blur-md flex items-center gap-1">
-              <Eye className="h-3 w-3" /> Full View
-            </span>
+            {price && (
+              <Badge className="bg-primary text-primary-foreground text-xs font-black px-2.5 py-1 rounded-xl shadow-md border border-white/20 shrink-0">
+                {price}
+              </Badge>
+            )}
           </div>
         </div>
 
         {/* Card Body */}
-        <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-3">
+        <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
           <div className="space-y-2">
-            <h3
-              onClick={() => setDetailOpen(true)}
-              className="font-black text-sm sm:text-base text-foreground group-hover:text-primary transition-colors cursor-pointer line-clamp-1 leading-snug"
-              title={title}
-            >
+            <div className="flex items-center gap-1 text-xs text-muted-foreground font-semibold">
+              <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+              <span className="truncate">{businessName}</span>
+            </div>
+
+            <h3 className="font-extrabold text-sm sm:text-base text-foreground line-clamp-1 group-hover:text-primary transition-colors">
               {title}
             </h3>
 
@@ -183,19 +210,16 @@ export default function FeaturedServiceCard({
               </p>
             )}
 
-            {/* Key Deliverables & Benefits Checklist */}
+            {/* Key Deliverables Chips */}
             {benefits.length > 0 && (
-              <div className="pt-2.5 space-y-1.5 border-t border-border/60">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  Deliverables &amp; Inclusions:
-                </p>
-                <div className="space-y-1">
-                  {benefits.slice(0, 3).map((b: string, bi: number) => (
+              <div className="space-y-1 pt-1">
+                <div className="grid grid-cols-1 gap-1">
+                  {benefits.slice(0, 2).map((b: string, i: number) => (
                     <div
-                      key={bi}
-                      className="flex items-start gap-1.5 text-xs text-foreground/90 font-medium"
+                      key={i}
+                      className="flex items-center gap-1.5 text-[11px] text-muted-foreground"
                     >
-                      <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500 shrink-0 mt-0.5" />
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" />
                       <span className="truncate">{b}</span>
                     </div>
                   ))}
@@ -219,7 +243,10 @@ export default function FeaturedServiceCard({
           </div>
 
           {/* Action Bar */}
-          <div className="pt-3 border-t border-border/60 grid grid-cols-2 gap-2 mt-auto">
+          <div
+            className="pt-3 border-t border-border/60 grid grid-cols-2 gap-2 mt-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <DirectServiceBookingDialog
               businessId={businessId}
               businessName={businessName}
@@ -274,8 +301,19 @@ export default function FeaturedServiceCard({
 
       {/* Expansive Full Details Modal */}
       <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-        <DialogContent className="sm:max-w-xl rounded-3xl p-0 overflow-hidden bg-card border-border/80 shadow-2xl">
-          {imageUrl && (
+        <DialogContent className="sm:max-w-2xl rounded-3xl p-0 overflow-hidden bg-card border-border/80 shadow-2xl max-h-[90vh] flex flex-col">
+          {/* Header image or video player */}
+          {hasVideo && embedVideoUrl ? (
+            <div className="aspect-[16/9] w-full bg-black relative">
+              <iframe
+                src={embedVideoUrl}
+                title={`Video for ${title}`}
+                className="w-full h-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          ) : imageUrl ? (
             <div className="aspect-[16/9] w-full bg-black relative flex items-center justify-center overflow-hidden">
               <img
                 src={imageUrl}
@@ -291,17 +329,22 @@ export default function FeaturedServiceCard({
                 </div>
               )}
             </div>
-          )}
+          ) : null}
 
-          <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+          <div className="p-6 space-y-4 overflow-y-auto flex-1">
             <DialogHeader className="text-left space-y-1.5 pb-2 border-b">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/30 text-xs font-bold">
                   <ShieldCheck className="h-3 w-3 mr-1" /> Verified Service Solution
                 </Badge>
                 {businessName && (
                   <Badge variant="outline" className="text-xs font-semibold">
                     {businessName}
+                  </Badge>
+                )}
+                {duration && (
+                  <Badge variant="outline" className="text-xs font-semibold text-muted-foreground">
+                    <Clock className="w-3 h-3 mr-1" /> {duration}
                   </Badge>
                 )}
               </div>
@@ -332,6 +375,49 @@ export default function FeaturedServiceCard({
                     <div key={i} className="flex items-start gap-2 text-xs text-foreground font-medium">
                       <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
                       <span>{b}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Portfolio Samples & Case Studies Gallery */}
+            {samples.length > 0 && (
+              <div className="space-y-2.5 p-4 rounded-2xl bg-card border border-border/80">
+                <h4 className="text-xs font-black uppercase tracking-wider text-foreground flex items-center gap-1.5">
+                  <Layers className="h-3.5 w-3.5 text-purple-600" /> Past Work Samples & Case Studies:
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {samples.map((sample, sIdx) => (
+                    <div
+                      key={sample.id || sIdx}
+                      className="p-2.5 rounded-xl border border-border/70 bg-muted/30 flex items-start gap-2.5"
+                    >
+                      {sample.image_url && (
+                        <img
+                          src={sample.image_url}
+                          alt={sample.title}
+                          className="w-12 h-12 rounded-lg object-cover shrink-0 border border-border/60"
+                        />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <div className="font-extrabold text-xs text-foreground truncate">{sample.title}</div>
+                        {sample.description && (
+                          <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">
+                            {sample.description}
+                          </p>
+                        )}
+                        {sample.link_url && (
+                          <a
+                            href={sample.link_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[10px] text-primary hover:underline flex items-center gap-1 mt-1 font-bold"
+                          >
+                            Live Project <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -381,10 +467,10 @@ export default function FeaturedServiceCard({
                     <Button
                       size="lg"
                       variant="outline"
-                      className="w-full rounded-2xl font-bold text-sm border-border/80 hover:bg-muted gap-2"
+                      className="w-full rounded-2xl font-bold text-sm border-border/80 hover:bg-muted gap-2 text-foreground"
                     >
                       <MessageCircle className="h-4 w-4 text-primary" />
-                      Chat with Provider
+                      Chat / Inquire
                     </Button>
                   }
                 />
