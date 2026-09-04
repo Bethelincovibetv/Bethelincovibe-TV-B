@@ -4,9 +4,16 @@ import { Helmet } from "react-helmet-async";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Clock, Coins, MapPin, CheckCircle2, Loader2, Award, SlidersHorizontal } from "lucide-react";
+import { Clock, Coins, MapPin, CheckCircle2, Loader2, Award, SlidersHorizontal, XCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { awardOfferAndCloseOpportunity, completeRequest, getOffersForRequest, getRequestById, subscribeToRequest } from "@/services/opportunityMatchingRealtimeService";
+import {
+  awardOfferAndCloseOpportunity,
+  completeRequest,
+  declineProviderOffer,
+  getOffersForRequest,
+  getRequestById,
+  subscribeToRequest,
+} from "@/services/opportunityMatchingRealtimeService";
 import { BusinessRequest, ProviderOffer } from "@/types/opportunityMatching";
 import EditRequestBudgetLocationModal from "@/components/requests/EditRequestBudgetLocationModal";
 import { toast } from "sonner";
@@ -48,6 +55,25 @@ export default function CustomerRequestDetail() {
       toast.success(`Request awarded to ${offer.business_name}.`);
     } catch (e: any) {
       toast.error(e?.message || "Could not award this offer.");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const decline = async (offer: ProviderOffer) => {
+    if (!request || !user) return;
+    setBusy(offer.id);
+    try {
+      const result = await declineProviderOffer({
+        requestId: request.id,
+        offerId: offer.id,
+        customerUserId: user.id,
+      });
+      setRequest(result.request);
+      setOffers(await getOffersForRequest(request.id));
+      toast.info(`Offer from ${offer.business_name} declined.`);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not decline this offer.");
     } finally {
       setBusy(null);
     }
@@ -172,14 +198,25 @@ export default function CustomerRequestDetail() {
                 </div>
                 <p className="text-sm mt-3 text-foreground/90">{offer.proposal}</p>
                 {offer.status === "submitted" && request.status !== "AWARDED" && (
-                  <Button className="mt-4 rounded-xl font-bold" onClick={() => award(offer)} disabled={busy === offer.id}>
-                    <Award className="w-4 h-4 mr-2" />
-                    {busy === offer.id ? "Awarding…" : "Accept & Award"}
-                  </Button>
+                  <div className="flex items-center gap-2 mt-4 flex-wrap">
+                    <Button className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white" onClick={() => award(offer)} disabled={busy === offer.id}>
+                      <Award className="w-4 h-4 mr-2" />
+                      {busy === offer.id ? "Awarding…" : "Accept & Award"}
+                    </Button>
+                    <Button variant="outline" className="rounded-xl font-bold border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700" onClick={() => decline(offer)} disabled={busy === offer.id}>
+                      <XCircle className="w-4 h-4 mr-1.5" />
+                      {busy === offer.id ? "Updating…" : "Decline Offer"}
+                    </Button>
+                  </div>
                 )}
                 {offer.status === "accepted" && (
                   <div className="mt-3 text-sm font-bold text-emerald-600 flex items-center gap-1">
                     <CheckCircle2 className="w-4 h-4" /> Awarded & In Progress
+                  </div>
+                )}
+                {offer.status === "declined" && (
+                  <div className="mt-3 text-xs font-bold text-red-500 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" /> Offer Declined
                   </div>
                 )}
               </Card>

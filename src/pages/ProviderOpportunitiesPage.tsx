@@ -8,9 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Sparkles, Sliders, Search, Coins, Clock, MapPin, Zap, ChevronRight, Flame, Check } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  getRequestsForUser,
+  getOpenOpportunities,
   getProviderPreferences,
-  subscribeToUserRequests,
+  subscribeToAllOpenOpportunities,
   subscribeToProviderPreferences,
 } from "@/services/opportunityMatchingRealtimeService";
 import { BusinessRequest, POPULAR_REQUEST_CATEGORIES, ProviderOpportunityPreferences } from "@/types/opportunityMatching";
@@ -42,11 +42,11 @@ export default function ProviderOpportunitiesPage() {
     const loadData = async () => {
       try {
         const [data, prefs] = await Promise.all([
-          getRequestsForUser(user.id),
+          getOpenOpportunities(user.id),
           getProviderPreferences(user.id),
         ]);
         if (mounted) {
-          setRequests(data.filter(r => r.user_id !== user.id));
+          setRequests(data);
           setPreferences(prefs);
         }
       } catch {
@@ -55,7 +55,13 @@ export default function ProviderOpportunitiesPage() {
     };
     loadData();
 
-    const channelReqs = subscribeToUserRequests(user.id, loadData);
+    // Live Firebase Firestore listener: updates instantly when any client creates or updates an opportunity!
+    const unsubReqs = subscribeToAllOpenOpportunities((liveList) => {
+      if (mounted) {
+        setRequests(liveList.filter((r) => r.user_id !== user.id));
+      }
+    });
+
     const channelPrefs = subscribeToProviderPreferences(user.id, (newPrefs) => {
       if (newPrefs && mounted) setPreferences(newPrefs);
       else loadData();
@@ -63,7 +69,7 @@ export default function ProviderOpportunitiesPage() {
 
     return () => {
       mounted = false;
-      void channelReqs.unsubscribe();
+      unsubReqs();
       void channelPrefs.unsubscribe();
     };
   }, [user]);

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { Clock, Coins, MapPin, Building2, CheckCircle2, ChevronLeft, Loader2, Send } from "lucide-react";
+import { Clock, Coins, MapPin, Building2, CheckCircle2, ChevronLeft, Loader2, Send, XCircle, Award, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getRequestById, getOffersForRequest, submitProviderOffer, subscribeToRequest } from "@/services/opportunityMatchingRealtimeService";
@@ -82,6 +82,74 @@ export default function ProviderOpportunityDetail() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs"><div className="bg-muted/50 p-3 rounded-xl"><Clock className="w-4 h-4 inline mr-1" /> <b>Deadline</b><div className="font-bold mt-1">{request.deadline}</div></div><div className="bg-muted/50 p-3 rounded-xl"><MapPin className="w-4 h-4 inline mr-1" /> <b>Location</b><div className="font-bold mt-1">{request.location_preference}</div></div><div className="bg-muted/50 p-3 rounded-xl"><Building2 className="w-4 h-4 inline mr-1" /> <b>Offers</b><div className="font-bold mt-1">{request.offers_count}</div></div></div>
       <div className="border-t pt-4"><p className="text-sm italic">"{request.raw_prompt}"</p>{request.specific_requirements.length > 0 && <ul className="mt-3 space-y-1 text-sm">{request.specific_requirements.map((x,i)=><li key={i}><CheckCircle2 className="w-4 h-4 inline text-emerald-500 mr-1" />{x}</li>)}</ul>}</div>
     </Card>
-    {userOffer ? <Card className="p-6 rounded-3xl border-emerald-500/30 bg-emerald-500/5"><div className="flex items-center gap-2 font-extrabold"><CheckCircle2 className="text-emerald-600" /> Your offer is submitted</div><p className="text-sm mt-3">₦{userOffer.proposed_price.toLocaleString()} · {userOffer.delivery_time}</p><p className="text-sm mt-2 text-muted-foreground">{userOffer.proposal}</p></Card> : !closed && <form onSubmit={submit} className="bg-card border rounded-3xl p-6 space-y-4"><h2 className="text-xl font-extrabold flex items-center gap-2"><Send className="w-5 h-5 text-primary" /> Submit Your Offer</h2><div className="grid grid-cols-1 sm:grid-cols-2 gap-3"><div><Label>Price (₦)</Label><Input value={price} onChange={e=>setPrice(e.target.value)} required /></div><div><Label>Delivery Time</Label><Input value={delivery} onChange={e=>setDelivery(e.target.value)} required /></div></div><div><Label>Proposal</Label><Textarea value={proposal} onChange={e=>setProposal(e.target.value)} placeholder="Explain how you will deliver the job..." className="min-h-28" required /></div><div><Label>Portfolio Link (optional)</Label><Input value={portfolio} onChange={e=>setPortfolio(e.target.value)} placeholder="https://..." /></div><Button disabled={submitting} className="w-full font-extrabold">{submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting…</> : "Submit Offer"}</Button></form>}
+    {userOffer ? (
+      <Card className={`p-6 rounded-3xl border shadow-sm ${
+        userOffer.status === "accepted"
+          ? "border-emerald-500/40 bg-emerald-500/10"
+          : userOffer.status === "declined"
+          ? "border-red-500/30 bg-red-500/5"
+          : "border-primary/30 bg-primary/5"
+      }`}>
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2 font-black text-base">
+            {userOffer.status === "accepted" ? (
+              <>
+                <Award className="w-5 h-5 text-emerald-600" />
+                <span className="text-emerald-700 dark:text-emerald-400">🎉 Congratulations! Your offer was Accepted & Awarded!</span>
+              </>
+            ) : userOffer.status === "declined" ? (
+              <>
+                <XCircle className="w-5 h-5 text-red-600" />
+                <span className="text-red-700 dark:text-red-400">Offer Declined by Client</span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-5 h-5 text-primary" />
+                <span>Your offer has been submitted</span>
+              </>
+            )}
+          </div>
+          <Badge variant={userOffer.status === "accepted" ? "default" : userOffer.status === "declined" ? "destructive" : "outline"} className="capitalize">
+            {userOffer.status}
+          </Badge>
+        </div>
+        <p className="text-sm font-extrabold mt-3 text-foreground">
+          Proposed: ₦{userOffer.proposed_price.toLocaleString()} · {userOffer.delivery_time}
+        </p>
+        <p className="text-sm mt-2 text-muted-foreground whitespace-pre-line">{userOffer.proposal}</p>
+      </Card>
+    ) : closed ? (
+      <Card className="p-8 text-center text-sm text-muted-foreground rounded-3xl border-dashed">
+        <AlertCircle className="w-6 h-6 mx-auto mb-2 text-muted-foreground/60" />
+        This business opportunity is closed and is no longer accepting offers.
+      </Card>
+    ) : (
+      <form onSubmit={submit} className="bg-card border rounded-3xl p-6 space-y-4 shadow-sm">
+        <h2 className="text-xl font-extrabold flex items-center gap-2">
+          <Send className="w-5 h-5 text-primary" /> Submit Your Offer
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <Label>Price (₦)</Label>
+            <Input value={price} onChange={e=>setPrice(e.target.value)} required />
+          </div>
+          <div>
+            <Label>Delivery Time</Label>
+            <Input value={delivery} onChange={e=>setDelivery(e.target.value)} placeholder="e.g. 2 days" required />
+          </div>
+        </div>
+        <div>
+          <Label>Proposal</Label>
+          <Textarea value={proposal} onChange={e=>setProposal(e.target.value)} placeholder="Explain how you will deliver the job..." className="min-h-28" required />
+        </div>
+        <div>
+          <Label>Portfolio Link (optional)</Label>
+          <Input value={portfolio} onChange={e=>setPortfolio(e.target.value)} placeholder="https://..." />
+        </div>
+        <Button disabled={submitting} className="w-full font-extrabold">
+          {submitting ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting…</> : "Submit Offer"}
+        </Button>
+      </form>
+    )}
   </div></>;
 }

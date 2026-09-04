@@ -16,7 +16,7 @@ import {
   Bot, Sparkles, Eye, Save, Loader2, TrendingUp, Zap, Clock, Link2, Trash2,
   Plus, Video, CheckCircle2, FileText, RefreshCw,
   Image as ImageIcon, PenTool, Play, Youtube, Check,
-  ExternalLink
+  ExternalLink, Building2, Briefcase
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -123,6 +123,25 @@ export default function AdminAIBlogger() {
   } | null>(null);
 
   const [previewEditMode, setPreviewEditMode] = useState<"rendered" | "source">("rendered");
+
+  // Business Public Profile & Service Listing Embedding State
+  const [embedBusinessProfile, setEmbedBusinessProfile] = useState<boolean>(true);
+  const [selectedBusinessSlug, setSelectedBusinessSlug] = useState<string>("auto");
+  const [includeServiceListings, setIncludeServiceListings] = useState<boolean>(true);
+
+  // Fetch verified businesses from directory for AI Blogger injection
+  const { data: businessDirectory = [] } = useQuery({
+    queryKey: ["admin-ai-blogger-suppliers"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("suppliers")
+        .select("id, name, slug, description, logo_url, rating, verified, services, categories(name)")
+        .eq("active", true)
+        .order("rating", { ascending: false })
+        .limit(30);
+      return data ?? [];
+    },
+  });
 
   // Fetch Categories
   const { data: categories = [] } = useQuery({
@@ -518,6 +537,20 @@ export default function AdminAIBlogger() {
     html += `<h2 class="text-2xl font-black tracking-tight text-foreground mt-8 mb-4 border-b pb-2">Conclusion & Next Steps</h2>
 <p class="text-base text-foreground/85 leading-relaxed mb-4">Mastering <strong>${cleanedTitle}</strong> is a high-yield endeavor when approached with clarity, disciplined execution, and modern digital visibility. Begin by executing Phase 1 today, secure your verified listings on Bethelincovibe TV, and build long-term enterprise value.</p>`;
 
+    // Embed Business Public Site Profile & Service Listings Mini-Apps
+    if (embedBusinessProfile && businessDirectory.length > 0) {
+      const chosenBiz = selectedBusinessSlug === "auto"
+        ? businessDirectory[0]
+        : (businessDirectory.find((b: any) => b.slug === selectedBusinessSlug) || businessDirectory[0]);
+
+      if (chosenBiz?.slug) {
+        html += `\n\n<div class="my-6">\n[miniapp type="business" slug="${chosenBiz.slug}"]\n</div>\n`;
+        if (includeServiceListings) {
+          html += `\n<div class="my-6">\n[miniapp type="business-services" slug="${chosenBiz.slug}"]\n</div>\n\n`;
+        }
+      }
+    }
+
     return {
       title: cleanedTitle,
       slug: formattedSlug,
@@ -738,6 +771,19 @@ Return ONLY valid JSON matching this exact format:
           finalContent = finalContent.replace("</p>", `</p>\n${videoBlock}`);
         } else {
           finalContent = `${videoBlock}\n${finalContent}`;
+        }
+      }
+
+      // Handle Business Profile & Service Listings embedding
+      if (embedBusinessProfile && businessDirectory.length > 0 && !finalContent.includes('[miniapp type="business"')) {
+        const chosenBiz = selectedBusinessSlug === "auto"
+          ? businessDirectory[0]
+          : (businessDirectory.find((b: any) => b.slug === selectedBusinessSlug) || businessDirectory[0]);
+
+        if (chosenBiz?.slug) {
+          const bizBlock = `\n\n<div class="my-6">\n[miniapp type="business" slug="${chosenBiz.slug}"]\n</div>\n`;
+          const srvBlock = includeServiceListings ? `\n<div class="my-6">\n[miniapp type="business-services" slug="${chosenBiz.slug}"]\n</div>\n\n` : "\n\n";
+          finalContent += `${bizBlock}${srvBlock}`;
         }
       }
 
@@ -1294,6 +1340,64 @@ Return ONLY valid JSON matching this exact format:
                     ))}
                   </div>
                 </div>
+              </div>
+
+              {/* Business Public Site Profile & Service Listing Embedding Card */}
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 sm:p-4 space-y-3">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <Label className="text-xs font-black flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400">
+                    <Building2 className="h-4 w-4 shrink-0" />
+                    <span>Embed Business Public Site Profile & Service Listings Card</span>
+                  </Label>
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="embed-biz-profile"
+                      checked={embedBusinessProfile}
+                      onCheckedChange={setEmbedBusinessProfile}
+                    />
+                    <Label htmlFor="embed-biz-profile" className="text-xs font-bold cursor-pointer">
+                      {embedBusinessProfile ? "Active" : "Off"}
+                    </Label>
+                  </div>
+                </div>
+
+                {embedBusinessProfile && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] font-bold text-muted-foreground">Select Business to Showcase</Label>
+                      <Select value={selectedBusinessSlug} onValueChange={setSelectedBusinessSlug}>
+                        <SelectTrigger className="w-full text-xs rounded-xl h-9 font-medium bg-background">
+                          <SelectValue placeholder="Select business profile..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="auto">
+                            🌟 Auto-select Top Business {businessDirectory[0]?.name ? `(${businessDirectory[0].name})` : ""}
+                          </SelectItem>
+                          {businessDirectory.map((b: any) => (
+                            <SelectItem key={b.id} value={b.slug}>
+                              {b.name} ({b.categories?.name || "Verified"})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-xl bg-background border mt-auto">
+                      <div className="space-y-0.5">
+                        <Label htmlFor="include-services" className="text-xs font-bold cursor-pointer flex items-center gap-1">
+                          <Briefcase className="w-3.5 h-3.5 text-primary" />
+                          <span>Include Service Listings Card</span>
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">Renders interactive service offerings and booking CTA</p>
+                      </div>
+                      <Switch
+                        id="include-services"
+                        checked={includeServiceListings}
+                        onCheckedChange={setIncludeServiceListings}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* ACTION BUTTONS: Instant 1-Click Auto-Publish vs Generate & Review */}

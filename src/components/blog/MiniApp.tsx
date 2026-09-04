@@ -4,8 +4,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Sparkles, RefreshCw } from "lucide-react";
+import {
+  Loader2,
+  Sparkles,
+  RefreshCw,
+  Building2,
+  CheckCircle2,
+  Star,
+  MapPin,
+  ExternalLink,
+  Briefcase,
+  Clock,
+  Phone,
+  MessageCircle,
+  ArrowRight,
+  ShieldCheck,
+} from "lucide-react";
 
 const naira = (n: number) =>
   new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN", maximumFractionDigits: 0 }).format(
@@ -392,6 +408,206 @@ function ComparisonTableApp({ title, props, contextTitle }: { title?: string; pr
   );
 }
 
+/* ------------------------ Business & Services ----------------------- */
+function BusinessShowcaseMiniApp({
+  slug,
+  id,
+  title,
+  category,
+}: {
+  slug?: string;
+  id?: string;
+  title?: string;
+  category?: string;
+}) {
+  const [loading, setLoading] = useState(true);
+  const [business, setBusiness] = useState<any | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    async function fetchBiz() {
+      setLoading(true);
+      try {
+        let query = supabase
+          .from("suppliers")
+          .select("id, name, slug, description, logo_url, address, phone, whatsapp, website, services, rating, reviews_count, verified, categories(name)");
+        if (slug) {
+          query = query.eq("slug", slug);
+        } else if (id) {
+          query = query.eq("id", id);
+        } else {
+          query = query.eq("active", true).order("rating", { ascending: false }).limit(1);
+        }
+        const { data, error } = await query.maybeSingle();
+        if (!error && data && active) {
+          setBusiness(data);
+        }
+      } catch (e) {
+        console.warn("Failed to load featured business for blog:", e);
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+    fetchBiz();
+    return () => {
+      active = false;
+    };
+  }, [slug, id]);
+
+  if (loading) {
+    return (
+      <Card className="my-6 p-5 rounded-2xl border border-primary/20 bg-card/60 animate-pulse flex items-center gap-4">
+        <div className="w-14 h-14 rounded-xl bg-muted" />
+        <div className="space-y-2 flex-1">
+          <div className="h-4 w-40 rounded bg-muted" />
+          <div className="h-3 w-28 rounded bg-muted" />
+        </div>
+      </Card>
+    );
+  }
+
+  if (!business) return null;
+
+  const profileUrl = `/business/${business.slug || business.id}`;
+  const rawServices = Array.isArray(business.services) ? business.services : [];
+  const catName = (business.categories as any)?.name || category || "Verified Partner";
+
+  return (
+    <Card className="my-8 overflow-hidden rounded-3xl border-2 border-primary/25 bg-gradient-to-br from-card via-card to-primary/5 shadow-md not-prose">
+      <div className="bg-gradient-to-r from-primary/15 via-primary/10 to-transparent px-5 py-3 border-b border-primary/15 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 text-xs font-black uppercase tracking-wider text-primary">
+          <ShieldCheck className="w-4 h-4 text-primary" />
+          <span>{title || "Featured Business & Services Spotlight"}</span>
+        </div>
+        <Badge variant="outline" className="bg-background/80 text-[11px] font-bold border-primary/30">
+          {catName}
+        </Badge>
+      </div>
+
+      <div className="p-5 sm:p-6 space-y-5">
+        {/* Business Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl overflow-hidden bg-muted border border-border shrink-0 flex items-center justify-center">
+              {business.logo_url ? (
+                <img src={business.logo_url} alt={business.name} className="w-full h-full object-cover" />
+              ) : (
+                <Building2 className="w-7 h-7 text-muted-foreground" />
+              )}
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h4 className="text-lg sm:text-xl font-black text-foreground m-0">{business.name}</h4>
+                {business.verified && (
+                  <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 gap-1 text-[11px] font-extrabold">
+                    <CheckCircle2 className="w-3 h-3" /> Verified
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                {business.rating && (
+                  <span className="flex items-center gap-1 font-bold text-amber-500">
+                    <Star className="w-3.5 h-3.5 fill-amber-500" />
+                    {Number(business.rating).toFixed(1)}
+                  </span>
+                )}
+                {business.address && (
+                  <span className="flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-muted-foreground" />
+                    {business.address}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <a
+            href={profileUrl}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground font-black text-xs shadow hover:opacity-90 transition-opacity whitespace-nowrap shrink-0 no-underline"
+          >
+            <span>View Public Site Profile</span>
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+        </div>
+
+        {/* Business Pitch */}
+        {business.description && (
+          <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed m-0 border-l-2 border-primary/40 pl-3 italic">
+            "{business.description.length > 200 ? business.description.slice(0, 200) + "…" : business.description}"
+          </p>
+        )}
+
+        {/* Services List */}
+        {rawServices.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-black uppercase tracking-wider text-foreground">
+                <Briefcase className="w-3.5 h-3.5 text-primary" />
+                <span>Service Offerings ({rawServices.length})</span>
+              </div>
+              <a href={`${profileUrl}#services`} className="text-xs font-bold text-primary hover:underline flex items-center gap-1">
+                <span>View all</span> <ArrowRight className="w-3 h-3" />
+              </a>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {rawServices.slice(0, 3).map((svc: any, idx: number) => (
+                <div key={idx} className="rounded-2xl border border-border/80 bg-background/80 p-3.5 space-y-2 flex flex-col justify-between">
+                  <div>
+                    <h5 className="font-extrabold text-xs sm:text-sm text-foreground m-0 line-clamp-1">
+                      {svc.title || "Service"}
+                    </h5>
+                    {svc.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2 mt-1 leading-relaxed">
+                        {svc.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="pt-2 border-t border-border/60 flex items-center justify-between text-xs">
+                    <span className="font-black text-emerald-600 dark:text-emerald-400">
+                      {svc.price || "Contact for Quote"}
+                    </span>
+                    <a
+                      href={`${profileUrl}?service=${encodeURIComponent(svc.title || "")}`}
+                      className="text-xs font-extrabold text-primary hover:underline inline-flex items-center gap-0.5"
+                    >
+                      Book <ArrowRight className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Contact Links */}
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-border/60 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3">
+            {business.phone && (
+              <a href={`tel:${business.phone}`} className="flex items-center gap-1 hover:text-foreground font-semibold">
+                <Phone className="w-3 h-3 text-primary" /> {business.phone}
+              </a>
+            )}
+            {business.whatsapp && (
+              <a
+                href={`https://wa.me/${business.whatsapp.replace(/\D/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 text-emerald-600 font-semibold hover:underline"
+              >
+                <MessageCircle className="w-3 h-3" /> WhatsApp
+              </a>
+            )}
+          </div>
+          <a href={profileUrl} className="text-primary font-black text-xs hover:underline flex items-center gap-1">
+            Browse Full Profile & Catalog <ArrowRight className="w-3 h-3" />
+          </a>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
 /* --------------------------- Dispatcher ---------------------------- */
 export type MiniAppProps = Record<string, string>;
 
@@ -440,6 +656,19 @@ export default function MiniApp({ type, props, contextTitle }: { type: string; p
     case "assistant":
     case "ai-assistant":
       return <AiAssistant title={title || "Ask the AI business assistant"} topic={props.topic || contextTitle} />;
+    case "business":
+    case "business-profile":
+    case "business-showcase":
+    case "services":
+    case "service-listing":
+      return (
+        <BusinessShowcaseMiniApp
+          slug={props.slug}
+          id={props.id || props.business_id}
+          title={title}
+          category={props.category}
+        />
+      );
     default:
       return null;
   }

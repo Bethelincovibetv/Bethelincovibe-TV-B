@@ -11,7 +11,7 @@ import MiniApp from "@/components/blog/MiniApp";
  *  - contextual admin-managed referral & affiliate partner cards
  */
 
-const SHORTCODE = /\[miniapp\s+([^\]]+)\]/gi;
+const SHORTCODE = /\[(miniapp|business-profile|business-services|service-listing)\s*([^\]]*)\]/gi;
 
 function parseAttrs(raw: string): Record<string, string> {
   const attrs: Record<string, string> = {};
@@ -28,15 +28,23 @@ function extractMiniApps(rawHtml: string) {
   let content = rawHtml || "";
 
   // Check if content already includes a table or mini-app shortcode
-  const hasTableOrApp = /<table\b/i.test(content) || /\[miniapp/i.test(content);
+  const hasTableOrApp = /<table\b/i.test(content) || /\[(miniapp|business-profile|business-services|service-listing)/i.test(content);
   if (!hasTableOrApp && content.trim()) {
     content += `\n\n[miniapp type="comparison" title="Quick Comparison & Summary"]`;
   }
 
   const specs: { type: string; props: Record<string, string> }[] = [];
-  const out = content.replace(SHORTCODE, (_full, body: string) => {
-    const attrs = parseAttrs(body);
-    const type = attrs.type || attrs.app || "";
+  let out = content.replace(SHORTCODE, (_full, tag: string, body: string) => {
+    const attrs = parseAttrs(body || "");
+    const lowerTag = (tag || "").toLowerCase();
+    let type = attrs.type || attrs.app || "";
+
+    if (lowerTag === "business-profile") {
+      type = "business-profile";
+    } else if (lowerTag === "business-services" || lowerTag === "service-listing") {
+      type = "services";
+    }
+
     if (!type) return "";
     const idx = specs.length;
     specs.push({ type, props: attrs });

@@ -898,6 +898,67 @@ export async function awardOfferAndCloseOpportunity(params: {
 }
 
 /**
+ * Customer declines a provider's offer with real-time Firebase sync and notification
+ */
+export async function declineProviderOffer(params: {
+  requestId: string;
+  offerId: string;
+  customerUserId: string;
+  reason?: string;
+}): Promise<{ request: BusinessRequest; declinedOffer: ProviderOffer }> {
+  const request = await getRequestById(params.requestId);
+  if (!request || request.user_id !== params.customerUserId) {
+    throw new Error("Unauthorized or request not found");
+  }
+
+  const offers = await getOffersForRequest(params.requestId);
+  const targetOffer = offers.find((o) => o.id === params.offerId);
+  if (!targetOffer) throw new Error("Offer not found");
+
+  const now = new Date().toISOString();
+  const updatedOffer: ProviderOffer = { ...targetOffer, status: "declined", updated_at: now };
+  const updatedRequest: BusinessRequest = { ...request, updated_at: now };
+
+  // 1. Update in Firebase Firestore
+  try {
+    await ensureFirebaseAuth();
+    await setDoc(doc(firestoreDb, "provider_offers", targetOffer.id), sanitizeFirestoreObject(updatedOffer), { merge: true });
+    await setDoc(doc(firestoreDb, "business_requests", request.id), sanitizeFirestoreObject(updatedRequest), { merge: true });
+  } catch (err) {
+    console.warn("Firestore declineProviderOffer error:", err);
+  }
+
+  // 2. Also update Supabase
+  try {
+    await supabase.from("provider_offers").update({ status: "declined" }).eq("id", targetOffer.id);
+  } catch {}
+
+  // 3. Update cache
+  const existingOffers = getLocalStore<ProviderOffer[]>(OFFERS_CACHE_KEY, []);
+  setLocalStore(OFFERS_CACHE_KEY, existingOffers.map((o) => (o.id === targetOffer.id ? updatedOffer : o)));
+
+  // 4. Send live personalized notification to the provider
+  try {
+    const providerName = await fetchUserNameById(targetOffer.provider_user_id);
+    await sendLivePersonalizedNotification({
+      recipientUserId: targetOffer.provider_user_id,
+      recipientName: providerName,
+      title: "📋 Offer Update: " + request.service_title,
+      body: `The client reviewed your proposal for "${request.service_title}" and declined this offer${params.reason ? `: ${params.reason}` : "."}`,
+      url: `/dashboard/opportunities/${request.id}`,
+      type: "lead",
+    });
+    playNotificationSound();
+  } catch {}
+
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("btv_provider_offer_declined", { detail: updatedOffer }));
+  }
+
+  return { request: updatedRequest, declinedOffer: updatedOffer };
+}
+
+/**
  * Customer marks request as completed and approved
  */
 export async function completeRequest(requestId: string, customerUserId: string): Promise<BusinessRequest> {
@@ -1110,3 +1171,6 @@ export function subscribeToAllRequests(onChange: (requests: BusinessRequest[]) =
     return () => {};
   }
 }
+
+export const subscribeToAllOpenOpportunities = subscribeToAllRequests;
+
