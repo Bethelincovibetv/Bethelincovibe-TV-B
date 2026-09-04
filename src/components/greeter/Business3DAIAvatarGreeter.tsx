@@ -4,18 +4,24 @@ import {
   VolumeX,
   RotateCcw,
   FastForward,
-  MessageSquare,
   Sparkles,
   Send,
-  X,
-  Maximize2,
   Minimize2,
-  Bot,
-  User,
-  ShoppingBag,
   HelpCircle,
   Phone,
   MessageCircle,
+  ShieldCheck,
+  Building2,
+  MapPin,
+  ShoppingBag,
+  Clock,
+  ArrowRight,
+  ExternalLink,
+  Award,
+  CheckCircle2,
+  Truck,
+  Flame,
+  Radio,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +47,10 @@ export interface BusinessGreeterInput {
   whatsapp?: string;
   address?: string;
   verified?: boolean;
+  logo_url?: string;
+  website?: string;
+  rating?: number;
+  reviews_count?: number;
 }
 
 interface Business3DAIAvatarGreeterProps {
@@ -48,85 +58,132 @@ interface Business3DAIAvatarGreeterProps {
   products?: any[];
   services?: any[];
   autoStart?: boolean;
-  avatarGender?: "female" | "male";
-  onContactWhatsApp?: () => void;
   className?: string;
 }
 
+/**
+ * Animated Sound Wave Equalizer
+ * Displays rhythmic audio frequencies matching speech cadence for an executive feel.
+ */
+function VoiceWaveVisualizer({ isTalking }: { isTalking: boolean }) {
+  const barHeights = [45, 80, 60, 95, 70, 100, 85, 65, 90, 75, 55, 40];
+
+  return (
+    <div className="flex items-center gap-1 h-6 px-2.5 py-1 rounded-full bg-black/40 border border-white/10 backdrop-blur-md">
+      <Radio className={`h-3 w-3 ${isTalking ? "text-emerald-400 animate-pulse" : "text-slate-400"}`} />
+      <span className="text-[10px] font-bold tracking-wider uppercase text-slate-300 mr-1 hidden sm:inline">
+        {isTalking ? "Live Voice" : "Ready"}
+      </span>
+      <div className="flex items-center gap-0.5 h-4">
+        {barHeights.map((h, i) => (
+          <span
+            key={i}
+            className={`w-0.5 rounded-full transition-all duration-150 ${
+              isTalking
+                ? "bg-gradient-to-t from-amber-400 to-emerald-400"
+                : "bg-slate-600 h-1.5"
+            }`}
+            style={
+              isTalking
+                ? {
+                    height: `${Math.max(20, Math.min(100, h * (0.4 + Math.sin(Date.now() / 150 + i * 0.8) * 0.6)))}%`,
+                    animationDelay: `${i * 60}ms`,
+                  }
+                : { height: "4px" }
+            }
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Executive Corporate Virtual Host & Business Concierge
+ * Designed with a high-end enterprise aesthetic, interactive voice synthesis,
+ * real-time audio waveform visualizer, and instant executive actions.
+ */
 export default function Business3DAIAvatarGreeter({
   business,
   products = [],
   services = [],
   autoStart = true,
-  avatarGender = "female",
-  onContactWhatsApp,
   className = "",
 }: Business3DAIAvatarGreeterProps) {
-  // Normalize business metadata
-  const bizName = business.business_name || business.name || "Our Business";
-  const bizCategory =
-    business.category || business.categories?.name || "Premium Commerce";
-  const rawDescription = business.short_description || business.description || "";
-  const bizDesc =
-    rawDescription.length > 200
-      ? rawDescription.slice(0, 195) + "..."
-      : rawDescription;
-
-  // Extract products/services
-  const keyItems = useMemo(() => {
-    if (business.key_products && business.key_products.length > 0) {
-      return business.key_products;
-    }
-    const fromProds = products.map((p) => p.title || p.name).filter(Boolean);
-    const fromServs = services
-      .map((s) => (typeof s === "string" ? s : s.title || s.name))
-      .filter(Boolean);
-    const combined = [...fromProds, ...fromServs];
-    return combined.slice(0, 4);
-  }, [business.key_products, products, services]);
-
-  const voiceStyle = business.voice_style || "friendly";
-
-  // Build natural, engaging welcoming speech
-  const defaultScript = useMemo(() => {
-    if (business.custom_greeting_override) {
-      return business.custom_greeting_override;
-    }
-    const intro = `Welcome to ${bizName}! I'm your 3D virtual assistant. We specialize in ${bizCategory}.`;
-    const descPart = bizDesc
-      ? ` ${bizDesc}`
-      : " We take great pride in delivering verified quality and authentic customer service.";
-    const productPart =
-      keyItems.length > 0
-        ? ` Some of our most popular offerings include ${keyItems.join(", ")}.`
-        : "";
-    const cta = " Feel free to explore our catalog, or ask me anything about our products, pricing, or orders!";
-    return `${intro}${descPart}${productPart}${cta}`;
-  }, [bizName, bizCategory, bizDesc, keyItems, business.custom_greeting_override]);
-
-  // States
-  const [isOpen, setIsOpen] = useState(true);
-  const [isMinimized, setIsMinimized] = useState(false);
   const [animState, setAnimState] = useState<AvatarAnimationState>("entrance");
   const [isTalking, setIsTalking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false);
   const [subtitle, setSubtitle] = useState("");
-  const [subtitleProgress, setSubtitleProgress] = useState(0); // 0 to 1
-
-  // Interactive Question-Answering state
-  const [showQAPanel, setShowQAPanel] = useState(false);
-  const [userQuery, setUserQuery] = useState("");
+  const [subtitleProgress, setSubtitleProgress] = useState(0);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const [userQuestion, setUserQuestion] = useState("");
   const [isAnswering, setIsAnswering] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<
-    { sender: "avatar" | "user"; text: string }[]
+    Array<{ sender: "user" | "avatar"; text: string }>
   >([]);
 
   const synthRef = useRef<SpeechSynthesis | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const wordsIntervalRef = useRef<number | null>(null);
+  const waveTickerRef = useRef<number | null>(null);
+  const [, setTicker] = useState(0);
 
-  // Initialize SpeechSynthesis safely
+  const bizName = business.business_name || business.name || "Bethel Verified Enterprise";
+  const bizCategory =
+    business.category ||
+    business.categories?.name ||
+    "Verified Commercial Enterprise";
+  const avatarGender = "female";
+  const voiceStyle = business.voice_style || "formal";
+
+  const keyItems = useMemo(() => {
+    const list: string[] = [];
+    if (products && products.length > 0) {
+      products.slice(0, 3).forEach((p) => {
+        if (p?.title || p?.name) list.push(p.title || p.name);
+      });
+    }
+    if (services && services.length > 0) {
+      services.slice(0, 2).forEach((s) => {
+        const title = typeof s === "string" ? s : s?.title || s?.name;
+        if (title) list.push(title);
+      });
+    }
+    if (list.length === 0 && business.key_products) {
+      list.push(...business.key_products.slice(0, 3));
+    }
+    return list;
+  }, [products, services, business.key_products]);
+
+  const defaultScript = useMemo(() => {
+    if (business.custom_greeting_override) {
+      return business.custom_greeting_override;
+    }
+    const location = [business.city, business.state].filter(Boolean).join(", ");
+    const locationPart = location ? ` located in ${location}` : "";
+    const itemsPart =
+      keyItems.length > 0
+        ? ` We specialize in certified ${keyItems.join(", ")}.`
+        : ` We specialize in certified ${bizCategory} solutions.`;
+
+    return `Welcome to ${bizName}${locationPart}. I am your verified digital concierge on Bethelincovibe TV.${itemsPart} You can inspect our verified catalog, review our CAC credentials, or connect with our leadership on WhatsApp. How may we assist your inquiry today?`;
+  }, [bizName, bizCategory, business.custom_greeting_override, business.city, business.state, keyItems]);
+
+  // High-frequency ticker to drive animated waveform when talking
+  useEffect(() => {
+    if (isTalking) {
+      waveTickerRef.current = window.setInterval(() => {
+        setTicker((t) => (t + 1) % 1000);
+      }, 100);
+    } else if (waveTickerRef.current) {
+      clearInterval(waveTickerRef.current);
+      waveTickerRef.current = null;
+    }
+    return () => {
+      if (waveTickerRef.current) clearInterval(waveTickerRef.current);
+    };
+  }, [isTalking]);
+
   useEffect(() => {
     if (typeof window !== "undefined" && "speechSynthesis" in window) {
       synthRef.current = window.speechSynthesis;
@@ -135,6 +192,23 @@ export default function Business3DAIAvatarGreeter({
       stopSpeaking();
     };
   }, []);
+
+  useEffect(() => {
+    const entranceTimer = setTimeout(() => {
+      setAnimState("waving");
+      if (autoStart) {
+        const speechTimer = setTimeout(() => {
+          speak(defaultScript);
+        }, 1100);
+        return () => clearTimeout(speechTimer);
+      }
+    }, 1400);
+
+    return () => {
+      clearTimeout(entranceTimer);
+      stopSpeaking();
+    };
+  }, [defaultScript, autoStart]);
 
   const stopSpeaking = () => {
     if (wordsIntervalRef.current) {
@@ -148,16 +222,12 @@ export default function Business3DAIAvatarGreeter({
     setAnimState("idle");
   };
 
-  /**
-   * Speak text with real-time lip-sync, subtitle highlighting, and audio controls
-   */
   const speak = (textToSpeak: string, onComplete?: () => void) => {
     stopSpeaking();
     setSubtitle(textToSpeak);
     setSubtitleProgress(0);
 
     if (isMuted || !synthRef.current) {
-      // Muted simulation: display subtitles with word cadence for accessibility
       simulateMutedSubtitles(textToSpeak, onComplete);
       return;
     }
@@ -165,7 +235,6 @@ export default function Business3DAIAvatarGreeter({
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
     utteranceRef.current = utterance;
 
-    // Pick best voice for style and clarity
     const voices = synthRef.current.getVoices();
     const naturalVoice =
       voices.find(
@@ -173,26 +242,15 @@ export default function Business3DAIAvatarGreeter({
           (v.lang.includes("en-NG") ||
             v.lang.includes("en-GB") ||
             v.lang.includes("en-US")) &&
-          (avatarGender === "female"
-            ? /female|samantha|victoria|karen|zira|fiona/i.test(v.name)
-            : /male|daniel|george|alex|david/i.test(v.name))
+          /female|samantha|victoria|karen|zira|fiona|natural/i.test(v.name)
       ) ||
       voices.find((v) => v.lang.startsWith("en")) ||
       voices[0];
 
     if (naturalVoice) utterance.voice = naturalVoice;
 
-    if (voiceStyle === "energetic") {
-      utterance.rate = 1.1;
-      utterance.pitch = 1.15;
-    } else if (voiceStyle === "formal") {
-      utterance.rate = 0.95;
-      utterance.pitch = 0.95;
-    } else {
-      // friendly
-      utterance.rate = 1.02;
-      utterance.pitch = 1.05;
-    }
+    utterance.rate = 0.98;
+    utterance.pitch = 1.02;
 
     utterance.onstart = () => {
       setIsTalking(true);
@@ -220,15 +278,11 @@ export default function Business3DAIAvatarGreeter({
 
     try {
       synthRef.current.speak(utterance);
-    } catch (e) {
-      console.warn("SpeechSynthesis error, falling back to simulated subtitles:", e);
+    } catch {
       simulateMutedSubtitles(textToSpeak, onComplete);
     }
   };
 
-  /**
-   * Accessible subtitle timer when audio is muted or unavailable
-   */
   const simulateMutedSubtitles = (text: string, onComplete?: () => void) => {
     setIsTalking(true);
     setAnimState("talking");
@@ -247,120 +301,89 @@ export default function Business3DAIAvatarGreeter({
         setAnimState("idle");
         if (onComplete) onComplete();
       }
-    }, 380);
+    }, 320);
   };
 
-  // Trigger entrance sequence on load
-  useEffect(() => {
-    if (!autoStart || hasStarted) return;
-    setHasStarted(true);
-
-    // 1. Entrance animation (steps onto spotlight stage)
-    setAnimState("entrance");
-
-    // 2. Wave and start speaking after step-forward
-    const timer = setTimeout(() => {
-      setAnimState("waving");
-      speak(defaultScript, () => {
-        setAnimState("idle");
-      });
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, [autoStart, defaultScript, hasStarted]);
-
-  // Replay greeting
-  const handleReplay = () => {
-    setAnimState("waving");
-    setTimeout(() => {
-      speak(defaultScript);
-    }, 400);
-  };
-
-  // Skip speaking
-  const handleSkip = () => {
-    stopSpeaking();
-  };
-
-  // Toggle Mute
   const handleToggleMute = () => {
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-    if (nextMuted && isTalking) {
+    if (isMuted) {
+      setIsMuted(false);
+      if (subtitle) speak(subtitle);
+    } else {
+      setIsMuted(true);
       if (synthRef.current) synthRef.current.cancel();
-      simulateMutedSubtitles(subtitle);
+      if (isTalking && subtitle) {
+        simulateMutedSubtitles(subtitle);
+      }
     }
   };
 
-  // Interactive Question Handling via Gemini AI
-  const handleAskQuestion = async (queryText?: string) => {
-    const question = (queryText || userQuery).trim();
-    if (!question || isAnswering) return;
+  const handleReplay = () => {
+    speak(defaultScript);
+  };
 
-    setUserQuery("");
-    setIsAnswering(true);
+  const handleSkip = () => {
     stopSpeaking();
+    setSubtitleProgress(1);
+  };
 
-    // Add question to conversation history
+  const handleAskQuestion = async (question: string) => {
+    if (!question.trim() || isAnswering) return;
+    setUserQuestion("");
+    setIsAnswering(true);
     setConversationHistory((prev) => [...prev, { sender: "user", text: question }]);
 
     try {
-      const geminiInstance = await getHealthyGeminiClient("greeter_ai");
-
+      const ai = getHealthyGeminiClient();
       let answerText = "";
-      if (geminiInstance) {
-        const prompt = `You are the polite, professional 3D virtual shop attendant and customer concierge for "${bizName}".
-Business Information:
-- Category: ${bizCategory}
-- Description: ${bizDesc}
-- Featured Products/Services: ${keyItems.join(", ") || "Custom goods and verified catalog items"}
-- Location: ${[business.address, business.city, business.state].filter(Boolean).join(", ") || "Lagos, Nigeria"}
-- WhatsApp Available: ${business.whatsapp || business.phone ? "Yes" : "No"}
 
-Visitor Question: "${question}"
+      if (ai) {
+        const prompt = `You are the verified executive corporate concierge for "${bizName}", a verified Nigerian business in the category "${bizCategory}" on Bethelincovibe TV.
+Business Details:
+- Description: ${business.description || business.short_description || "Top rated verified supplier"}
+- Address: ${business.address || ""} ${business.city || ""} ${business.state || "Nigeria"}
+- Key Offerings: ${keyItems.join(", ") || "Certified products and services"}
+- Phone: ${business.phone || ""}
+- WhatsApp: ${business.whatsapp || ""}
 
-Instructions:
-Respond as the friendly, in-person shop attendant greeting the customer.
-Give a clear, warm, 1 to 2 sentence answer.
-Be helpful and concise because your answer will be spoken out loud via text-to-speech. Do not use bullet points or formatting symbols.`;
+Customer Question: "${question}"
 
-        const res = await geminiInstance.client.models.generateContent({
-          model: "gemini-3.8-flash",
+Respond in a warm, polished, executive corporate tone in 1 to 2 crisp, elegant sentences. Highlight how the customer can place orders or connect with management on WhatsApp. Keep under 40 words.`;
+
+        const res = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
           contents: prompt,
           config: {
-            maxOutputTokens: 120,
-            temperature: 0.7,
+            maxOutputTokens: 100,
+            temperature: 0.6,
           },
         });
 
         answerText = res.text?.trim() || "";
       }
 
-      // Safe fallback if API key is not ready or network delay
       if (!answerText) {
         const lowerQ = question.toLowerCase();
         if (lowerQ.includes("product") || lowerQ.includes("sell") || lowerQ.includes("offer")) {
-          answerText = `At ${bizName}, we specialize in ${bizCategory}. Our top items include ${
-            keyItems.join(", ") || "high-demand verified products"
-          }. You can browse our full catalog right below!`;
-        } else if (lowerQ.includes("price") || lowerQ.includes("cost") || lowerQ.includes("how much")) {
-          answerText = `Our prices are competitive and transparent. You can inspect all items directly in our listed catalog or message our team on WhatsApp for wholesale pricing!`;
+          answerText = `At ${bizName}, our verified offerings include ${
+            keyItems.join(", ") || "certified products and commercial services"
+          }. You can browse our complete catalog below or chat on WhatsApp!`;
+        } else if (lowerQ.includes("price") || lowerQ.includes("cost") || lowerQ.includes("quote")) {
+          answerText = `Our pricing is competitive with guaranteed escrow terms. You can review individual prices below or message our sales desk for wholesale quotes!`;
         } else if (lowerQ.includes("location") || lowerQ.includes("where") || lowerQ.includes("address")) {
           answerText = `We are based in ${
             [business.address, business.city, business.state].filter(Boolean).join(", ") || "Lagos, Nigeria"
-          }. We also provide nationwide courier delivery across Nigeria!`;
+          } and fulfill nationwide doorstep deliveries across Nigeria.`;
         } else if (lowerQ.includes("order") || lowerQ.includes("buy") || lowerQ.includes("whatsapp")) {
-          answerText = `You can place an order immediately by clicking the WhatsApp or Call buttons right here on our verified profile page!`;
+          answerText = `You can complete your order directly through our WhatsApp link or call our verified sales desk right here on Bethelincovibe TV!`;
         } else {
-          answerText = `Thank you for asking! At ${bizName}, we are always thrilled to serve you. Feel free to explore our verified inventory or message us directly on WhatsApp!`;
+          answerText = `Thank you for your inquiry! At ${bizName}, our executive team is ready to serve you. Feel free to inspect our catalog or click WhatsApp to chat directly!`;
         }
       }
 
       setConversationHistory((prev) => [...prev, { sender: "avatar", text: answerText }]);
       speak(answerText);
-    } catch (err) {
-      console.warn("AI Greeter Q&A error:", err);
-      const fallbackMsg = `At ${bizName}, we are dedicated to top quality. Please feel free to inspect our products or click WhatsApp to chat directly with our owner!`;
+    } catch {
+      const fallbackMsg = `At ${bizName}, we pride ourselves on exceptional quality and reliable delivery. Please feel free to click WhatsApp to connect with our management directly!`;
       setConversationHistory((prev) => [...prev, { sender: "avatar", text: fallbackMsg }]);
       speak(fallbackMsg);
     } finally {
@@ -369,38 +392,41 @@ Be helpful and concise because your answer will be spoken out loud via text-to-s
   };
 
   const quickQuestions = [
-    "What are your top products?",
-    "Where are you located?",
-    "How do I order on WhatsApp?",
-    "Do you deliver nationwide?",
+    "⭐ What are your top verified offerings?",
+    "📍 Where is your physical office located?",
+    "💬 Can I order directly on WhatsApp?",
+    "🚚 How does nationwide delivery work?",
   ];
 
-  // If minimized, display elegant floating corner launcher
+  const waNumber = (business.whatsapp || business.phone || "").replace(/\D/g, "");
+  const waUrl = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(`Hello ${bizName}, I saw your verified profile on Bethelincovibe TV and would like to make an inquiry.`)}` : null;
+  const phoneUrl = business.phone ? `tel:${business.phone}` : null;
+
+  // Minimized floating launcher (Executive badge)
   if (isMinimized) {
     return (
-      <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-4 duration-300">
+      <div className="fixed bottom-6 right-6 z-50 animate-in fade-in slide-in-from-bottom-3 duration-300">
         <button
           onClick={() => {
             setIsMinimized(false);
-            setIsOpen(true);
             handleReplay();
           }}
-          className="group relative flex items-center gap-3 bg-neutral-950/90 hover:bg-neutral-900 border-2 border-amber-500/50 p-2 pr-4 rounded-full shadow-2xl backdrop-blur-md transition-all hover:scale-105 active:scale-95 text-white"
+          className="group flex items-center gap-3 bg-slate-900/95 hover:bg-slate-800 text-white border border-amber-500/30 p-2 pr-4 rounded-full shadow-2xl backdrop-blur-md transition-all hover:scale-105 active:scale-95"
         >
-          <div className="relative w-11 h-11 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 p-0.5 overflow-hidden ring-2 ring-amber-400/40">
-            <div className="w-full h-full rounded-full bg-neutral-900 flex items-center justify-center text-amber-400">
-              <Bot className="h-6 w-6" />
+          <div className="relative w-10 h-10 rounded-full bg-gradient-to-tr from-amber-500 to-amber-300 p-0.5 shadow-md">
+            <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-amber-300">
+              <Building2 className="h-5 w-5" />
             </div>
-            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-neutral-950" />
+            <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
           </div>
           <div className="text-left">
             <div className="flex items-center gap-1.5">
-              <span className="text-xs font-black text-amber-400">3D AI Concierge</span>
-              <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/30 text-[9px] px-1 py-0">
+              <span className="text-xs font-bold text-white">Executive Concierge</span>
+              <Badge className="bg-emerald-500/20 text-emerald-300 border-0 text-[9px] px-1.5 py-0">
                 Online
               </Badge>
             </div>
-            <p className="text-[11px] text-neutral-300">Click to ask about {bizName}</p>
+            <p className="text-[11px] text-slate-300 truncate max-w-[150px]">Inquire about {bizName}</p>
           </div>
         </button>
       </div>
@@ -409,33 +435,49 @@ Be helpful and concise because your answer will be spoken out loud via text-to-s
 
   return (
     <div
-      className={`relative rounded-3xl overflow-hidden border-2 border-amber-500/40 bg-gradient-to-b from-neutral-950 via-neutral-900 to-neutral-950 text-white shadow-2xl transition-all ${className}`}
+      className={`relative rounded-3xl overflow-hidden border border-slate-700/60 bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-950 text-white shadow-2xl transition-all ${className}`}
     >
-      {/* Top Header Bar */}
-      <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between bg-white/5 backdrop-blur-md">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-neutral-950 font-black shadow-md">
-            <Bot className="h-5 w-5" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs sm:text-sm font-black text-white">
-                3D AI Concierge &amp; Virtual Attendant
-              </span>
-              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 rounded-full">
-                <Sparkles className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
-                Live 3D Lip-Sync
-              </span>
+      {/* Executive Top Header Bar */}
+      <div className="px-5 py-3.5 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 bg-white/5 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="relative w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 via-amber-400 to-amber-200 p-0.5 shadow-md shrink-0">
+            <div className="w-full h-full rounded-[14px] bg-slate-950 flex items-center justify-center overflow-hidden">
+              {business.logo_url ? (
+                <img
+                  src={business.logo_url}
+                  alt={bizName}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                />
+              ) : (
+                <Award className="h-5 w-5 text-amber-400" />
+              )}
             </div>
-            <p className="text-[11px] text-neutral-400">
-              Introducing {bizName} • Ask questions verbally or by text
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-slate-950" />
+          </div>
+
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-extrabold text-white tracking-tight">
+                Official Business Concierge
+              </span>
+              <Badge className="bg-amber-500/15 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-2 py-0.5">
+                <ShieldCheck className="h-3 w-3 mr-1 text-amber-400" /> Verified Host
+              </Badge>
+              <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5">
+                Escrow Protected
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-300 line-clamp-1 mt-0.5">
+              Representing <span className="font-semibold text-white">{bizName}</span> • Instant Voice &amp; Interactive Guidance
             </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex items-center gap-1.5">
-          {/* Mute/Unmute */}
+        {/* Audio Visualizer & Control Actions */}
+        <div className="flex items-center gap-2">
+          <VoiceWaveVisualizer isTalking={isTalking} />
+
           <Button
             size="sm"
             variant="ghost"
@@ -450,98 +492,93 @@ Be helpful and concise because your answer will be spoken out loud via text-to-s
             {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
           </Button>
 
-          {/* Replay */}
           <Button
             size="sm"
             variant="ghost"
             onClick={handleReplay}
-            className="h-8 w-8 p-0 rounded-xl text-neutral-300 hover:text-white hover:bg-white/10"
-            title="Replay Greeting"
+            className="h-8 w-8 p-0 rounded-xl text-slate-300 hover:text-white hover:bg-white/10"
+            title="Replay Introduction"
           >
             <RotateCcw className="h-4 w-4" />
           </Button>
 
-          {/* Skip Speech */}
           {isTalking && (
             <Button
               size="sm"
               variant="ghost"
               onClick={handleSkip}
-              className="h-8 px-2 rounded-xl text-neutral-300 hover:text-white hover:bg-white/10 text-xs font-bold gap-1"
+              className="h-8 px-2.5 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 text-xs font-bold gap-1"
               title="Skip Speech"
             >
               <FastForward className="h-3.5 w-3.5" /> Skip
             </Button>
           )}
 
-          {/* Minimize / Dock to corner */}
           <Button
             size="sm"
             variant="ghost"
             onClick={() => setIsMinimized(true)}
-            className="h-8 w-8 p-0 rounded-xl text-neutral-400 hover:text-white hover:bg-white/10"
-            title="Dock to Corner"
+            className="h-8 w-8 p-0 rounded-xl text-slate-400 hover:text-white hover:bg-white/10"
+            title="Minimize to Corner"
           >
             <Minimize2 className="h-4 w-4" />
           </Button>
         </div>
       </div>
 
-      {/* Main Grid Body: 3D Stage & Interactive Greeting Panel */}
+      {/* Main Body: 3D Host Stage & Executive Response Center */}
       <div className="grid grid-cols-1 md:grid-cols-12 items-center">
-        {/* Left Column: 3D Stage & Spotlight (360px height) */}
-        <div className="md:col-span-5 relative h-72 sm:h-80 md:h-96 w-full flex items-center justify-center overflow-hidden bg-radial from-neutral-900/60 to-neutral-950">
-          {/* Glowing Stage Halo Background */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(245,158,11,0.15),transparent_65%)] pointer-events-none" />
+        {/* Left Column: 3D Stage with Podium */}
+        <div className="md:col-span-5 relative h-72 sm:h-80 md:h-96 w-full flex items-center justify-center overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(217,119,6,0.12),transparent_70%)] pointer-events-none" />
 
-          {/* Render 3D Humanoid Avatar */}
+          {/* Three.js Virtual Host */}
           <Avatar3DStage
             animState={animState}
             isTalking={isTalking}
-            speechVolumeLevel={isTalking ? 0.75 : 0}
+            speechVolumeLevel={isTalking ? 0.8 : 0}
             voiceStyle={voiceStyle}
             avatarGender={avatarGender}
             className="w-full h-full"
           />
 
-          {/* Speaking Status Pill */}
+          {/* Live Host Status Badge */}
           <div className="absolute top-3 left-3 z-10">
             {isTalking ? (
-              <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold backdrop-blur-md flex items-center gap-1.5 animate-pulse">
-                <span className="h-2 w-2 rounded-full bg-amber-400" />
-                Speaking...
+              <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[10px] font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
+                <span className="h-2 w-2 rounded-full bg-amber-400 animate-ping" />
+                Speaking with Client...
               </Badge>
             ) : (
-              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold backdrop-blur-md flex items-center gap-1.5">
+              <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold backdrop-blur-md flex items-center gap-1.5 shadow-sm">
                 <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                Listening &amp; Ready
+                Executive Host Ready
               </Badge>
             )}
           </div>
         </div>
 
-        {/* Right Column: Subtitles, Greeting Speech, and Ask AI Panel */}
-        <div className="md:col-span-7 p-4 sm:p-6 space-y-4 flex flex-col justify-between">
-          {/* Live Captions / Subtitles Area */}
+        {/* Right Column: Subtitles, Direct Connect Actions, and Q&A */}
+        <div className="md:col-span-7 p-5 sm:p-6 space-y-4 flex flex-col justify-between">
+          {/* Subtitles / Speech Box */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
-                Live Subtitles
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-400 flex items-center gap-1">
+                <Sparkles className="h-3 w-3" /> Live Executive Briefing
               </span>
-              <span className="text-[10px] text-neutral-400">
-                {isMuted ? "Sound Off (Captions Active)" : "Voice Enabled"}
+              <span className="text-[11px] text-slate-400">
+                {isMuted ? "Sound Muted (Subtitles Active)" : "Voice Broadcast Enabled"}
               </span>
             </div>
 
-            <div className="p-3.5 rounded-2xl bg-neutral-900/90 border border-white/10 shadow-inner min-h-[76px] flex flex-col justify-center">
-              <p className="text-xs sm:text-sm text-neutral-100 font-medium leading-relaxed">
+            <div className="p-4 rounded-2xl bg-slate-950/80 border border-white/10 shadow-inner min-h-[82px] flex flex-col justify-center">
+              <p className="text-xs sm:text-sm text-slate-100 font-medium leading-relaxed">
                 "{subtitle || defaultScript}"
               </p>
-              {/* Progress bar underneath subtitles */}
               {isTalking && (
-                <div className="w-full bg-neutral-800 h-1 rounded-full overflow-hidden mt-2">
+                <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden mt-2.5">
                   <div
-                    className="bg-gradient-to-r from-amber-400 to-orange-500 h-full transition-all duration-300"
+                    className="bg-gradient-to-r from-amber-400 via-amber-300 to-emerald-400 h-full transition-all duration-300"
                     style={{ width: `${Math.round(subtitleProgress * 100)}%` }}
                   />
                 </div>
@@ -549,10 +586,54 @@ Be helpful and concise because your answer will be spoken out loud via text-to-s
             </div>
           </div>
 
+          {/* Fast Executive Connection Chips */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {waUrl && (
+              <Button
+                asChild
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow-md gap-1.5 h-9"
+              >
+                <a href={waUrl} target="_blank" rel="noopener noreferrer">
+                  <MessageCircle className="h-3.5 w-3.5" /> WhatsApp Desk
+                </a>
+              </Button>
+            )}
+
+            {phoneUrl && (
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="bg-white/5 hover:bg-white/10 border-white/15 text-white font-bold text-xs rounded-xl gap-1.5 h-9"
+              >
+                <a href={phoneUrl}>
+                  <Phone className="h-3.5 w-3.5 text-amber-400" /> Call Office
+                </a>
+              </Button>
+            )}
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                const catalogEl = document.getElementById("catalog-section") || document.getElementById("products-tab");
+                if (catalogEl) {
+                  catalogEl.scrollIntoView({ behavior: "smooth" });
+                } else {
+                  handleAskQuestion("What products and services do you offer?");
+                }
+              }}
+              className="bg-white/5 hover:bg-white/10 border-white/15 text-white font-bold text-xs rounded-xl gap-1.5 h-9 col-span-2 sm:col-span-1"
+            >
+              <ShoppingBag className="h-3.5 w-3.5 text-blue-400" /> View Catalog
+            </Button>
+          </div>
+
           {/* Quick Questions Chips */}
-          <div className="space-y-1.5">
-            <span className="text-[11px] font-bold text-neutral-300 flex items-center gap-1">
-              <HelpCircle className="h-3.5 w-3.5 text-amber-400" /> Quick Questions
+          <div className="space-y-1.5 pt-1">
+            <span className="text-[11px] font-bold text-slate-300 flex items-center gap-1">
+              <HelpCircle className="h-3.5 w-3.5 text-amber-400" /> Popular Inquiries
             </span>
             <div className="flex flex-wrap gap-1.5">
               {quickQuestions.map((q, idx) => (
@@ -561,7 +642,7 @@ Be helpful and concise because your answer will be spoken out loud via text-to-s
                   type="button"
                   disabled={isAnswering}
                   onClick={() => handleAskQuestion(q)}
-                  className="text-[11px] font-medium px-2.5 py-1 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-500/40 text-neutral-200 hover:text-white transition-all disabled:opacity-50 text-left"
+                  className="text-[11px] font-medium px-3 py-1 rounded-xl bg-white/5 hover:bg-amber-500/20 border border-white/10 hover:border-amber-500/40 text-slate-200 hover:text-white transition-all disabled:opacity-50 text-left"
                 >
                   {q}
                 </button>
@@ -569,54 +650,35 @@ Be helpful and concise because your answer will be spoken out loud via text-to-s
             </div>
           </div>
 
-          {/* Interactive Question Input Box */}
-          <div className="pt-2 border-t border-white/10 space-y-2">
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  value={userQuery}
-                  onChange={(e) => setUserQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAskQuestion();
-                    }
-                  }}
-                  disabled={isAnswering}
-                  placeholder={`Ask me anything about ${bizName}...`}
-                  className="bg-neutral-900 border-white/20 text-white placeholder:text-neutral-500 text-xs sm:text-sm rounded-xl h-10 pr-10 focus-visible:ring-amber-500/50"
-                />
-              </div>
-              <Button
-                onClick={() => handleAskQuestion()}
-                disabled={!userQuery.trim() || isAnswering}
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:opacity-90 text-neutral-950 font-black h-10 px-4 rounded-xl shrink-0"
-              >
-                {isAnswering ? (
-                  <Sparkles className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-
-            {/* Direct WhatsApp Callout */}
-            {business.whatsapp && (
-              <div className="flex items-center justify-between pt-1 text-[11px] text-neutral-400">
-                <span>Want direct human contact?</span>
-                <a
-                  href={`https://wa.me/${business.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(
-                    `Hello ${bizName}, I spoke with your 3D Virtual Attendant on Bethelincovibe TV and want to make an inquiry!`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 font-bold text-emerald-400 hover:underline"
-                >
-                  <MessageCircle className="h-3 w-3" /> Chat on WhatsApp
-                </a>
-              </div>
-            )}
-          </div>
+          {/* Ask AI Input Field */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAskQuestion(userQuestion);
+            }}
+            className="flex items-center gap-2 pt-1"
+          >
+            <Input
+              value={userQuestion}
+              onChange={(e) => setUserQuestion(e.target.value)}
+              placeholder={`Ask anything about ${bizName}'s products, location, or delivery...`}
+              disabled={isAnswering}
+              className="bg-slate-950/80 border-white/15 text-white placeholder:text-slate-400 text-xs rounded-xl h-10 shadow-inner focus:border-amber-400/60"
+            />
+            <Button
+              type="submit"
+              disabled={isAnswering || !userQuestion.trim()}
+              className="bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black px-4 rounded-xl text-xs h-10 shadow-md gap-1 shrink-0"
+            >
+              {isAnswering ? (
+                <Sparkles className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  Ask <Send className="h-3.5 w-3.5" />
+                </>
+              )}
+            </Button>
+          </form>
         </div>
       </div>
     </div>

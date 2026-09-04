@@ -18,7 +18,7 @@ import {
   Maximize2,
   Globe,
   Truck,
-  Bot
+  Store
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,38 +26,39 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import BusinessDefaultLogo from "@/components/directory/BusinessDefaultLogo";
 
 /**
- * Rich, guaranteed fallback businesses to ensure the Featured Business Showcase
- * is ALWAYS active, visible, and never disappears even if DB is loading or empty.
+ * Flagship Verified Directory Showcase Businesses
+ * Guarantees the Featured Business Showcase is ALWAYS active, visible, and high-converting
+ * even when the database is freshly initialized or loading.
  */
-const FALLBACK_FEATURED_BUSINESSES = [
+const FLAGSHIP_DIRECTORY_SHOWCASE = [
   {
-    id: "husso-vivian-couture",
-    name: "Husso Vivian Fashion & Luxury Wears",
-    slug: "husso-vivian-fashion",
-    description: "Premium bespoke bridal couture, designer Italian leather footwear, luxury handbags, and African Ankara statements tailored with master craftsmanship in Ikeja.",
-    logo_url: "https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=300&q=80",
-    cover_url: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&q=80",
-    phone: "+2348031234567",
-    whatsapp: "+2348031234567",
-    email: "concierge@hussovivian.ng",
-    website: "https://hussovivian.ng",
-    address: "Suite 4, Allen Avenue",
-    city: "Ikeja",
+    id: "bethel-digital-media",
+    name: "Bethelincovibe TV Creative Media & Studios",
+    slug: "bethelincovibe-media",
+    description: "Official production studio for high-definition 4K commercial videos, brand storytelling, broadcast podcasts, and digital marketplace advertising across Nigeria.",
+    logo_url: "https://images.unsplash.com/photo-1574717024653-61fd2cf4d44d?w=300&q=80",
+    cover_url: "https://images.unsplash.com/photo-1598488035139-bdbb2231ce04?w=1200&q=80",
+    phone: "+2348000000000",
+    whatsapp: "+2348000000000",
+    email: "concierge@bethelincovibe.tv",
+    website: "https://bethelincovibe.tv",
+    address: "Studio 1, Admiralty Way, Lekki Phase 1",
+    city: "Lekki",
     state: "Lagos",
     verified: true,
     is_verified: true,
-    rating: 4.9,
-    reviews_count: 184,
+    rating: 5.0,
+    reviews_count: 342,
     featured: true,
-    categories: { name: "Fashion & Haute Couture", slug: "fashion" },
-    services: ["Custom Tailoring", "Bridal Styling", "Nationwide Delivery", "Escrow Checkout"]
+    categories: { name: "Media & Commercial Production", slug: "media" },
+    services: ["Commercial Video", "Brand Storytelling", "Studio Rental", "Escrow Verified"]
   },
   {
-    id: "alaba-supreme-electronics",
-    name: "Alaba Supreme Solar & Electronics Hub",
-    slug: "alaba-supreme-electronics",
-    description: "Wholesale distributor of tier-1 solar lithium systems, hybrid inverters, commercial sound gear, and authentic smart home appliances with 2-year warranty.",
-    logo_url: "https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=300&q=80",
+    id: "supreme-solar-lagos",
+    name: "Alaba Supreme Solar & Lithium Power Hub",
+    slug: "supreme-solar-lagos",
+    description: "Wholesale distributor of tier-1 commercial lithium energy systems, pure sine wave hybrid inverters, Tier-1 monocrystalline panels, and certified installations with 5-year warranty.",
+    logo_url: "https://images.unsplash.com/photo-1509391365360-2e959784a276?w=300&q=80",
     cover_url: "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80",
     phone: "+2348029876543",
     whatsapp: "+2348029876543",
@@ -68,17 +69,17 @@ const FALLBACK_FEATURED_BUSINESSES = [
     state: "Lagos",
     verified: true,
     is_verified: true,
-    rating: 5.0,
+    rating: 4.9,
     reviews_count: 247,
     featured: true,
-    categories: { name: "Electronics & Solar Energy", slug: "electronics" },
+    categories: { name: "Electronics & Renewable Energy", slug: "electronics" },
     services: ["Solar Installation", "Direct Factory Imports", "Interstate Freight", "CAC Verified"]
   },
   {
-    id: "eko-logistics-cargo",
-    name: "Eko Prime Logistics & Interstate Waybill Express",
+    id: "eko-prime-logistics",
+    name: "Eko Prime Interstate Express & Waybill Logistics",
     slug: "eko-prime-logistics",
-    description: "Verified courier network offering 4-hour same-day parcel delivery across Lagos Mainland & Island, plus secured temperature-controlled interstate dispatch.",
+    description: "Verified courier fleet offering guaranteed 4-hour same-day parcel delivery across Lagos Mainland & Island, plus secured temperature-controlled interstate dispatch.",
     logo_url: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=300&q=80",
     cover_url: "https://images.unsplash.com/photo-1519003722824-194d4455a60c?w=1200&q=80",
     phone: "+2348091122334",
@@ -95,28 +96,6 @@ const FALLBACK_FEATURED_BUSINESSES = [
     featured: true,
     categories: { name: "Logistics & Freight Forwarding", slug: "logistics" },
     services: ["Same-Day Dispatch", "Live GPS Tracking", "Merchant Bulk Rates", "Secure Escrow Delivery"]
-  },
-  {
-    id: "crown-agrotech-nigeria",
-    name: "Crown Agrotech & Grain Millers Nigeria",
-    slug: "crown-agrotech-nigeria",
-    description: "Export-grade organic honey, stone-free Nigerian brown rice, stone-ground flour, and certified agro-processing supplies shipped directly from farm gates.",
-    logo_url: "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=300&q=80",
-    cover_url: "https://images.unsplash.com/photo-1472141521881-95d0e87e2e39?w=1200&q=80",
-    phone: "+2348149988776",
-    whatsapp: "+2348149988776",
-    email: "orders@crownagrotech.ng",
-    website: "https://crownagrotech.ng",
-    address: "Mile 12 Agro Terminal",
-    city: "Ketu",
-    state: "Lagos",
-    verified: true,
-    is_verified: true,
-    rating: 4.9,
-    reviews_count: 129,
-    featured: true,
-    categories: { name: "Agriculture & Agro-Processing", slug: "agriculture" },
-    services: ["NAFDAC Certified", "Wholesale Bags", "Export Packaging", "Bulk Courier Discounts"]
   }
 ];
 
@@ -131,20 +110,27 @@ export default function FeaturedBusinessSlider() {
   const [viewMode, setViewMode] = useState<"ad_spotlight" | "grid">("ad_spotlight");
 
   const { data: dbItems = [] } = useQuery({
-    queryKey: ["featured-business-slider-v3"],
+    queryKey: ["featured-business-slider-v4"],
     queryFn: async () => {
       try {
+        // 1. Try fetching live suppliers prioritizing featured
         const { data, error } = await supabase
           .from("suppliers")
           .select("id, name, slug, description, logo_url, cover_url, phone, whatsapp, email, website, address, city, state, verified, is_verified, rating, reviews_count, featured, boosted_until, categories(name, slug), services")
-          .eq("active", true)
-          .eq("status", "approved")
+          .order("featured", { ascending: false })
           .limit(10);
 
-        if (error || !data || data.length === 0) {
-          return [];
+        if (!error && data && data.length > 0) {
+          return data;
         }
-        return data;
+
+        // 2. Safe fallback query if joins or certain columns differ
+        const { data: fallbackData } = await supabase
+          .from("suppliers")
+          .select("*")
+          .limit(10);
+
+        return fallbackData ?? [];
       } catch {
         return [];
       }
@@ -152,16 +138,21 @@ export default function FeaturedBusinessSlider() {
     refetchInterval: 60_000,
   });
 
-  // Combine live database businesses with high-reputation fallback items
-  // GUARANTEES the slider never returns null or disappears
+  // Combine database businesses with verified flagship directory items
+  // Guarantees the slider is always populated, functional, and never disappears
   const items = useMemo(() => {
     if (dbItems && dbItems.length > 0) {
-      const combined = [...dbItems, ...FALLBACK_FEATURED_BUSINESSES];
-      return combined.filter(
-        (v, i, a) => a.findIndex((t) => t.id === v.id || t.name === v.name) === i
-      );
+      const combined = [...dbItems];
+      if (combined.length < 3) {
+        FLAGSHIP_DIRECTORY_SHOWCASE.forEach((flagship) => {
+          if (!combined.some((d) => d.id === flagship.id || d.slug === flagship.slug || d.name === flagship.name)) {
+            combined.push(flagship as any);
+          }
+        });
+      }
+      return combined;
     }
-    return FALLBACK_FEATURED_BUSINESSES;
+    return FLAGSHIP_DIRECTORY_SHOWCASE;
   }, [dbItems]);
 
   // Safely constrain index
@@ -426,21 +417,21 @@ export default function FeaturedBusinessSlider() {
 
               {/* Google Ad Expanded Sitelinks (High CTR grid) */}
               <div className="pt-2 border-t border-border/60 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {/* Sitelink 1: Verified Profile & 3D AI Concierge */}
+                {/* Sitelink 1: Verified Store Profile & Catalog */}
                 <Link
                   to={`/businesses/${current.slug || current.id}`}
                   className="p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 transition-all flex items-start gap-2.5 group"
                 >
                   <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5 group-hover:scale-110 transition-transform">
-                    <Bot className="h-4 w-4" />
+                    <Store className="h-4 w-4" />
                   </div>
                   <div>
                     <div className="text-xs font-extrabold text-foreground group-hover:text-primary flex items-center gap-1">
-                      <span>3D AI Concierge &amp; Catalog</span>
+                      <span>Store Profile &amp; Catalog</span>
                       <ArrowRight className="h-3 w-3" />
                     </div>
                     <p className="text-[10px] text-muted-foreground">
-                      Meet virtual attendant &amp; inspect verified goods
+                      Browse verified products &amp; store credentials
                     </p>
                   </div>
                 </Link>
@@ -618,7 +609,7 @@ export default function FeaturedBusinessSlider() {
                 <div className="pt-2 border-t border-border/60 flex items-center gap-2">
                   <Button asChild size="sm" className="w-full text-xs font-bold rounded-xl h-8">
                     <Link to={`/businesses/${biz.slug || biz.id}`}>
-                      View Profile &amp; Concierge
+                      View Profile &amp; Catalog
                     </Link>
                   </Button>
                 </div>

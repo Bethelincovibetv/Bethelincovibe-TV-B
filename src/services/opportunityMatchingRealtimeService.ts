@@ -267,6 +267,67 @@ export async function saveAdminMatchingConfig(config: AdminMatchingConfig): Prom
   }
 }
 
+/**
+ * Dispatch application notifications reliably across users using database RPC or direct insert
+ */
+export async function sendAppNotification(params: {
+  userId: string;
+  title: string;
+  body: string;
+  url?: string;
+  type?: string;
+}): Promise<void> {
+  try {
+    const { error: rpcError } = await supabase.rpc("send_app_notification", {
+      p_user_id: params.userId,
+      p_title: params.title,
+      p_body: params.body,
+      p_url: params.url || null,
+      p_type: params.type || "system",
+    });
+    if (!rpcError) return;
+  } catch {}
+
+  try {
+    await supabase.from("user_notifications").insert({
+      user_id: params.userId,
+      title: params.title,
+      body: params.body,
+      url: params.url || null,
+      type: params.type || "system",
+      is_read: false,
+    });
+  } catch {}
+}
+
+export async function getOpenOpportunities(excludeUserId?: string): Promise<BusinessRequest[]> {
+  try {
+    let query = supabase
+      .from("business_requests")
+      .select("*")
+      .in("status", ["OPEN", "RECEIVING_OFFERS"])
+      .order("created_at", { ascending: false });
+
+    if (excludeUserId) {
+      query = query.neq("user_id", excludeUserId);
+    }
+
+    const { data, error } = await query;
+    if (!error && data && data.length > 0) {
+      return data.map(requestFromRow);
+    }
+  } catch (e) {
+    console.warn("Error querying open opportunities:", e);
+  }
+
+  const local = getLocalStore<BusinessRequest[]>(REQUESTS_CACHE_KEY, []);
+  return local.filter(
+    (r) =>
+      (r.status === "OPEN" || r.status === "RECEIVING_OFFERS") &&
+      (!excludeUserId || r.user_id !== excludeUserId)
+  );
+}
+
 export async function findMatchingCandidates(request: {
   category: string;
   categorySlug: string;
@@ -279,14 +340,24 @@ export async function findMatchingCandidates(request: {
   if (!config.system_enabled || !config.auto_matching_enabled) return [];
 
   try {
-    const { data: suppliers, error } = await supabase
-      .from("suppliers")
-      .select(`id,name,slug,description,logo_url,address,services,featured,active,status,submitted_by,category_id,categories(name,slug)`)
-      .eq("active", true)
-      .neq("status", "rejected")
-      .limit(100);
+    let suppliers: any[] = [];
+    try {
+      const { data, error } = await supabase
+        .from("suppliers")
+        .select(`id,name,slug,description,logo_url,address,services,featured,active,status,submitted_by,category_id,categories(name,slug)`)
+        .eq("active", true)
+        .limit(100);
 
-    if (error) throw error;
+      if (!error && data && data.length > 0) {
+        suppliers = data.filter((s: any) => s.status !== "rejected");
+      } else {
+        const { data: fallbackData } = await supabase.from("suppliers").select("*").limit(100);
+        suppliers = fallbackData || [];
+      }
+    } catch {
+      const { data: fallbackData } = await supabase.from("suppliers").select("*").limit(100);
+      suppliers = fallbackData || [];
+    }
 
     const promptWords = request.rawPrompt.toLowerCase().split(/\s+/).filter(w => w.length > 2);
     const targetCategory = request.category.toLowerCase();
@@ -294,8 +365,9 @@ export async function findMatchingCandidates(request: {
     const candidates: MatchingBusinessCandidate[] = [];
 
     for (const s of suppliers || []) {
-      if (!s.submitted_by) continue;
-      const catName = String((s as any).categories?.name || "").toLowerCase();
+      const ownerId = s.submitted_by || (s as any).user_id || (s as any).owner_id;
+      if (!ownerId) continue;
+      const catName = String((s as any).categories?.name || s.category || "").toLowerCase();
       const catSlug = String((s as any).categories?.slug || "").toLowerCase();
       const desc = String(s.description || "").toLowerCase();
       const address = String(s.address || "").toLowerCase();
@@ -303,7 +375,7 @@ export async function findMatchingCandidates(request: {
         ? s.services.map((x: any) => typeof x === "string" ? x : x?.title || x?.name || "")
         : String(s.services || "").split(",").map(x => x.trim());
       const serviceText = services.join(" ").toLowerCase();
-      const prefs = await getProviderPreferences(s.submitted_by);
+      const prefs = await getProviderPreferences(ownerId);
       if (!prefs.notifications_enabled) continue;
 
       let score = 0;
@@ -316,8 +388,8 @@ export async function findMatchingCandidates(request: {
       const hits = promptWords.filter(w => serviceText.includes(w) || desc.includes(w)).length;
       if (hits >= 2) { score += Math.min(30, hits * 8); reasons.push("Services align with the client brief"); }
       else if (hits === 1) { score += 15; reasons.push("Key service match"); }
-      if (s.status === "approved") { score += 10; reasons.push("Approved active provider"); }
-      if (s.featured) { score += 5; reasons.push("Featured provider"); }
+      if (s.status === "approved" || s.verified || (s as any).is_verified) { score += 10; reasons.push("Approved active provider"); }
+      if (s.featured || (s as any).is_featured) { score += 5; reasons.push("Featured provider"); }
       const loc = request.locationPreference.toLowerCase();
       if (loc.includes("online") || loc.includes("nationwide")) score += 10;
       else if (address.includes("lagos") && loc.includes("lagos")) { score += 10; reasons.push("Local provider"); }
@@ -331,11 +403,11 @@ export async function findMatchingCandidates(request: {
         businessName: s.name,
         businessSlug: s.slug || `biz-${s.id}`,
         businessLogo: s.logo_url || undefined,
-        category: (s as any).categories?.name || request.category,
+        category: (s as any).categories?.name || s.category || request.category,
         categorySlug: (s as any).categories?.slug || request.categorySlug,
-        ownerUserId: s.submitted_by,
-        isVerified: s.status === "approved",
-        isFeatured: Boolean(s.featured),
+        ownerUserId: ownerId,
+        isVerified: s.status === "approved" || Boolean(s.verified) || Boolean((s as any).is_verified),
+        isFeatured: Boolean(s.featured) || Boolean((s as any).is_featured),
         rating: 4.8,
         reviewsCount: 12,
         location: s.address || "Lagos, Nigeria",
@@ -485,7 +557,11 @@ export async function submitProviderOffer(params: {
   if (request.status === "AWARDED" || request.status === "COMPLETED" || request.status === "CANCELLED" || request.status === "EXPIRED") {
     throw new Error("This opportunity is no longer accepting new offers.");
   }
-  if (!request.matched_provider_ids.includes(params.providerUserId)) {
+  if (
+    !request.matched_provider_ids.includes(params.providerUserId) &&
+    request.status !== "OPEN" &&
+    request.status !== "RECEIVING_OFFERS"
+  ) {
     throw new Error("You are not matched to this opportunity.");
   }
 

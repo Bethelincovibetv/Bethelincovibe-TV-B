@@ -187,29 +187,24 @@ export async function verifyNigerianNuban(
     };
   }
 
-  // Attempt live Paystack / Supabase edge function account name resolution if available
+  // Attempt live Paystack account name resolution securely via backend edge function
   try {
-    const { data: setting } = await supabase
-      .from("site_settings")
-      .select("value")
-      .eq("key", "paystack_secret_key")
-      .maybeSingle();
+    const { data: result, error: invokeErr } = await supabase.functions.invoke("promoter-payout", {
+      body: {
+        action: "resolve_account",
+        account_number: cleanAccountNum,
+        bank_code: selectedBank.code,
+      },
+    });
 
-    if (setting?.value) {
-      // In full production with secret key backend proxy:
-      const res = await fetch(`/api/paystack/resolve-account?account_number=${cleanAccountNum}&bank_code=${selectedBank.code}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.status && json.data?.account_name) {
-          return {
-            valid: true,
-            accountNumber: cleanAccountNum,
-            bankCode: selectedBank.code,
-            bankName: selectedBank.name,
-            accountName: json.data.account_name,
-          };
-        }
-      }
+    if (!invokeErr && result?.status && result.data?.account_name) {
+      return {
+        valid: true,
+        accountNumber: cleanAccountNum,
+        bankCode: selectedBank.code,
+        bankName: selectedBank.name,
+        accountName: result.data.account_name,
+      };
     }
   } catch {
     // Continue to standard verified resolution

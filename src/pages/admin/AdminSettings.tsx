@@ -531,10 +531,6 @@ export default function AdminSettings() {
                 <Label>Public Key</Label>
                 <Input value={get("paystack_public_key")} onChange={(e) => set("paystack_public_key", e.target.value)} placeholder="pk_test_xxx" className="font-mono" />
               </div>
-              <div>
-                <Label>Secret Key</Label>
-                <Input type="password" value={get("paystack_secret_key")} onChange={(e) => set("paystack_secret_key", e.target.value)} placeholder="sk_test_xxx" className="font-mono" />
-              </div>
             </CardContent>
           </Card>
         </TabsContent>
