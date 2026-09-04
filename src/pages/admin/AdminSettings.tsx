@@ -48,6 +48,7 @@ const KEYS = [
   "ai_provider", "ai_text_model", "ad_server_enabled",
   "ad_auto_approve", "ad_watermark_text", "ad_watermark_url",
   "ad_rotation_style", "ai_interactive_ads_enabled",
+  "ggd_ad_network_api_key", "ggd_ad_network_enabled", "ggd_ad_network_auto_publish", "ggd_display_network_ads",
   "whatsapp_community_url", "referral_signup_bonus", "referral_purchase_pct",
   "sales_page_first_free", "sales_page_price", "leads_enabled_global",
   "digital_products_enabled", "marketplace_enabled", "direct_calls_global_enabled",
@@ -301,6 +302,80 @@ export default function AdminSettings() {
                 <Label htmlFor="ai_interactive_ads_enabled" className="cursor-pointer">
                   Enable AI Programmatic Ads (Gemini turns user creatives into interactive ads)
                 </Label>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* GGD Ad Network & Dual Publishing Integration */}
+          <Card className="border-purple-500/30 bg-gradient-to-br from-card via-purple-950/5 to-card">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-base font-bold flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                  GGD Ad Network & Dual-Publishing System
+                </CardTitle>
+                <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-[10px] font-extrabold">
+                  API Key Authenticated
+                </Badge>
+              </div>
+              <CardDescription className="text-xs">
+                Syndicate user and admin adverts to the external GGD Ad Network simultaneously and monetize with partner ads.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label>GGD Ad Network API Key</Label>
+                <Input
+                  type="password"
+                  value={get("ggd_ad_network_api_key")}
+                  onChange={(e) => set("ggd_ad_network_api_key", e.target.value)}
+                  placeholder="ggd_e410d4513721427085a676531ee13505"
+                  className="font-mono text-xs"
+                />
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  Default: <code>ggd_e410d4513721427085a676531ee13505</code>. Leave empty to use system default.
+                </p>
+              </div>
+
+              <div className="space-y-2 pt-2 border-t">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="ggd_ad_network_auto_publish"
+                    checked={get("ggd_ad_network_auto_publish") !== "false"}
+                    onChange={(e) => set("ggd_ad_network_auto_publish", e.target.checked ? "true" : "false")}
+                    className="h-5 w-5 accent-primary"
+                  />
+                  <Label htmlFor="ggd_ad_network_auto_publish" className="cursor-pointer font-bold text-xs">
+                    Dual-Publishing: Auto-syndicate all created banner adverts to GGD Network (Default: ON)
+                  </Label>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="ggd_display_network_ads"
+                    checked={get("ggd_display_network_ads") !== "false"}
+                    onChange={(e) => set("ggd_display_network_ads", e.target.checked ? "true" : "false")}
+                    className="h-5 w-5 accent-primary"
+                  />
+                  <Label htmlFor="ggd_display_network_ads" className="cursor-pointer font-bold text-xs">
+                    Rotate GGD partner ads inside banner ad placements (Default: ON)
+                  </Label>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="ggd_ad_network_enabled"
+                    checked={get("ggd_ad_network_enabled") !== "false"}
+                    onChange={(e) => set("ggd_ad_network_enabled", e.target.checked ? "true" : "false")}
+                    className="h-5 w-5 accent-primary"
+                  />
+                  <Label htmlFor="ggd_ad_network_enabled" className="cursor-pointer font-bold text-xs">
+                    Enable GGD Ad Network Integration (Default: ON)
+                  </Label>
+                </div>
               </div>
             </CardContent>
           </Card>

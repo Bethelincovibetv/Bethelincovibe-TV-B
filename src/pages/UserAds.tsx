@@ -15,11 +15,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import {
   ArrowLeft, Megaphone, Upload, Wallet, Sparkles, Image as ImageIcon,
   BarChart3, RefreshCw, Clock, Calendar, CheckCircle2, AlertCircle,
-  ExternalLink, Eye, MousePointer, PlusCircle, TrendingUp, Copy, Check
+  ExternalLink, Eye, MousePointer, PlusCircle, TrendingUp, Copy, Check,
+  Globe
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
+import { publishAdToGgd, getGgdConfig } from "@/services/ggdAdNetworkService";
 
 export const PLACEMENT_OPTIONS = [
   { id: "blog", label: "Blog Articles & Guides", desc: "Shown across top editorial stories & sourcing posts" },
@@ -130,6 +132,8 @@ export default function UserAds() {
     const placementString = selectedPlacements.join(",");
 
     try {
+      let createdAdId: string | undefined = undefined;
+
       // 1. Attempt edge function submission first
       let edgeSuccess = false;
       try {
@@ -145,6 +149,7 @@ export default function UserAds() {
         });
         if (!error && !(data as any)?.error) {
           edgeSuccess = true;
+          createdAdId = (data as any)?.ad?.id || (data as any)?.id;
         }
       } catch {
         edgeSuccess = false;
@@ -179,7 +184,7 @@ export default function UserAds() {
         const now = new Date();
         const ends = new Date(now.getTime() + duration * 86400000);
 
-        const { error: dbError } = await supabase.from("user_ads").insert({
+        const { data: insertedRow, error: dbError } = await supabase.from("user_ads").insert({
           user_id: user.id,
           title: title.trim(),
           description: description.trim() || null,
@@ -195,12 +200,33 @@ export default function UserAds() {
           approved_by: autoApprove ? "system_auto" : null,
           impressions: 0,
           clicks: 0,
-        });
+        }).select("id").maybeSingle();
 
         if (dbError) throw dbError;
+        if (insertedRow?.id) createdAdId = insertedRow.id;
       }
 
-      toast.success("Ad campaign successfully created & submitted! Ad is now active in delivery pool.");
+      // 3. Dual-Publishing System: Automatically Syndicate to GGD Ad Network
+      try {
+        const ggdCfg = await getGgdConfig();
+        if (ggdCfg.enabled && ggdCfg.autoPublish) {
+          const ggdRes = await publishAdToGgd({
+            title: title.trim(),
+            description: description.trim() || undefined,
+            target_url: targetUrl.trim(),
+            image_url: imageUrl || undefined,
+            duration_days: duration,
+            local_ad_id: createdAdId,
+          });
+          if (ggdRes.success) {
+            console.log("Dual-publishing to GGD Network succeeded:", ggdRes.ggd_ad_id);
+          }
+        }
+      } catch (ggdErr) {
+        console.warn("GGD dual-publishing notice:", ggdErr);
+      }
+
+      toast.success("Ad campaign successfully created & published! Also syndicated to GGD Ad Network.");
       setTitle("");
       setDescription("");
       setTargetUrl("");
@@ -525,6 +551,10 @@ export default function UserAds() {
               <div>
                 <p className="text-xs text-muted-foreground font-semibold">Total Campaign Cost ({duration} days)</p>
                 <p className="text-2xl font-black text-primary">₦{totalCost.toLocaleString()}</p>
+                <div className="flex items-center gap-1.5 text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1">
+                  <Globe className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                  <span>2-in-1 Publishing: Simultaneously syndicated to GGD Ad Network</span>
+                </div>
                 {balance < totalCost && (
                   <p className="text-[11px] text-rose-500 font-semibold mt-0.5">
                     Needs ₦{(totalCost - balance).toLocaleString()} more in wallet
@@ -610,6 +640,11 @@ export default function UserAds() {
                             {a.placement && (
                               <Badge variant="outline" className="text-[9px] font-semibold">
                                 {a.placement}
+                              </Badge>
+                            )}
+                            {a.ggd_ad_id && (
+                              <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-[9px] font-extrabold flex items-center gap-1">
+                                <Globe className="h-2.5 w-2.5" /> GGD Synced
                               </Badge>
                             )}
                           </div>

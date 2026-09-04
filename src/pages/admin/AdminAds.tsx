@@ -17,6 +17,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow, isPast } from "date-fns";
+import AdminGgdNetworkPanel from "@/components/admin/AdminGgdNetworkPanel";
+import { getGgdConfig, syndicateExistingAdToGgd } from "@/services/ggdAdNetworkService";
 
 export default function AdminAds() {
   const qc = useQueryClient();
@@ -163,7 +165,24 @@ export default function AdminAds() {
     if (rpcErr) { toast.error(rpcErr.message); return; }
     const { error: upErr } = await supabase.from("user_ads").update({ placement }).eq("id", id);
     if (upErr) toast.error(upErr.message);
-    else { toast.success(`Approved & live on: ${placement}`); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
+    else {
+      toast.success(`Approved & live on: ${placement}`);
+      qc.invalidateQueries({ queryKey: ["admin-ads"] });
+      // Syndicate to GGD Ad Network simultaneously
+      try {
+        const ggdCfg = await getGgdConfig();
+        if (ggdCfg.autoPublish) {
+          syndicateExistingAdToGgd(id).then((res) => {
+            if (res.success) {
+              toast.success("Syndicated to GGD Ad Network!");
+              qc.invalidateQueries({ queryKey: ["admin-ads"] });
+            }
+          });
+        }
+      } catch (e) {
+        console.debug("GGD auto syndication error:", e);
+      }
+    }
   };
 
   const togglePlacement = (adId: string, key: string) => {
@@ -390,8 +409,12 @@ export default function AdminAds() {
       </Card>
 
       <Tabs defaultValue="ads" className="w-full">
-        <TabsList className="rounded-2xl p-1 bg-muted/60">
+        <TabsList className="rounded-2xl p-1 bg-muted/60 flex flex-wrap">
           <TabsTrigger value="ads" className="rounded-xl font-bold text-xs">User Campaign Ads ({ads.length})</TabsTrigger>
+          <TabsTrigger value="ggd" className="rounded-xl font-bold text-xs flex items-center gap-1.5 text-indigo-600 data-[state=active]:text-indigo-600">
+            <Globe className="h-3.5 w-3.5 text-indigo-500" /> GGD Ad Network
+            <Badge className="bg-emerald-500/15 text-emerald-600 text-[10px] py-0 px-1 font-extrabold border-emerald-500/30">Active</Badge>
+          </TabsTrigger>
           <TabsTrigger value="keys" className="rounded-xl font-bold text-xs">API Keys ({keys.length})</TabsTrigger>
           <TabsTrigger value="embed" className="rounded-xl font-bold text-xs">Embed Snippet</TabsTrigger>
         </TabsList>
@@ -493,6 +516,15 @@ export default function AdminAds() {
                           <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground">
                             {a.source || "web"}
                           </Badge>
+                          {a.ggd_ad_id ? (
+                            <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-[9px] font-extrabold flex items-center gap-1">
+                              <Globe className="h-2.5 w-2.5" /> GGD Synced
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[9px] text-muted-foreground/70 font-medium">
+                              GGD: Pending
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Cost Placed Badge */}
@@ -612,6 +644,28 @@ export default function AdminAds() {
                         >
                           <RefreshCw className="h-3 w-3 mr-1" />
                           {isExpired ? "Reactivate Ad" : "Extend Duration"}
+                        </Button>
+
+                        {/* Syndicate to GGD Ad Network Button */}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={async () => {
+                            toast.loading(`Syndicating "${a.title}" to GGD Ad Network...`);
+                            const res = await syndicateExistingAdToGgd(a.id);
+                            toast.dismiss();
+                            if (res.success) {
+                              toast.success(res.message);
+                              qc.invalidateQueries({ queryKey: ["admin-ads"] });
+                            } else {
+                              toast.error(res.message);
+                            }
+                          }}
+                          className="rounded-xl text-xs font-bold text-purple-600 hover:bg-purple-500/10 border-purple-500/30"
+                          title="Publish to GGD Ad Network"
+                        >
+                          <Globe className="h-3 w-3 mr-1" />
+                          {a.ggd_ad_id ? "Re-sync GGD" : "Syndicate GGD"}
                         </Button>
 
                         {a.status === "active" && !isExpired && (
@@ -745,6 +799,10 @@ export default function AdminAds() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
+        </TabsContent>
+
+        <TabsContent value="ggd" className="mt-4">
+          <AdminGgdNetworkPanel />
         </TabsContent>
 
         <TabsContent value="keys" className="space-y-3 mt-4">

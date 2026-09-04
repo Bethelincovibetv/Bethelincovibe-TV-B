@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import LiveRotatingAdvert, { AdvertItem } from "@/components/ads/LiveRotatingAdvert";
+import { fetchGgdAds, trackGgdEvent } from "@/services/ggdAdNetworkService";
 
 export interface ProgrammaticAdBannerProps {
   placement?:
@@ -284,7 +285,33 @@ export default function ProgrammaticAdBanner({
           }
         } catch {}
 
-        // Strategy C: Curated high-converting ecosystem spots for live psychology-driven rotation
+        // Strategy C: Live GGD Ad Network partner ads integration
+        try {
+          const ggdRes = await fetchGgdAds(6);
+          if (ggdRes.success && ggdRes.ads && ggdRes.ads.length > 0) {
+            ggdRes.ads.forEach((item) => {
+              if (item.image_url && !fetchedAds.some((a) => a.id === item.id)) {
+                fetchedAds.push({
+                  id: item.id,
+                  title: item.title,
+                  description: item.description,
+                  image_url: item.image_url,
+                  target_url: item.target_url,
+                  click_url: item.target_url,
+                  sponsor_name: "GGD Partner Network",
+                  badge_text: "GGD Ad Network",
+                  urgency_tag: "🌐 Live Network Sponsor",
+                  social_proof: "Syndicated via GGD Ad Network",
+                  is_verified: true,
+                });
+              }
+            });
+          }
+        } catch (e) {
+          console.debug("GGD ad fetch note:", e);
+        }
+
+        // Strategy D: Curated high-converting ecosystem spots for live psychology-driven rotation
         const curatedCategory =
           CURATED_ECOSYSTEM_ADS[targetPlacement] ||
           (targetPlacement.includes("blog") ? CURATED_ECOSYSTEM_ADS.blog : null) ||
@@ -317,6 +344,10 @@ export default function ProgrammaticAdBanner({
 
   const handleImpression = async (ad: AdvertItem) => {
     if (!ad || !ad.id || ad.id.startsWith("curated-")) return;
+    // Track on GGD Ad Network if it's a GGD ad
+    if (ad.sponsor_name === "GGD Partner Network" || ad.badge_text === "GGD Ad Network") {
+      trackGgdEvent(ad.id, "impression");
+    }
     try {
       await supabase.from("ad_events").insert({
         ad_id: ad.id,
@@ -328,6 +359,10 @@ export default function ProgrammaticAdBanner({
 
   const handleAdClick = async (ad: AdvertItem) => {
     if (!ad || !ad.id || ad.id.startsWith("curated-")) return;
+    // Track on GGD Ad Network if it's a GGD ad
+    if (ad.sponsor_name === "GGD Partner Network" || ad.badge_text === "GGD Ad Network") {
+      trackGgdEvent(ad.id, "click");
+    }
     try {
       await supabase.rpc("record_ad_click", { _ad_id: ad.id });
     } catch {
