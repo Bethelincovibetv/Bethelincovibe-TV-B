@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { supabase } from "@/integrations/supabase/client";
 import { getHealthyGeminiClient } from "@/lib/multiApiKeyManager";
+import { getActiveGeminiModelId } from "@/lib/geminiModelRegistry";
 
 export interface StrategicDirective {
   id: string;
@@ -377,7 +378,7 @@ Return ONLY valid JSON matching this exact structure:
 }`;
 
       const response = await gemini.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: getActiveGeminiModelId(),
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
 
@@ -495,7 +496,7 @@ Return ONLY valid JSON:
 }`;
 
       const res = await gemini.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: getActiveGeminiModelId(),
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
 
@@ -649,7 +650,7 @@ Return ONLY valid JSON matching this exact structure:
 }`;
 
       const res = await gemini.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: getActiveGeminiModelId(),
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
 

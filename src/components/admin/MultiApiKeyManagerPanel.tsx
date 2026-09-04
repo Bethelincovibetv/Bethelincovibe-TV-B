@@ -56,6 +56,7 @@ import {
   testFeatureConnection,
   PLATFORM_AI_FEATURES,
 } from "@/lib/multiApiKeyManager";
+import DynamicGeminiModelManagerCard from "@/components/admin/DynamicGeminiModelManagerCard";
 
 export interface FeatureTestStatus {
   testing: boolean;
@@ -756,7 +757,10 @@ export default function MultiApiKeyManagerPanel() {
         </CardContent>
       </Card>
 
-      {/* SECTION 2: AI Features Connection & Key Routing Matrix */}
+      {/* SECTION 2: Dynamic Gemini Models Engine & Auto-Discovery */}
+      <DynamicGeminiModelManagerCard />
+
+      {/* SECTION 3: AI Features Connection & Key Routing Matrix */}
       <Card className="border-2 shadow-md rounded-3xl overflow-hidden">
         <CardHeader className="bg-muted/40 border-b p-4 sm:p-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
