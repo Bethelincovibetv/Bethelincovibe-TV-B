@@ -48,7 +48,10 @@ import {
   ArrowRight,
   ChevronRight,
   FileCheck,
+  Camera,
+  Upload,
 } from "lucide-react";
+import StockPhotoPickerModal from "@/components/directory/StockPhotoPickerModal";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   getProviderServices,
@@ -117,6 +120,10 @@ export default function ServiceManagementPage() {
   const [previewService, setPreviewService] = useState<ServiceItem | null>(null);
   const [videoModalUrl, setVideoModalUrl] = useState<string | null>(null);
   const [sampleModal, setSampleModal] = useState<ServicePortfolioSample | null>(null);
+
+  // Stock photo library & direct upload picker
+  const [stockPickerOpen, setStockPickerOpen] = useState(false);
+  const [stockTarget, setStockTarget] = useState<"cover" | "sample">("cover");
 
   // Manual booking modal state
   const [manualBookingModalOpen, setManualBookingModalOpen] = useState(false);
@@ -1259,6 +1266,82 @@ export default function ServiceManagementPage() {
                 </div>
               </div>
 
+              {/* Service Cover Photo & Stock Library Integration */}
+              <div className="border border-border/80 rounded-2xl p-4 bg-card space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-black flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-primary" /> Service Cover Photo
+                  </Label>
+                  <span className="text-[10px] text-muted-foreground font-semibold">Attracts 3x more bookings</span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 items-start">
+                  {serviceForm.image_url ? (
+                    <div className="relative w-full sm:w-44 aspect-[16/10] rounded-xl overflow-hidden border border-border/80 shrink-0 bg-muted/40 shadow-xs">
+                      <img
+                        src={serviceForm.image_url}
+                        alt="Service Cover Preview"
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setServiceForm({ ...serviceForm, image_url: "" })}
+                        className="absolute top-1.5 right-1.5 bg-black/70 hover:bg-destructive text-white rounded-lg p-1 transition-colors"
+                        title="Remove Photo"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="w-full sm:w-44 aspect-[16/10] rounded-xl border-2 border-dashed border-border/80 flex flex-col items-center justify-center text-muted-foreground shrink-0 bg-muted/20">
+                      <Camera className="w-6 h-6 mb-1 opacity-50" />
+                      <span className="text-[10px] font-bold">No photo selected</span>
+                    </div>
+                  )}
+
+                  <div className="flex-1 space-y-2.5 w-full">
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => {
+                          setStockTarget("cover");
+                          setStockPickerOpen(true);
+                        }}
+                        className="rounded-xl text-xs font-bold gap-1.5 bg-gradient-to-r from-primary to-indigo-600 text-white shadow-xs"
+                      >
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        Explore Stock Library
+                      </Button>
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setStockTarget("cover");
+                          setStockPickerOpen(true);
+                        }}
+                        className="rounded-xl text-xs font-bold gap-1.5"
+                      >
+                        <Upload className="w-3.5 h-3.5 text-primary" />
+                        Upload Direct Photo
+                      </Button>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-muted-foreground font-semibold">Or paste image URL directly:</span>
+                      <Input
+                        placeholder="https://images.unsplash.com/... or image link"
+                        value={serviceForm.image_url}
+                        onChange={(e) => setServiceForm({ ...serviceForm, image_url: e.target.value })}
+                        className="rounded-xl text-xs h-8 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Pricing Grid */}
               <div className="p-4 bg-muted/30 border border-border/80 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between">
@@ -1480,12 +1563,26 @@ export default function ServiceManagementPage() {
                       onChange={(e) => setSampleForm({ ...sampleForm, title: e.target.value })}
                       className="rounded-xl text-xs h-9"
                     />
-                    <Input
-                      placeholder="Screenshot / Image URL (e.g. https://...)..."
-                      value={sampleForm.image_url}
-                      onChange={(e) => setSampleForm({ ...sampleForm, image_url: e.target.value })}
-                      className="rounded-xl text-xs h-9"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <Input
+                        placeholder="Screenshot / Image URL (e.g. https://...)..."
+                        value={sampleForm.image_url}
+                        onChange={(e) => setSampleForm({ ...sampleForm, image_url: e.target.value })}
+                        className="rounded-xl text-xs h-9 flex-1"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setStockTarget("sample");
+                          setStockPickerOpen(true);
+                        }}
+                        className="rounded-xl text-xs font-bold h-9 px-2.5 shrink-0 gap-1"
+                      >
+                        <Camera className="w-3.5 h-3.5 text-primary" /> Stock / Upload
+                      </Button>
+                    </div>
                     <Input
                       placeholder="Short result summary (e.g. 24/7 power achieved with zero grid outages)..."
                       value={sampleForm.description}
@@ -1782,6 +1879,21 @@ export default function ServiceManagementPage() {
             </DialogContent>
           </Dialog>
         )}
+
+        {/* ===================== STOCK PHOTO LIBRARY & DIRECT UPLOAD MODAL ===================== */}
+        <StockPhotoPickerModal
+          open={stockPickerOpen}
+          onOpenChange={setStockPickerOpen}
+          defaultCategory={serviceForm.category}
+          currentPhotoUrl={stockTarget === "cover" ? serviceForm.image_url : sampleForm.image_url}
+          onSelectPhoto={(url) => {
+            if (stockTarget === "cover") {
+              setServiceForm({ ...serviceForm, image_url: url });
+            } else {
+              setSampleForm({ ...sampleForm, image_url: url });
+            }
+          }}
+        />
       </div>
     </>
   );

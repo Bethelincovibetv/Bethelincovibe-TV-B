@@ -18,8 +18,9 @@ import {
   Package, Plus, Loader2, Trash2, Copy, Pencil, Eye, EyeOff, ImagePlus,
   Download, Users, TrendingUp, Wallet, CreditCard, FileUp, Video,
   ArrowLeft, ExternalLink, Sparkles, CheckCircle2, AlertCircle, ShoppingBag,
-  Zap, Play, ShieldCheck, Share2
+  Zap, Play, ShieldCheck, Share2, BarChart3
 } from "lucide-react";
+import ProductBoostAnalyticsModal from "@/components/directory/ProductBoostAnalyticsModal";
 import ProductVideo from "@/components/directory/ProductVideo";
 import PhoneInput from "@/components/PhoneInput";
 import { slugify } from "@/lib/seo";
@@ -136,6 +137,10 @@ export default function UnifiedProductManager({
   const [selectedProductForBoost, setSelectedProductForBoost] = useState<any>(null);
   const [selectedPackage, setSelectedPackage] = useState(BOOST_PACKAGES[0]);
   const [boosting, setBoosting] = useState(false);
+
+  // Boost Analytics Dialog
+  const [analyticsOpen, setAnalyticsOpen] = useState(false);
+  const [analyticsProduct, setAnalyticsProduct] = useState<any>(null);
 
   // Delete dialog
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -1304,6 +1309,19 @@ export default function UnifiedProductManager({
                               </Button>
                             </div>
 
+                            {/* Performance & Boost Analytics Action Button */}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAnalyticsProduct(p);
+                                setAnalyticsOpen(true);
+                              }}
+                              className="w-full rounded-xl text-xs font-bold gap-1.5 h-8 bg-card border-primary/30 text-foreground hover:bg-primary/5 hover:border-primary"
+                            >
+                              <BarChart3 className="h-3.5 w-3.5 text-primary" /> Boost &amp; Traffic Analytics
+                            </Button>
+
                             <div className="flex items-center justify-between gap-1">
                               <Button
                                 size="sm"
@@ -1457,6 +1475,18 @@ export default function UnifiedProductManager({
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* PRODUCT BOOST & PERFORMANCE ANALYTICS MODAL */}
+      <ProductBoostAnalyticsModal
+        open={analyticsOpen}
+        onOpenChange={setAnalyticsOpen}
+        product={analyticsProduct}
+        onBoostClick={() => {
+          setSelectedProductForBoost(analyticsProduct);
+          setSelectedPackage(BOOST_PACKAGES[0]);
+          setBoostOpen(true);
+        }}
+      />
     </div>
   );
 }

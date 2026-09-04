@@ -25,6 +25,7 @@ import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
+import { subscribeToUserRealtimeNotifications } from "@/services/firebaseRealtimeNotificationService";
 
 export type NotificationItem = {
   id: string;
@@ -99,6 +100,16 @@ export default function UserNotificationsPage() {
     if (!user) return;
     loadNotifications(false);
 
+    // 1. Firebase Firestore real-time subscription
+    const unsubFirestore = subscribeToUserRealtimeNotifications(user.id, () => {
+      loadNotifications(true);
+    });
+
+    // 2. Custom window event listener
+    const handleWindowNotif = () => loadNotifications(true);
+    window.addEventListener("btv_realtime_notification", handleWindowNotif);
+
+    // 3. Supabase Postgres channel fallback
     const channel = supabase
       .channel(`page_notif_${user.id}_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
@@ -107,6 +118,8 @@ export default function UserNotificationsPage() {
       .subscribe();
 
     return () => {
+      unsubFirestore();
+      window.removeEventListener("btv_realtime_notification", handleWindowNotif);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

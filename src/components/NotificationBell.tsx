@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
 import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
+import { subscribeToUserRealtimeNotifications } from "@/services/firebaseRealtimeNotificationService";
 
 type N = { id: string; title: string; body: string | null; url: string | null; is_read: boolean; created_at: string; type: string };
 
@@ -45,13 +46,29 @@ export default function NotificationBell() {
   useEffect(() => {
     if (!user) return;
     load(false);
+
+    // 1. Firebase Firestore real-time push subscription
+    const unsubFirestore = subscribeToUserRealtimeNotifications(user.id, () => {
+      load(true);
+    });
+
+    // 2. Custom window event listener for real-time internal updates
+    const handleWindowNotif = () => load(true);
+    window.addEventListener("btv_realtime_notification", handleWindowNotif);
+
+    // 3. Supabase Postgres channel fallback
     const channel = supabase
       .channel(`notif_${user.id}_${Math.random().toString(36).slice(2)}`)
       .on("postgres_changes",
         { event: "INSERT", schema: "public", table: "user_notifications", filter: `user_id=eq.${user.id}` },
         () => load(true))
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => {
+      unsubFirestore();
+      window.removeEventListener("btv_realtime_notification", handleWindowNotif);
+      supabase.removeChannel(channel);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 

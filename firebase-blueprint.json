@@ -232,6 +232,70 @@
         }
       },
       "required": ["userId", "status"]
+    },
+    "BusinessRequest": {
+      "title": "BusinessRequest",
+      "description": "A matchmaking buyer request for services, wholesale supplies, or products.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "user_id": { "type": "string", "maxLength": 128 },
+        "requester_name": { "type": "string", "maxLength": 100 },
+        "requester_avatar": { "type": "string" },
+        "title": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "budget": { "type": "number" },
+        "target_location": { "type": "string", "maxLength": 100 },
+        "urgency": { "type": "string", "enum": ["immediate", "within_48h", "this_week", "flexible"] },
+        "status": { "type": "string", "enum": ["open", "matched", "in_progress", "completed", "cancelled"] },
+        "offers_count": { "type": "number" },
+        "matched_provider_ids": { "type": "array" },
+        "specific_requirements": { "type": "array" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id", "user_id", "title", "description", "category", "status"]
+    },
+    "ProviderOffer": {
+      "title": "ProviderOffer",
+      "description": "A provider quotation, proposal, or bid on a business request.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "request_id": { "type": "string", "maxLength": 128 },
+        "provider_id": { "type": "string", "maxLength": 128 },
+        "provider_name": { "type": "string", "maxLength": 100 },
+        "provider_business_id": { "type": "string", "maxLength": 128 },
+        "provider_avatar": { "type": "string" },
+        "provider_whatsapp": { "type": "string", "maxLength": 50 },
+        "proposed_price": { "type": "number" },
+        "delivery_timeframe": { "type": "string", "maxLength": 100 },
+        "proposal_pitch": { "type": "string", "maxLength": 2000 },
+        "portfolio_samples": { "type": "array" },
+        "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "withdrawn"] },
+        "ai_match_score": { "type": "number" },
+        "created_at": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id", "request_id", "provider_id", "proposed_price", "proposal_pitch", "status"]
+    },
+    "UserLiveNotification": {
+      "title": "UserLiveNotification",
+      "description": "A real-time notification pushed to a specific user across devices.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "recipient_user_id": { "type": "string", "maxLength": 128 },
+        "recipient_name": { "type": "string", "maxLength": 100 },
+        "title": { "type": "string", "maxLength": 200 },
+        "body": { "type": "string", "maxLength": 1000 },
+        "type": { "type": "string", "maxLength": 64 },
+        "link_url": { "type": "string" },
+        "read": { "type": "boolean" },
+        "created_at": { "type": "string" }
+      },
+      "required": ["id", "recipient_user_id", "title", "body", "read"]
     }
   },
   "firestore": {
@@ -250,6 +314,18 @@
     "/presence/{userId}": {
       "schema": "UserPresence",
       "description": "Global presence indicators for active users on the platform."
+    },
+    "/business_requests/{requestId}": {
+      "schema": "BusinessRequest",
+      "description": "Real-time pool of business and service matching requests."
+    },
+    "/provider_offers/{offerId}": {
+      "schema": "ProviderOffer",
+      "description": "Real-time pool of provider bids and quotations on requests."
+    },
+    "/user_notifications/{notificationId}": {
+      "schema": "UserLiveNotification",
+      "description": "Real-time user personalized notifications delivered instantly."
     }
   }
 }

@@ -76,6 +76,36 @@ service cloud.firestore {
       allow read, write: if isSignedIn();
     }
 
+    match /business_requests/{requestId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(requestId);
+      allow update: if isSignedIn() && isValidId(requestId);
+      allow delete: if isSignedIn() && isValidId(requestId);
+    }
+
+    match /provider_offers/{offerId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(offerId);
+      allow update: if isSignedIn() && isValidId(offerId);
+      allow delete: if isSignedIn() && isValidId(offerId);
+    }
+
+    match /provider_opportunity_preferences/{userId} {
+      allow read, write: if isSignedIn() && isValidId(userId);
+    }
+
+    match /admin_matching_config/{configId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    match /user_notifications/{notificationId} {
+      allow read, list: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(notificationId);
+      allow update: if isSignedIn() && isValidId(notificationId);
+      allow delete: if isSignedIn() && isValidId(notificationId);
+    }
+
     match /test/connection {
       allow read, write: if true;
     }

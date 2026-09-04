@@ -83,7 +83,7 @@ export async function fetchUserNameById(userId: string): Promise<string> {
 }
 
 /**
- * Ensures template tags are populated cleanly without prepending unwanted watermarks or prefixes.
+ * Ensures template tags are populated cleanly and the user's name is incorporated.
  */
 export function personalizeNotificationTitle(title: string | null | undefined, userName?: string): string {
   if (!title) return "Notification";
@@ -98,7 +98,7 @@ export function personalizeNotificationTitle(title: string | null | undefined, u
 }
 
 /**
- * Ensures template tags are populated cleanly without prepending unwanted watermarks or prefixes.
+ * Ensures every notification body addresses the user personalized with their username.
  */
 export function personalizeNotificationBody(body: string | null | undefined, userName?: string): string {
   if (!body) return "";
@@ -108,6 +108,16 @@ export function personalizeNotificationBody(body: string | null | undefined, use
   // Replace common template tags if present
   b = b.replace(/\{\{\s*(name|username|displayName|user)\s*\}\}/gi, safeName);
   b = b.replace(/\{\s*(name|username|displayName|user)\s*\}/gi, safeName);
+
+  // If the body does not already contain the user's name or a greeting, weave it in naturally
+  const containsName = b.toLowerCase().includes(safeName.toLowerCase());
+  if (!containsName) {
+    if (/^(hi|hello|hey|welcome|congrats|congratulations)\b/i.test(b)) {
+      b = b.replace(/^(hi|hello|hey|welcome)\s*([^,.:!]*)[,.:!]/i, `$1 ${safeName},`);
+    } else {
+      b = `Hi ${safeName}, ${b.charAt(0).toLowerCase() + b.slice(1)}`;
+    }
+  }
 
   return b;
 }

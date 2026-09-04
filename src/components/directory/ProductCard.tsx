@@ -19,6 +19,8 @@ export type DirectoryProduct = {
   cover_image?: string | null;
   images?: any;
   featured?: boolean | null;
+  views_count?: number | null;
+  created_at?: string | null;
   categories?: { name: string; slug: string } | null;
 };
 
@@ -31,9 +33,15 @@ export function formatPrice(price?: number | null, currency?: string | null) {
 export default function ProductCard({
   product: p,
   view = "grid",
+  rankBadge,
+  isNewArrival,
+  timeAgo,
 }: {
   product: DirectoryProduct;
   view?: "grid" | "list";
+  rankBadge?: { rank: number; label?: string };
+  isNewArrival?: boolean;
+  timeAgo?: string;
 }) {
   const imgs: string[] = Array.isArray(p.images) ? p.images : [];
   const hero = p.cover_image || imgs[0] || null;
@@ -65,8 +73,16 @@ export default function ProductCard({
       )}
 
       {/* Featured / Type Overlay Badges */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none">
-        {p.featured ? (
+      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none gap-1">
+        {rankBadge ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-rose-600 via-orange-600 to-amber-500 px-2.5 py-0.5 text-[10px] font-black text-white shadow-lg border border-white/40 uppercase tracking-wider">
+            <span className="text-xs">🔥</span> #{rankBadge.rank} {rankBadge.label || "Trending"}
+          </span>
+        ) : isNewArrival ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-2.5 py-0.5 text-[10px] font-black text-white shadow-lg border border-white/40 uppercase tracking-wider">
+            <Sparkles className="h-2.5 w-2.5" /> New {timeAgo ? `• ${timeAgo}` : ""}
+          </span>
+        ) : p.featured ? (
           <Badge className="h-6 gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] font-black text-white shadow-md border-0 uppercase tracking-wider">
             <Sparkles className="h-3 w-3" /> Featured
           </Badge>
