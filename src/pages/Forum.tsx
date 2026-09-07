@@ -133,18 +133,30 @@ export default function Forum() {
     let map: Record<string, AuthorProfileData> = {};
     if (ids.length) {
       const [profsRes, suppsRes] = await Promise.all([
-        supabase.from("profiles").select("user_id,display_name,username,avatar_url").in("user_id", ids),
-        supabase.from("suppliers").select("id,user_id,name,slug,logo_url,is_verified,website,status").in("user_id", ids),
+        supabase.from("profiles").select("user_id,display_name,username,avatar_url,email").in("user_id", ids),
+        supabase.from("suppliers").select("id,user_id,submitted_by,name,slug,logo_url,is_verified,website,status").or(
+          ids.map(uid => `user_id.eq.${uid},submitted_by.eq.${uid}`).join(",")
+        ),
       ]);
       (profsRes.data || []).forEach((p: any) => {
-        map[p.user_id] = { ...p, business: null };
+        let displayName = p.display_name?.trim() || p.username?.trim();
+        if (!displayName && p.email) {
+          const clean = p.email.split("@")[0].replace(/[._\d]+$/, "").replace(/[._]/g, " ");
+          if (clean.trim()) {
+            displayName = clean.split(" ").map((x: string) => x.charAt(0).toUpperCase() + x.slice(1)).join(" ");
+          }
+        }
+        map[p.user_id] = { ...p, display_name: displayName || null, business: null };
       });
       (suppsRes.data || []).forEach((supp: any) => {
-        if (supp.user_id) {
-          if (!map[supp.user_id]) {
-            map[supp.user_id] = { user_id: supp.user_id, display_name: supp.name };
+        const uId = supp.user_id || supp.submitted_by;
+        if (uId) {
+          if (!map[uId]) {
+            map[uId] = { user_id: uId, display_name: supp.name };
+          } else if (!map[uId].display_name) {
+            map[uId].display_name = supp.name;
           }
-          map[supp.user_id].business = supp;
+          map[uId].business = supp;
         }
       });
     }

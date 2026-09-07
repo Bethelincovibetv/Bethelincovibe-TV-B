@@ -143,14 +143,19 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[95vw] sm:max-w-lg max-h-[92vh] sm:max-h-[88vh] flex flex-col p-0 overflow-hidden rounded-3xl border-border/80 shadow-2xl bg-card">
+      <DialogContent className="w-[96vw] sm:max-w-lg max-h-[92dvh] sm:max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-3xl border-border/80 shadow-2xl bg-card">
+        {/* Mobile Pull-Down Indicator */}
+        <div className="sm:hidden pt-2.5 pb-1 flex justify-center shrink-0">
+          <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
+        </div>
+
         {/* Header */}
-        <DialogHeader className="px-4 sm:px-6 pt-5 pb-3 border-b bg-muted/20 text-left shrink-0">
+        <DialogHeader className="px-4 sm:px-6 pt-2 sm:pt-5 pb-3 border-b bg-muted/20 text-left shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 ring-1 ring-emerald-500/20">
               <MessageCircle className="w-5 h-5" />
             </div>
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 pr-6">
               <DialogTitle className="text-base sm:text-lg font-black text-foreground tracking-tight">
                 Create Chat Room
               </DialogTitle>
@@ -162,12 +167,17 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
         </DialogHeader>
 
         {/* Scrollable Form Body */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4">
+        <form id="create-chat-room-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4 touch-auto">
           {/* Room Type Selector */}
-          <div className="space-y-1.5">
-            <Label className="text-[11px] font-black text-muted-foreground uppercase tracking-wider">
-              Channel Category
-            </Label>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-[11px] font-black text-muted-foreground uppercase tracking-wider">
+                Channel Category
+              </Label>
+              <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                {ROOM_TYPES.find((r) => r.type === roomType)?.badge}
+              </span>
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               {ROOM_TYPES.map((rt) => {
                 const isSelected = roomType === rt.type;
@@ -177,21 +187,26 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
                     key={rt.type}
                     type="button"
                     onClick={() => setRoomType(rt.type)}
-                    className={`p-3 rounded-2xl border text-left flex flex-col justify-between gap-2 transition-all min-h-[72px] sm:min-h-[84px] ${
+                    className={`p-3 rounded-2xl border text-left flex sm:flex-col items-center sm:items-start justify-between sm:justify-between gap-2.5 transition-all min-h-[58px] sm:min-h-[84px] active:scale-[0.98] ${
                       isSelected
                         ? "border-emerald-500 bg-emerald-500/10 ring-2 ring-emerald-500/20 shadow-xs"
                         : "border-border/80 hover:border-border hover:bg-muted/40"
                     }`}
                   >
-                    <div className="flex items-center justify-between w-full">
-                      <div className={`p-1 rounded-lg ${isSelected ? "bg-emerald-500/20 text-emerald-600" : "text-muted-foreground"}`}>
+                    <div className="flex items-center gap-2.5 sm:w-full sm:justify-between">
+                      <div className={`p-1.5 rounded-xl shrink-0 ${isSelected ? "bg-emerald-500/20 text-emerald-600" : "bg-muted text-muted-foreground"}`}>
                         <Icon className="w-4 h-4" />
                       </div>
-                      <Badge variant="outline" className={`text-[9px] py-0 px-1.5 font-bold ${isSelected ? "border-emerald-500 text-emerald-700 dark:text-emerald-300" : ""}`}>
-                        {rt.badge}
-                      </Badge>
+                      <div className="sm:hidden">
+                        <p className="text-xs font-bold text-foreground leading-tight">
+                          {rt.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground line-clamp-1">
+                          {rt.desc}
+                        </p>
+                      </div>
                     </div>
-                    <div>
+                    <div className="hidden sm:block">
                       <p className="text-xs font-bold text-foreground leading-tight">
                         {rt.title}
                       </p>
@@ -199,6 +214,9 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
                         {rt.desc}
                       </p>
                     </div>
+                    <Badge variant="outline" className={`text-[9px] py-0 px-1.5 font-bold shrink-0 ${isSelected ? "border-emerald-500 text-emerald-700 dark:text-emerald-300" : ""}`}>
+                      {rt.badge}
+                    </Badge>
                   </button>
                 );
               })}
@@ -211,11 +229,11 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
               <Label className="text-xs font-bold text-foreground">
                 Channel Icon
               </Label>
-              <span className="text-[11px] text-muted-foreground">
-                Selected: <span className="text-base">{avatarEmoji}</span>
+              <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                Selected: <span className="text-lg leading-none">{avatarEmoji}</span>
               </span>
             </div>
-            <div className="flex gap-2 overflow-x-auto pb-1 pt-0.5 no-scrollbar touch-pan-x">
+            <div className="flex gap-2 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar touch-pan-x -mx-1 px-1">
               {EMOJI_OPTIONS.map((em) => {
                 const isSelected = avatarEmoji === em;
                 return (
@@ -223,9 +241,9 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
                     key={em}
                     type="button"
                     onClick={() => setAvatarEmoji(em)}
-                    className={`w-10 h-10 sm:w-11 sm:h-11 rounded-2xl flex items-center justify-center text-lg sm:text-xl shrink-0 border transition-all ${
+                    className={`min-w-[44px] min-h-[44px] w-11 h-11 rounded-2xl flex items-center justify-center text-xl shrink-0 border transition-all active:scale-90 ${
                       isSelected
-                        ? "border-emerald-500 bg-emerald-500/15 scale-105 shadow-sm ring-2 ring-emerald-500/30"
+                        ? "border-emerald-500 bg-emerald-500/20 scale-105 shadow-sm ring-2 ring-emerald-500/40"
                         : "border-border/80 hover:bg-muted hover:border-border"
                     }`}
                   >
@@ -242,7 +260,7 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
               <Label htmlFor="channel-name" className="text-xs font-bold text-foreground">
                 Channel Name <span className="text-destructive">*</span>
               </Label>
-              <span className="text-[10px] text-muted-foreground">
+              <span className="text-[10px] text-muted-foreground font-mono">
                 {name.length}/60
               </span>
             </div>
@@ -251,9 +269,8 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
               placeholder="e.g. Lagos Wholesale Hub, Auto Parts VIP"
               value={name}
               onChange={(e) => setName(e.target.value.slice(0, 60))}
-              className="h-11 rounded-2xl text-xs sm:text-sm bg-background border-border/80 focus-visible:ring-emerald-500"
+              className="h-12 rounded-2xl text-base sm:text-sm bg-background border-border/80 focus-visible:ring-emerald-500"
               required
-              autoFocus
             />
           </div>
 
@@ -268,21 +285,22 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
               value={description}
               onChange={(e) => setDescription(e.target.value.slice(0, 200))}
               rows={2}
-              className="rounded-2xl text-xs resize-none bg-background border-border/80 min-h-[56px] focus-visible:ring-emerald-500"
+              className="rounded-2xl text-base sm:text-xs resize-none bg-background border-border/80 min-h-[64px] focus-visible:ring-emerald-500"
             />
           </div>
 
           {/* Admin Broadcast Switch */}
-          <div className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-muted/20">
-            <div className="space-y-0.5 pr-2">
+          <div className="flex items-center justify-between p-3.5 rounded-2xl border border-border/70 bg-muted/20 gap-3">
+            <div className="space-y-0.5">
               <p className="text-xs font-bold text-foreground">Announcement Only Mode</p>
-              <p className="text-[10px] text-muted-foreground">
+              <p className="text-[10px] text-muted-foreground leading-tight">
                 Only group creator and designated admins can post messages
               </p>
             </div>
             <Switch
               checked={onlyAdminsCanPost}
               onCheckedChange={setOnlyAdminsCanPost}
+              className="shrink-0"
             />
           </div>
 
@@ -291,37 +309,38 @@ export const CreateChatRoomDialog: React.FC<CreateChatRoomDialogProps> = ({
             <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
             <span>Real-time cloud synchronization backed by Firebase Firestore.</span>
           </div>
-
-          {/* Action Footer Buttons */}
-          <div className="grid grid-cols-2 gap-2 pt-2 border-t mt-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-              className="h-11 rounded-2xl text-xs font-bold border-border"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={!name.trim() || isSubmitting}
-              className="h-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md transition-all active:scale-95 gap-1.5"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Creating...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Create Channel</span>
-                </>
-              )}
-            </Button>
-          </div>
         </form>
+
+        {/* Sticky Action Footer Outside Scroll Area for Mobile Visibility */}
+        <div className="shrink-0 p-3 sm:p-4 border-t bg-card/95 backdrop-blur-xs flex items-center gap-2.5">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+            className="flex-1 h-12 rounded-2xl text-xs font-bold border-border min-h-[44px]"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="create-chat-room-form"
+            disabled={!name.trim() || isSubmitting}
+            className="flex-[2] h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs sm:text-sm shadow-md transition-all active:scale-95 gap-1.5 min-h-[44px]"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Creating...</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Create Channel</span>
+              </>
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

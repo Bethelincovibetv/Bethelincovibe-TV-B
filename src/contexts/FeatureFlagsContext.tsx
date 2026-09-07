@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 export type FeatureKey =
   // Core Commerce & Marketplace
-  | "products" | "businesses" | "business_listing" | "business_boost" | "sales_pages" | "user_leads"
+  | "products" | "businesses" | "business_listing" | "business_boost" | "sales_pages" | "user_leads" | "matchmaker"
   // AI & Creative Studios
   | "graphic_designer" | "logo_creator" | "video_creator" | "coach" | "ai_blogger" | "ai_admin" | "ai_recommender"
   // WhatsApp & Communication
@@ -29,6 +29,7 @@ export interface FeatureMetaItem {
 
 export const FEATURE_META: FeatureMetaItem[] = [
   // Commerce & Marketplace
+  { key: "matchmaker", label: "Smart Opportunity Matchmaker & Requests", category: "commerce", description: "Customer service request posting, real-time AI opportunity matching, provider bids, and project awarding (/dashboard/my-requests, /dashboard/opportunities)" },
   { key: "products", label: "Product Marketplace", category: "commerce", description: "Public Lagos marketplace, product detail pages (/products, /products/:slug) and seller management" },
   { key: "businesses", label: "Business Directory", category: "commerce", description: "Public verified supplier and business directory profiles (/businesses)" },
   { key: "business_listing", label: "List a Business", category: "commerce", description: "Allow users and suppliers to register and list new businesses (/businesses/list)" },
@@ -106,8 +107,22 @@ const getCachedFlags = (): { flags: FlagsMap; hasCache: boolean } => {
   return { flags: defaultFlags, hasCache: false };
 };
 
+export interface FeatureFlagsContextValue {
+  flags: FlagsMap;
+  loading: boolean;
+  isFeatureEnabled: (key: FeatureKey) => boolean;
+  setFeatureFlag: (key: FeatureKey, enabled: boolean) => Promise<void>;
+  reloadFlags: () => Promise<void>;
+}
+
 const initialCached = getCachedFlags();
-const Ctx = createContext<{ flags: FlagsMap; loading: boolean }>({ flags: initialCached.flags, loading: !initialCached.hasCache });
+const Ctx = createContext<FeatureFlagsContextValue>({
+  flags: initialCached.flags,
+  loading: !initialCached.hasCache,
+  isFeatureEnabled: (k) => initialCached.flags[k] !== false,
+  setFeatureFlag: async () => {},
+  reloadFlags: async () => {},
+});
 
 export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
   const [flags, setFlags] = useState<FlagsMap>(() => getCachedFlags().flags);
@@ -133,8 +148,61 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const setFeatureFlag = async (key: FeatureKey, enabled: boolean): Promise<void> => {
+    // 1. Optimistically update local state & cache
+    const nextFlags = { ...flags, [key]: enabled };
+    setFlags(nextFlags);
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(nextFlags));
+    } catch {}
+
+    // 2. Persist to site_settings table
+    try {
+      await supabase
+        .from("site_settings")
+        .upsert({ key: `feature_${key}`, value: enabled ? "on" : "off" }, { onConflict: "key" });
+    } catch (err) {
+      console.warn("Failed to persist feature flag to site_settings:", err);
+    }
+
+    // 3. If toggling matchmaker, maintain two-way sync with matching config tables
+    if (key === "matchmaker") {
+      try {
+        await supabase
+          .from("opportunity_matching_config")
+          .update({ system_enabled: enabled, updated_at: new Date().toISOString() })
+          .eq("id", 1);
+      } catch {}
+
+      try {
+        const rawConfig = localStorage.getItem("bethel_live_matching_config");
+        if (rawConfig) {
+          const parsed = JSON.parse(rawConfig);
+          localStorage.setItem("bethel_live_matching_config", JSON.stringify({ ...parsed, system_enabled: enabled }));
+        }
+      } catch {}
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("btv_matching_config_updated", { detail: { system_enabled: enabled } }));
+      }
+    }
+
+    // 4. Dispatch instant custom window event across components
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("btv_feature_flag_changed", { detail: { key, enabled } })
+      );
+    }
+  };
+
+  const isFeatureEnabled = (key: FeatureKey): boolean => {
+    return flags[key] !== false;
+  };
+
   useEffect(() => {
     load();
+
+    // Supabase realtime channel for live multi-device admin changes
     let ch: any = null;
     try {
       ch = supabase
@@ -142,21 +210,89 @@ export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
         .on("postgres_changes", { event: "*", schema: "public", table: "site_settings" }, () => load())
         .subscribe();
     } catch {}
+
+    // Window event listeners for immediate local dispatches
+    const handleLocalFlagChange = (e: any) => {
+      const detail = e.detail;
+      if (detail?.key) {
+        setFlags((prev) => {
+          const updated = { ...prev, [detail.key]: detail.enabled };
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      } else {
+        load();
+      }
+    };
+
+    const handleMatchingConfigUpdate = (e: any) => {
+      if (e.detail?.system_enabled !== undefined) {
+        const enabled = Boolean(e.detail.system_enabled);
+        setFlags((prev) => {
+          if (prev.matchmaker === enabled) return prev;
+          const updated = { ...prev, matchmaker: enabled };
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+          } catch {}
+          return updated;
+        });
+      }
+    };
+
+    window.addEventListener("btv_feature_flag_changed", handleLocalFlagChange);
+    window.addEventListener("btv_matching_config_updated", handleMatchingConfigUpdate);
+
     return () => {
       if (ch) {
         try { supabase.removeChannel(ch); } catch {}
       }
+      window.removeEventListener("btv_feature_flag_changed", handleLocalFlagChange);
+      window.removeEventListener("btv_matching_config_updated", handleMatchingConfigUpdate);
     };
   }, []);
 
-  return <Ctx.Provider value={{ flags, loading }}>{children}</Ctx.Provider>;
+  return (
+    <Ctx.Provider
+      value={{
+        flags,
+        loading,
+        isFeatureEnabled,
+        setFeatureFlag,
+        reloadFlags: load,
+      }}
+    >
+      {children}
+    </Ctx.Provider>
+  );
 }
 
 export const useFeatureFlags = () => useContext(Ctx);
 export const useFeature = (key: FeatureKey) => useContext(Ctx).flags[key];
 
-export function FeatureGate({ feature, children }: { feature: FeatureKey; children: ReactNode }) {
-  const { flags } = useFeatureFlags();
-  if (flags[feature] === false) return <Navigate to="/" replace />;
+export interface FeatureGateProps {
+  feature: FeatureKey;
+  children: ReactNode;
+  redirectTo?: string;
+  fallback?: ReactNode;
+  silent?: boolean;
+}
+
+export function FeatureGate({
+  feature,
+  children,
+  redirectTo = "/dashboard",
+  fallback,
+}: FeatureGateProps) {
+  const { flags, loading } = useFeatureFlags();
+
+  if (loading) return null;
+
+  if (flags[feature] === false) {
+    if (fallback) return <>{fallback}</>;
+    return <Navigate to={redirectTo} replace />;
+  }
+
   return <>{children}</>;
 }

@@ -34,13 +34,20 @@ import {
 } from "@/services/opportunityMatchingRealtimeService";
 import { ProviderOpportunityPreferences } from "@/types/opportunityMatching";
 import ProviderPreferencesModal from "@/components/requests/ProviderPreferencesModal";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 export default function DashboardAIMatchmakerWidget() {
   const { user } = useAuth();
+  const { flags } = useFeatureFlags();
   const [match, setMatch] = useState<BusinessMatchResult | null>(null);
   const [profile, setProfile] = useState<UserInterestProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+
+  // If both recommender and matchmaker are disabled, hide completely
+  if (flags.matchmaker === false && flags.ai_recommender === false) {
+    return null;
+  }
 
   // Real-time Database Table Preferences State
   const [prefs, setPrefs] = useState<ProviderOpportunityPreferences | null>(null);
@@ -140,7 +147,7 @@ export default function DashboardAIMatchmakerWidget() {
         </div>
 
         <div className="flex items-center gap-2">
-          {user && (
+          {user && flags.matchmaker !== false && (
             <Button
               size="sm"
               variant="outline"
@@ -167,7 +174,7 @@ export default function DashboardAIMatchmakerWidget() {
 
       <CardContent className="p-4 sm:p-5 space-y-4">
         {/* Real-time Budget & Location Preferences Status Banner */}
-        {user && prefs && (
+        {user && prefs && flags.matchmaker !== false && (
           <div className="p-3 rounded-2xl bg-muted/40 border border-border/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
             <div className="flex items-center gap-3 flex-wrap">
               <div className="flex items-center gap-1.5 text-foreground font-bold">

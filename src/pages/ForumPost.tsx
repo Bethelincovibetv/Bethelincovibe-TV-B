@@ -45,20 +45,32 @@ export default function ForumPost() {
     const ids = Array.from(new Set([(p as any).user_id, ...((rs as any[]) || []).map((r: any) => r.user_id)]));
     
     const [profsRes, suppsRes] = await Promise.all([
-      supabase.from("profiles").select("user_id,display_name,username,avatar_url").in("user_id", ids),
-      supabase.from("suppliers").select("id,user_id,name,slug,logo_url,is_verified,website,status").in("user_id", ids),
+      supabase.from("profiles").select("user_id,display_name,username,avatar_url,email").in("user_id", ids),
+      supabase.from("suppliers").select("id,user_id,submitted_by,name,slug,logo_url,is_verified,website,status").or(
+        ids.map(uid => `user_id.eq.${uid},submitted_by.eq.${uid}`).join(",")
+      ),
     ]);
 
     const map: Record<string, AuthorProfileData> = {};
     (profsRes.data || []).forEach((x: any) => {
-      map[x.user_id] = { ...x, business: null };
+      let displayName = x.display_name?.trim() || x.username?.trim();
+      if (!displayName && x.email) {
+        const clean = x.email.split("@")[0].replace(/[._\d]+$/, "").replace(/[._]/g, " ");
+        if (clean.trim()) {
+          displayName = clean.split(" ").map((p: string) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+        }
+      }
+      map[x.user_id] = { ...x, display_name: displayName || null, business: null };
     });
     (suppsRes.data || []).forEach((supp: any) => {
-      if (supp.user_id) {
-        if (!map[supp.user_id]) {
-          map[supp.user_id] = { user_id: supp.user_id, display_name: supp.name };
+      const uId = supp.user_id || supp.submitted_by;
+      if (uId) {
+        if (!map[uId]) {
+          map[uId] = { user_id: uId, display_name: supp.name };
+        } else if (!map[uId].display_name) {
+          map[uId].display_name = supp.name;
         }
-        map[supp.user_id].business = supp;
+        map[uId].business = supp;
       }
     });
     setAuthors(map);
@@ -151,7 +163,7 @@ export default function ForumPost() {
 
   const cat = FORUM_CATEGORIES.find((c) => c.key === post.category);
   const author = authors[post.user_id];
-  const authorName = author?.display_name || author?.username || "Anonymous";
+  const authorName = author?.display_name || author?.business?.name || author?.username || "Community Member";
 
   const ogImage = resolveEntityOgImage({
     primaryImage: author?.avatar_url || author?.business?.logo_url,

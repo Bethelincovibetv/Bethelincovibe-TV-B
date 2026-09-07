@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sparkles, ArrowRight, Zap, Building2, CheckCircle2, ShieldCheck } from "lucide-react";
 import PostRequestModal from "./PostRequestModal";
 import mayaAvatar from "@/assets/images/ai_match_avatar_1788303151852.jpg";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 interface PostRequestBannerProps {
   className?: string;
@@ -12,8 +13,13 @@ interface PostRequestBannerProps {
 }
 
 export default function PostRequestBanner({ className = "", variant = "hero" }: PostRequestBannerProps) {
+  const { flags } = useFeatureFlags();
   const [modalOpen, setModalOpen] = useState(false);
   const [quickInput, setQuickInput] = useState("");
+
+  if (flags.matchmaker === false) {
+    return null;
+  }
 
   const handleStart = (e?: React.FormEvent) => {
     if (e) e.preventDefault();

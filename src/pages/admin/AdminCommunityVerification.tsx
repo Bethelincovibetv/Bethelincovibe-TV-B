@@ -556,7 +556,7 @@ export default function AdminCommunityVerification() {
                         Promoter
                       </span>
                       <span className="font-bold text-foreground">
-                        {comm.promoter?.display_name || "Anonymous Promoter"}
+                        {comm.promoter?.display_name || comm.promoter?.name || comm.promoter?.business_name || comm.promoter?.username || comm.promoter?.email || "Promoter Partner"}
                       </span>
                     </div>
                     {comm.promoter?.phone_whatsapp && (
@@ -676,7 +676,7 @@ export default function AdminCommunityVerification() {
                     </h4>
                     <div className="space-y-1 text-xs">
                       <p className="font-bold text-sm text-foreground">
-                        {selectedCommunity.promoter?.display_name || "Anonymous Promoter"}
+                        {selectedCommunity.promoter?.display_name || selectedCommunity.promoter?.name || selectedCommunity.promoter?.business_name || selectedCommunity.promoter?.username || selectedCommunity.promoter?.email || "Promoter Partner"}
                       </p>
                       {selectedCommunity.promoter?.phone_whatsapp && (
                         <p className="text-muted-foreground flex items-center gap-1 font-mono">

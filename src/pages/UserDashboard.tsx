@@ -176,8 +176,8 @@ export default function UserDashboard() {
 
   const tiles = [
     { to: "/admin", label: "Admin Portal", icon: ShieldCheck, color: "from-amber-500 to-rose-600", show: isAdmin },
-    { to: "/dashboard/my-requests", label: "My Requests", icon: Sparkles, color: "from-indigo-600 via-purple-600 to-pink-600", show: true },
-    { to: "/dashboard/opportunities", label: "Opportunities & Bids", icon: Briefcase, color: "from-amber-500 via-orange-500 to-rose-600", show: true },
+    { to: "/dashboard/my-requests", label: "My Requests", icon: Sparkles, color: "from-indigo-600 via-purple-600 to-pink-600", show: flags.matchmaker !== false },
+    { to: "/dashboard/opportunities", label: "Opportunities & Bids", icon: Briefcase, color: "from-amber-500 via-orange-500 to-rose-600", show: flags.matchmaker !== false },
     { to: "/dashboard/promoter/profile", label: "Promoter Hub", icon: Smartphone, color: "from-emerald-600 via-teal-600 to-green-600", show: true },
     { to: "/dashboard/promoter/earnings", label: "Promoter Earnings", icon: Wallet, color: "from-emerald-500 via-green-600 to-teal-700", show: true },
     { to: "/dashboard/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, color: "from-emerald-500 via-teal-500 to-green-600", show: flags.whatsapp_engine },
@@ -307,14 +307,14 @@ export default function UserDashboard() {
         />
 
         {/* Maya AI Matchmaker & Intelligent Recommendations */}
-        <DashboardAIMatchmakerWidget />
+        {(flags.matchmaker !== false || flags.ai_recommender !== false) && <DashboardAIMatchmakerWidget />}
 
         {/* Smart Opportunity & Request Matcher Banner */}
-        <PostRequestBanner variant="compact" />
+        {flags.matchmaker !== false && <PostRequestBanner variant="compact" />}
 
         {/* Quick Link Tile Grid — 3D Glossy App Style */}
         <div className="grid grid-cols-2 min-[400px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2.5 sm:gap-3.5">
-          {tiles.map((t) => (
+          {tiles.filter((t) => t.show).map((t) => (
             <Link
               key={t.to}
               to={t.to}

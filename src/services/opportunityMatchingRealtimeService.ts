@@ -410,24 +410,67 @@ export async function updateBusinessRequestBudgetAndLocation(params: {
 }
 
 export async function getAdminMatchingConfig(): Promise<AdminMatchingConfig> {
+  let isFlagDisabled = false;
+  try {
+    const raw = typeof window !== "undefined" ? localStorage.getItem("btv_feature_flags") : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.matchmaker === false) {
+        isFlagDisabled = true;
+      }
+    }
+  } catch {}
+
+  let config = DEFAULT_ADMIN_MATCHING_CONFIG;
+
   try {
     await ensureFirebaseAuth();
     const configSnap = await getDoc(doc(firestoreDb, "admin_matching_config", "global"));
     if (configSnap.exists()) {
-      return { ...DEFAULT_ADMIN_MATCHING_CONFIG, ...(configSnap.data() as any) };
+      config = { ...DEFAULT_ADMIN_MATCHING_CONFIG, ...(configSnap.data() as any) };
     }
   } catch {}
 
-  try {
-    const { data } = await supabase.from("opportunity_matching_config").select("*").eq("id", 1).maybeSingle();
-    if (data) return { ...DEFAULT_ADMIN_MATCHING_CONFIG, ...data };
-  } catch {}
+  if (config === DEFAULT_ADMIN_MATCHING_CONFIG) {
+    try {
+      const { data } = await supabase.from("opportunity_matching_config").select("*").eq("id", 1).maybeSingle();
+      if (data) config = { ...DEFAULT_ADMIN_MATCHING_CONFIG, ...data };
+    } catch {}
+  }
 
-  return getLocalStore<AdminMatchingConfig>(CONFIG_CACHE_KEY, DEFAULT_ADMIN_MATCHING_CONFIG);
+  if (config === DEFAULT_ADMIN_MATCHING_CONFIG) {
+    config = getLocalStore<AdminMatchingConfig>(CONFIG_CACHE_KEY, DEFAULT_ADMIN_MATCHING_CONFIG);
+  }
+
+  if (isFlagDisabled) {
+    return {
+      ...config,
+      system_enabled: false,
+      auto_matching_enabled: false,
+    };
+  }
+
+  return config;
 }
 
 export async function saveAdminMatchingConfig(config: AdminMatchingConfig): Promise<void> {
   setLocalStore(CONFIG_CACHE_KEY, config);
+
+  // Synchronize with centralized feature flags
+  try {
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem("btv_feature_flags");
+      const currentFlags = raw ? JSON.parse(raw) : {};
+      currentFlags.matchmaker = config.system_enabled;
+      localStorage.setItem("btv_feature_flags", JSON.stringify(currentFlags));
+      window.dispatchEvent(
+        new CustomEvent("btv_feature_flag_changed", {
+          detail: { key: "matchmaker", enabled: config.system_enabled },
+        })
+      );
+    }
+  } catch {}
+
   try {
     await ensureFirebaseAuth();
     await setDoc(
@@ -442,6 +485,9 @@ export async function saveAdminMatchingConfig(config: AdminMatchingConfig): Prom
 }
 
 export async function getOpenOpportunities(excludeUserId?: string): Promise<BusinessRequest[]> {
+  const config = await getAdminMatchingConfig();
+  if (!config.system_enabled) return [];
+
   try {
     const all = await getAllRequests();
     return all.filter(
@@ -568,6 +614,9 @@ export async function createAndPublishRequest(params: {
   extractedInfo: ExtractedRequestInfo;
 }): Promise<{ request: BusinessRequest; matchedCandidates: MatchingBusinessCandidate[] }> {
   const config = await getAdminMatchingConfig();
+  if (!config.system_enabled) {
+    throw new Error("The Opportunity Matchmaker feature is currently disabled by the platform administrator.");
+  }
   const base = {
     category: params.extractedInfo.category,
     categorySlug: params.extractedInfo.categorySlug,
@@ -705,6 +754,11 @@ export async function submitProviderOffer(params: {
   portfolioSamples?: Array<{ title: string; url: string }>;
   clarificationQuestion?: string;
 }): Promise<ProviderOffer> {
+  const config = await getAdminMatchingConfig();
+  if (!config.system_enabled) {
+    throw new Error("The Opportunity Matchmaker feature is currently disabled by the platform administrator.");
+  }
+
   const request = await getRequestById(params.requestId);
   if (!request) throw new Error("Business request not found or has been removed.");
   if (

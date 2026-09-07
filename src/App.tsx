@@ -270,18 +270,18 @@ const App = () => (
               <Route path="/dashboard/earnings" element={<PromoterEarningsPage />} />
 
               {/* Step 7: Smart Business Request & Opportunity Matching System */}
-              <Route path="/dashboard/my-requests" element={<CustomerMyRequests />} />
-              <Route path="/dashboard/my-requests/:id" element={<CustomerRequestDetail />} />
-              <Route path="/dashboard/requests" element={<CustomerMyRequests />} />
-              <Route path="/dashboard/requests/:id" element={<CustomerRequestDetail />} />
-              <Route path="/my-requests" element={<CustomerMyRequests />} />
-              <Route path="/my-requests/:id" element={<CustomerRequestDetail />} />
-              <Route path="/requests" element={<CustomerMyRequests />} />
-              <Route path="/dashboard/opportunities" element={<ProviderOpportunitiesPage />} />
-              <Route path="/dashboard/opportunities/:id" element={<ProviderOpportunityDetail />} />
-              <Route path="/opportunities" element={<ProviderOpportunitiesPage />} />
-              <Route path="/opportunities/:id" element={<ProviderOpportunityDetail />} />
-              <Route path="/leads" element={<ProviderOpportunitiesPage />} />
+              <Route path="/dashboard/my-requests" element={<FeatureGate feature="matchmaker"><CustomerMyRequests /></FeatureGate>} />
+              <Route path="/dashboard/my-requests/:id" element={<FeatureGate feature="matchmaker"><CustomerRequestDetail /></FeatureGate>} />
+              <Route path="/dashboard/requests" element={<FeatureGate feature="matchmaker"><CustomerMyRequests /></FeatureGate>} />
+              <Route path="/dashboard/requests/:id" element={<FeatureGate feature="matchmaker"><CustomerRequestDetail /></FeatureGate>} />
+              <Route path="/my-requests" element={<FeatureGate feature="matchmaker"><CustomerMyRequests /></FeatureGate>} />
+              <Route path="/my-requests/:id" element={<FeatureGate feature="matchmaker"><CustomerRequestDetail /></FeatureGate>} />
+              <Route path="/requests" element={<FeatureGate feature="matchmaker"><CustomerMyRequests /></FeatureGate>} />
+              <Route path="/dashboard/opportunities" element={<FeatureGate feature="matchmaker"><ProviderOpportunitiesPage /></FeatureGate>} />
+              <Route path="/dashboard/opportunities/:id" element={<FeatureGate feature="matchmaker"><ProviderOpportunityDetail /></FeatureGate>} />
+              <Route path="/opportunities" element={<FeatureGate feature="matchmaker"><ProviderOpportunitiesPage /></FeatureGate>} />
+              <Route path="/opportunities/:id" element={<FeatureGate feature="matchmaker"><ProviderOpportunityDetail /></FeatureGate>} />
+              <Route path="/leads" element={<FeatureGate feature="matchmaker"><ProviderOpportunitiesPage /></FeatureGate>} />
 
               {/* Step 8: Premium Service Management & Bookings */}
               <Route path="/dashboard/services" element={<ServiceManagementPage />} />

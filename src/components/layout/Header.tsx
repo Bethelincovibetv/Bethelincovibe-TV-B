@@ -11,7 +11,7 @@ import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 const allNavLinks = [
   { to: "/", label: "Home", icon: Home, feature: null as null | string },
-  { to: "/dashboard/my-requests", label: "Requests", icon: Sparkles, feature: null },
+  { to: "/dashboard/my-requests", label: "Requests", icon: Sparkles, feature: "matchmaker" },
   { to: "/promoters", label: "Promoters", icon: Megaphone, feature: null },
   { to: "/whatsapp-engine", label: "WhatsApp Engine", icon: MessageCircle, feature: "whatsapp_engine" },
   { to: "/create-video", label: "Create Video", icon: Film, feature: "video_creator" },

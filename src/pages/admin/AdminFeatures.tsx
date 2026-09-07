@@ -27,7 +27,7 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: any; color: string 
 };
 
 export default function AdminFeatures() {
-  const { flags, loading } = useFeatureFlags();
+  const { flags, loading, setFeatureFlag } = useFeatureFlags();
   const [saving, setSaving] = useState<FeatureKey | null>(null);
   const [batchSaving, setBatchSaving] = useState(false);
   const [local, setLocal] = useState(flags);
@@ -73,15 +73,14 @@ export default function AdminFeatures() {
   const toggle = async (key: FeatureKey, next: boolean) => {
     setSaving(key);
     setLocal((p) => ({ ...p, [key]: next }));
-    const { error } = await supabase
-      .from("site_settings")
-      .upsert({ key: `feature_${key}`, value: next ? "on" : "off" }, { onConflict: "key" });
-    setSaving(null);
-    if (error) {
-      toast.error("Could not save: " + error.message);
-      setLocal((p) => ({ ...p, [key]: !next }));
-    } else {
+    try {
+      await setFeatureFlag(key, next);
       toast.success(`${key.replace(/_/g, " ")} ${next ? "enabled" : "disabled"}`);
+    } catch (error: any) {
+      toast.error("Could not save: " + error?.message);
+      setLocal((p) => ({ ...p, [key]: !next }));
+    } finally {
+      setSaving(null);
     }
   };
 
@@ -90,11 +89,6 @@ export default function AdminFeatures() {
     if (targetItems.length === 0) return;
 
     setBatchSaving(true);
-    const updates = targetItems.map((m) => ({
-      key: `feature_${m.key}`,
-      value: enable ? "on" : "off",
-    }));
-
     const newLocal = { ...local };
     targetItems.forEach((m) => {
       newLocal[m.key] = enable;
@@ -102,22 +96,16 @@ export default function AdminFeatures() {
     setLocal(newLocal);
 
     try {
-      const { error } = await supabase
-        .from("site_settings")
-        .upsert(updates, { onConflict: "key" });
-
-      if (error) {
-        toast.error("Failed batch update: " + error.message);
-        setLocal(flags);
-      } else {
-        toast.success(
-          `${enable ? "Enabled" : "Disabled"} ${targetItems.length} features in ${
-            selectedCategory === "all" ? "view" : CATEGORY_CONFIG[selectedCategory]?.label || "category"
-          }`
-        );
+      for (const m of targetItems) {
+        await setFeatureFlag(m.key, enable);
       }
+      toast.success(
+        `${enable ? "Enabled" : "Disabled"} ${targetItems.length} features in ${
+          selectedCategory === "all" ? "view" : CATEGORY_CONFIG[selectedCategory]?.label || "category"
+        }`
+      );
     } catch (err: any) {
-      toast.error("Error during batch update: " + (err?.message || "Unknown error"));
+      toast.error("Failed batch update: " + err?.message);
       setLocal(flags);
     } finally {
       setBatchSaving(false);

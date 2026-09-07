@@ -75,6 +75,17 @@ export async function fetchUserNameById(userId: string): Promise<string> {
       }
     }
 
+    if (name === "Entrepreneur") {
+      const { data: supp } = await supabase
+        .from("suppliers")
+        .select("name")
+        .or(`user_id.eq.${userId},submitted_by.eq.${userId}`)
+        .maybeSingle();
+      if (supp?.name?.trim()) {
+        name = supp.name.trim();
+      }
+    }
+
     userNameCache.set(userId, name);
     return name;
   } catch {
