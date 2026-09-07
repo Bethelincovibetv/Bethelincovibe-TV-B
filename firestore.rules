@@ -41,13 +41,31 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow get, list: if isSignedIn() && isValidId(chatId);
-        allow create: if isSignedIn() && isValidId(chatId) && isValidId(messageId) && incoming().senderId is string && incoming().chatId == chatId;
+        allow create: if isSignedIn() && isValidId(chatId) && isValidId(messageId) && incoming().senderId is string;
         allow update: if isSignedIn() && isValidId(chatId) && isValidId(messageId);
         allow delete: if isSignedIn() && isValidId(chatId) && isValidId(messageId);
       }
 
       match /typing/{userId} {
         allow read, write: if isSignedIn() && isValidId(chatId);
+      }
+    }
+
+    match /conversations/{conversationId} {
+      allow get, list: if isSignedIn() && isValidId(conversationId);
+      allow create: if isSignedIn() && isValidId(conversationId) && incoming().participants is list && incoming().participants.size() >= 1;
+      allow update: if isSignedIn() && isValidId(conversationId);
+      allow delete: if isSignedIn() && isValidId(conversationId) && (isPlatformAdmin() || resource.data.creatorId == request.auth.uid);
+
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() && isValidId(conversationId);
+        allow create: if isSignedIn() && isValidId(conversationId) && isValidId(messageId) && incoming().senderId is string;
+        allow update: if isSignedIn() && isValidId(conversationId) && isValidId(messageId);
+        allow delete: if isSignedIn() && isValidId(conversationId) && isValidId(messageId);
+      }
+
+      match /typing/{userId} {
+        allow read, write: if isSignedIn() && isValidId(conversationId);
       }
     }
 

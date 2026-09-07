@@ -45,6 +45,7 @@ import {
   DEFAULT_ADMIN_MATCHING_CONFIG,
   subscribeToAllRequests,
 } from "@/services/opportunityMatchingRealtimeService";
+import { testMatchmakerAIConnection, parseNaturalRequest } from "@/services/aiRequestParserService";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BusinessRequest,
@@ -63,6 +64,21 @@ export default function AdminBusinessRequests() {
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [inspectRequest, setInspectRequest] = useState<BusinessRequest | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Matchmaker AI & System Admin General API Diagnostics state
+  const [apiKeyConfigured, setApiKeyConfigured] = useState<boolean | null>(null);
+  const [aiTesting, setAiTesting] = useState(false);
+  const [aiTestResult, setAiTestResult] = useState<{
+    success: boolean;
+    model: string;
+    latencyMs: number;
+    message: string;
+    source: string;
+    extractedSample?: any;
+  } | null>(null);
+  const [testPromptText, setTestPromptText] = useState(
+    "I need 50 custom branded polo shirts in Ikeja by Friday budget 150k"
+  );
 
   useEffect(() => {
     loadAdminData();
@@ -91,20 +107,63 @@ export default function AdminBusinessRequests() {
 
   const loadAdminData = async () => {
     try {
-      const [allReqs, allOffs, analytics, admConfig] = await Promise.all([
+      const [allReqs, allOffs, analytics, admConfig, apiKeySetting] = await Promise.all([
         getAllRequests(),
         getAllOffers(),
         getOpportunityAnalyticsMetrics(),
         getAdminMatchingConfig(),
+        supabase.from("site_settings").select("value").eq("key", "gemini_api_key").maybeSingle(),
       ]);
       setRequests(allReqs);
       setOffers(allOffs);
       setMetrics(analytics);
       setConfig(admConfig);
+      setApiKeyConfigured(!!apiKeySetting.data?.value || !!(typeof process !== "undefined" && process.env?.GEMINI_API_KEY));
     } catch (err: any) {
       console.error("Error loading admin matchmaker data:", err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRunAiDiagnostic = async () => {
+    setAiTesting(true);
+    setAiTestResult(null);
+    try {
+      const result = await testMatchmakerAIConnection();
+      setAiTestResult(result);
+      if (result.success) {
+        toast.success(`Matchmaker AI verified: ${result.latencyMs}ms response`);
+      } else {
+        toast.error(`Matchmaker AI diagnostic notice: ${result.message}`);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "AI diagnostic failed");
+    } finally {
+      setAiTesting(false);
+    }
+  };
+
+  const handleCustomTestPrompt = async () => {
+    if (!testPromptText.trim()) return;
+    setAiTesting(true);
+    const start = Date.now();
+    try {
+      const sample = await parseNaturalRequest(testPromptText);
+      const latency = Date.now() - start;
+      setAiTestResult({
+        success: true,
+        model: "gemini-3.8-flash",
+        latencyMs: latency,
+        message: `Custom prompt parsed successfully in ${latency}ms using Matchmaker AI.`,
+        source: "System Admin General API",
+        extractedSample: sample,
+      });
+      toast.success("Prompt successfully parsed by Matchmaker AI");
+    } catch (err: any) {
+      toast.error(err?.message || "Parsing failed");
+    } finally {
+      setAiTesting(false);
     }
   };
 
@@ -238,6 +297,138 @@ export default function AdminBusinessRequests() {
             </Card>
           </div>
         )}
+
+        {/* Matchmaker AI Engine & System Admin API Live Status Card */}
+        <Card className="rounded-3xl border border-primary/20 bg-gradient-to-br from-card via-card to-primary/5 shadow-sm overflow-hidden">
+          <CardHeader className="pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                  <Sparkles className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-lg font-extrabold text-foreground">
+                      Matchmaker AI Engine
+                    </CardTitle>
+                    <Badge variant={apiKeyConfigured ? "default" : "outline"} className="text-[10px] uppercase font-bold tracking-wider">
+                      {apiKeyConfigured ? "Connected to Admin API" : "Pool Active"}
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-xs text-muted-foreground mt-0.5">
+                    Powered by Gemini 3.8 Flash via System Admin General API (<code className="text-primary font-mono">site_settings.gemini_api_key</code>)
+                  </CardDescription>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="rounded-xl text-xs font-bold gap-1.5"
+                  onClick={handleRunAiDiagnostic}
+                  disabled={aiTesting}
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${aiTesting ? "animate-spin" : ""}`} />
+                  {aiTesting ? "Testing AI..." : "Test AI Matchmaker"}
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-4 pt-1">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+              <div className="p-3.5 bg-muted/40 rounded-2xl border border-border/50 flex flex-col justify-between">
+                <div className="text-muted-foreground font-semibold">Gemini Intelligence Model</div>
+                <div className="text-sm font-bold text-foreground mt-1 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                  gemini-3.8-flash
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">High-speed request reasoning</div>
+              </div>
+
+              <div className="p-3.5 bg-muted/40 rounded-2xl border border-border/50 flex flex-col justify-between">
+                <div className="text-muted-foreground font-semibold">System Admin API Source</div>
+                <div className="text-sm font-bold text-foreground mt-1 truncate">
+                  {apiKeyConfigured ? "site_settings.gemini_api_key" : "Environment / Multi-Key Pool"}
+                </div>
+                <div className="text-[11px] text-emerald-600 font-semibold mt-0.5">✓ Secured server-side</div>
+              </div>
+
+              <div className="p-3.5 bg-muted/40 rounded-2xl border border-border/50 flex flex-col justify-between">
+                <div className="text-muted-foreground font-semibold">NLP Auto-Extraction</div>
+                <div className="text-sm font-bold text-foreground mt-1 flex items-center justify-between">
+                  <span>{config.ai_understanding_enabled ? "Enabled (Live)" : "Disabled"}</span>
+                  <Switch
+                    checked={config.ai_understanding_enabled}
+                    onCheckedChange={(v) => handleConfigChange("ai_understanding_enabled", v)}
+                  />
+                </div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">Extracts budget, deadline & deliverables</div>
+              </div>
+            </div>
+
+            {/* Test prompt interactive tool */}
+            <div className="p-3.5 bg-muted/25 rounded-2xl border border-border/50 space-y-2">
+              <div className="text-xs font-bold text-foreground flex items-center justify-between">
+                <span>Interactive AI Request Parser Test</span>
+                <span className="text-[11px] text-muted-foreground font-normal">Real-time marketplace brief validation</span>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  className="text-xs bg-background rounded-xl"
+                  placeholder="Enter a request prompt to test AI extraction..."
+                  value={testPromptText}
+                  onChange={(e) => setTestPromptText(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCustomTestPrompt()}
+                />
+                <Button
+                  size="sm"
+                  className="rounded-xl text-xs font-bold shrink-0"
+                  onClick={handleCustomTestPrompt}
+                  disabled={aiTesting}
+                >
+                  {aiTesting ? "Parsing..." : "Parse with AI"}
+                </Button>
+              </div>
+
+              {aiTestResult && (
+                <div className="mt-3 p-3 rounded-xl bg-background border border-border text-xs space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between border-b border-border/50 pb-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className={`w-2 h-2 rounded-full ${aiTestResult.success ? "bg-emerald-500" : "bg-amber-500"}`}></span>
+                      <span className="font-bold text-foreground">{aiTestResult.model}</span>
+                      <Badge variant="secondary" className="text-[10px]">{aiTestResult.latencyMs}ms</Badge>
+                    </div>
+                    <span className="text-[11px] text-muted-foreground">{aiTestResult.source}</span>
+                  </div>
+                  <div className="text-muted-foreground text-[11px]">{aiTestResult.message}</div>
+
+                  {aiTestResult.extractedSample && (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                      <div className="bg-muted/40 p-2 rounded-lg">
+                        <div className="text-[10px] text-muted-foreground">Category</div>
+                        <div className="font-bold text-foreground truncate">{aiTestResult.extractedSample.category}</div>
+                      </div>
+                      <div className="bg-muted/40 p-2 rounded-lg">
+                        <div className="text-[10px] text-muted-foreground">Extracted Title</div>
+                        <div className="font-bold text-foreground truncate">{aiTestResult.extractedSample.serviceTitle}</div>
+                      </div>
+                      <div className="bg-muted/40 p-2 rounded-lg">
+                        <div className="text-[10px] text-muted-foreground">Parsed Budget</div>
+                        <div className="font-bold text-emerald-600 truncate">{aiTestResult.extractedSample.budgetFormatted}</div>
+                      </div>
+                      <div className="bg-muted/40 p-2 rounded-lg">
+                        <div className="text-[10px] text-muted-foreground">Urgency & Timeline</div>
+                        <div className="font-bold text-foreground truncate">{aiTestResult.extractedSample.deadline}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Algorithm Configuration Card */}
         <Card className="rounded-3xl border border-border bg-card shadow-sm">

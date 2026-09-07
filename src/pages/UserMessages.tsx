@@ -46,6 +46,8 @@ import {
   Settings2,
   Radio,
   User,
+  AlertCircle,
+  RefreshCw,
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
@@ -77,6 +79,7 @@ import {
   ensureFirebaseAuth,
   updateUserPresence,
   subscribeToUserPresence,
+  getFirestoreDiagnostics,
 } from "@/lib/firebaseChat";
 import { uploadChatAttachment } from "@/lib/chatStorage";
 
@@ -142,6 +145,27 @@ export default function UserMessages() {
     contactName: "",
     isVideo: false,
   });
+
+  // Firestore connection & API status
+  const [firestoreStatus, setFirestoreStatus] = useState<{
+    connected: boolean;
+    message: string;
+    isApiDisabled: boolean;
+    projectId: string;
+  } | null>(null);
+  const [checkingFirestore, setCheckingFirestore] = useState(false);
+
+  const checkFirestoreHealth = async () => {
+    setCheckingFirestore(true);
+    try {
+      const diag = await getFirestoreDiagnostics();
+      setFirestoreStatus(diag);
+    } catch {
+      // Ignored
+    } finally {
+      setCheckingFirestore(false);
+    }
+  };
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -242,6 +266,7 @@ export default function UserMessages() {
   // Initial Firebase setup & auto-provisioning official rooms
   useEffect(() => {
     ensureFirebaseAuth();
+    checkFirestoreHealth();
     if (user?.id) {
       getOrCreateGeneralBethelChatRoom(user.id, currentUserName, currentUserAvatar).catch(console.warn);
       getOrCreateVIPTradeChatRoom(user.id, currentUserName, currentUserAvatar).catch(console.warn);
@@ -704,6 +729,51 @@ export default function UserMessages() {
           content="Real-time encrypted WhatsApp-style messaging, merchant collaboration, and VIP wholesale trade lounges."
         />
       </Helmet>
+
+      {/* Firestore Infrastructure Status Banner */}
+      {firestoreStatus && !firestoreStatus.connected && (
+        <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+            <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span>
+              <strong>Cloud Firestore Status:</strong>{" "}
+              {firestoreStatus.isApiDisabled ? (
+                <>
+                  Cloud Firestore API is disabled or pending activation for project{" "}
+                  <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded font-bold">
+                    {firestoreStatus.projectId}
+                  </code>
+                  . Enable it in Google Cloud Console to restore live messaging.
+                </>
+              ) : (
+                firestoreStatus.message
+              )}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {firestoreStatus.isApiDisabled && (
+              <a
+                href={`https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=${firestoreStatus.projectId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+              >
+                Enable in GCP Console
+              </a>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[11px] rounded-lg border-amber-500/30 text-amber-700 dark:text-amber-300 hover:bg-amber-500/10 gap-1.5"
+              onClick={checkFirestoreHealth}
+              disabled={checkingFirestore}
+            >
+              <RefreshCw className={`w-3 h-3 ${checkingFirestore ? "animate-spin" : ""}`} />
+              {checkingFirestore ? "Checking..." : "Re-check"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Main Container */}
       <div className="flex-1 flex overflow-hidden h-[calc(100vh-64px)] max-h-[1000px] border-b border-border/80">

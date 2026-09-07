@@ -156,6 +156,55 @@ export async function testFirestoreConnection(): Promise<boolean> {
   }
 }
 
+export async function getFirestoreDiagnostics(): Promise<{
+  connected: boolean;
+  code?: string;
+  message: string;
+  projectId: string;
+  isApiDisabled: boolean;
+  authStatus: string;
+}> {
+  let authStatus = "Not initialized";
+  try {
+    if (firebaseAuth.currentUser) {
+      authStatus = `Signed in (${firebaseAuth.currentUser.isAnonymous ? "Anonymous" : firebaseAuth.currentUser.email || "User"})`;
+    } else {
+      authStatus = "Unauthenticated";
+    }
+  } catch (e: any) {
+    authStatus = e.message;
+  }
+
+  try {
+    const testPromise = getDoc(doc(firestoreDb, "chats", BETHELINCO_GENERAL_ROOM_ID));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("Firestore connection timeout (3s)")), 3000)
+    );
+    await Promise.race([testPromise, timeoutPromise]);
+    return {
+      connected: true,
+      message: "Firestore database is live, operational, and connected.",
+      projectId: firebaseConfig.projectId,
+      isApiDisabled: false,
+      authStatus,
+    };
+  } catch (err: any) {
+    const msg = String(err?.message || err);
+    const isApiDisabled =
+      msg.toLowerCase().includes("cloud firestore api has not been used") ||
+      msg.toLowerCase().includes("api is disabled") ||
+      msg.toLowerCase().includes("permission_denied");
+    return {
+      connected: false,
+      code: err?.code || "PERMISSION_DENIED",
+      message: msg,
+      projectId: firebaseConfig.projectId,
+      isApiDisabled,
+      authStatus,
+    };
+  }
+}
+
 export interface RealtimeChatRoom {
   id: string;
   name?: string;
@@ -908,12 +957,14 @@ export function subscribeToUserChats(
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, "chats");
+        callback([]);
       }
     );
 
     return unsubscribe;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, "chats");
+    callback([]);
     return () => {};
   }
 }
@@ -961,11 +1012,13 @@ export function subscribeToPublicCommunityRooms(
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, "chats");
+        callback([]);
       }
     );
     return unsubscribe;
   } catch (err) {
     handleFirestoreError(err, OperationType.LIST, "chats");
+    callback([]);
     return () => {};
   }
 }
@@ -1015,12 +1068,14 @@ export function subscribeToChatMessages(
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`);
+        callback([]);
       }
     );
 
     return unsubscribe;
   } catch (error) {
     handleFirestoreError(error, OperationType.LIST, `chats/${chatId}/messages`);
+    callback([]);
     return () => {};
   }
 }

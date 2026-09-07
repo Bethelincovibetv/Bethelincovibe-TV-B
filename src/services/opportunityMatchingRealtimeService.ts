@@ -433,6 +433,20 @@ export async function getAdminMatchingConfig(): Promise<AdminMatchingConfig> {
 
   if (config === DEFAULT_ADMIN_MATCHING_CONFIG) {
     try {
+      const { data: settingData } = await supabase
+        .from("site_settings")
+        .select("value")
+        .eq("key", "matchmaker_admin_config")
+        .maybeSingle();
+      if (settingData?.value) {
+        const parsed = typeof settingData.value === "string" ? JSON.parse(settingData.value) : settingData.value;
+        config = { ...DEFAULT_ADMIN_MATCHING_CONFIG, ...parsed };
+      }
+    } catch {}
+  }
+
+  if (config === DEFAULT_ADMIN_MATCHING_CONFIG) {
+    try {
       const { data } = await supabase.from("opportunity_matching_config").select("*").eq("id", 1).maybeSingle();
       if (data) config = { ...DEFAULT_ADMIN_MATCHING_CONFIG, ...data };
     } catch {}
@@ -476,6 +490,13 @@ export async function saveAdminMatchingConfig(config: AdminMatchingConfig): Prom
     await setDoc(
       doc(firestoreDb, "admin_matching_config", "global"),
       sanitizeFirestoreObject({ ...config, updated_at: new Date().toISOString() })
+    );
+  } catch {}
+
+  try {
+    await supabase.from("site_settings").upsert(
+      { key: "matchmaker_admin_config", value: JSON.stringify(config) },
+      { onConflict: "key" }
     );
   } catch {}
 

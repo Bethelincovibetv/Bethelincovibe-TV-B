@@ -64,6 +64,15 @@ export const PLATFORM_AI_FEATURES: AiFeatureConnectionConfig[] = [
     category: "specialist",
   },
   {
+    featureKey: "ai_matchmaker",
+    name: "Maya Sterling (Smart Opportunity Matchmaker & Request Parser)",
+    description: "Real-time AI request comprehension, natural language client brief parsing, verified supplier opportunity matchmaking, and bid recommendation scoring.",
+    icon: "Sparkles",
+    enabled: true,
+    assignedKeyId: "auto",
+    category: "specialist",
+  },
+  {
     featureKey: "support_ai",
     name: "Aria Chen (Merchant & Customer Success AI)",
     description: "Dedicated customer support: merchant verification, onboarding assistance, wallet settlements & catalog guides.",
