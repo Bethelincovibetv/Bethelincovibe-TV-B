@@ -248,26 +248,26 @@ const App = () => (
               <Route path="/dashboard/wallet/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/wallet/receipt/:id" element={<TransactionReceipt />} />
               <Route path="/receipt/:id" element={<TransactionReceipt />} />
-              <Route path="/dashboard/promoter/profile" element={<PromoterProfilePage />} />
-              <Route path="/dashboard/promoter-profile" element={<PromoterProfilePage />} />
-              <Route path="/dashboard/promoter" element={<PromoterProfilePage />} />
-              <Route path="/promoter/profile" element={<PromoterProfilePage />} />
+              <Route path="/dashboard/promoter/profile" element={<FeatureGate feature="promoter_hub"><PromoterProfilePage /></FeatureGate>} />
+              <Route path="/dashboard/promoter-profile" element={<FeatureGate feature="promoter_hub"><PromoterProfilePage /></FeatureGate>} />
+              <Route path="/dashboard/promoter" element={<FeatureGate feature="promoter_hub"><PromoterProfilePage /></FeatureGate>} />
+              <Route path="/promoter/profile" element={<FeatureGate feature="promoter_hub"><PromoterProfilePage /></FeatureGate>} />
               
               {/* Step 5: Business Promotion Marketplace & Discovery */}
-              <Route path="/promoters" element={<BusinessPromotionMarketplace />} />
-              <Route path="/promoters/:id" element={<PromoterMarketplaceProfile />} />
-              <Route path="/promotions/marketplace" element={<BusinessPromotionMarketplace />} />
-              <Route path="/promotion-marketplace" element={<BusinessPromotionMarketplace />} />
+              <Route path="/promoters" element={<FeatureGate feature="promoter_hub"><BusinessPromotionMarketplace /></FeatureGate>} />
+              <Route path="/promoters/:id" element={<FeatureGate feature="promoter_hub"><PromoterMarketplaceProfile /></FeatureGate>} />
+              <Route path="/promotions/marketplace" element={<FeatureGate feature="promoter_hub"><BusinessPromotionMarketplace /></FeatureGate>} />
+              <Route path="/promotion-marketplace" element={<FeatureGate feature="promoter_hub"><BusinessPromotionMarketplace /></FeatureGate>} />
 
               {/* Step 6: Promotion Orders / Booking Foundation */}
-              <Route path="/dashboard/promotion-orders" element={<BusinessPromotionOrders />} />
-              <Route path="/dashboard/promotion-orders/:id" element={<BusinessPromotionOrderDetail />} />
-              <Route path="/dashboard/business-orders" element={<BusinessPromotionOrders />} />
-              <Route path="/dashboard/promoter-orders" element={<PromoterPromotionOrders />} />
-              <Route path="/dashboard/promoter-orders/:id" element={<PromoterPromotionOrderDetail />} />
-              <Route path="/dashboard/promoter/earnings" element={<PromoterEarningsPage />} />
-              <Route path="/dashboard/promoter-earnings" element={<PromoterEarningsPage />} />
-              <Route path="/dashboard/earnings" element={<PromoterEarningsPage />} />
+              <Route path="/dashboard/promotion-orders" element={<FeatureGate feature="promoter_hub"><BusinessPromotionOrders /></FeatureGate>} />
+              <Route path="/dashboard/promotion-orders/:id" element={<FeatureGate feature="promoter_hub"><BusinessPromotionOrderDetail /></FeatureGate>} />
+              <Route path="/dashboard/business-orders" element={<FeatureGate feature="promoter_hub"><BusinessPromotionOrders /></FeatureGate>} />
+              <Route path="/dashboard/promoter-orders" element={<FeatureGate feature="promoter_hub"><PromoterPromotionOrders /></FeatureGate>} />
+              <Route path="/dashboard/promoter-orders/:id" element={<FeatureGate feature="promoter_hub"><PromoterPromotionOrderDetail /></FeatureGate>} />
+              <Route path="/dashboard/promoter/earnings" element={<FeatureGate feature="promoter_hub"><PromoterEarningsPage /></FeatureGate>} />
+              <Route path="/dashboard/promoter-earnings" element={<FeatureGate feature="promoter_hub"><PromoterEarningsPage /></FeatureGate>} />
+              <Route path="/dashboard/earnings" element={<FeatureGate feature="promoter_hub"><PromoterEarningsPage /></FeatureGate>} />
 
               {/* Step 7: Smart Business Request & Opportunity Matching System */}
               <Route path="/dashboard/my-requests" element={<FeatureGate feature="matchmaker"><CustomerMyRequests /></FeatureGate>} />

@@ -84,6 +84,8 @@ export interface BlogSubmissionItem {
     published_at: string;
     featured_image?: string;
   } | null;
+  photos?: string[] | null;
+  guest_submission_photos?: Array<{ id: string; image_url: string; caption?: string | null; display_order?: number }>;
   views_count?: number;
   inquiries_count?: number;
   shares_count?: number;
@@ -177,10 +179,10 @@ export default function UserMyBlogs({ defaultTab = "my-blogs" }: UserMyBlogsProp
     try {
       setLoading(true);
 
-      // Fetch user's guest blog submissions
+      // Fetch user's guest blog submissions with gallery photos
       const { data: subs, error } = await supabase
         .from("guest_blog_submissions")
-        .select("*")
+        .select("*, guest_submission_photos(*)")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
 
@@ -615,27 +617,89 @@ export default function UserMyBlogs({ defaultTab = "my-blogs" }: UserMyBlogsProp
         });
       }
 
-      // Insert submission
-      const { data: subData, error: subErr } = await supabase
-        .from("guest_blog_submissions")
-        .insert({
-          user_id: user.id,
-          business_name: submitForm.business_name.trim(),
-          description: submitForm.description.trim(),
-          website: submitForm.website.trim() || null,
-          contact_email: submitForm.contact_email.trim() || null,
-          contact_phone: submitForm.contact_phone.trim() || null,
-          contact_whatsapp: submitForm.contact_whatsapp.trim() || null,
-          banner_url: bannerUrl,
-          photos: photoUrls,
-          category_id: submitCategoryId || null,
-          cost_credits: COST_CREDITS,
-          status: "paid",
-        })
-        .select()
-        .single();
+      // Base submission data payload
+      const baseSubmissionPayload: any = {
+        user_id: user.id,
+        business_name: submitForm.business_name.trim(),
+        description: submitForm.description.trim(),
+        website: submitForm.website.trim() || null,
+        contact_email: submitForm.contact_email.trim() || null,
+        contact_phone: submitForm.contact_phone.trim() || null,
+        contact_whatsapp: submitForm.contact_whatsapp.trim() || null,
+        banner_url: bannerUrl,
+        category_id: submitCategoryId || null,
+        cost_credits: COST_CREDITS,
+        status: "paid",
+      };
 
-      if (subErr) throw subErr;
+      // Resilient database insertion:
+      // If photos column exists in the schema cache, persist directly to photos text[]
+      // If the schema cache does not have the photos column, fallback cleanly to inserting without photos column
+      let subData: any = null;
+      let subErr: any = null;
+
+      if (photoUrls.length > 0) {
+        const resWithPhotos = await supabase
+          .from("guest_blog_submissions")
+          .insert({
+            ...baseSubmissionPayload,
+            photos: photoUrls,
+          })
+          .select()
+          .single();
+
+        if (resWithPhotos.error) {
+          const errMsg = resWithPhotos.error.message || "";
+          const isSchemaMismatch =
+            errMsg.includes("photos") ||
+            resWithPhotos.error.code === "PGRST204" ||
+            resWithPhotos.error.code === "42703";
+
+          if (isSchemaMismatch) {
+            console.warn("Schema cache has no 'photos' column on guest_blog_submissions; falling back to relational storage.", resWithPhotos.error);
+            const fallbackRes = await supabase
+              .from("guest_blog_submissions")
+              .insert(baseSubmissionPayload)
+              .select()
+              .single();
+            subData = fallbackRes.data;
+            subErr = fallbackRes.error;
+          } else {
+            subErr = resWithPhotos.error;
+          }
+        } else {
+          subData = resWithPhotos.data;
+        }
+      } else {
+        const simpleRes = await supabase
+          .from("guest_blog_submissions")
+          .insert(baseSubmissionPayload)
+          .select()
+          .single();
+        subData = simpleRes.data;
+        subErr = simpleRes.error;
+      }
+
+      if (subErr || !subData) throw subErr || new Error("Failed to save blog submission");
+
+      // Save photos into the dedicated guest_submission_photos relation table
+      // (used by Admin Review and AI Blogger functions)
+      if (photoUrls.length > 0 && subData?.id) {
+        const photoRows = photoUrls.map((url, idx) => ({
+          submission_id: subData.id,
+          image_url: url,
+          caption: submitForm.business_name.trim(),
+          display_order: idx,
+        }));
+
+        const { error: photoInsertErr } = await supabase
+          .from("guest_submission_photos")
+          .insert(photoRows);
+
+        if (photoInsertErr) {
+          console.warn("Notice: Photos saved to cloud storage, but relation insert returned:", photoInsertErr);
+        }
+      }
 
       // Invoke AI generation function in background
       if (subData?.id) {
@@ -1005,6 +1069,33 @@ export default function UserMyBlogs({ defaultTab = "my-blogs" }: UserMyBlogsProp
                               <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
                                 {blog.description}
                               </p>
+
+                              {/* Gallery Photos Preview if present */}
+                              {(() => {
+                                const gallery = [
+                                  ...(blog.guest_submission_photos || []).map((p: any) => p.image_url),
+                                  ...(Array.isArray(blog.photos) ? blog.photos : []),
+                                ].filter(Boolean);
+                                const uniqueGallery = Array.from(new Set(gallery));
+                                if (uniqueGallery.length === 0) return null;
+
+                                return (
+                                  <div className="pt-1">
+                                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+                                      <span className="text-[10px] font-bold text-muted-foreground uppercase shrink-0">Photos:</span>
+                                      {uniqueGallery.map((url, idx) => (
+                                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0 group">
+                                          <img
+                                            src={url}
+                                            alt={`Photo ${idx + 1}`}
+                                            className="h-9 w-9 rounded-lg object-cover border border-border/80 group-hover:border-primary transition-colors"
+                                          />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })()}
 
                               {/* Contact Details Chips */}
                               <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground pt-1 min-w-0 max-w-full">

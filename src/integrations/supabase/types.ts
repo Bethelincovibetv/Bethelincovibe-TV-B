@@ -1066,6 +1066,7 @@ export type Database = {
           description: string
           generated_post_id: string | null
           id: string
+          photos: string[] | null
           rejection_reason: string | null
           status: string
           updated_at: string
@@ -1085,6 +1086,7 @@ export type Database = {
           description: string
           generated_post_id?: string | null
           id?: string
+          photos?: string[] | null
           rejection_reason?: string | null
           status?: string
           updated_at?: string
@@ -1104,6 +1106,7 @@ export type Database = {
           description?: string
           generated_post_id?: string | null
           id?: string
+          photos?: string[] | null
           rejection_reason?: string | null
           status?: string
           updated_at?: string

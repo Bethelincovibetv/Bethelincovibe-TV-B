@@ -10,7 +10,7 @@ export type FeatureKey =
   // WhatsApp & Communication
   | "whatsapp_engine" | "realtime_chat"
   // Advertising & Ad Placements
-  | "advertise" | "ad_earnings" | "ads_marketplace" | "ads_blog" | "ads_dashboard" | "ads_directory"
+  | "advertise" | "ad_earnings" | "ads_marketplace" | "ads_blog" | "ads_dashboard" | "ads_directory" | "promoter_hub"
   // Finance & Wallet
   | "wallet" | "referrals" | "daily_rewards"
   // Content & Editorial
@@ -52,6 +52,7 @@ export const FEATURE_META: FeatureMetaItem[] = [
 
   // Advertising & Ad Placements
   { key: "advertise", label: "Advertise With Us Portal", category: "advertising", description: "Public advertising page, self-serve campaign creator, and ad manager (/advertise)" },
+  { key: "promoter_hub", label: "Promoter Hub & WhatsApp Influencer System", category: "advertising", description: "Promoter directory (/promoters), influencer profiles, promoter orders, earnings wallet, and WhatsApp community verification (/dashboard/promoter/*)" },
   { key: "ads_marketplace", label: "Marketplace Ad Placements", category: "advertising", description: "Showcase programmatic ads and verified sponsored banners across /products and /products/:slug" },
   { key: "ads_blog", label: "Blog Article Ads", category: "advertising", description: "Promotional sponsor banners in blog articles and editorial sidebars" },
   { key: "ads_dashboard", label: "User Dashboard Ads", category: "advertising", description: "High-visibility sponsored partner banners on the merchant user dashboard" },

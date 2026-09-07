@@ -135,6 +135,20 @@ export default function AdminGuestBlogs() {
               </div>
             </CardHeader>
             <CardContent className="p-4 sm:p-6 pt-0 space-y-3 min-w-0">
+              {/* Cover Banner */}
+              {s.banner_url && (
+                <div className="relative rounded-2xl overflow-hidden border border-border/70 max-h-48">
+                  <img
+                    src={s.banner_url}
+                    alt={`${s.business_name} Banner`}
+                    className="w-full h-32 sm:h-44 object-cover"
+                  />
+                  <span className="absolute bottom-2 left-2 bg-black/75 text-white text-[10px] font-bold px-2 py-0.5 rounded-md backdrop-blur-xs">
+                    Cover Banner
+                  </span>
+                </div>
+              )}
+
               <p className="text-sm break-words leading-relaxed text-foreground/90">{s.description}</p>
 
               <div className="text-xs text-muted-foreground space-y-1.5 min-w-0 break-all">
@@ -144,13 +158,32 @@ export default function AdminGuestBlogs() {
                 {s.contact_email && <p className="break-all">✉️ {s.contact_email}</p>}
               </div>
 
-              {s.guest_submission_photos?.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-2">
-                  {s.guest_submission_photos.map((p: any) => (
-                    <img key={p.id} src={p.image_url} alt="" className="h-16 w-16 object-cover rounded-xl shrink-0 border" />
-                  ))}
-                </div>
-              )}
+              {/* Photos from both relational table and direct array */}
+              {(() => {
+                const photos: string[] = [
+                  ...(s.guest_submission_photos || []).map((p: any) => p.image_url),
+                  ...(Array.isArray(s.photos) ? s.photos : []),
+                ].filter(Boolean);
+                const uniquePhotos = Array.from(new Set(photos));
+                if (uniquePhotos.length === 0) return null;
+
+                return (
+                  <div className="space-y-1 pt-1">
+                    <p className="text-[11px] font-bold text-muted-foreground">Gallery Photos ({uniquePhotos.length}):</p>
+                    <div className="flex gap-2 overflow-x-auto pb-2">
+                      {uniquePhotos.map((url, idx) => (
+                        <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="shrink-0 group">
+                          <img
+                            src={url}
+                            alt={`Photo ${idx + 1}`}
+                            className="h-16 w-16 object-cover rounded-xl border border-border/70 group-hover:border-primary transition-colors"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {s.rejection_reason && <p className="text-xs text-destructive bg-destructive/10 p-2.5 rounded-xl break-words">Reason: {s.rejection_reason}</p>}
 

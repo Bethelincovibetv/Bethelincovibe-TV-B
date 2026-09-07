@@ -612,11 +612,29 @@ REQUIREMENTS:
       fullHtml += s.content;
     });
 
-    // Guest submission photo gallery
-    if (guestSubmission?.guest_submission_photos?.length) {
+    // Guest submission photo gallery (from guest_submission_photos relation and direct photos array)
+    const galleryItems: Array<{ url: string; caption?: string }> = [
+      ...(guestSubmission?.guest_submission_photos || []).map((photo: any) => ({
+        url: photo.image_url,
+        caption: photo.caption || guestSubmission?.business_name,
+      })),
+      ...(Array.isArray(guestSubmission?.photos) ? guestSubmission.photos.map((url: string) => ({
+        url,
+        caption: guestSubmission?.business_name,
+      })) : [])
+    ].filter((item) => Boolean(item.url));
+
+    const seenGalleryUrls = new Set<string>();
+    const uniqueGalleryItems = galleryItems.filter((item) => {
+      if (seenGalleryUrls.has(item.url)) return false;
+      seenGalleryUrls.add(item.url);
+      return true;
+    });
+
+    if (uniqueGalleryItems.length > 0) {
       fullHtml += `<h2>Gallery</h2><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:16px 0">`;
-      for (const photo of guestSubmission.guest_submission_photos) {
-        fullHtml += `<figure><img src="${photo.image_url}" alt="${photo.caption || guestSubmission.business_name}" style="width:100%;border-radius:8px" loading="lazy" />${photo.caption ? `<figcaption style="text-align:center;font-size:0.85em;color:#666">${photo.caption}</figcaption>` : ""}</figure>`;
+      for (const photo of uniqueGalleryItems) {
+        fullHtml += `<figure><img src="${photo.url}" alt="${photo.caption || guestSubmission?.business_name}" style="width:100%;border-radius:8px" loading="lazy" />${photo.caption ? `<figcaption style="text-align:center;font-size:0.85em;color:#666">${photo.caption}</figcaption>` : ""}</figure>`;
       }
       fullHtml += `</div>`;
     }
