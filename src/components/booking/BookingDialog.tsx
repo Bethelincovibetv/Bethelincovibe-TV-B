@@ -150,10 +150,10 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-xl max-h-[90vh] overflow-y-auto p-6 rounded-3xl">
+      <DialogContent className="sm:max-w-xl w-[calc(100vw-1.5rem)] max-h-[min(92dvh,850px)] flex flex-col p-0 rounded-3xl overflow-hidden border border-border/80 bg-background/95 backdrop-blur-xl shadow-2xl">
         {step === "form" && (
-          <div>
-            <DialogHeader className="mb-4">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <DialogHeader className="p-5 sm:p-6 pb-3 border-b shrink-0 bg-card/90 backdrop-blur-xs z-10 text-left">
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-[11px] font-bold text-primary border-primary/30">
                   Step 6 • Booking Request
@@ -167,120 +167,122 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
               </DialogDescription>
             </DialogHeader>
 
-            {/* Selected Package & Audience Summary */}
-            <div className="p-4 rounded-2xl bg-muted/40 border border-border/60 mb-5 space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h4 className="text-sm font-bold text-foreground line-clamp-1">{pkg.title}</h4>
-                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{pkg.description}</p>
-                </div>
-                <div className="text-right shrink-0">
-                  <span className="text-base font-extrabold text-primary">{formatNaira(pkg.price)}</span>
-                  <span className="text-[10px] text-muted-foreground block">{pkg.duration_hours}h duration</span>
-                </div>
-              </div>
-
-              {targetCommunity && (
-                <div className="pt-2 border-t border-border/40 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1 font-semibold text-foreground">
-                    <Layers className="h-3.5 w-3.5 text-primary" />
-                    {targetCommunity.name}
-                  </span>
-                  <span>•</span>
-                  <span className="flex items-center gap-1">
-                    <Users className="h-3.5 w-3.5" />
-                    {targetCommunity.member_count.toLocaleString()} members
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {error && (
-              <Alert variant="destructive" className="mb-4 rounded-2xl">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <form onSubmit={handleNextToReview} className="space-y-4">
-              {/* Promotion Brief */}
-              <div className="space-y-1.5">
-                <Label htmlFor="promo-brief" className="text-xs font-bold text-foreground">
-                  Promotion Brief <span className="text-red-500">*</span>
-                </Label>
-                <Textarea
-                  id="promo-brief"
-                  placeholder="e.g., Promote our new Lagos shoe boutique launch. Highlight 20% discount on all sneakers with link to our WhatsApp catalog."
-                  value={promotionBrief}
-                  onChange={(e) => setPromotionBrief(e.target.value)}
-                  rows={4}
-                  required
-                  className="rounded-xl text-xs resize-none"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Provide clear instructions on what the promoter should post and highlight.
-                </p>
-              </div>
-
-              {/* Creative Assets URLs */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-bold text-foreground">Creative Assets / Flyer URLs (Optional)</Label>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={handleAddUrl}
-                    className="h-6 text-xs text-primary font-bold px-2"
-                  >
-                    <Plus className="h-3 w-3 mr-1" /> Add URL
-                  </Button>
-                </div>
-
-                {creativeUrls.map((url, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <Input
-                      type="url"
-                      placeholder="https://example.com/banner-flyer.png or drive link"
-                      value={url}
-                      onChange={(e) => handleUrlChange(idx, e.target.value)}
-                      className="rounded-xl text-xs"
-                    />
-                    {creativeUrls.length > 1 && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveUrl(idx)}
-                        className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
+            <form onSubmit={handleNextToReview} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+              <div className="overflow-y-auto overflow-x-hidden flex-1 p-5 sm:p-6 space-y-4 touch-pan-y overscroll-contain">
+                {/* Selected Package & Audience Summary */}
+                <div className="p-4 rounded-2xl bg-muted/40 border border-border/60 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-sm font-bold text-foreground line-clamp-1">{pkg.title}</h4>
+                      <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">{pkg.description}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="text-base font-extrabold text-primary">{formatNaira(pkg.price)}</span>
+                      <span className="text-[10px] text-muted-foreground block">{pkg.duration_hours}h duration</span>
+                    </div>
                   </div>
-                ))}
+
+                  {targetCommunity && (
+                    <div className="pt-2 border-t border-border/40 flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                      <span className="flex items-center gap-1 font-semibold text-foreground">
+                        <Layers className="h-3.5 w-3.5 text-primary" />
+                        {targetCommunity.name}
+                      </span>
+                      <span>•</span>
+                      <span className="flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {targetCommunity.member_count.toLocaleString()} members
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {error && (
+                  <Alert variant="destructive" className="rounded-2xl">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
+                  </Alert>
+                )}
+
+                {/* Promotion Brief */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="promo-brief" className="text-xs font-bold text-foreground">
+                    Promotion Brief <span className="text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    id="promo-brief"
+                    placeholder="e.g., Promote our new Lagos shoe boutique launch. Highlight 20% discount on all sneakers with link to our WhatsApp catalog."
+                    value={promotionBrief}
+                    onChange={(e) => setPromotionBrief(e.target.value)}
+                    rows={4}
+                    required
+                    className="rounded-xl text-xs resize-none"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Provide clear instructions on what the promoter should post and highlight.
+                  </p>
+                </div>
+
+                {/* Creative Assets URLs */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-bold text-foreground">Creative Assets / Flyer URLs (Optional)</Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleAddUrl}
+                      className="h-6 text-xs text-primary font-bold px-2"
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Add URL
+                    </Button>
+                  </div>
+
+                  {creativeUrls.map((url, idx) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        type="url"
+                        placeholder="https://example.com/banner-flyer.png or drive link"
+                        value={url}
+                        onChange={(e) => handleUrlChange(idx, e.target.value)}
+                        className="rounded-xl text-xs"
+                      />
+                      {creativeUrls.length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleRemoveUrl(idx)}
+                          className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Special Instructions */}
+                <div className="space-y-1.5">
+                  <Label htmlFor="special-instructions" className="text-xs font-bold text-foreground">
+                    Special Instructions (Optional)
+                  </Label>
+                  <Textarea
+                    id="special-instructions"
+                    placeholder="e.g., Please post between 2:00 PM and 5:00 PM West Africa Time."
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    rows={2}
+                    className="rounded-xl text-xs resize-none"
+                  />
+                </div>
               </div>
 
-              {/* Special Instructions */}
-              <div className="space-y-1.5">
-                <Label htmlFor="special-instructions" className="text-xs font-bold text-foreground">
-                  Special Instructions (Optional)
-                </Label>
-                <Textarea
-                  id="special-instructions"
-                  placeholder="e.g., Please post between 2:00 PM and 5:00 PM West Africa Time."
-                  value={specialInstructions}
-                  onChange={(e) => setSpecialInstructions(e.target.value)}
-                  rows={2}
-                  className="rounded-xl text-xs resize-none"
-                />
-              </div>
-
-              <DialogFooter className="pt-3 border-t border-border/60">
-                <Button type="button" variant="outline" onClick={handleClose} className="rounded-xl text-xs">
+              <DialogFooter className="p-3.5 sm:p-5 pt-3 border-t shrink-0 bg-muted/20 flex flex-row items-center justify-between gap-2 z-10">
+                <Button type="button" variant="outline" onClick={handleClose} className="rounded-xl text-xs h-9">
                   Cancel
                 </Button>
-                <Button type="submit" className="rounded-xl text-xs font-bold gap-1.5">
+                <Button type="submit" className="rounded-xl text-xs font-bold gap-1.5 h-9">
                   <span>Review Order</span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </Button>
@@ -290,8 +292,8 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
         )}
 
         {step === "review" && (
-          <div>
-            <DialogHeader className="mb-4">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <DialogHeader className="p-5 sm:p-6 pb-3 border-b shrink-0 bg-card/90 backdrop-blur-xs z-10 text-left">
               <Badge variant="outline" className="w-fit text-[11px] font-bold text-amber-600 border-amber-500/30 mb-1">
                 Order Review
               </Badge>
@@ -303,14 +305,14 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
               </DialogDescription>
             </DialogHeader>
 
-            {error && (
-              <Alert variant="destructive" className="mb-4 rounded-2xl">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
-              </Alert>
-            )}
+            <div className="overflow-y-auto overflow-x-hidden flex-1 p-5 sm:p-6 space-y-4 touch-pan-y overscroll-contain">
+              {error && (
+                <Alert variant="destructive" className="rounded-2xl">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="text-xs font-semibold">{error}</AlertDescription>
+                </Alert>
+              )}
 
-            <div className="space-y-4">
               {/* Order Summary Card */}
               <Card className="p-4 rounded-2xl border border-border/70 bg-card space-y-3">
                 <div className="flex justify-between items-center text-xs pb-2 border-b border-border/50">
@@ -355,13 +357,13 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
               </Alert>
             </div>
 
-            <DialogFooter className="pt-4 mt-4 border-t border-border/60 flex items-center justify-between gap-2">
+            <DialogFooter className="p-3.5 sm:p-5 pt-3 border-t shrink-0 bg-muted/20 flex flex-row items-center justify-between gap-2 z-10">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => setStep("form")}
                 disabled={isSubmitting}
-                className="rounded-xl text-xs"
+                className="rounded-xl text-xs h-9"
               >
                 Back
               </Button>
@@ -369,7 +371,7 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
                 type="button"
                 onClick={handleCreateOrder}
                 disabled={isSubmitting}
-                className="rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5"
+                className="rounded-xl text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 h-9"
               >
                 {isSubmitting ? (
                   <>
@@ -388,50 +390,52 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
         )}
 
         {step === "success" && createdOrder && (
-          <div className="text-center py-4 space-y-4">
-            <div className="h-14 w-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center mx-auto">
-              <CheckCircle2 className="h-8 w-8" />
-            </div>
-
-            <div>
-              <h3 className="text-xl font-extrabold text-foreground">Promotion Order Created!</h3>
-              <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
-                Your booking request has been successfully registered.
-              </p>
-            </div>
-
-            <div className="p-4 rounded-2xl bg-muted/40 border border-border/60 text-left space-y-2.5 max-w-md mx-auto">
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Order Reference</span>
-                <span className="font-mono font-extrabold text-primary">{createdOrder.order_reference}</span>
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="overflow-y-auto overflow-x-hidden flex-1 p-6 text-center space-y-4 touch-pan-y overscroll-contain">
+              <div className="h-14 w-14 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 flex items-center justify-center mx-auto">
+                <CheckCircle2 className="h-8 w-8" />
               </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Status</span>
-                <Badge variant="outline" className="text-[10px] font-bold bg-amber-500/10 text-amber-600 border-amber-500/30">
-                  Payment Required
-                </Badge>
-              </div>
-              <div className="flex justify-between items-center text-xs">
-                <span className="text-muted-foreground">Amount</span>
-                <span className="font-bold text-foreground">{formatNaira(createdOrder.amount)}</span>
-              </div>
-            </div>
 
-            <Alert className="bg-primary/5 border-primary/20 text-primary-900 dark:text-primary-100 rounded-2xl text-left">
-              <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
               <div>
-                <AlertTitle className="text-xs font-bold text-primary">Next Steps</AlertTitle>
-                <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                  Promotion will commence once payment is processed in Step 7. You can monitor your booking in your dashboard.
-                </AlertDescription>
+                <h3 className="text-xl font-extrabold text-foreground">Promotion Order Created!</h3>
+                <p className="text-xs text-muted-foreground mt-1 max-w-sm mx-auto">
+                  Your booking request has been successfully registered.
+                </p>
               </div>
-            </Alert>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+              <div className="p-4 rounded-2xl bg-muted/40 border border-border/60 text-left space-y-2.5 max-w-md mx-auto">
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Order Reference</span>
+                  <span className="font-mono font-extrabold text-primary">{createdOrder.order_reference}</span>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Status</span>
+                  <Badge variant="outline" className="text-[10px] font-bold bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    Payment Required
+                  </Badge>
+                </div>
+                <div className="flex justify-between items-center text-xs">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-bold text-foreground">{formatNaira(createdOrder.amount)}</span>
+                </div>
+              </div>
+
+              <Alert className="bg-primary/5 border-primary/20 text-primary-900 dark:text-primary-100 rounded-2xl text-left max-w-md mx-auto">
+                <Sparkles className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                <div>
+                  <AlertTitle className="text-xs font-bold text-primary">Next Steps</AlertTitle>
+                  <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    Promotion will commence once payment is processed in Step 7. You can monitor your booking in your dashboard.
+                  </AlertDescription>
+                </div>
+              </Alert>
+            </div>
+
+            <div className="p-4 sm:p-5 pt-3 border-t shrink-0 bg-muted/20 flex flex-col sm:flex-row items-center justify-center gap-2 z-10">
               <Button
                 variant="outline"
                 onClick={handleClose}
-                className="w-full sm:w-auto text-xs rounded-xl"
+                className="w-full sm:w-auto text-xs rounded-xl h-9"
               >
                 Back to Marketplace
               </Button>
@@ -440,7 +444,7 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
                   handleClose();
                   navigate(`/dashboard/promotion-orders/${createdOrder.id}`);
                 }}
-                className="w-full sm:w-auto text-xs font-bold rounded-xl"
+                className="w-full sm:w-auto text-xs font-bold rounded-xl h-9"
               >
                 <span>View Order Details</span>
                 <ArrowRight className="h-3.5 w-3.5 ml-1.5" />

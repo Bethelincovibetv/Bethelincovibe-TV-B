@@ -1678,22 +1678,22 @@ export default function ServiceManagementPage() {
 
         {/* ===================== LOG MANUAL BOOKING MODAL ===================== */}
         <Dialog open={manualBookingModalOpen} onOpenChange={setManualBookingModalOpen}>
-          <DialogContent className="max-w-md rounded-3xl p-6">
-            <DialogHeader>
-              <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center">
+          <DialogContent className="sm:max-w-md w-[calc(100vw-1.5rem)] max-h-[min(92dvh,760px)] flex flex-col p-0 rounded-3xl overflow-hidden border border-border/80 bg-background/95 backdrop-blur-xl shadow-2xl">
+            <DialogHeader className="p-5 pb-3 border-b shrink-0 bg-card/90 backdrop-blur-xs z-10 text-left">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/10 text-blue-600 flex items-center justify-center shrink-0">
                   <Calendar className="w-5 h-5" />
                 </div>
                 <div>
-                  <DialogTitle className="text-lg font-black">Log Client Booking / Order</DialogTitle>
-                  <DialogDescription className="text-xs">
+                  <DialogTitle className="text-base sm:text-lg font-black text-foreground">Log Client Booking / Order</DialogTitle>
+                  <DialogDescription className="text-xs text-muted-foreground">
                     Record offline walk-ins, phone calls, or WhatsApp clients into your schedule.
                   </DialogDescription>
                 </div>
               </div>
             </DialogHeader>
 
-            <div className="space-y-3.5 pt-2">
+            <div className="overflow-y-auto overflow-x-hidden flex-1 p-5 space-y-3.5 touch-pan-y overscroll-contain">
               <div className="space-y-1">
                 <Label className="text-xs font-black">Client Full Name *</Label>
                 <Input
@@ -1778,22 +1778,22 @@ export default function ServiceManagementPage() {
                   value={manualBooking.message}
                   onChange={(e) => setManualBooking({ ...manualBooking, message: e.target.value })}
                   placeholder="Special client requests, delivery location, or deposit status..."
-                  className="rounded-xl text-xs"
+                  className="rounded-xl text-xs resize-none"
                 />
               </div>
             </div>
 
-            <DialogFooter className="gap-2 pt-3">
+            <DialogFooter className="p-3.5 sm:p-4 pt-3 border-t shrink-0 bg-muted/20 flex flex-row items-center justify-end gap-2 z-10">
               <Button
                 variant="outline"
                 onClick={() => setManualBookingModalOpen(false)}
-                className="rounded-xl text-xs"
+                className="rounded-xl text-xs h-9"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleCreateManualBooking}
-                className="font-bold rounded-xl text-xs bg-primary text-white"
+                className="font-bold rounded-xl text-xs bg-primary text-white h-9 px-4 shadow-sm"
               >
                 Save Client Booking
               </Button>

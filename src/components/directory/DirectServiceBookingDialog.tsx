@@ -168,10 +168,10 @@ export default function DirectServiceBookingDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="sm:max-w-lg rounded-3xl p-5 sm:p-6 overflow-hidden">
-        <DialogHeader className="text-left space-y-1.5 pb-2 border-b">
+      <DialogContent className="sm:max-w-lg w-[calc(100vw-1.5rem)] max-h-[min(92dvh,840px)] flex flex-col p-0 rounded-3xl overflow-hidden border border-border/80 bg-background/95 backdrop-blur-xl shadow-2xl">
+        <DialogHeader className="text-left space-y-1.5 p-5 sm:p-6 pb-3 border-b shrink-0 bg-card/90 backdrop-blur-xs z-10">
           <div className="flex items-center gap-2">
-            <Badge className="bg-primary/10 text-primary border-primary/20 text-xs">
+            <Badge className="bg-primary/10 text-primary border-primary/20 text-xs font-bold">
               <Sparkles className="h-3 w-3 mr-1" /> Verified Booking
             </Badge>
             {servicePrice && (
@@ -180,141 +180,145 @@ export default function DirectServiceBookingDialog({
               </Badge>
             )}
           </div>
-          <DialogTitle className="text-lg sm:text-xl font-bold text-foreground">
+          <DialogTitle className="text-lg sm:text-xl font-extrabold text-foreground">
             {serviceTitle ? `Book Service: ${serviceTitle}` : `Contact & Book with ${businessName}`}
           </DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
-            Directly connect with <strong className="text-foreground">{businessName}</strong>. Your request is automatically routed to their priority leads queue.
+          <DialogDescription className="text-xs text-muted-foreground line-clamp-2">
+            Directly connect with <strong className="text-foreground font-semibold">{businessName}</strong>. Your request is automatically routed to their priority leads queue.
           </DialogDescription>
         </DialogHeader>
 
-        {serviceImageUrl && (
-          <div className="aspect-[16/8] w-full rounded-2xl overflow-hidden bg-muted relative my-2">
-            <img src={serviceImageUrl} alt={serviceTitle || businessName} className="w-full h-full object-cover" />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-            <p className="absolute bottom-2 left-3 text-xs font-bold text-white drop-shadow-sm">
-              {serviceTitle}
-            </p>
-          </div>
-        )}
-
         {success ? (
-          <div className="py-6 text-center space-y-4">
+          <div className="py-8 px-6 text-center space-y-4 overflow-y-auto flex-1">
             <div className="h-14 w-14 rounded-full bg-emerald-500/10 text-emerald-600 flex items-center justify-center mx-auto">
               <CheckCircle2 className="h-8 w-8" />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <h3 className="text-base font-bold text-foreground">Inquiry Sent Successfully!</h3>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto leading-relaxed">
                 {businessName} has received your direct booking request in their dashboard and will follow up with you directly.
               </p>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2 pt-2 justify-center">
+            <div className="flex flex-col sm:flex-row gap-2 pt-3 justify-center">
               {cleanWhatsApp && (
-                <Button onClick={handleWhatsAppDirect} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-xl">
+                <Button onClick={handleWhatsAppDirect} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold gap-1.5 rounded-xl text-xs h-10 px-4 shadow-sm">
                   <MessageCircle className="h-4 w-4" /> Continue on WhatsApp
                 </Button>
               )}
-              <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl">
+              <Button variant="outline" onClick={() => onOpenChange(false)} className="rounded-xl text-xs h-10 px-4">
                 Close
               </Button>
             </div>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-3.5 pt-2">
-            {/* Quick direct contact buttons */}
-            <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-2xl border">
-              {cleanWhatsApp ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleWhatsAppDirect}
-                  className="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-xs font-bold h-9 rounded-xl gap-1.5"
-                >
-                  <MessageCircle className="h-3.5 w-3.5" /> Instant WhatsApp
-                </Button>
-              ) : null}
-              {cleanPhone ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePhoneCallDirect}
-                  className="bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-500/30 text-xs font-bold h-9 rounded-xl gap-1.5"
-                >
-                  <Phone className="h-3.5 w-3.5" /> Call Provider
-                </Button>
-              ) : null}
-            </div>
+          <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            {/* Scrollable Form Body */}
+            <div className="overflow-y-auto overflow-x-hidden flex-1 px-5 sm:px-6 py-4 space-y-3.5 touch-pan-y overscroll-contain">
+              {serviceImageUrl && (
+                <div className="aspect-[16/7] max-h-36 sm:max-h-44 w-full rounded-2xl overflow-hidden bg-muted relative shrink-0 border shadow-xs">
+                  <img src={serviceImageUrl} alt={serviceTitle || businessName} className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+                  <p className="absolute bottom-2 left-3 right-3 text-xs font-bold text-white drop-shadow-sm truncate">
+                    {serviceTitle}
+                  </p>
+                </div>
+              )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* Quick direct contact buttons */}
+              <div className="grid grid-cols-2 gap-2 bg-muted/40 p-2.5 rounded-2xl border">
+                {cleanWhatsApp ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleWhatsAppDirect}
+                    className="bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-xs font-bold h-9 rounded-xl gap-1.5"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" /> Instant WhatsApp
+                  </Button>
+                ) : null}
+                {cleanPhone ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handlePhoneCallDirect}
+                    className="bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border-blue-500/30 text-xs font-bold h-9 rounded-xl gap-1.5"
+                  >
+                    <Phone className="h-3.5 w-3.5" /> Call Provider
+                  </Button>
+                ) : null}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Your Name <span className="text-rose-500">*</span></Label>
+                  <Input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. John Doe"
+                    required
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-bold">Your Phone / WhatsApp <span className="text-rose-500">*</span></Label>
+                  <Input
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="e.g. 08012345678"
+                    required
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Your Email (Optional)</Label>
+                  <Input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs font-medium">Preferred Date / Timeline</Label>
+                  <Input
+                    type="date"
+                    value={date}
+                    onChange={(e) => setDate(e.target.value)}
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-1">
-                <Label className="text-xs font-bold">Your Name *</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. John Doe"
-                  required
-                  className="h-9 text-xs rounded-xl"
+                <Label className="text-xs font-medium">Message & Requirements</Label>
+                <Textarea
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  rows={2}
+                  placeholder="Describe your request, vehicle model, quantity, or specific location..."
+                  className="text-xs rounded-xl resize-none"
                 />
               </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-bold">Your Phone / WhatsApp *</Label>
-                <Input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. 08012345678"
-                  required
-                  className="h-9 text-xs rounded-xl"
-                />
-              </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Your Email (Optional)</Label>
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
-                  className="h-9 text-xs rounded-xl"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs font-medium">Preferred Date / Timeline</Label>
-                <Input
-                  type="date"
-                  value={date}
-                  onChange={(e) => setDate(e.target.value)}
-                  className="h-9 text-xs rounded-xl"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label className="text-xs font-medium">Message & Requirements</Label>
-              <Textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={2}
-                placeholder="Describe your request, vehicle model, quantity, or specific location..."
-                className="text-xs rounded-xl resize-none"
-              />
-            </div>
-
-            <DialogFooter className="pt-2 flex flex-col sm:flex-row gap-2">
+            {/* Pinned Accessible Dialog Footer */}
+            <DialogFooter className="p-3.5 sm:p-5 pt-3 border-t shrink-0 bg-muted/20 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 z-10">
               <Button
                 type="button"
                 variant="ghost"
                 onClick={() => onOpenChange(false)}
-                className="rounded-xl text-xs"
+                className="rounded-xl text-xs h-9"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={submitting}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-xs gap-1.5 shadow-md flex-1"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold rounded-xl text-xs h-9 gap-1.5 shadow-md flex-1 sm:flex-initial"
               >
                 {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                 Confirm &amp; Send Direct Booking

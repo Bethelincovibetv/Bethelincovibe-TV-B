@@ -267,6 +267,7 @@ export default function ProgrammaticAdBanner({
 
             validDirect.forEach((item: any) => {
               if (!fetchedAds.some((a) => a.id === item.id) && item.image_url) {
+                const ggdData = item.ggd_response && typeof item.ggd_response === "object" ? item.ggd_response : {};
                 fetchedAds.push({
                   id: item.id,
                   title: item.title,
@@ -279,6 +280,9 @@ export default function ProgrammaticAdBanner({
                   urgency_tag: "🔥 Active Live Campaign",
                   social_proof: "1,200+ daily views",
                   is_verified: true,
+                  display_template: ggdData.display_template || item.display_template || undefined,
+                  experience_type: ggdData.experience_type || item.experience_type || undefined,
+                  experience_config: ggdData.experience_config || item.experience_config || undefined,
                 });
               }
             });
