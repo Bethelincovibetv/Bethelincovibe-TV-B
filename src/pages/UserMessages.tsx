@@ -1,62 +1,64 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Helmet } from "react-helmet-async";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
-  ChevronLeft,
   Search,
   Send,
   Mic,
   Paperclip,
-  Smile,
   Phone,
   Video,
   MessageCircle,
-  MoreVertical,
   Lock,
   ShieldCheck,
-  Check,
-  CheckCheck,
   Volume2,
   VolumeX,
   Users,
   Plus,
   ArrowLeft,
-  Image as ImageIcon,
   FileText,
   Trash2,
-  Download,
-  Share2,
-  Sparkles,
   Loader2,
-  Info,
-  Tv,
-  AtSign,
   Reply,
   X,
-  Store,
-  PhoneCall,
-  Crown,
   Settings2,
   Radio,
   User,
   AlertCircle,
   RefreshCw,
+  Sparkles,
+  Bot,
+  Flame,
+  Globe,
+  CheckCircle2,
+  ChevronDown,
+  Palette,
+  ExternalLink,
+  Copy,
+  Info,
 } from "lucide-react";
-import { formatDistanceToNow, format } from "date-fns";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
 import { WhatsAppDoodleBackground } from "@/components/chat/WhatsAppDoodleBackground";
 import { ChatMessageBubble } from "@/components/chat/ChatMessageBubble";
 import { VoiceNoteRecorder } from "@/components/chat/VoiceNoteRecorder";
 import { CreateChatRoomDialog } from "@/components/chat/CreateChatRoomDialog";
 import { ChatRoomAdminDialog } from "@/components/chat/ChatRoomAdminDialog";
-import { MentionSuggestions } from "@/components/chat/MentionSuggestions";
+import { EmojiPickerPopover } from "@/components/chat/EmojiPickerPopover";
 import { WebRTCCallModal } from "@/components/chat/WebRTCCallModal";
 import { chatSounds } from "@/lib/chatSounds";
 import {
@@ -82,9 +84,18 @@ import {
   getFirestoreDiagnostics,
 } from "@/lib/firebaseChat";
 import { uploadChatAttachment } from "@/lib/chatStorage";
+import {
+  AI_ADVISORS,
+  OFFICIAL_COMMUNITY_LOUNGES,
+  getDefaultOfficialRooms,
+  getDefaultAIAdvisorRooms,
+  generateAIAdvisorResponse,
+  getAIAdvisorByChatId,
+  isAIAdvisorChat,
+} from "@/lib/chatAIAdvisors";
 
 export default function UserMessages() {
-  const { user, loading: authLoading } = useAuth();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
 
   const targetUserParam = searchParams.get("targetUserId");
@@ -100,20 +111,31 @@ export default function UserMessages() {
 
   const isPlatformAdmin = isPlatformAdminEmail(currentUserEmail);
 
+  // Sidebar Filter Tab State
+  const [sidebarTab, setSidebarTab] = useState<"all" | "official" | "ai" | "direct" | "trade" | "discover">("all");
+
   // Rooms & Active Chat State
   const [userRooms, setUserRooms] = useState<RealtimeChatRoom[]>([]);
   const [publicRooms, setPublicRooms] = useState<RealtimeChatRoom[]>([]);
   const [activeRoomId, setActiveRoomId] = useState<string | null>(null);
   const [messages, setMessages] = useState<RealtimeChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [messageText, setMessageText] = useState("");
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
+
+  // In-Chat Search State
+  const [isSearchingInChat, setIsSearchingInChat] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState("");
+
+  // Pinned Notice Collapsible Banner
+  const [showPinnedNotice, setShowPinnedNotice] = useState(true);
 
   // Directory Search State (Search users to start 1-on-1 chat)
   const [directorySearch, setDirectorySearch] = useState("");
   const [discoveredContacts, setDiscoveredContacts] = useState<any[]>([]);
   const [isSearchingDirectory, setIsSearchingDirectory] = useState(false);
+  const [featuredMerchants, setFeaturedMerchants] = useState<any[]>([]);
 
   // Reply Target
   const [replyingTo, setReplyingTo] = useState<RealtimeChatMessage | null>(null);
@@ -146,6 +168,10 @@ export default function UserMessages() {
     isVideo: false,
   });
 
+  // AI Advisor Chat Local Message State
+  const [aiChatMessages, setAiChatMessages] = useState<Record<string, RealtimeChatMessage[]>>({});
+  const [isAIGenerating, setIsAIGenerating] = useState(false);
+
   // Firestore connection & API status
   const [firestoreStatus, setFirestoreStatus] = useState<{
     connected: boolean;
@@ -171,23 +197,110 @@ export default function UserMessages() {
   const messageInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Combine user rooms, public rooms, and optimistic instantaneous rooms
+  // Fetch initial featured merchants for directory discovery
+  useEffect(() => {
+    async function loadFeatured() {
+      try {
+        const { data } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .limit(10);
+        if (data && data.length > 0) {
+          setFeaturedMerchants(
+            data
+              .filter((p) => p.id !== currentUserId)
+              .map((p) => ({
+                id: p.id,
+                name: p.display_name || (p.username ? `@${p.username}` : "Verified Member"),
+                avatar: p.avatar_url,
+                role: p.username ? `@${p.username}` : "Verified Merchant",
+              }))
+          );
+        }
+      } catch (e) {
+        console.warn("Featured merchants load:", e);
+      }
+    }
+    loadFeatured();
+  }, [currentUserId]);
+
+  // Generate All Rooms (combining Official Lounges, AI Advisors, Firebase User Rooms, and Public Rooms)
   const allRooms = useMemo(() => {
     const map = new Map<string, RealtimeChatRoom>();
-    userRooms.forEach((r) => map.set(r.id, r));
+
+    // 1. Add Default Official Community Lounges
+    getDefaultOfficialRooms().forEach((r) => map.set(r.id, r));
+
+    // 2. Add Default AI Executive Advisors
+    getDefaultAIAdvisorRooms(currentUserId, currentUserName, currentUserAvatar).forEach((r) =>
+      map.set(r.id, r)
+    );
+
+    // 3. Merge Firebase Public Lounges (which may have newer lastMessages)
     publicRooms.forEach((r) => {
-      if (!map.has(r.id)) map.set(r.id, r);
+      const existing = map.get(r.id);
+      if (existing) {
+        map.set(r.id, { ...existing, ...r });
+      } else {
+        map.set(r.id, r);
+      }
     });
+
+    // 4. Merge User Personal Chats
+    userRooms.forEach((r) => {
+      const existing = map.get(r.id);
+      if (existing) {
+        map.set(r.id, { ...existing, ...r });
+      } else {
+        map.set(r.id, r);
+      }
+    });
+
+    // Sort by most recent message or creation
     return Array.from(map.values()).sort((a, b) => {
       const tA = new Date(a.lastMessageTime || a.createdAt || 0).getTime();
       const tB = new Date(b.lastMessageTime || b.createdAt || 0).getTime();
       return tB - tA;
     });
-  }, [userRooms, publicRooms]);
+  }, [userRooms, publicRooms, currentUserId, currentUserName, currentUserAvatar]);
+
+  // Filtered rooms by tab and search query
+  const filteredRooms = useMemo(() => {
+    let list = allRooms;
+
+    if (sidebarTab === "official") {
+      list = list.filter(
+        (r) => r.isOfficial && r.roomType !== "direct" && r.roomType !== "trade_mastermind"
+      );
+    } else if (sidebarTab === "ai") {
+      list = list.filter((r) => isAIAdvisorChat(r.id) || isAIAdvisorChat(r.creatorId || ""));
+    } else if (sidebarTab === "trade") {
+      list = list.filter((r) => r.roomType === "trade_mastermind");
+    } else if (sidebarTab === "direct") {
+      list = list.filter(
+        (r) => r.roomType === "direct" && !isAIAdvisorChat(r.id) && !isAIAdvisorChat(r.creatorId || "")
+      );
+    }
+
+    if (!searchQuery.trim()) return list;
+
+    const q = searchQuery.toLowerCase();
+    return list.filter(
+      (r) =>
+        r.name?.toLowerCase().includes(q) ||
+        r.description?.toLowerCase().includes(q) ||
+        r.lastMessageText?.toLowerCase().includes(q)
+    );
+  }, [allRooms, sidebarTab, searchQuery]);
 
   const activeRoom = useMemo(() => {
     return allRooms.find((r) => r.id === activeRoomId) || null;
   }, [allRooms, activeRoomId]);
+
+  const activeAIAdvisor = useMemo(() => {
+    if (!activeRoomId) return null;
+    return getAIAdvisorByChatId(activeRoomId) || (activeRoom?.creatorId ? getAIAdvisorByChatId(activeRoom.creatorId) : null);
+  }, [activeRoomId, activeRoom]);
 
   const otherUserId = useMemo(() => {
     if (!activeRoom) return targetUserParam || null;
@@ -218,7 +331,7 @@ export default function UserMessages() {
   } | null>(null);
 
   useEffect(() => {
-    if (!otherUserId) {
+    if (!otherUserId || isAIAdvisorChat(otherUserId)) {
       setOtherPresence(null);
       return;
     }
@@ -278,12 +391,10 @@ export default function UserMessages() {
     if (!currentUserId) return;
     const unsubUser = subscribeToUserChats(currentUserId, (roomsList) => {
       setUserRooms(roomsList);
-      setLoading(false);
     });
 
     const unsubPublic = subscribeToPublicCommunityRooms((pubList) => {
       setPublicRooms(pubList);
-      setLoading(false);
     });
 
     return () => {
@@ -299,16 +410,13 @@ export default function UserMessages() {
     if (roomIdParam) {
       setActiveRoomId(roomIdParam);
       setMobileView("chat");
-      setLoading(false);
     } else if (officialRoomParam === "true" || officialRoomParam === "bethelincovibetv") {
       getOrCreateGeneralBethelChatRoom(currentUserId, currentUserName, currentUserAvatar).then((r) => {
         setActiveRoomId(r.id);
         setMobileView("chat");
-        setLoading(false);
       });
     } else if (targetUserParam) {
       const tName = targetNameParam || "Bethelincovibe Member";
-      setLoading(true);
       getOrCreateChatRoom(
         currentUserId,
         currentUserName,
@@ -317,19 +425,28 @@ export default function UserMessages() {
         targetAvatarParam || undefined,
         undefined,
         currentUserAvatar
-      ).then((room) => {
-        const id = typeof room === "string" ? room : (room as any)?.id;
-        if (id) setActiveRoomId(id);
-        setMobileView("chat");
-        setLoading(false);
-      }).catch((err) => {
-        setLoading(false);
-        toast.error(err?.message || "Could not create this conversation");
-      });
+      )
+        .then((room) => {
+          const id = typeof room === "string" ? room : (room as any)?.id;
+          if (id) setActiveRoomId(id);
+          setMobileView("chat");
+        })
+        .catch((err) => {
+          toast.error(err?.message || "Could not create this conversation");
+        });
     }
-  }, [roomIdParam, officialRoomParam, targetUserParam, targetNameParam, targetAvatarParam, currentUserId, currentUserName, currentUserAvatar]);
+  }, [
+    roomIdParam,
+    officialRoomParam,
+    targetUserParam,
+    targetNameParam,
+    targetAvatarParam,
+    currentUserId,
+    currentUserName,
+    currentUserAvatar,
+  ]);
 
-  // If no room is active and we have rooms, select the first one on desktop
+  // If no room is active and we have rooms, auto-select official general room on desktop
   useEffect(() => {
     if (!activeRoomId && allRooms.length > 0 && !targetUserParam && !roomIdParam && !officialRoomParam) {
       setActiveRoomId(allRooms[0].id);
@@ -343,15 +460,40 @@ export default function UserMessages() {
       return;
     }
 
+    // Check if this is an AI Advisor chat
+    if (activeAIAdvisor) {
+      const existing = aiChatMessages[activeRoomId];
+      if (existing && existing.length > 0) {
+        setMessages(existing);
+      } else {
+        // Initial greeting message from the AI Advisor
+        const initialMsg: RealtimeChatMessage = {
+          id: `init_ai_${Date.now()}`,
+          chatId: activeRoomId,
+          senderId: activeAIAdvisor.id,
+          senderName: activeAIAdvisor.name,
+          senderAvatar: activeAIAdvisor.avatar,
+          text: activeAIAdvisor.greeting,
+          type: "text",
+          createdAt: new Date().toISOString(),
+        };
+        setMessages([initialMsg]);
+        setAiChatMessages((prev) => ({ ...prev, [activeRoomId]: [initialMsg] }));
+      }
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+      }, 50);
+      return;
+    }
+
+    // Normal Firestore Subscription for Community & User Rooms
     const unsubMessages = subscribeToChatMessages(activeRoomId, (loadedMsgs) => {
       setMessages((prev) => {
         // Retain optimistic pending messages that are not yet returned from Firestore
         const pending = prev.filter(
           (p) =>
             p.isLocalPending &&
-            !loadedMsgs.some(
-              (l) => l.senderId === p.senderId && l.text === p.text && l.type === p.type
-            )
+            !loadedMsgs.some((l) => l.senderId === p.senderId && l.text === p.text && l.type === p.type)
         );
 
         // If incoming message from someone else, play sound
@@ -382,7 +524,7 @@ export default function UserMessages() {
       unsubMessages();
       unsubTyping();
     };
-  }, [activeRoomId, currentUserId]);
+  }, [activeRoomId, currentUserId, activeAIAdvisor]);
 
   // Directory Search (find verified businesses / members to chat with)
   useEffect(() => {
@@ -430,7 +572,7 @@ export default function UserMessages() {
   // Handle typing indicator heartbeat
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setMessageText(e.target.value);
-    if (!activeRoomId) return;
+    if (!activeRoomId || activeAIAdvisor) return;
 
     setChatTypingState(activeRoomId, currentUserId, currentUserName, true);
 
@@ -440,8 +582,8 @@ export default function UserMessages() {
     }, 2000);
   };
 
-  // Send text or media message (Instant Optimistic UI)
-  const handleSendMessage = async (e?: React.FormEvent) => {
+  // Send text or media message (Optimistic UI + Instant AI Response for Advisor Lounges)
+  const handleSendMessage = async (e?: React.FormEvent, customText?: string) => {
     if (e) e.preventDefault();
     if (!activeRoomId) return;
 
@@ -450,7 +592,7 @@ export default function UserMessages() {
       return;
     }
 
-    const cleanText = messageText.trim();
+    const cleanText = (customText !== undefined ? customText : messageText).trim();
     if (!cleanText && !selectedMedia) return;
 
     const mediaToSend = selectedMedia;
@@ -491,7 +633,51 @@ export default function UserMessages() {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, 20);
 
-    // Background Firestore write
+    // If active chat is an AI Executive Advisor, generate AI response!
+    if (activeAIAdvisor) {
+      const updatedMessages = [...messages, optimisticMsg];
+      setAiChatMessages((prev) => ({ ...prev, [activeRoomId]: updatedMessages }));
+      setIsAIGenerating(true);
+
+      // Simulate realistic typing indicator delay
+      setTimeout(async () => {
+        try {
+          const aiResponseText = await generateAIAdvisorResponse(
+            activeAIAdvisor,
+            cleanText,
+            currentUserName
+          );
+
+          const aiMsg: RealtimeChatMessage = {
+            id: `ai_${Date.now()}_${Math.random().toString(36).substring(2, 5)}`,
+            chatId: activeRoomId,
+            senderId: activeAIAdvisor.id,
+            senderName: activeAIAdvisor.name,
+            senderAvatar: activeAIAdvisor.avatar,
+            text: aiResponseText,
+            type: "text",
+            createdAt: new Date().toISOString(),
+          };
+
+          setMessages((prev) => [...prev, aiMsg]);
+          setAiChatMessages((prev) => ({
+            ...prev,
+            [activeRoomId]: [...(prev[activeRoomId] || []), aiMsg],
+          }));
+          chatSounds.playReceive();
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+          }, 30);
+        } catch (err: any) {
+          toast.error(err?.message || "Could not generate advisor reply");
+        } finally {
+          setIsAIGenerating(false);
+        }
+      }, 1000);
+      return;
+    }
+
+    // Background Firestore write for Community / Direct Chats
     sendMessageToChat({
       chatId: activeRoomId,
       senderId: currentUserId,
@@ -560,6 +746,14 @@ export default function UserMessages() {
           if (uploaded) permanentUrl = uploaded;
         } catch {
           // Keep base64 fallback if storage upload encounters network constraint
+        }
+
+        if (activeAIAdvisor) {
+          setAiChatMessages((prev) => ({
+            ...prev,
+            [activeRoomId]: [...(prev[activeRoomId] || []), optimisticVoiceMsg],
+          }));
+          return;
         }
 
         await sendMessageToChat({
@@ -702,48 +896,68 @@ export default function UserMessages() {
       setMobileView("chat");
       setLoading(false);
       toast.success(`Connected to chat with ${contact.name}`);
-    } catch (err) {
+    } catch (err: any) {
       setLoading(false);
       toast.error(err?.message || "Could not start this conversation");
     }
   };
 
-  // Filtered rooms list by search query
-  const filteredRooms = useMemo(() => {
-    if (!searchQuery.trim()) return allRooms;
-    const q = searchQuery.toLowerCase();
-    return allRooms.filter(
-      (r) =>
-        r.name?.toLowerCase().includes(q) ||
-        r.description?.toLowerCase().includes(q) ||
-        r.lastMessageText?.toLowerCase().includes(q)
-    );
-  }, [allRooms, searchQuery]);
+  // Quick Prompt Chips based on active room type or advisor
+  const currentPromptChips = useMemo(() => {
+    if (activeAIAdvisor) {
+      return activeAIAdvisor.quickPrompts;
+    }
+    const official = OFFICIAL_COMMUNITY_LOUNGES.find((l) => l.id === activeRoomId);
+    if (official) {
+      return official.quickPrompts;
+    }
+    if (activeRoom?.roomType === "trade_mastermind") {
+      return [
+        "📦 Request wholesale bulk price quotation",
+        "🛡️ Request Bethel Escrow protection for this deal",
+        "🤝 Are you open to cargo container freight sharing?",
+        "🏷️ What is the minimum order quantity (MOQ)?",
+      ];
+    }
+    return [
+      "👋 Hello! Inquiring about your product listing",
+      "📦 Is this item available for fast nationwide delivery?",
+      "🚚 What is the delivery timeframe to my location?",
+      "🤝 Can we discuss wholesale pricing for bulk order?",
+    ];
+  }, [activeRoomId, activeAIAdvisor, activeRoom]);
+
+  // Messages filtered by in-chat search
+  const visibleMessages = useMemo(() => {
+    if (!chatSearchQuery.trim()) return messages;
+    const q = chatSearchQuery.toLowerCase();
+    return messages.filter((m) => m.text?.toLowerCase().includes(q) || m.senderName?.toLowerCase().includes(q));
+  }, [messages, chatSearchQuery]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Helmet>
-        <title>Community Chat &amp; Trade Hub | Bethelincovibe TV</title>
+        <title>Real-Time Chat &amp; Trade Hub | Bethelincovibe TV</title>
         <meta
           name="description"
-          content="Real-time encrypted WhatsApp-style messaging, merchant collaboration, and VIP wholesale trade lounges."
+          content="Real-time encrypted WhatsApp-style messaging, AI executive advisors, merchant collaboration, and VIP wholesale trade lounges."
         />
       </Helmet>
 
-      {/* Firestore Infrastructure Status Banner */}
+      {/* Firestore Infrastructure Status Banner (if offline/disabled) */}
       {firestoreStatus && !firestoreStatus.connected && (
         <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
             <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
             <span>
-              <strong>Cloud Firestore Status:</strong>{" "}
+              <strong>Cloud Sync Status:</strong>{" "}
               {firestoreStatus.isApiDisabled ? (
                 <>
-                  Cloud Firestore API is disabled or pending activation for project{" "}
+                  Cloud Firestore API is activating for project{" "}
                   <code className="font-mono bg-amber-500/15 px-1 py-0.5 rounded font-bold">
                     {firestoreStatus.projectId}
                   </code>
-                  . Enable it in Google Cloud Console to restore live messaging.
+                  . Local cache and AI advisors remain 100% active.
                 </>
               ) : (
                 firestoreStatus.message
@@ -751,16 +965,6 @@ export default function UserMessages() {
             </span>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            {firestoreStatus.isApiDisabled && (
-              <a
-                href={`https://console.developers.google.com/apis/api/firestore.googleapis.com/overview?project=${firestoreStatus.projectId}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-              >
-                Enable in GCP Console
-              </a>
-            )}
             <Button
               size="sm"
               variant="outline"
@@ -776,16 +980,16 @@ export default function UserMessages() {
       )}
 
       {/* Main Container */}
-      <div className="flex-1 flex overflow-hidden h-[calc(100vh-64px)] max-h-[1000px] border-b border-border/80">
+      <div className="flex-1 flex overflow-hidden h-[calc(100dvh-64px)] max-h-[1000px] w-full max-w-full border-b border-border/80">
         {/* ========================================================================= */}
         {/* LEFT COLUMN: Chat Rooms List & Discover Directory */}
         {/* ========================================================================= */}
         <div
-          className={`w-full md:w-[380px] lg:w-[420px] flex-shrink-0 flex flex-col border-r border-border bg-card/60 backdrop-blur-md transition-all ${
+          className={`w-full md:w-[380px] lg:w-[420px] flex-shrink-0 flex flex-col border-r border-border bg-card/60 backdrop-blur-md transition-all max-w-full overflow-hidden ${
             mobileView === "chat" ? "hidden md:flex" : "flex"
           }`}
         >
-          {/* Header */}
+          {/* Top Bar / Header */}
           <div className="p-3.5 sm:p-4 border-b border-border/80 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2.5 min-w-0">
               <Avatar className="h-9 w-9 ring-2 ring-primary/20 shrink-0">
@@ -796,7 +1000,7 @@ export default function UserMessages() {
               </Avatar>
               <div className="min-w-0">
                 <h1 className="text-sm sm:text-base font-black text-foreground truncate flex items-center gap-1.5">
-                  Bethel Community
+                  Bethel Hub
                   <Radio className="h-3 w-3 text-emerald-500 animate-pulse" />
                 </h1>
                 <p className="text-[11px] text-muted-foreground truncate">
@@ -806,6 +1010,7 @@ export default function UserMessages() {
             </div>
 
             <div className="flex items-center gap-1">
+              {/* Sound toggle button */}
               <Button
                 variant="ghost"
                 size="icon"
@@ -821,6 +1026,7 @@ export default function UserMessages() {
                 {soundEnabled ? <Volume2 className="h-4 w-4 text-primary" /> : <VolumeX className="h-4 w-4" />}
               </Button>
 
+              {/* Create new group button */}
               <Button
                 size="sm"
                 onClick={() => setCreateRoomOpen(true)}
@@ -832,15 +1038,15 @@ export default function UserMessages() {
             </div>
           </div>
 
-          {/* Search bar & Directory search */}
+          {/* Search bar */}
           <div className="p-3 space-y-2 border-b border-border/60">
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search chats or messages..."
+                placeholder="Search chats, merchants, advisors..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 h-9 text-xs rounded-xl bg-background/80"
+                className="pl-9 pr-8 h-9 text-xs rounded-xl bg-background/80"
               />
               {searchQuery && (
                 <button
@@ -853,162 +1059,264 @@ export default function UserMessages() {
               )}
             </div>
 
-            {/* Quick Find Vendor / Member */}
-            <div className="relative">
-              <Users className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Find member or merchant to message..."
-                value={directorySearch}
-                onChange={(e) => setDirectorySearch(e.target.value)}
-                className="pl-8 h-8 text-[11px] rounded-xl bg-muted/30 border-dashed"
-              />
-              {isSearchingDirectory && (
-                <Loader2 className="absolute right-3 top-2 h-3.5 w-3.5 animate-spin text-primary" />
-              )}
-            </div>
-
-            {/* Discovered Directory Contacts Dropdown */}
-            {discoveredContacts.length > 0 && (
-              <div className="rounded-2xl border border-primary/30 bg-card p-2 shadow-lg space-y-1 max-h-48 overflow-y-auto">
-                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-2 py-0.5">
-                  Verified Platform Members
-                </p>
-                {discoveredContacts.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => handleStartDirectChat(c)}
-                    className="w-full flex items-center justify-between gap-2 p-2 rounded-xl hover:bg-muted text-left transition-colors"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Avatar className="h-7 w-7 ring-1 ring-primary/20">
-                        <AvatarImage src={c.avatar} />
-                        <AvatarFallback className="text-[10px] font-bold">
-                          {c.name.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-xs font-bold text-foreground truncate">{c.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
-                      </div>
-                    </div>
-                    <Badge variant="outline" className="text-[9px] py-0 px-1 font-bold text-primary border-primary/30">
-                      Message
-                    </Badge>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Chat Rooms Scroll List */}
-          <div className="flex-1 overflow-y-auto divide-y divide-border/40">
-            {loading ? (
-              <div className="p-8 text-center space-y-2 text-muted-foreground">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" />
-                <p className="text-xs">Loading live discussions...</p>
-              </div>
-            ) : filteredRooms.length === 0 ? (
-              <div className="p-8 text-center space-y-3">
-                <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
-                  <MessageCircle className="h-6 w-6" />
-                </div>
-                <p className="text-xs font-bold text-foreground">No conversations yet</p>
-                <p className="text-[11px] text-muted-foreground">
-                  Join an official group or search for members above to start a conversation.
-                </p>
-              </div>
-            ) : (
-              filteredRooms.map((room) => {
-                const isActive = room.id === activeRoomId;
-                const isGroup = room.roomType !== "direct";
-                const isOfficial = room.isOfficial || room.roomType === "community" || room.roomType === "official";
-
-                let displayName = room.name || "Chat Room";
-                let displayAvatar = room.avatarUrl;
-                if (!isGroup && room.participants) {
-                  const otherId = room.participants.find((id) => id !== currentUserId) || room.participants[0];
-                  displayName = room.participantNames?.[otherId] || displayName;
-                  displayAvatar = room.participantAvatars?.[otherId] || displayAvatar;
-                }
-
-                const unreadCount = (room as any)[`unreadCount_${currentUserId}`] || (room.unreadCounts as any)?.[currentUserId] || 0;
-
+            {/* Quick Filter Tabs */}
+            <div className="flex items-center gap-1 overflow-x-auto scrollbar-none pb-0.5">
+              {[
+                { id: "all", label: "All Chats", icon: MessageCircle },
+                { id: "official", label: "Lounges", icon: Globe },
+                { id: "ai", label: "AI Advisors", icon: Bot },
+                { id: "trade", label: "VIP Trade", icon: Flame },
+                { id: "direct", label: "Direct DMs", icon: User },
+                { id: "discover", label: "Discover", icon: Users },
+              ].map((tab) => {
+                const Icon = tab.icon;
+                const active = sidebarTab === tab.id;
                 return (
                   <button
-                    key={room.id}
+                    key={tab.id}
                     type="button"
-                    onClick={() => {
-                      setActiveRoomId(room.id);
-                      setMobileView("chat");
-                    }}
-                    className={`w-full p-3 sm:p-3.5 flex items-start gap-3 text-left transition-all relative ${
-                      isActive
-                        ? "bg-primary/10 border-l-4 border-primary"
-                        : "hover:bg-muted/40"
+                    onClick={() => setSidebarTab(tab.id as any)}
+                    className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 whitespace-nowrap transition-all ${
+                      active
+                        ? "bg-primary text-primary-foreground shadow-xs"
+                        : "bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
-                    {/* Room Avatar */}
-                    <div className="relative shrink-0">
-                      <Avatar className="h-11 w-11 rounded-2xl ring-1 ring-border shadow-xs">
-                        {displayAvatar ? (
-                          <AvatarImage src={displayAvatar} className="object-cover" />
-                        ) : null}
-                        <AvatarFallback className="text-base font-bold bg-primary/15 text-primary">
-                          {room.avatarEmoji || (isGroup ? "👥" : displayName.slice(0, 2).toUpperCase())}
-                        </AvatarFallback>
-                      </Avatar>
-                      {isOfficial && (
-                        <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] shadow-xs">
-                          <ShieldCheck className="h-3 w-3" />
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Room Info & Last Message Snippet */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <p className="text-xs sm:text-sm font-bold text-foreground truncate">
-                            {displayName}
-                          </p>
-                          {isOfficial && (
-                            <Badge className="text-[9px] py-0 px-1 bg-emerald-500/15 text-emerald-600 border-emerald-500/30 font-extrabold shrink-0">
-                              Official
-                            </Badge>
-                          )}
-                          {room.roomType === "trade_mastermind" && (
-                            <Badge className="text-[9px] py-0 px-1 bg-purple-500/15 text-purple-600 border-purple-500/30 font-extrabold shrink-0">
-                              VIP Trade
-                            </Badge>
-                          )}
-                        </div>
-                        <span className={`text-[10px] whitespace-nowrap ${unreadCount > 0 ? "text-emerald-500 font-bold" : "text-muted-foreground"}`}>
-                          {room.lastMessageTime
-                            ? formatDistanceToNow(new Date(room.lastMessageTime), {
-                                addSuffix: false,
-                              })
-                            : ""}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between gap-2 mt-1">
-                        <p className={`text-xs truncate line-clamp-1 ${unreadCount > 0 ? "text-foreground font-bold" : "text-muted-foreground font-medium"}`}>
-                          {room.lastMessageSenderName ? `${room.lastMessageSenderName}: ` : ""}
-                          {room.lastMessageText || room.description || "Start chatting..."}
-                        </p>
-                        {unreadCount > 0 && (
-                          <span className="shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center shadow-xs">
-                            {unreadCount > 99 ? "99+" : unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
+                    <Icon className="h-3 w-3" />
+                    <span>{tab.label}</span>
                   </button>
                 );
-              })
-            )}
+              })}
+            </div>
           </div>
+
+          {/* Chat Rooms Scroll List OR Discover Tab */}
+          {sidebarTab === "discover" ? (
+            /* Discover Tab: Verified Merchants & Community Search */
+            <div className="flex-1 overflow-y-auto p-3 space-y-3">
+              <div className="space-y-1.5">
+                <p className="text-xs font-black uppercase tracking-wider text-muted-foreground px-1">
+                  Search Platform Members
+                </p>
+                <div className="relative">
+                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by username or business name..."
+                    value={directorySearch}
+                    onChange={(e) => setDirectorySearch(e.target.value)}
+                    className="pl-8 h-8 text-xs rounded-xl bg-background"
+                  />
+                  {isSearchingDirectory && (
+                    <Loader2 className="absolute right-3 top-2 h-3.5 w-3.5 animate-spin text-primary" />
+                  )}
+                </div>
+              </div>
+
+              {discoveredContacts.length > 0 ? (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-wider text-primary px-1">
+                    Search Results
+                  </p>
+                  {discoveredContacts.map((c) => (
+                    <div
+                      key={c.id}
+                      className="p-2.5 rounded-2xl border bg-card/80 hover:bg-muted/50 flex items-center justify-between gap-2 transition-all shadow-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Avatar className="h-9 w-9 rounded-xl ring-1 ring-border">
+                          <AvatarImage src={c.avatar} />
+                          <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                            {c.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate">{c.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate">{c.role}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => handleStartDirectChat(c)}
+                        className="h-7 px-2.5 text-[11px] rounded-xl font-bold bg-primary text-primary-foreground gap-1"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                        Chat
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              {/* Featured Verified Merchants */}
+              <div className="space-y-1.5 pt-2">
+                <p className="text-[10px] font-black uppercase tracking-wider text-muted-foreground px-1 flex items-center justify-between">
+                  <span>Verified Platform Merchants</span>
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 inline" />
+                </p>
+                {featuredMerchants.length > 0 ? (
+                  featuredMerchants.map((m) => (
+                    <div
+                      key={m.id}
+                      className="p-2.5 rounded-2xl border bg-card/80 hover:bg-muted/50 flex items-center justify-between gap-2 transition-all shadow-xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <Avatar className="h-9 w-9 rounded-xl ring-1 ring-border">
+                          <AvatarImage src={m.avatar} />
+                          <AvatarFallback className="text-xs font-bold bg-primary/10 text-primary">
+                            {m.name.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground truncate flex items-center gap-1">
+                            {m.name}
+                            <CheckCircle2 className="h-3 w-3 text-emerald-500 inline shrink-0" />
+                          </p>
+                          <p className="text-[10px] text-muted-foreground truncate">{m.role}</p>
+                        </div>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleStartDirectChat(m)}
+                        className="h-7 px-2.5 text-[11px] rounded-xl font-bold border-primary/30 text-primary hover:bg-primary/10 gap-1"
+                      >
+                        <MessageCircle className="h-3 w-3" />
+                        Message
+                      </Button>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground p-3 text-center">
+                    Loading verified directory merchants...
+                  </p>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* Regular Chat Rooms List */
+            <div className="flex-1 overflow-y-auto divide-y divide-border/40">
+              {filteredRooms.length === 0 ? (
+                <div className="p-8 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center mx-auto text-muted-foreground">
+                    <MessageCircle className="h-6 w-6" />
+                  </div>
+                  <p className="text-xs font-bold text-foreground">No conversations match</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Try another search term or click "All Chats" to see all active lounges.
+                  </p>
+                </div>
+              ) : (
+                filteredRooms.map((room) => {
+                  const isActive = room.id === activeRoomId;
+                  const isGroup = room.roomType !== "direct";
+                  const isOfficial = room.isOfficial || room.roomType === "community" || room.roomType === "official";
+                  const isAI = isAIAdvisorChat(room.id) || isAIAdvisorChat(room.creatorId || "");
+
+                  let displayName = room.name || "Chat Room";
+                  let displayAvatar = room.avatarUrl;
+                  if (!isGroup && room.participants) {
+                    const otherId = room.participants.find((id) => id !== currentUserId) || room.participants[0];
+                    displayName = room.participantNames?.[otherId] || displayName;
+                    displayAvatar = room.participantAvatars?.[otherId] || displayAvatar;
+                  }
+
+                  const unreadCount =
+                    (room as any)[`unreadCount_${currentUserId}`] ||
+                    (room.unreadCounts as any)?.[currentUserId] ||
+                    0;
+
+                  return (
+                    <button
+                      key={room.id}
+                      type="button"
+                      onClick={() => {
+                        setActiveRoomId(room.id);
+                        setMobileView("chat");
+                      }}
+                      className={`w-full p-3 sm:p-3.5 flex items-start gap-3 text-left transition-all relative ${
+                        isActive ? "bg-primary/10 border-l-4 border-primary" : "hover:bg-muted/40"
+                      }`}
+                    >
+                      {/* Room Avatar */}
+                      <div className="relative shrink-0">
+                        <Avatar className="h-11 w-11 rounded-2xl ring-1 ring-border shadow-xs">
+                          {displayAvatar ? (
+                            <AvatarImage src={displayAvatar} className="object-cover" />
+                          ) : null}
+                          <AvatarFallback className="text-base font-bold bg-primary/15 text-primary">
+                            {room.avatarEmoji || (isGroup ? "👥" : displayName.slice(0, 2).toUpperCase())}
+                          </AvatarFallback>
+                        </Avatar>
+                        {isOfficial && !isAI && (
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[9px] shadow-xs">
+                            <ShieldCheck className="h-3 w-3" />
+                          </div>
+                        )}
+                        {isAI && (
+                          <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-blue-500 text-white flex items-center justify-center text-[9px] shadow-xs">
+                            <Bot className="h-3 w-3" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Room Info & Last Message Snippet */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                              {displayName}
+                            </p>
+                            {isOfficial && !isAI && (
+                              <Badge className="text-[9px] py-0 px-1 bg-emerald-500/15 text-emerald-600 border-emerald-500/30 font-extrabold shrink-0">
+                                Official
+                              </Badge>
+                            )}
+                            {isAI && (
+                              <Badge className="text-[9px] py-0 px-1 bg-blue-500/15 text-blue-600 border-blue-500/30 font-extrabold shrink-0">
+                                AI Advisor
+                              </Badge>
+                            )}
+                            {room.roomType === "trade_mastermind" && (
+                              <Badge className="text-[9px] py-0 px-1 bg-purple-500/15 text-purple-600 border-purple-500/30 font-extrabold shrink-0">
+                                VIP Trade
+                              </Badge>
+                            )}
+                          </div>
+                          <span
+                            className={`text-[10px] whitespace-nowrap ${
+                              unreadCount > 0 ? "text-emerald-500 font-bold" : "text-muted-foreground"
+                            }`}
+                          >
+                            {room.lastMessageTime
+                              ? formatDistanceToNow(new Date(room.lastMessageTime), {
+                                  addSuffix: false,
+                                })
+                              : ""}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          <p
+                            className={`text-xs truncate line-clamp-1 ${
+                              unreadCount > 0 ? "text-foreground font-bold" : "text-muted-foreground font-medium"
+                            }`}
+                          >
+                            {room.lastMessageSenderName ? `${room.lastMessageSenderName}: ` : ""}
+                            {room.lastMessageText || room.description || "Start chatting..."}
+                          </p>
+                          {unreadCount > 0 && (
+                            <span className="shrink-0 min-w-[1.25rem] h-5 px-1.5 rounded-full bg-emerald-500 text-white text-[10px] font-black flex items-center justify-center shadow-xs">
+                              {unreadCount > 99 ? "99+" : unreadCount}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          )}
         </div>
 
         {/* ========================================================================= */}
@@ -1035,7 +1343,7 @@ export default function UserMessages() {
                   </Button>
 
                   {/* Header Avatar & Name with profile link */}
-                  {otherUserId ? (
+                  {otherUserId && !activeAIAdvisor ? (
                     <Link
                       to={`/u/${otherUserId}`}
                       className="flex items-center gap-2.5 min-w-0 group hover:opacity-90 transition-opacity"
@@ -1070,9 +1378,12 @@ export default function UserMessages() {
                             </span>
                           ) : otherPresence?.lastSeen ? (
                             <span className="text-muted-foreground font-normal">
-                              Last seen {(() => {
+                              Last seen{" "}
+                              {(() => {
                                 try {
-                                  const d = otherPresence.lastSeen?.toDate ? otherPresence.lastSeen.toDate() : new Date(otherPresence.lastSeen);
+                                  const d = otherPresence.lastSeen?.toDate
+                                    ? otherPresence.lastSeen.toDate()
+                                    : new Date(otherPresence.lastSeen);
                                   return formatDistanceToNow(d, { addSuffix: true });
                                 } catch {
                                   return "recently";
@@ -1104,17 +1415,32 @@ export default function UserMessages() {
                           <h2 className="text-sm sm:text-base font-black text-foreground truncate">
                             {activeRoom.name || "Bethel Community"}
                           </h2>
-                          {activeRoom.isOfficial && (
+                          {activeRoom.isOfficial && !activeAIAdvisor && (
                             <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                          )}
+                          {activeAIAdvisor && (
+                            <Badge className="text-[10px] py-0 px-1 bg-blue-500/15 text-blue-600 border-blue-500/30 font-bold shrink-0">
+                              {activeAIAdvisor.badge}
+                            </Badge>
                           )}
                         </div>
                         <p className="text-[11px] text-muted-foreground truncate">
-                          {typingUsers.length > 0 ? (
+                          {isAIGenerating ? (
+                            <span className="text-blue-500 font-bold animate-pulse flex items-center gap-1">
+                              <Bot className="h-3 w-3 inline" />
+                              {activeAIAdvisor?.name} is thinking &amp; typing...
+                            </span>
+                          ) : typingUsers.length > 0 ? (
                             <span className="text-emerald-500 font-bold animate-pulse">
                               {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"} typing...
                             </span>
+                          ) : activeAIAdvisor ? (
+                            <span className="text-blue-600 font-medium flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 inline-block animate-pulse" />
+                              24/7 AI Autonomous Executive Advisor
+                            </span>
                           ) : activeRoom.roomType !== "direct" ? (
-                            `${(activeRoom.participants || []).length} members active`
+                            `${(activeRoom.participants || []).length || "50+"} active entrepreneurs`
                           ) : (
                             "Direct Encrypted Message"
                           )}
@@ -1125,22 +1451,8 @@ export default function UserMessages() {
                 </div>
 
                 {/* Header Actions */}
-                <div className="flex items-center gap-1 shrink-0">
-                  {otherUserId && (
-                    <Button
-                      asChild
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-primary"
-                      title="View Member Profile & Store"
-                    >
-                      <Link to={`/u/${otherUserId}`}>
-                        <User className="h-4 w-4" />
-                      </Link>
-                    </Button>
-                  )}
-
-                  {/* Call Simulation Buttons */}
+                <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+                  {/* Voice Call Button (Always accessible) */}
                   <Button
                     variant="ghost"
                     size="icon"
@@ -1158,35 +1470,214 @@ export default function UserMessages() {
                     <Phone className="h-4 w-4" />
                   </Button>
 
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() =>
-                      setActiveCall({
-                        isOpen: true,
-                        contactName: activeRoom.name || "Community Member",
-                        contactAvatar: activeRoom.avatarUrl,
-                        isVideo: true,
-                      })
-                    }
-                    title="Start Video Call"
-                    className="h-8 w-8 rounded-xl text-muted-foreground hover:text-primary"
-                  >
-                    <Video className="h-4 w-4" />
-                  </Button>
+                  {/* Desktop Only Actions: Video Call, Search, Wallpaper, Settings */}
+                  <div className="hidden sm:flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() =>
+                        setActiveCall({
+                          isOpen: true,
+                          contactName: activeRoom.name || "Community Member",
+                          contactAvatar: activeRoom.avatarUrl,
+                          isVideo: true,
+                        })
+                      }
+                      title="Start Video Call"
+                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-primary"
+                    >
+                      <Video className="h-4 w-4" />
+                    </Button>
 
-                  {/* Room Settings / Admin Management Dialog */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setAdminDialogOpen(true)}
-                    title="Group Settings & Members"
-                    className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
-                  >
-                    <Settings2 className="h-4 w-4" />
-                  </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setIsSearchingInChat(!isSearchingInChat);
+                        if (isSearchingInChat) setChatSearchQuery("");
+                      }}
+                      title="Search messages in this chat"
+                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                    >
+                      <Search className="h-4 w-4" />
+                    </Button>
+
+                    {/* Wallpaper Theme Dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Change chat background wallpaper"
+                          className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                        >
+                          <Palette className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 rounded-2xl p-1">
+                        <DropdownMenuLabel className="text-xs font-bold px-2 py-1">
+                          Wallpaper Theme
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setWallpaperTheme("classic")}
+                          className={`text-xs rounded-xl ${wallpaperTheme === "classic" ? "bg-muted font-bold" : ""}`}
+                        >
+                          🎨 Classic WhatsApp Doodle
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setWallpaperTheme("dark")}
+                          className={`text-xs rounded-xl ${wallpaperTheme === "dark" ? "bg-muted font-bold" : ""}`}
+                        >
+                          🌙 Dark AMOLED
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setWallpaperTheme("emerald")}
+                          className={`text-xs rounded-xl ${wallpaperTheme === "emerald" ? "bg-muted font-bold" : ""}`}
+                        >
+                          🌿 Emerald Luxe
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setWallpaperTheme("slate")}
+                          className={`text-xs rounded-xl ${wallpaperTheme === "slate" ? "bg-muted font-bold" : ""}`}
+                        >
+                          💼 Slate Minimalist
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setAdminDialogOpen(true)}
+                      title="Group Settings & Members"
+                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                    >
+                      <Settings2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* Mobile Compact Overflow Menu */}
+                  <div className="sm:hidden">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-xl text-muted-foreground hover:text-foreground"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52 rounded-2xl p-1 shadow-xl">
+                        <DropdownMenuItem
+                          onClick={() =>
+                            setActiveCall({
+                              isOpen: true,
+                              contactName: activeRoom.name || "Community Member",
+                              contactAvatar: activeRoom.avatarUrl,
+                              isVideo: true,
+                            })
+                          }
+                          className="text-xs rounded-xl font-medium gap-2"
+                        >
+                          <Video className="h-4 w-4 text-primary" /> Start Video Call
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setIsSearchingInChat(!isSearchingInChat);
+                            if (isSearchingInChat) setChatSearchQuery("");
+                          }}
+                          className="text-xs rounded-xl font-medium gap-2"
+                        >
+                          <Search className="h-4 w-4 text-primary" /> Search in Chat
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel className="text-[11px] font-bold text-muted-foreground px-2 py-1">
+                          Wallpaper Theme
+                        </DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onClick={() => setWallpaperTheme("classic")}
+                          className={`text-xs rounded-xl ${wallpaperTheme === "classic" ? "bg-muted font-bold" : ""}`}
+                        >
+                          🎨 Classic Doodle
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setWallpaperTheme("dark")}
+                          className={`text-xs rounded-xl ${wallpaperTheme === "dark" ? "bg-muted font-bold" : ""}`}
+                        >
+                          🌙 Dark AMOLED
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setWallpaperTheme("emerald")}
+                          className={`text-xs rounded-xl ${wallpaperTheme === "emerald" ? "bg-muted font-bold" : ""}`}
+                        >
+                          🌿 Emerald Luxe
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => setAdminDialogOpen(true)}
+                          className="text-xs rounded-xl font-medium gap-2"
+                        >
+                          <Settings2 className="h-4 w-4 text-primary" /> Lounge Info & Members
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
               </div>
+
+              {/* In-Chat Search Bar if active */}
+              {isSearchingInChat && (
+                <div className="p-2.5 px-4 bg-muted/90 border-b border-border flex items-center justify-between gap-2 z-10">
+                  <div className="flex items-center gap-2 flex-1 relative">
+                    <Search className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <Input
+                      autoFocus
+                      placeholder="Type words to filter messages..."
+                      value={chatSearchQuery}
+                      onChange={(e) => setChatSearchQuery(e.target.value)}
+                      className="h-8 text-xs bg-background/80 rounded-xl"
+                    />
+                  </div>
+                  <span className="text-[11px] text-muted-foreground shrink-0">
+                    {visibleMessages.length} found
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      setIsSearchingInChat(false);
+                      setChatSearchQuery("");
+                    }}
+                    className="h-7 w-7 rounded-xl"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
+
+              {/* Pinned Community Notice Banner (for official & trade rooms) */}
+              {showPinnedNotice && (activeRoom.isOfficial || activeRoom.roomType === "trade_mastermind") && (
+                <div className="p-2.5 px-4 bg-primary/10 border-b border-primary/20 flex items-center justify-between gap-3 text-xs z-10">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Sparkles className="h-4 w-4 text-primary shrink-0 animate-pulse" />
+                    <span className="text-foreground/90 font-medium truncate">
+                      {activeRoom.roomType === "trade_mastermind"
+                        ? "💎 All wholesale trade transactions are backed by Bethel Safe Escrow. Verify seller CAC before wiring funds."
+                        : "📢 Welcome! Connect with verified Nigerian merchants, share cargo logistics, and build valuable partnerships."}
+                    </span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => setShowPinnedNotice(false)}
+                    className="h-6 w-6 rounded-full text-muted-foreground hover:text-foreground shrink-0"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              )}
 
               {/* Messages Container with WhatsApp Background */}
               <div className="flex-1 overflow-y-auto p-3 sm:p-4 relative">
@@ -1201,17 +1692,19 @@ export default function UserMessages() {
                     </div>
                   </div>
 
-                  {messages.length === 0 ? (
+                  {visibleMessages.length === 0 ? (
                     <div className="py-16 text-center space-y-2">
                       <p className="text-xs font-bold text-muted-foreground">
-                        No messages yet in this lounge.
+                        {chatSearchQuery ? "No matching messages found." : "No messages yet in this lounge."}
                       </p>
                       <p className="text-[11px] text-muted-foreground/80">
-                        Be the first to say hello or post trade inquiry!
+                        {chatSearchQuery
+                          ? "Try searching for a different keyword."
+                          : "Be the first to say hello or click a starter template chip below!"}
                       </p>
                     </div>
                   ) : (
-                    messages.map((msg) => (
+                    visibleMessages.map((msg) => (
                       <div key={msg.id} id={`msg-${msg.id}`}>
                         <ChatMessageBubble
                           message={msg}
@@ -1233,6 +1726,25 @@ export default function UserMessages() {
                       </div>
                     ))
                   )}
+
+                  {/* AI Generating Bubble */}
+                  {isAIGenerating && activeAIAdvisor && (
+                    <div className="flex items-center gap-2 p-3 max-w-sm rounded-2xl bg-card border border-blue-500/30 shadow-md animate-pulse">
+                      <Avatar className="h-7 w-7 ring-1 ring-blue-500/30">
+                        <AvatarImage src={activeAIAdvisor.avatar} />
+                        <AvatarFallback className="text-[10px] font-bold">
+                          {activeAIAdvisor.name.slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="space-y-1">
+                        <p className="text-xs font-bold text-foreground">{activeAIAdvisor.name}</p>
+                        <p className="text-[11px] text-blue-600 font-medium">
+                          Crafting tailored response...
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
                   <div ref={messagesEndRef} />
                 </div>
               </div>
@@ -1282,7 +1794,9 @@ export default function UserMessages() {
                         {selectedMedia.fileName || "Ready to send attachment"}
                       </p>
                       <p className="text-[10px] text-muted-foreground">
-                        {selectedMedia.fileSize ? `${(selectedMedia.fileSize / 1024).toFixed(1)} KB` : "Attached file"}
+                        {selectedMedia.fileSize
+                          ? `${(selectedMedia.fileSize / 1024).toFixed(1)} KB`
+                          : "Attached file"}
                       </p>
                     </div>
                   </div>
@@ -1297,8 +1811,27 @@ export default function UserMessages() {
                 </div>
               )}
 
+              {/* Quick Action Prompt Chips Bar */}
+              {currentPromptChips.length > 0 && (
+                <div className="px-2.5 sm:px-3 py-1.5 bg-card/60 backdrop-blur-md border-t border-border/60 flex items-center gap-1.5 overflow-x-auto scrollbar-none z-10 w-full max-w-full touch-pan-x">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase whitespace-nowrap pl-1 shrink-0">
+                    Suggestions:
+                  </span>
+                  {currentPromptChips.map((chip, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSendMessage(undefined, chip)}
+                      className="px-2.5 py-1 rounded-full text-[11px] font-medium bg-muted/80 hover:bg-primary/15 hover:text-primary border border-border/80 text-foreground/90 whitespace-nowrap transition-all shrink-0 active:scale-95"
+                    >
+                      {chip}
+                    </button>
+                  ))}
+                </div>
+              )}
+
               {/* Bottom Messaging Input Bar */}
-              <div className="p-2.5 sm:p-3 border-t border-border/80 bg-card/90 backdrop-blur-md z-10">
+              <div className="p-2 sm:p-3 border-t border-border/80 bg-card/90 backdrop-blur-md z-10 w-full max-w-full overflow-hidden">
                 {!canPostInActiveRoom ? (
                   <div className="p-3 text-center bg-muted/60 rounded-2xl text-xs font-bold text-muted-foreground border">
                     🔒 Only designated group administrators can broadcast in this channel.
@@ -1309,7 +1842,7 @@ export default function UserMessages() {
                     onCancel={() => setIsRecordingVoice(false)}
                   />
                 ) : (
-                  <form onSubmit={handleSendMessage} className="flex items-center gap-1.5 sm:gap-2">
+                  <form onSubmit={handleSendMessage} className="flex items-center gap-1 sm:gap-2 w-full max-w-full">
                     {/* Hidden file input */}
                     <input
                       type="file"
@@ -1326,23 +1859,35 @@ export default function UserMessages() {
                       size="icon"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUploadingMedia}
-                      className="h-10 w-10 rounded-2xl text-muted-foreground hover:text-foreground shrink-0"
+                      className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl sm:rounded-2xl text-muted-foreground hover:text-foreground shrink-0"
                     >
                       {isUploadingMedia ? (
                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
                       ) : (
-                        <Paperclip className="h-5 w-5" />
+                        <Paperclip className="h-4 w-4 sm:h-5 sm:w-5" />
                       )}
                     </Button>
 
-                    {/* Message input */}
-                    <div className="flex-1 relative">
+                    {/* Emoji Picker Popover */}
+                    <EmojiPickerPopover
+                      onSelectEmoji={(emoji) => {
+                        setMessageText((prev) => prev + emoji);
+                        messageInputRef.current?.focus();
+                      }}
+                    />
+
+                    {/* Message text input */}
+                    <div className="flex-1 min-w-0 relative">
                       <Input
                         ref={messageInputRef}
-                        placeholder={`Message ${activeRoom.name || "group"}... (@all, @name)`}
+                        placeholder={
+                          activeAIAdvisor
+                            ? `Ask ${activeAIAdvisor.name}...`
+                            : `Message ${activeRoom.name || "group"}...`
+                        }
                         value={messageText}
                         onChange={handleInputChange}
-                        className="rounded-2xl h-11 text-xs sm:text-sm bg-background/80 pr-10 border-border/80 shadow-xs"
+                        className="rounded-xl sm:rounded-2xl h-10 sm:h-11 text-xs sm:text-sm bg-background/80 px-3 border-border/80 shadow-xs w-full"
                       />
                     </div>
 
@@ -1350,7 +1895,7 @@ export default function UserMessages() {
                     {messageText.trim() || selectedMedia ? (
                       <Button
                         type="submit"
-                        className="h-11 w-11 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 shadow-md transition-all active:scale-95"
+                        className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground shrink-0 shadow-md transition-all active:scale-95"
                       >
                         <Send className="h-4 w-4" />
                       </Button>
@@ -1358,10 +1903,10 @@ export default function UserMessages() {
                       <Button
                         type="button"
                         onClick={() => setIsRecordingVoice(true)}
-                        className="h-11 w-11 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-md transition-all active:scale-95"
+                        className="h-10 w-10 sm:h-11 sm:w-11 rounded-xl sm:rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shrink-0 shadow-md transition-all active:scale-95"
                         title="Record voice note"
                       >
-                        <Mic className="h-5 w-5" />
+                        <Mic className="h-4 w-4 sm:h-5 sm:w-5" />
                       </Button>
                     )}
                   </form>
@@ -1376,18 +1921,27 @@ export default function UserMessages() {
               </div>
               <div className="space-y-1.5 max-w-sm">
                 <h3 className="text-lg font-black text-foreground">
-                  Bethelincovibe TV Community
+                  Bethelincovibe TV Community Hub
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Connect with verified merchants, participate in wholesale mastermind lounges, or start private encrypted conversations.
+                  Connect with verified merchants, chat 1-on-1 with AI Executive Advisors, or participate in wholesale trade mastermind lounges.
                 </p>
               </div>
-              <Button
-                onClick={() => setCreateRoomOpen(true)}
-                className="rounded-2xl bg-primary text-primary-foreground font-bold text-xs h-10 px-6 gap-2"
-              >
-                <Plus className="h-4 w-4" /> Create Discussion Lounge
-              </Button>
+              <div className="flex flex-wrap gap-2 justify-center">
+                <Button
+                  onClick={() => setCreateRoomOpen(true)}
+                  className="rounded-2xl bg-primary text-primary-foreground font-bold text-xs h-10 px-6 gap-2"
+                >
+                  <Plus className="h-4 w-4" /> Create Discussion Lounge
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => setSidebarTab("ai")}
+                  className="rounded-2xl font-bold text-xs h-10 px-5 gap-2"
+                >
+                  <Bot className="h-4 w-4 text-blue-500" /> Chat with AI Advisors
+                </Button>
+              </div>
             </div>
           )}
         </div>
