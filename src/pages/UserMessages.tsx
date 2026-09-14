@@ -42,6 +42,7 @@ import {
   ExternalLink,
   Copy,
   Info,
+  MoreVertical,
 } from "lucide-react";
 import {
   DropdownMenu,
