@@ -65,7 +65,7 @@ STRICT RULES:
     const gemini = await getGeminiClient("business_profile_enhancer");
     if (gemini) {
       const response = await gemini.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: {
           temperature: 0.7,

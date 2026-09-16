@@ -501,7 +501,7 @@ Return ONLY a valid JSON array of objects with the following keys for each scene
 The sum of durationSeconds must equal ${totalDuration}.`;
 
       const res = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: [{ parts: [{ text: prompt }] }],
         config: {
           responseMimeType: "application/json",

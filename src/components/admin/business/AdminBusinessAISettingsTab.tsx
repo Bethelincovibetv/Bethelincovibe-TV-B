@@ -17,7 +17,7 @@ import { enhanceBusinessProfileWithAI } from "@/lib/businessProfileAIEngine";
 
 export default function AdminBusinessAISettingsTab() {
   const [enabled, setEnabled] = useState(true);
-  const [model, setModel] = useState("gemini-3.7-flash");
+  const [model, setModel] = useState("gemini-3.8-flash");
   const [dailyQuota, setDailyQuota] = useState(10);
   const [systemContext, setSystemContext] = useState(
     "Focus on high-converting Nigerian and African commerce copy, high trust signals, and direct WhatsApp sales triggers."
@@ -184,7 +184,7 @@ export default function AdminBusinessAISettingsTab() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="gemini-3.7-flash">Gemini 3.7 Flash (Recommended - Fastest &amp; Ultra Smart)</SelectItem>
+                  <SelectItem value="gemini-3.8-flash">Gemini 3.8 Flash (Recommended - Fastest &amp; Ultra Smart)</SelectItem>
                   <SelectItem value="gemini-3.1-pro-preview">Gemini 3.1 Pro (Deep Copywriting Reasoning)</SelectItem>
                 </SelectContent>
               </Select>

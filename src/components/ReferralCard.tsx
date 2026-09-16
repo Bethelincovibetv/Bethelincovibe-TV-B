@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,6 +12,7 @@ import { copyToClipboard } from "@/lib/clipboard";
 
 export default function ReferralCard() {
   const { user } = useAuth();
+  const { flags } = useFeatureFlags();
   const [code, setCode] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [stats, setStats] = useState({ count: 0, earned: 0 });
@@ -18,7 +20,7 @@ export default function ReferralCard() {
   const [flyerOpen, setFlyerOpen] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || flags.referrals === false) return;
     (async () => {
       try {
         const { data: p } = await supabase
@@ -57,7 +59,7 @@ export default function ReferralCard() {
     })();
   }, [user]);
 
-  if (!user) return null;
+  if (!user || flags.referrals === false) return null;
   const activeCode = code || (user.id.substring(0, 8).toUpperCase());
   const link = `${window.location.origin}/register?ref=${activeCode}`;
 

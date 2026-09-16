@@ -693,7 +693,7 @@ Return ONLY a valid JSON object matching this schema:
 The sum of suggested_duration across all beats must equal exactly ${durationSec}.`;
 
       const res = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: [{ parts: [{ text: prompt }] }],
         config: { responseMimeType: "application/json" },
       });

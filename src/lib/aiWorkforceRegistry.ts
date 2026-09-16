@@ -1294,10 +1294,10 @@ Guidelines:
   try {
     const ai = await getGeminiClient(agent.id);
     if (ai) {
-      // First try standard gemini-2.5-flash
+      // First try standard gemini-3.8-flash
       try {
         const res = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.8-flash",
           contents: [
             { role: "user", parts: [{ text: `${systemInstructions}\n\nUser Question/Directive: "${userMessage}"` }] }
           ],

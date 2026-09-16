@@ -626,7 +626,7 @@ Formatting Instructions:
     const ai = await getGeminiClient();
     if (ai) {
       const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
       });
 

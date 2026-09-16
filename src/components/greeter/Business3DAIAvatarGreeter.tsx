@@ -350,7 +350,7 @@ Customer Question: "${question}"
 Respond in a warm, polished, executive corporate tone in 1 to 2 crisp, elegant sentences. Highlight how the customer can place orders or connect with management on WhatsApp. Keep under 40 words.`;
 
         const res = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.8-flash",
           contents: prompt,
           config: {
             maxOutputTokens: 100,

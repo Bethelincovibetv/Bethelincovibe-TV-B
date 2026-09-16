@@ -259,7 +259,7 @@ Provide a direct, helpful, inspiring, and actionable response in 2-4 structured 
     if (ai) {
       try {
         const res = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.8-flash",
           contents: [{ role: "user", parts: [{ text: prompt }] }],
         });
         if (res.text && res.text.trim()) {

@@ -101,7 +101,7 @@ OUTPUT STRICT JSON ONLY:
     const gemini = await getGeminiClient();
     if (gemini) {
       const res = await gemini.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: prompt,
         config: { temperature: 0.2 },
       });

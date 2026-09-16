@@ -571,7 +571,7 @@ export async function testFeatureConnection(
     }
 
     const resp = await handle.client.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3.8-flash",
       contents: "ping",
       config: {
         maxOutputTokens: 2,

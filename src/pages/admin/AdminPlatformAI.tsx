@@ -1070,7 +1070,7 @@ Tone & Format Guidelines:
 - When an action is requested, explain what you recommend and propose the exact steps.`;
 
         const response = await gemini.models.generateContent({
-          model: "gemini-3.7-flash",
+          model: "gemini-3.8-flash",
           contents: [
             {
               role: "user",

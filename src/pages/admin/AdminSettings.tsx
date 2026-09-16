@@ -552,12 +552,12 @@ export default function AdminSettings() {
                 <Label>Image model</Label>
                 <select
                   className="w-full h-10 rounded-md border bg-background px-3 text-sm"
-                  value={get("ai_cover_image_model") || "google/gemini-2.5-flash-image"}
+                  value={get("ai_cover_image_model") || "gemini-3.1-flash-image"}
                   onChange={(e) => set("ai_cover_image_model", e.target.value)}
                 >
-                  <option value="google/gemini-2.5-flash-image">Nano Banana (fast, cheap)</option>
-                  <option value="google/gemini-3.1-flash-image-preview">Nano Banana 2 (balanced)</option>
-                  <option value="google/gemini-3-pro-image-preview">Nano Banana Pro (best quality)</option>
+                  <option value="gemini-3.1-flash-lite-image">Gemini Flash Lite Image (Fast, Responsive)</option>
+                  <option value="gemini-3.1-flash-image">Gemini Flash Image (High Quality, 1K/2K/4K)</option>
+                  <option value="gemini-3-pro-image">Gemini Pro Image (Best Quality)</option>
                 </select>
               </div>
             </CardContent>
@@ -629,15 +629,14 @@ export default function AdminSettings() {
               <div>
                 <Label>Text model</Label>
                 <div className="flex gap-2 items-center mb-1.5">
-                  <Input value={get("ai_text_model")} onChange={(e) => set("ai_text_model", e.target.value)} placeholder="gemini-3.7-flash or gemini-3.1-pro-preview" className="font-mono text-xs" />
+                  <Input value={get("ai_text_model")} onChange={(e) => set("ai_text_model", e.target.value)} placeholder="gemini-3.8-flash or gemini-3.1-pro-preview" className="font-mono text-xs" />
                 </div>
                 <div className="flex flex-wrap gap-1.5 mt-1.5">
                   {[
-                    "gemini-3.7-flash",
+                    "gemini-3.8-flash",
                     "gemini-3.1-pro-preview",
+                    "gemini-3.1-flash-lite",
                     "gemini-flash-latest",
-                    "google/gemini-3.7-flash",
-                    "openai/gpt-5-mini",
                   ].map((preset) => (
                     <button
                       key={preset}
@@ -654,7 +653,7 @@ export default function AdminSettings() {
                   ))}
                 </div>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
-                  Direct Gemini models: <code>gemini-3.7-flash</code> (recommended for speed & intelligence), <code>gemini-3.1-pro-preview</code>.
+                  Direct Gemini models: <code>gemini-3.8-flash</code> (recommended for speed & intelligence), <code>gemini-3.1-pro-preview</code>.
                 </p>
               </div>
               <p className="text-[11px] text-muted-foreground">

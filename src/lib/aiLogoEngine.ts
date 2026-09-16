@@ -552,7 +552,7 @@ export async function generateAILogos(
     const gemini = await getGeminiClient();
     if (gemini) {
       gemini.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: `Suggest a 2-word punchy luxury tagline for a brand called "${businessName}" in "${category}". Return just the 2 words uppercase.`,
       }).then((res) => {
         const text = res?.text?.trim();

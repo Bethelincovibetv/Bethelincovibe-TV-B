@@ -156,7 +156,7 @@ If the user asks for an action that Vixora AI Studio does not support yet (e.g. 
 
       try {
         const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
+          model: 'gemini-3.8-flash',
           contents: historyTurns,
           config: {
             systemInstruction,
@@ -202,7 +202,7 @@ If the user asks for an action that Vixora AI Studio does not support yet (e.g. 
                 ];
 
                 const secondRes = await ai.models.generateContent({
-                  model: 'gemini-2.5-flash',
+                  model: 'gemini-3.8-flash',
                   contents: secondPassTurns,
                   config: { systemInstruction }
                 });
@@ -223,7 +223,7 @@ If the user asks for an action that Vixora AI Studio does not support yet (e.g. 
         // Fallback pass without tools functionDeclarations
         try {
           const fallbackRes = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-3.8-flash',
             contents: historyTurns,
             config: { systemInstruction }
           });

@@ -194,7 +194,7 @@ export async function transcribeAudioWithAI(
     const cleanMime = finalMime.split(";")[0].trim() || "audio/webm";
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.7-flash",
+      model: "gemini-3.8-flash",
       contents: [
         {
           parts: [

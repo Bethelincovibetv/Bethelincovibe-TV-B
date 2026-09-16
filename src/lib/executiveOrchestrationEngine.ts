@@ -499,7 +499,7 @@ export async function runComprehensiveSystemHealthDiagnostic(): Promise<SystemHe
     if (!ai) {
       checks.push({
         id: "gemini_ai_probe",
-        name: "Gemini AI Engine (gemini-3.7-flash)",
+        name: "Gemini AI Engine (gemini-3.8-flash)",
         category: "ai",
         status: "NOT_CONFIGURED",
         latencyMs: Date.now() - aiStart,
@@ -511,14 +511,14 @@ export async function runComprehensiveSystemHealthDiagnostic(): Promise<SystemHe
     } else {
       // Lightweight verification call
       const res = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: "Respond with the word: OPERATIONAL",
       });
       const latency = Date.now() - aiStart;
       const text = (res.text || "").trim();
       checks.push({
         id: "gemini_ai_probe",
-        name: "Gemini AI Engine (gemini-3.7-flash)",
+        name: "Gemini AI Engine (gemini-3.8-flash)",
         category: "ai",
         status: "WORKING",
         latencyMs: latency,
@@ -530,7 +530,7 @@ export async function runComprehensiveSystemHealthDiagnostic(): Promise<SystemHe
   } catch (err: any) {
     checks.push({
       id: "gemini_ai_probe",
-      name: "Gemini AI Engine (gemini-3.7-flash)",
+      name: "Gemini AI Engine (gemini-3.8-flash)",
       category: "ai",
       status: "PARTIALLY_WORKING",
       latencyMs: Date.now() - aiStart,
@@ -984,7 +984,7 @@ export async function executeMultiAgentBusinessPromotion(params: {
     const ai = await getGeminiClient();
     if (ai) {
       const copyRes = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: `You are the Marketing Agent for Bethelincovibe TV.
 Create high-converting promotional copy for a verified business.
 Business Name: "${business.title}"

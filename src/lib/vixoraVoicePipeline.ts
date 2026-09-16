@@ -464,7 +464,7 @@ Speak with high energy, commercial sharpness, and actionable practical insights.
         const ai = new GoogleGenAI({ apiKey });
 
         const response = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+          model: "gemini-3.8-flash",
           contents: [
             {
               role: "user",
@@ -652,7 +652,7 @@ Speak with high energy, commercial sharpness, and actionable practical insights.
           const apiKey = getGeminiApiKey();
           const ai = new GoogleGenAI({ apiKey });
           const resp = await ai.models.generateContent({
-            model: "gemini-3.7-flash",
+            model: "gemini-3.8-flash",
             contents: [
               {
                 parts: [

@@ -842,7 +842,7 @@ Respond ONLY in strict JSON format:
 }`;
 
         const aiRes = await gemini.models.generateContent({
-          model: "gemini-2.5-flash",
+          model: "gemini-3.8-flash",
           contents: prompt,
           config: {
             responseMimeType: "application/json",

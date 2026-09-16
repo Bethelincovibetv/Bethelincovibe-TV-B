@@ -177,7 +177,7 @@ Rules:
 - Return ONLY the clean spoken narration text without bracketed speaker tags or asterisks.`;
 
         const res = await ai.models.generateContent({
-          model: "gemini-3.7-flash",
+          model: "gemini-3.8-flash",
           contents: [{ parts: [{ text: prompt }] }],
         });
 

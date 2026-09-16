@@ -160,7 +160,7 @@ Please provide a clear, formatted breakdown with:
 Keep tone encouraging, practical, and highly tactical for the Nigerian & emerging market ecosystem.`;
 
       const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
+        model: "gemini-3.8-flash",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
       });
 

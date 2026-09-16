@@ -736,7 +736,7 @@ Return ONLY valid JSON matching this exact format:
 }`;
 
             const res = await gemini.models.generateContent({
-              model: "gemini-3.7-flash",
+              model: "gemini-3.8-flash",
               contents: [{ role: "user", parts: [{ text: prompt }] }],
             });
 

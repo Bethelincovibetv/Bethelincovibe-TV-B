@@ -5,9 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "predev": "node scripts/fix-chat-runtime.mjs && node scripts/fix-ai-matchmaker-runtime.mjs",
     "build": "vite build",
-    "prebuild": "node scripts/fix-chat-runtime.mjs && node scripts/fix-ai-matchmaker-runtime.mjs",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",

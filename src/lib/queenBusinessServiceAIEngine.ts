@@ -537,7 +537,7 @@ Return a STRICT JSON object only. Do NOT wrap in markdown formatting if possible
       const gemini = await getGeminiClient();
       if (gemini) {
         const aiResponse = await gemini.models.generateContent({
-          model: "gemini-3.7-flash",
+          model: "gemini-3.8-flash",
           contents: prompt,
           config: {
             temperature: 0.7,
