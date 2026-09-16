@@ -1,15 +1,28 @@
 name: Verify portal build
 on:
   push:
-    branches: [main]
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 20
           cache: npm
-      - run: npm install --no-audit --no-fund
-      - run: npm run build
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps || npm install --no-audit --no-fund
+
+      - name: Build application
+        run: npm run build
+
