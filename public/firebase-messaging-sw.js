@@ -2,21 +2,25 @@
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js');
 importScripts('https://www.gstatic.com/firebasejs/10.8.0/firebase-messaging-compat.js');
 
-// Initialize Firebase App in service worker using the connected project credentials
+// Initialize Firebase App in service worker using the official project credentials
 const firebaseConfig = {
-  apiKey: "AIzaSyBmFKlk6QdZcj-R2Wx9Of-cxBmPS6_kCNc",
-  authDomain: "gen-lang-client-0608170961.firebaseapp.com",
-  projectId: "gen-lang-client-0608170961",
-  storageBucket: "gen-lang-client-0608170961.firebasestorage.app",
-  messagingSenderId: "1059984699317",
-  appId: "1:1059984699317:web:387e5c9b2db596f45db3fc"
+  apiKey: "AIzaSyBWYvA98usL-Mdz0Lm9HtPqtPtfrt1x2Wc",
+  authDomain: "refreshing-rune-454812-q8.firebaseapp.com",
+  projectId: "refreshing-rune-454812-q8",
+  storageBucket: "refreshing-rune-454812-q8.firebasestorage.app",
+  messagingSenderId: "386135102110",
+  appId: "1:386135102110:web:334e9b26db398a5698618f"
 };
 
 if (!firebase.apps.length) {
-  firebase.initializeApp(firebaseConfig);
+  try {
+    firebase.initializeApp(firebaseConfig);
+  } catch (err) {
+    console.warn('[firebase-messaging-sw.js] Firebase init error:', err);
+  }
 }
 
-let messaging;
+let messaging = null;
 try {
   messaging = firebase.messaging();
 } catch (e) {
@@ -35,6 +39,7 @@ self.addEventListener('push', (event) => {
       icon: payload.notification?.icon || payload.data?.icon || '/logo.png',
       badge: '/logo.png',
       image: payload.notification?.image || payload.data?.image || undefined,
+      vibrate: [200, 100, 200, 100, 200],
       data: {
         url: payload.data?.url || payload.data?.deep_link || payload.notification?.click_action || '/dashboard',
         timestamp: Date.now()
@@ -53,6 +58,8 @@ self.addEventListener('push', (event) => {
       self.registration.showNotification('Bethelincovibe TV', {
         body: rawText,
         icon: '/logo.png',
+        badge: '/logo.png',
+        vibrate: [200, 100, 200],
         data: { url: '/dashboard' }
       })
     );
@@ -62,14 +69,13 @@ self.addEventListener('push', (event) => {
 // Handle background messages via Firebase Messaging SDK
 if (messaging) {
   messaging.onBackgroundMessage((payload) => {
-    console.log('[firebase-messaging-sw.js] Received background message:', payload);
-
     const notificationTitle = payload.notification?.title || payload.data?.title || 'Bethelincovibe TV';
     const notificationOptions = {
       body: payload.notification?.body || payload.data?.body || 'New notification received.',
       icon: payload.notification?.icon || payload.data?.icon || '/logo.png',
       badge: '/logo.png',
       image: payload.notification?.image || payload.data?.image || undefined,
+      vibrate: [200, 100, 200],
       data: {
         url: payload.data?.url || payload.data?.deep_link || payload.notification?.click_action || '/dashboard',
         timestamp: Date.now()
@@ -90,7 +96,7 @@ self.addEventListener('notificationclick', (event) => {
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-      // If a tab is already open, focus it and navigate
+      // If a tab is already open on this origin, focus it and navigate
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
         if (client.url.includes(self.location.origin) && 'focus' in client) {

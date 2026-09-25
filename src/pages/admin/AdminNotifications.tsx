@@ -12,10 +12,13 @@ import { toast } from "sonner";
 import {
   Bell, Send, Loader2, Sparkles, Check, Users, RefreshCw, Smartphone,
   Radio, CheckCircle2, AlertCircle, History, Shield, Globe, ExternalLink,
-  Laptop, Tablet, Filter, Search, Copy, Play
+  Laptop, Tablet, Filter, Search, Copy, Play, Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { triggerDirectBrowserNotification } from "@/lib/fcm";
+import { playNotificationSound } from "@/lib/notificationSound";
+import { recordBroadcastPushMetrics } from "@/lib/dailyUsageTracker";
+import DailyUsageTrackingDashboard from "@/components/admin/DailyUsageTrackingDashboard";
 import { fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 import { formatDistanceToNow, format } from "date-fns";
 
@@ -279,6 +282,8 @@ export default function AdminNotifications() {
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["admin-notifications"] });
+      playNotificationSound().catch(() => {});
+      recordBroadcastPushMetrics(data.recipients);
       const channelLabel = data.channel === "in_app"
         ? "In-App Notification"
         : data.channel === "push"
@@ -421,6 +426,9 @@ export default function AdminNotifications() {
           </TabsTrigger>
           <TabsTrigger value="test" className="rounded-xl text-xs sm:text-sm font-bold gap-1.5 px-3 py-2 shrink-0">
             <Smartphone className="h-4 w-4 text-amber-500" /> Test Push
+          </TabsTrigger>
+          <TabsTrigger value="tracking" className="rounded-xl text-xs sm:text-sm font-bold gap-1.5 px-3 py-2 shrink-0 text-blue-600 dark:text-blue-400">
+            <Activity className="h-4 w-4" /> Daily Tracking
           </TabsTrigger>
           <TabsTrigger value="history" className="rounded-xl text-xs sm:text-sm font-bold gap-1.5 px-3 py-2 shrink-0">
             <History className="h-4 w-4 text-purple-500" /> Delivery Logs ({notifications?.length || 0})
@@ -1004,6 +1012,11 @@ export default function AdminNotifications() {
               </Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* TAB 6: DAILY TRACKING */}
+        <TabsContent value="tracking" className="space-y-4">
+          <DailyUsageTrackingDashboard />
         </TabsContent>
       </Tabs>
     </div>

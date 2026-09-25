@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 
 export type EmailProviderType =
+  | "gmail"
   | "brevo"
   | "resend"
   | "mailtrap"
@@ -58,6 +59,15 @@ export const DEFAULT_PROVIDER_PRESETS: Array<{
   requiresRegion: boolean;
   placeholderKey: string;
 }> = [
+  {
+    type: "gmail",
+    name: "Google Gmail OAuth (Connected Admin Account)",
+    freeTierInfo: "500 emails/day FREE with Google Account",
+    docsUrl: "https://developers.google.com/gmail/api",
+    requiresDomain: false,
+    requiresRegion: false,
+    placeholderKey: "oauth_connected_token",
+  },
   {
     type: "brevo",
     name: "Brevo (Sendinblue)",
@@ -448,6 +458,22 @@ export async function sendViaSpecificProvider(
   html: string
 ): Promise<string> {
   switch (config.type) {
+    case "gmail": {
+      // Dynamic import to avoid circular dependency
+      const { sendEmailViaGmailApi, getAdminGmailSession } = await import("@/lib/gmail");
+      const session = getAdminGmailSession();
+      const token = config.apiKey?.trim() || session?.accessToken;
+      const fromEmail = config.fromEmail?.trim() || session?.email || "bethelincovibetv@gmail.com";
+      const result = await sendEmailViaGmailApi({
+        to,
+        subject,
+        htmlBody: html,
+        fromName: config.fromName || "Bethelincovibe TV",
+        fromEmail,
+        accessToken: token,
+      });
+      return result.id;
+    }
     case "brevo":
       return await sendViaBrevo(config, to, subject, html);
     case "resend":

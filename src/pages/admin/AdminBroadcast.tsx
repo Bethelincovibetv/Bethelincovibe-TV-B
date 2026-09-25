@@ -20,7 +20,7 @@ import {
   Send, Mail, Users, CheckCircle2, AlertCircle, Sparkles, RefreshCw, Eye,
   Check, History, ShieldCheck, UserCheck, Filter, Layers, Server, Zap,
   User, Search, Smartphone, Monitor, LayoutTemplate,
-  CheckSquare, Square, Trash2, Sliders, ArrowRight, ExternalLink, Link2
+  CheckSquare, Square, Trash2, Sliders, ArrowRight, ExternalLink, Link2, Activity
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -29,6 +29,10 @@ import {
   EmailProviderConfig,
 } from "@/lib/emailRouter";
 import AdminEmailSettings from "@/components/admin/AdminEmailSettings";
+import AdminGmailConnectorCard from "@/components/admin/AdminGmailConnectorCard";
+import DailyUsageTrackingDashboard from "@/components/admin/DailyUsageTrackingDashboard";
+import { getAdminGmailSession, sendEmailViaGmailApi, GmailAccountProfile } from "@/lib/gmail";
+import { recordBroadcastEmailMetrics } from "@/lib/dailyUsageTracker";
 import EmailTemplateSelectorDialog from "@/components/admin/EmailTemplateSelectorDialog";
 import { EMAIL_TEMPLATES, EmailTemplate } from "@/data/emailTemplates";
 import { cn } from "@/lib/utils";
@@ -62,8 +66,10 @@ const BRAND_ACCENT_COLORS = [
 ];
 
 export default function AdminBroadcast() {
-  const [activeTab, setActiveTab] = useState<"broadcast" | "templates" | "history" | "providers">("broadcast");
+  const [activeTab, setActiveTab] = useState<"broadcast" | "templates" | "history" | "providers" | "tracking">("broadcast");
   const [providers, setProviders] = useState<EmailProviderConfig[]>([]);
+  const [gmailSession, setGmailSession] = useState<GmailAccountProfile | null>(() => getAdminGmailSession());
+  const [gatewayMode, setGatewayMode] = useState<"gmail_direct" | "universal">("gmail_direct");
 
   // Selection Mode: single_person | all_subscribers | all_members | all_combined | custom_select
   const [selectionMode, setSelectionMode] = useState<
@@ -352,6 +358,26 @@ export default function AdminBroadcast() {
         customBody = customBody.replace(/{{cta_button}}/gi, renderedCtaHtml);
       }
 
+      // If Gmail direct is active, attempt sending via Gmail API first
+      if (gatewayMode === "gmail_direct" && gmailSession?.accessToken) {
+        try {
+          await sendEmailViaGmailApi({
+            to: testEmailAddress.trim(),
+            subject: `[TEST PREVIEW] ${customSub}`,
+            htmlBody: customBody,
+            fromName: fromName || gmailSession.name || "Bethelincovibe TV Admin",
+            fromEmail: gmailSession.email,
+            accessToken: gmailSession.accessToken,
+          });
+          recordBroadcastEmailMetrics(1);
+          toast.success(`Test email dispatched via connected Gmail to ${testEmailAddress}!`);
+          return;
+        } catch (gmailErr: any) {
+          console.warn("Gmail test send error, trying fallback:", gmailErr);
+          toast.info("Gmail API notice: " + gmailErr.message + ". Trying multi-gateway fallback...");
+        }
+      }
+
       const res = await sendUniversalBroadcastBatch({
         recipients: [testRecipient],
         subject: `[TEST PREVIEW] ${customSub}`,
@@ -360,6 +386,7 @@ export default function AdminBroadcast() {
       });
 
       if (res.successCount > 0) {
+        recordBroadcastEmailMetrics(1);
         toast.success(`Test email dispatched to ${testEmailAddress}!`);
       } else {
         toast.error(`Test email failed: ${res.errors[0]?.error || "Provider error"}`);
@@ -387,7 +414,7 @@ export default function AdminBroadcast() {
       total: activeTargetRecipients.length,
       successCount: 0,
       failCount: 0,
-      lastProviderUsed: "",
+      lastProviderUsed: gatewayMode === "gmail_direct" && gmailSession?.accessToken ? "Google Gmail" : "",
     });
 
     try {
@@ -396,30 +423,86 @@ export default function AdminBroadcast() {
         finalBody = finalBody.replace(/{{cta_button}}/gi, renderedCtaHtml);
       }
 
-      const result = await sendUniversalBroadcastBatch({
-        recipients: activeTargetRecipients.map((r) => ({ name: r.name, email: r.email })),
-        subject,
-        body: finalBody,
-        fromName: fromName || "Bethelincovibe TV",
-        onProgress: (cur, tot, succ, fail, provider) => {
+      let successCount = 0;
+      let failCount = 0;
+      let usedProvider = "Universal Multi-Gateway";
+
+      // If Gmail Direct is selected and session is active, send via Gmail API with rate-limiting
+      if (gatewayMode === "gmail_direct" && gmailSession?.accessToken) {
+        usedProvider = `Google Gmail (${gmailSession.email})`;
+        for (let i = 0; i < activeTargetRecipients.length; i++) {
+          const r = activeTargetRecipients[i];
+          const personalizedSub = subject
+            .replace(/{{name}}/gi, r.name)
+            .replace(/{{email}}/gi, r.email)
+            .replace(/{{site_url}}/gi, window.location.origin)
+            .replace(/{{referral_link}}/gi, sampleReferralLink);
+
+          const personalizedBody = finalBody
+            .replace(/{{name}}/gi, r.name)
+            .replace(/{{email}}/gi, r.email)
+            .replace(/{{site_url}}/gi, window.location.origin)
+            .replace(/{{referral_link}}/gi, sampleReferralLink);
+
+          try {
+            await sendEmailViaGmailApi({
+              to: r.email,
+              subject: personalizedSub,
+              htmlBody: personalizedBody,
+              fromName: fromName || gmailSession.name || "Bethelincovibe TV",
+              fromEmail: gmailSession.email,
+              accessToken: gmailSession.accessToken,
+            });
+            successCount++;
+          } catch (gmailSendErr) {
+            console.warn(`Gmail send failed for ${r.email}:`, gmailSendErr);
+            failCount++;
+          }
+
           setSendProgress({
-            current: cur,
-            total: tot,
-            successCount: succ,
-            failCount: fail,
-            lastProviderUsed: provider,
+            current: i + 1,
+            total: activeTargetRecipients.length,
+            successCount,
+            failCount,
+            lastProviderUsed: "Google Gmail API v1",
           });
-        },
-      });
+
+          // Small 100ms throttle between emails to prevent rate limiting
+          if (i < activeTargetRecipients.length - 1) {
+            await new Promise((res) => setTimeout(res, 100));
+          }
+        }
+      } else {
+        const result = await sendUniversalBroadcastBatch({
+          recipients: activeTargetRecipients.map((r) => ({ name: r.name, email: r.email })),
+          subject,
+          body: finalBody,
+          fromName: fromName || "Bethelincovibe TV",
+          onProgress: (cur, tot, succ, fail, provider) => {
+            setSendProgress({
+              current: cur,
+              total: tot,
+              successCount: succ,
+              failCount: fail,
+              lastProviderUsed: provider,
+            });
+          },
+        });
+        successCount = result.successCount;
+        failCount = result.failCount;
+        usedProvider = result.providersUsed.join(", ") || "Universal Router";
+      }
+
+      recordBroadcastEmailMetrics(successCount);
 
       const newLog: BroadcastLog = {
         id: `bcast_${Date.now()}`,
         subject: subject.trim(),
         sentAt: new Date().toISOString(),
         recipientCount: activeTargetRecipients.length,
-        successCount: result.successCount,
-        failCount: result.failCount,
-        providersUsed: result.providersUsed.join(", ") || "Universal SMTP Router",
+        successCount,
+        failCount,
+        providersUsed: usedProvider,
         targetGroup: selectionMode,
       };
 
@@ -427,12 +510,12 @@ export default function AdminBroadcast() {
       setHistoryLogs(updatedLogs);
       localStorage.setItem("admin_broadcast_history_logs", JSON.stringify(updatedLogs));
 
-      if (result.successCount > 0) {
+      if (successCount > 0) {
         toast.success(
-          `Campaign dispatched! ${result.successCount} sent successfully (${result.failCount} failed).`
+          `Campaign dispatched! ${successCount} sent successfully (${failCount} failed).`
         );
       } else {
-        toast.error(`Broadcast completed with ${result.failCount} errors.`);
+        toast.error(`Broadcast completed with ${failCount} errors.`);
       }
     } catch (err: any) {
       toast.error("Broadcast error: " + err.message);
@@ -474,7 +557,7 @@ export default function AdminBroadcast() {
       {/* TABS CONTROLLER */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
         <div className="overflow-x-auto pb-1 no-scrollbar">
-          <TabsList className="grid grid-cols-4 min-w-[500px] h-11 rounded-2xl bg-muted/60 p-1">
+          <TabsList className="grid grid-cols-5 min-w-[620px] h-11 rounded-2xl bg-muted/60 p-1">
             <TabsTrigger
               value="broadcast"
               className="rounded-xl font-bold text-xs gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
@@ -487,7 +570,14 @@ export default function AdminBroadcast() {
               className="rounded-xl font-bold text-xs gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs"
             >
               <LayoutTemplate className="h-3.5 w-3.5" />
-              Template Library ({EMAIL_TEMPLATES.length})
+              Templates ({EMAIL_TEMPLATES.length})
+            </TabsTrigger>
+            <TabsTrigger
+              value="tracking"
+              className="rounded-xl font-bold text-xs gap-1.5 data-[state=active]:bg-background data-[state=active]:shadow-xs text-blue-600 dark:text-blue-400"
+            >
+              <Activity className="h-3.5 w-3.5" />
+              Daily Tracking
             </TabsTrigger>
             <TabsTrigger
               value="history"
@@ -508,6 +598,9 @@ export default function AdminBroadcast() {
 
         {/* TAB 1: CAMPAIGN STUDIO */}
         <TabsContent value="broadcast" className="space-y-6 mt-6">
+          {/* GOOGLE GMAIL ADMIN CONNECTOR CARD */}
+          <AdminGmailConnectorCard onSessionChange={setGmailSession} />
+
           {/* STEP 1: AUDIENCE SELECTOR */}
           <Card className="rounded-3xl border-border/80 shadow-sm overflow-hidden">
             <CardHeader className="border-b bg-muted/20 py-4 px-5 sm:px-6">
@@ -1438,6 +1531,11 @@ export default function AdminBroadcast() {
         {/* TAB 4: EMAIL PROVIDER GATEWAYS */}
         <TabsContent value="providers" className="space-y-4 mt-6">
           <AdminEmailSettings onConfigChange={refreshProviders} />
+        </TabsContent>
+
+        {/* TAB 5: DAILY USAGE & CAMPAIGN TRACKING */}
+        <TabsContent value="tracking" className="space-y-4 mt-6">
+          <DailyUsageTrackingDashboard />
         </TabsContent>
       </Tabs>
 

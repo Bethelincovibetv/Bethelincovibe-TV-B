@@ -1,0 +1,68 @@
+name: Harden WhatsApp Engine UI
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  wire:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Replace seeded WhatsApp network with Supabase hydration
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          p = Path('src/pages/WhatsAppStatusEngine.tsx')
+          s = p.read_text()
+          s = s.replace('  INITIAL_VERIFIED_POOL,\n', '')
+          s = s.replace('  clearAllEngineData,\n', '  clearAllEngineData,\n  refreshVerifiedNetworkMembers,\n')
+          s = s.replace('  const [connectionLogs, setConnectionLogs] = useState<ConnectionLog[]>([]);', '  const [networkMembers, setNetworkMembers] = useState<NetworkMember[]>([]);\n  const [connectionLogs, setConnectionLogs] = useState<ConnectionLog[]>([]);')
+          s = s.replace('  const [preferences, setPreferences] = useState<UserEnginePreferences>(getUserEnginePreferences());', '  const [preferences, setPreferences] = useState<UserEnginePreferences>(getUserEnginePreferences());')
+          old = '''  useEffect(() => {\n    setGoogleSession(getStoredGoogleSession());\n    setConnectionLogs(getConnectionLogs());\n    setBookings(getStatusAdBookings());\n  }, []);'''
+          new = '''  useEffect(() => {\n    let active = true;\n    setGoogleSession(getStoredGoogleSession());\n    setConnectionLogs(getConnectionLogs());\n    setBookings(getStatusAdBookings());\n    refreshVerifiedNetworkMembers()\n      .then((members) => { if (active) setNetworkMembers(members); })\n      .catch((error) => { if (active) toast.error(error?.message || "Unable to load the verified WhatsApp network."); });\n    return () => { active = false; };\n  }, []);'''
+          if old not in s:
+              raise SystemExit('WhatsAppStatusEngine hydration block not found')
+          s = s.replace(old, new)
+          s = s.replace('return INITIAL_VERIFIED_POOL.filter((m) => {', 'return networkMembers.filter((m) => {')
+          s = s.replace('  }, [searchQuery, selectedCategory, selectedLocation]);', '  }, [networkMembers, searchQuery, selectedCategory, selectedLocation]);', 1)
+          s = s.replace('return INITIAL_VERIFIED_POOL.filter((m) => m.openForAds);', 'return networkMembers.filter((m) => m.openForAds);')
+          s = s.replace('  }, []);\n\n  // Submit Ad Booking', '  }, [networkMembers]);\n\n  // Submit Ad Booking')
+          s = s.replace('advertiserPhone: bookingForm.advertiserPhone || "+2348000000000",', 'advertiserPhone: bookingForm.advertiserPhone,')
+          p.write_text(s)
+
+          p = Path('src/pages/admin/AdminWhatsAppEngine.tsx')
+          s = p.read_text()
+          s = s.replace('  INITIAL_VERIFIED_POOL,\n', '')
+          s = s.replace('  getConnectionLogs,\n', '  getConnectionLogs,\n  refreshVerifiedNetworkMembers,\n')
+          s = s.replace('  const [members, setMembers] = useState<NetworkMember[]>(INITIAL_VERIFIED_POOL);', '  const [members, setMembers] = useState<NetworkMember[]>([]);')
+          marker = '  const [bookings, setBookings] = useState<StatusAdBooking[]>([]);'
+          replacement = '''  const [bookings, setBookings] = useState<StatusAdBooking[]>([]);\n\n  useEffect(() => {\n    let active = true;\n    refreshVerifiedNetworkMembers()\n      .then((loaded) => { if (active) setMembers(loaded); })\n      .catch((error) => { if (active) toast.error(error?.message || "Unable to load verified communities."); });\n    return () => { active = false; };\n  }, []);'''
+          if marker not in s:
+              raise SystemExit('AdminWhatsAppEngine state marker not found')
+          s = s.replace(marker, replacement, 1)
+          p.write_text(s)
+          PY
+
+      - name: Verify production build
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Commit verified-network UI wiring
+        shell: bash
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/pages/WhatsAppStatusEngine.tsx src/pages/admin/AdminWhatsAppEngine.tsx
+          if git diff --cached --quiet; then echo 'No source changes required'; exit 0; fi
+          git commit -m 'fix: wire WhatsApp engine UI to real verified DB network'
+          git push

@@ -1,10 +1,12 @@
+import { useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { recordDailyUserActivity } from "@/lib/dailyUsageTracker";
 import PublicLayout from "@/components/layout/PublicLayout";
 import AdminLayout from "@/components/layout/AdminLayout";
 import ProtectedAdminRoute from "@/components/ProtectedAdminRoute";
@@ -150,9 +152,15 @@ const queryClient = new QueryClient({
 
 function FeatureAwareServices() {
   const { flags } = useFeatureFlags();
+  const { user } = useAuth();
   const location = useLocation();
   const isHome = location.pathname === "/";
   const isAdmin = location.pathname.startsWith("/admin");
+
+  useEffect(() => {
+    recordDailyUserActivity("page_view", user?.id);
+  }, [location.pathname, user?.id]);
+
   return (
     <ErrorBoundary label="Services" fallback={null}>
       <AdBlocker />

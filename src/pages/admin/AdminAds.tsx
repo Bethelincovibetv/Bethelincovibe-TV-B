@@ -9,18 +9,21 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Check, X, Copy, Key, Megaphone, Pause, Play, Power, Pencil, Trash2,
-  ShieldAlert, SlidersHorizontal, Globe, Clock, Calendar, DollarSign,
-  ExternalLink, Search, RefreshCw, Sparkles, TrendingUp, Eye, MousePointer
+  SlidersHorizontal, Globe, Clock, Calendar, DollarSign,
+  ExternalLink, Search, RefreshCw, Sparkles, TrendingUp, Eye, MousePointer,
+  Plus, Upload, Maximize2, MessageCircle, User, ShieldCheck
 } from "lucide-react";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import AdminGgdNetworkPanel from "@/components/admin/AdminGgdNetworkPanel";
 import { getGgdConfig, syndicateExistingAdToGgd } from "@/services/ggdAdNetworkService";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AdminAds() {
+  const { user } = useAuth();
   const qc = useQueryClient();
   const [rejectReason, setRejectReason] = useState<Record<string, string>>({});
   const [adPlacements, setAdPlacements] = useState<Record<string, string[]>>({});
@@ -31,7 +34,25 @@ export default function AdminAds() {
   const [reactivateAd, setReactivateAd] = useState<any | null>(null);
   const [reactivateDays, setReactivateDays] = useState(7);
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "pending" | "expired" | "paused">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "pending" | "paused" | "expired" | "rejected" | "inactive">("all");
+  const [placementFilter, setPlacementFilter] = useState<string>("all");
+  
+  // Lightbox preview modal for creative flyer/banner
+  const [previewCreative, setPreviewCreative] = useState<{ url: string; title: string } | null>(null);
+
+  // Create new advertisement modal state
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [createTitle, setCreateTitle] = useState("");
+  const [createAdvertiser, setCreateAdvertiser] = useState("");
+  const [createDescription, setCreateDescription] = useState("");
+  const [createTargetUrl, setCreateTargetUrl] = useState("");
+  const [createImageUrl, setCreateImageUrl] = useState("");
+  const [createWhatsapp, setCreateWhatsapp] = useState("");
+  const [createPlacements, setCreatePlacements] = useState<string[]>(["home", "shop", "blog", "dashboard", "listings"]);
+  const [createDuration, setCreateDuration] = useState(30);
+  const [createStatus, setCreateStatus] = useState<"active" | "pending">("active");
+  const [isUploadingCreative, setIsUploadingCreative] = useState(false);
+  const [isSubmittingNewAd, setIsSubmittingNewAd] = useState(false);
 
   // Load master ad switches
   const { data: adControlSettings } = useQuery({
@@ -58,7 +79,6 @@ export default function AdminAds() {
   const isMonetagEnabled = adControlSettings?.ads_provider_monetag !== "false";
   const isStartIoEnabled = adControlSettings?.ads_provider_startio !== "false";
   const isNativeAdsEnabled = adControlSettings?.ads_provider_native !== "false";
-  const isCustomAdsEnabled = adControlSettings?.ads_provider_custom !== "false";
 
   const toggleAdSetting = async (key: string, currentValue: boolean) => {
     const newValue = currentValue ? "false" : "true";
@@ -77,7 +97,7 @@ export default function AdminAds() {
     } else {
       toast.success("Ad switch updated successfully");
       try { localStorage.removeItem("bethel_thirdparty_ads_cache"); } catch {}
-      qc.invalidateQueries();
+      qc.invalidateQueries({ queryKey: ["admin-site-settings-ads"] });
     }
   };
 
@@ -87,9 +107,9 @@ export default function AdminAds() {
     else { toast.success(successMsg); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
   };
 
-  const pause = (id: string) => setStatus(id, "paused", "Ad paused");
-  const resume = (id: string) => setStatus(id, "active", "Ad resumed");
-  const deactivate = (id: string) => setStatus(id, "inactive", "Ad deactivated");
+  const pause = (id: string) => setStatus(id, "paused", "Advertisement paused");
+  const resume = (id: string) => setStatus(id, "active", "Advertisement resumed & live");
+  const deactivate = (id: string) => setStatus(id, "inactive", "Advertisement deactivated");
 
   const handleAdminReactivate = async () => {
     if (!reactivateAd) return;
@@ -114,10 +134,10 @@ export default function AdminAds() {
   };
 
   const removeAd = async (id: string) => {
-    if (!confirm("Delete this ad permanently?")) return;
+    if (!confirm("Are you sure you want to delete this advertisement permanently?")) return;
     const { error } = await supabase.from("user_ads").delete().eq("id", id);
     if (error) toast.error(error.message);
-    else { toast.success("Ad deleted"); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
+    else { toast.success("Advertisement deleted"); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
   };
 
   const saveEdit = async () => {
@@ -127,26 +147,53 @@ export default function AdminAds() {
       title, description, target_url, image_url, duration_days, placement, ends_at, status
     }).eq("id", id);
     if (error) toast.error(error.message);
-    else { toast.success("Ad updated"); setEditAd(null); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
+    else { toast.success("Advertisement updated successfully"); setEditAd(null); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
   };
 
   const PLACEMENTS = [
-    { key: "blog", label: "Blog Articles" },
-    { key: "dashboard", label: "Dashboard" },
+    { key: "home", label: "Homepage" },
     { key: "shop", label: "Shop / Products" },
     { key: "listings", label: "Business Directory" },
-    { key: "home", label: "Homepage" },
+    { key: "blog", label: "Blog / Articles" },
+    { key: "dashboard", label: "Dashboard" },
+    { key: "all", label: "All Placements (Global)" },
     { key: "header", label: "Header" },
     { key: "footer", label: "Footer" },
     { key: "sidebar", label: "Sidebar" },
     { key: "in_article", label: "In-article" },
   ];
 
-  const { data: ads = [] } = useQuery({
+  // Fetch all ads and their associated advertiser profiles
+  const { data: ads = [], isLoading: isLoadingAds } = useQuery({
     queryKey: ["admin-ads"],
     queryFn: async () => {
-      const { data } = await supabase.from("user_ads").select("*").order("created_at", { ascending: false });
-      return data || [];
+      const { data: rawAds, error: adsError } = await supabase
+        .from("user_ads")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (adsError) throw adsError;
+      if (!rawAds || rawAds.length === 0) return [];
+
+      // Collect user_ids to get profile info
+      const userIds = Array.from(new Set(rawAds.map((a: any) => a.user_id).filter(Boolean)));
+      let profileMap: Record<string, any> = {};
+
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("user_id, display_name, username, email, whatsapp")
+          .in("user_id", userIds);
+        
+        profiles?.forEach((p: any) => {
+          profileMap[p.user_id] = p;
+        });
+      }
+
+      return rawAds.map((ad: any) => ({
+        ...ad,
+        advertiser_profile: profileMap[ad.user_id] || null,
+      }));
     },
   });
 
@@ -159,11 +206,11 @@ export default function AdminAds() {
   });
 
   const approve = async (id: string) => {
-    const picks = adPlacements[id] || ["blog"];
+    const picks = adPlacements[id] || ["home", "shop", "blog", "dashboard", "listings"];
     const placement = picks.join(",");
     const { error: rpcErr } = await supabase.rpc("approve_user_ad", { _ad_id: id });
     if (rpcErr) { toast.error(rpcErr.message); return; }
-    const { error: upErr } = await supabase.from("user_ads").update({ placement }).eq("id", id);
+    const { error: upErr } = await supabase.from("user_ads").update({ placement, status: "active" }).eq("id", id);
     if (upErr) toast.error(upErr.message);
     else {
       toast.success(`Approved & live on: ${placement}`);
@@ -187,17 +234,110 @@ export default function AdminAds() {
 
   const togglePlacement = (adId: string, key: string) => {
     setAdPlacements((prev) => {
-      const current = prev[adId] || ["blog"];
+      const current = prev[adId] || ["home", "shop", "blog", "dashboard", "listings"];
       const next = current.includes(key) ? current.filter((x) => x !== key) : [...current, key];
-      return { ...prev, [adId]: next.length ? next : ["blog"] };
+      return { ...prev, [adId]: next.length ? next : ["home", "shop", "blog", "dashboard", "listings"] };
     });
   };
 
   const reject = async (id: string) => {
-    const reason = rejectReason[id] || "Not approved";
+    const reason = rejectReason[id] || "Ad content does not comply with community verification guidelines";
     const { error } = await supabase.rpc("reject_user_ad", { _ad_id: id, _reason: reason });
     if (error) toast.error(error.message);
-    else { toast.success("Ad rejected & user refunded"); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
+    else { toast.success("Ad rejected and marked with feedback"); qc.invalidateQueries({ queryKey: ["admin-ads"] }); }
+  };
+
+  // Direct image asset upload for Admin Create Ad modal
+  const handleCreativeFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsUploadingCreative(true);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `admin_${user?.id || "system"}_${Date.now()}.${fileExt}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("ad-creatives")
+        .upload(fileName, file, { cacheControl: "3600", upsert: true });
+
+      if (uploadErr) throw uploadErr;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("ad-creatives")
+        .getPublicUrl(fileName);
+
+      setCreateImageUrl(publicUrl);
+      toast.success("Creative asset uploaded successfully!");
+    } catch (err: any) {
+      toast.error(`Upload failed: ${err.message}`);
+    } finally {
+      setIsUploadingCreative(false);
+    }
+  };
+
+  // Submit new advertisement directly from Admin
+  const handleCreateNewAd = async () => {
+    if (!createTitle.trim() || !createTargetUrl.trim() || !createImageUrl.trim()) {
+      toast.error("Campaign title, target URL, and banner image are required");
+      return;
+    }
+
+    if (createPlacements.length === 0) {
+      toast.error("Please select at least one ad placement");
+      return;
+    }
+
+    setIsSubmittingNewAd(true);
+    try {
+      const now = new Date();
+      const days = Math.max(1, Number(createDuration || 30));
+      const ends = new Date(now.getTime() + days * 86400000);
+      const isLive = createStatus === "active";
+
+      const creativePayload = {
+        advertiser_name: createAdvertiser.trim() || "Bethelincovibe Partner",
+        whatsapp_number: createWhatsapp.trim() || null,
+        display_template: "banner",
+        experience_type: "static",
+      };
+
+      const { data: newAd, error: insertError } = await supabase.from("user_ads").insert({
+        user_id: user?.id,
+        title: createTitle.trim(),
+        description: createDescription.trim() || null,
+        target_url: createTargetUrl.trim(),
+        image_url: createImageUrl.trim(),
+        duration_days: days,
+        cost_amount: 0,
+        placement: createPlacements.join(","),
+        status: isLive ? "active" : "pending",
+        starts_at: isLive ? now.toISOString() : null,
+        ends_at: isLive ? ends.toISOString() : null,
+        approved_at: isLive ? now.toISOString() : null,
+        approved_by: isLive ? (user?.id || "admin") : null,
+        impressions: 0,
+        clicks: 0,
+        source: "admin",
+        ggd_response: creativePayload as any,
+      }).select().single();
+
+      if (insertError) throw insertError;
+
+      toast.success(`Advertisement "${createTitle}" created successfully!`);
+      setIsCreateModalOpen(false);
+      // Reset form
+      setCreateTitle("");
+      setCreateAdvertiser("");
+      setCreateDescription("");
+      setCreateTargetUrl("");
+      setCreateImageUrl("");
+      setCreateWhatsapp("");
+      qc.invalidateQueries({ queryKey: ["admin-ads"] });
+    } catch (err: any) {
+      toast.error(`Error creating ad: ${err.message}`);
+    } finally {
+      setIsSubmittingNewAd(false);
+    }
   };
 
   const createKey = async () => {
@@ -220,29 +360,44 @@ export default function AdminAds() {
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const embedSnippet = `<script src="${supabaseUrl}/functions/v1/ad-embed?placement=blog" data-slot="blog" async></script>`;
 
-  const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success("Copied"); };
+  const copy = (s: string) => { navigator.clipboard.writeText(s); toast.success("Copied to clipboard"); };
 
-  // Filter ads
+  // Filter ads strictly according to selected filters
   const filteredAds = useMemo(() => {
     return ads.filter((a: any) => {
       const isExpired = a.ends_at && isPast(new Date(a.ends_at));
+      
+      // Status filter
       if (statusFilter === "active" && (a.status !== "active" || isExpired)) return false;
       if (statusFilter === "pending" && a.status !== "pending") return false;
       if (statusFilter === "expired" && (!isExpired && a.status !== "expired")) return false;
       if (statusFilter === "paused" && a.status !== "paused") return false;
+      if (statusFilter === "rejected" && a.status !== "rejected") return false;
+      if (statusFilter === "inactive" && a.status !== "inactive") return false;
 
+      // Placement filter
+      if (placementFilter !== "all") {
+        const pStr = (a.placement || "").toLowerCase();
+        if (!pStr.includes("all") && !pStr.includes(placementFilter.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // Search query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchTitle = (a.title || "").toLowerCase().includes(q);
         const matchUrl = (a.target_url || "").toLowerCase().includes(q);
         const matchPlacement = (a.placement || "").toLowerCase().includes(q);
-        return matchTitle || matchUrl || matchPlacement;
+        const advertiserName = a.advertiser_profile?.display_name || a.advertiser_profile?.username || a.advertiser_profile?.email || "";
+        const matchAdvertiser = advertiserName.toLowerCase().includes(q);
+        return matchTitle || matchUrl || matchPlacement || matchAdvertiser;
       }
       return true;
     });
-  }, [ads, statusFilter, searchQuery]);
+  }, [ads, statusFilter, placementFilter, searchQuery]);
 
-  // Overall Stats
+  // Network Analytics Metrics
   const totalRevenue = useMemo(() => {
     return ads.reduce((acc: number, curr: any) => acc + (Number(curr.cost_amount) || 0), 0);
   }, [ads]);
@@ -251,57 +406,91 @@ export default function AdminAds() {
     return ads.filter((a: any) => a.status === "active" && (!a.ends_at || !isPast(new Date(a.ends_at)))).length;
   }, [ads]);
 
+  const totalImpressions = useMemo(() => {
+    return ads.reduce((acc: number, curr: any) => acc + (Number(curr.impressions) || 0), 0);
+  }, [ads]);
+
+  const totalClicks = useMemo(() => {
+    return ads.reduce((acc: number, curr: any) => acc + (Number(curr.clicks) || 0), 0);
+  }, [ads]);
+
+  const averageCtr = useMemo(() => {
+    return totalImpressions > 0 ? ((totalClicks / totalImpressions) * 100).toFixed(2) : "0.00";
+  }, [totalImpressions, totalClicks]);
+
   return (
     <div className="space-y-6 max-w-6xl pb-16">
-      {/* Top Title & Global Status */}
+      {/* Top Title & Header Actions */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl sm:text-2xl font-black flex items-center gap-2 text-foreground">
-            <Megaphone className="h-6 w-6 text-primary" /> Global Ad Network & Campaign Manager
+            <Megaphone className="h-6 w-6 text-primary" /> Advertisement & Creative Banner Management
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Monitor spend, manage user campaigns, reactivate expired adverts, and enforce platform switches.
+            Administer live campaigns, approve creative flyers, enforce placements, track real conversions, and control global switches.
           </p>
         </div>
-        <Badge variant={isGlobalAdsEnabled ? "default" : "destructive"} className="self-start sm:self-auto px-3 py-1.5 text-xs font-bold rounded-xl shadow-xs">
-          {isGlobalAdsEnabled ? "🟢 Platform Ads ONLINE" : "🔴 Platform Ads DISABLED"}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="rounded-2xl font-black text-xs h-9 bg-primary text-primary-foreground shadow-md hover:bg-primary/90 flex items-center gap-1.5"
+          >
+            <Plus className="h-4 w-4" /> Create Advertisement
+          </Button>
+          <Badge variant={isGlobalAdsEnabled ? "default" : "destructive"} className="px-3 py-1.5 text-xs font-bold rounded-xl shadow-xs">
+            {isGlobalAdsEnabled ? "🟢 Delivery Active" : "🔴 Delivery Disabled"}
+          </Badge>
+        </div>
       </div>
 
       {/* KPI Overview Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card className="rounded-2xl border-border/80 bg-card p-4 shadow-xs">
-          <p className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
-            <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Total Ad Spend Placed
+      <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        <Card className="rounded-2xl border-border/80 bg-card p-3.5 shadow-xs">
+          <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+            <DollarSign className="h-3.5 w-3.5 text-emerald-500" /> Total Spend Placed
           </p>
-          <p className="text-xl font-black mt-1 text-emerald-600">₦{totalRevenue.toLocaleString()}</p>
+          <p className="text-lg font-black mt-1 text-emerald-600">₦{totalRevenue.toLocaleString()}</p>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card p-4 shadow-xs">
-          <p className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
-            <Sparkles className="h-3.5 w-3.5 text-primary" /> Active Live Campaigns
+        <Card className="rounded-2xl border-border/80 bg-card p-3.5 shadow-xs">
+          <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+            <Sparkles className="h-3.5 w-3.5 text-primary" /> Active Live Ads
           </p>
-          <p className="text-xl font-black mt-1 text-foreground">{activeAdsCount}</p>
+          <p className="text-lg font-black mt-1 text-foreground">{activeAdsCount}</p>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card p-4 shadow-xs">
-          <p className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
+        <Card className="rounded-2xl border-border/80 bg-card p-3.5 shadow-xs">
+          <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
             <Clock className="h-3.5 w-3.5 text-amber-500" /> Pending Review
           </p>
-          <p className="text-xl font-black mt-1 text-amber-600">
+          <p className="text-lg font-black mt-1 text-amber-600">
             {ads.filter((a: any) => a.status === "pending").length}
           </p>
         </Card>
 
-        <Card className="rounded-2xl border-border/80 bg-card p-4 shadow-xs">
-          <p className="text-xs text-muted-foreground font-semibold flex items-center gap-1">
-            <TrendingUp className="h-3.5 w-3.5 text-blue-500" /> Total Campaigns
+        <Card className="rounded-2xl border-border/80 bg-card p-3.5 shadow-xs">
+          <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+            <Eye className="h-3.5 w-3.5 text-blue-500" /> Real Impressions
           </p>
-          <p className="text-xl font-black mt-1 text-foreground">{ads.length}</p>
+          <p className="text-lg font-black mt-1 text-foreground">{totalImpressions.toLocaleString()}</p>
+        </Card>
+
+        <Card className="rounded-2xl border-border/80 bg-card p-3.5 shadow-xs">
+          <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+            <MousePointer className="h-3.5 w-3.5 text-indigo-500" /> Real Ad Clicks
+          </p>
+          <p className="text-lg font-black mt-1 text-foreground">{totalClicks.toLocaleString()}</p>
+        </Card>
+
+        <Card className="rounded-2xl border-border/80 bg-card p-3.5 shadow-xs">
+          <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1">
+            <TrendingUp className="h-3.5 w-3.5 text-emerald-500" /> Network CTR
+          </p>
+          <p className="text-lg font-black mt-1 text-foreground">{averageCtr}%</p>
         </Card>
       </div>
 
-      {/* Global Ad Network Kill Switches */}
+      {/* Global Ad Network Controls Accordion Card */}
       <Card className="border-border/80 shadow-md rounded-3xl overflow-hidden bg-card">
         <CardHeader className="bg-muted/30 pb-3 border-b border-border/60">
           <div className="flex items-center justify-between flex-wrap gap-2">
@@ -310,9 +499,9 @@ export default function AdminAds() {
                 <SlidersHorizontal className="h-4 w-4" />
               </div>
               <div>
-                <CardTitle className="text-base font-bold">Ad Provider Master Controls</CardTitle>
+                <CardTitle className="text-base font-bold">Ad Provider Master Switches</CardTitle>
                 <CardDescription className="text-xs">
-                  Instant kill-switches. Changes apply immediately across all pages.
+                  Controls platform-wide ad delivery. Toggles apply immediately to public visitor views.
                 </CardDescription>
               </div>
             </div>
@@ -327,6 +516,21 @@ export default function AdminAds() {
         </CardHeader>
         <CardContent className="pt-4 space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+            {/* Bethelincovibe Native Ad Server */}
+            <div className="flex items-center justify-between p-3 rounded-2xl border border-primary/30 bg-primary/5">
+              <div>
+                <p className="font-bold text-xs text-primary flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Native Verified Ads
+                </p>
+                <p className="text-[10px] text-muted-foreground">Internal Bethelincovibe ad server</p>
+              </div>
+              <Switch
+                disabled={!isGlobalAdsEnabled}
+                checked={isNativeAdsEnabled}
+                onCheckedChange={() => toggleAdSetting("ads_provider_native", isNativeAdsEnabled)}
+              />
+            </div>
+
             {/* Google AdSense */}
             <div className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 transition">
               <div>
@@ -344,7 +548,7 @@ export default function AdminAds() {
             <div className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 transition">
               <div>
                 <p className="font-bold text-xs">Adsterra Display</p>
-                <p className="text-[10px] text-muted-foreground">728x90 & 300x250 banners</p>
+                <p className="text-[10px] text-muted-foreground">Display ad networks</p>
               </div>
               <Switch
                 disabled={!isGlobalAdsEnabled}
@@ -357,7 +561,7 @@ export default function AdminAds() {
             <div className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 transition">
               <div>
                 <p className="font-bold text-xs">Monetag Ads</p>
-                <p className="text-[10px] text-muted-foreground">Popunder & web push</p>
+                <p className="text-[10px] text-muted-foreground">Network monetization</p>
               </div>
               <Switch
                 disabled={!isGlobalAdsEnabled}
@@ -370,7 +574,7 @@ export default function AdminAds() {
             <div className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 transition">
               <div>
                 <p className="font-bold text-xs">Start.io (StartApp)</p>
-                <p className="text-[10px] text-muted-foreground">Mobile & banner SDK</p>
+                <p className="text-[10px] text-muted-foreground">Mobile & web SDK</p>
               </div>
               <Switch
                 disabled={!isGlobalAdsEnabled}
@@ -378,61 +582,42 @@ export default function AdminAds() {
                 onCheckedChange={() => toggleAdSetting("ads_provider_startio", isStartIoEnabled)}
               />
             </div>
-
-            {/* Platform Native Ads */}
-            <div className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 transition">
-              <div>
-                <p className="font-bold text-xs">Bethelincovibe Ad Server</p>
-                <p className="text-[10px] text-muted-foreground">User campaigns & rotating ads</p>
-              </div>
-              <Switch
-                disabled={!isGlobalAdsEnabled}
-                checked={isNativeAdsEnabled}
-                onCheckedChange={() => toggleAdSetting("ads_provider_native", isNativeAdsEnabled)}
-              />
-            </div>
-
-            {/* Custom Placements */}
-            <div className="flex items-center justify-between p-3 rounded-2xl border border-border/70 bg-card hover:bg-muted/30 transition">
-              <div>
-                <p className="font-bold text-xs">Custom HTML Placements</p>
-                <p className="text-[10px] text-muted-foreground">Header, footer & sidebar HTML</p>
-              </div>
-              <Switch
-                disabled={!isGlobalAdsEnabled}
-                checked={isCustomAdsEnabled}
-                onCheckedChange={() => toggleAdSetting("ads_provider_custom", isCustomAdsEnabled)}
-              />
-            </div>
           </div>
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="ads" className="w-full">
-        <TabsList className="rounded-2xl p-1 bg-muted/60 flex flex-wrap">
-          <TabsTrigger value="ads" className="rounded-xl font-bold text-xs">User Campaign Ads ({ads.length})</TabsTrigger>
-          <TabsTrigger value="ggd" className="rounded-xl font-bold text-xs flex items-center gap-1.5 text-indigo-600 data-[state=active]:text-indigo-600">
-            <Globe className="h-3.5 w-3.5 text-indigo-500" /> GGD Ad Network
-            <Badge className="bg-emerald-500/15 text-emerald-600 text-[10px] py-0 px-1 font-extrabold border-emerald-500/30">Active</Badge>
+      {/* Main Tabs Container */}
+      <Tabs defaultValue="ads" className="space-y-4">
+        <TabsList className="bg-muted p-1 rounded-2xl">
+          <TabsTrigger value="ads" className="rounded-xl text-xs font-bold gap-1.5">
+            <Megaphone className="h-3.5 w-3.5" /> All Advertisements ({ads.length})
           </TabsTrigger>
-          <TabsTrigger value="keys" className="rounded-xl font-bold text-xs">API Keys ({keys.length})</TabsTrigger>
-          <TabsTrigger value="embed" className="rounded-xl font-bold text-xs">Embed Snippet</TabsTrigger>
+          <TabsTrigger value="ggd" className="rounded-xl text-xs font-bold gap-1.5">
+            <Globe className="h-3.5 w-3.5 text-purple-500" /> GGD Ad Network
+          </TabsTrigger>
+          <TabsTrigger value="keys" className="rounded-xl text-xs font-bold gap-1.5">
+            <Key className="h-3.5 w-3.5" /> API Keys ({keys.length})
+          </TabsTrigger>
+          <TabsTrigger value="embed" className="rounded-xl text-xs font-bold gap-1.5">
+            <Copy className="h-3.5 w-3.5" /> Embed Code
+          </TabsTrigger>
         </TabsList>
 
+        {/* Tab 1: Advertisements List & Management */}
         <TabsContent value="ads" className="space-y-4 mt-4">
           {/* Filter Bar & Search */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+          <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search ads by title, URL or placement..."
+                placeholder="Search by title, advertiser, URL or placement..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9 h-9 text-xs rounded-xl"
               />
             </div>
 
-            <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
+            <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0">
               <Button
                 variant={statusFilter === "all" ? "default" : "outline"}
                 size="sm"
@@ -445,7 +630,7 @@ export default function AdminAds() {
                 variant={statusFilter === "active" ? "default" : "outline"}
                 size="sm"
                 onClick={() => setStatusFilter("active")}
-                className="text-xs h-8 rounded-xl font-bold"
+                className="text-xs h-8 rounded-xl font-bold text-emerald-600 border-emerald-500/30"
               >
                 Active ({ads.filter((a: any) => a.status === "active" && (!a.ends_at || !isPast(new Date(a.ends_at)))).length})
               </Button>
@@ -455,7 +640,15 @@ export default function AdminAds() {
                 onClick={() => setStatusFilter("pending")}
                 className="text-xs h-8 rounded-xl font-bold text-amber-600 border-amber-500/30"
               >
-                Pending ({ads.filter((a: any) => a.status === "pending").length})
+                Pending Review ({ads.filter((a: any) => a.status === "pending").length})
+              </Button>
+              <Button
+                variant={statusFilter === "paused" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("paused")}
+                className="text-xs h-8 rounded-xl font-bold"
+              >
+                Paused ({ads.filter((a: any) => a.status === "paused").length})
               </Button>
               <Button
                 variant={statusFilter === "expired" ? "default" : "outline"}
@@ -466,17 +659,43 @@ export default function AdminAds() {
                 Expired ({ads.filter((a: any) => (a.ends_at && isPast(new Date(a.ends_at))) || a.status === "expired").length})
               </Button>
               <Button
-                variant={statusFilter === "paused" ? "default" : "outline"}
+                variant={statusFilter === "rejected" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setStatusFilter("paused")}
-                className="text-xs h-8 rounded-xl font-bold"
+                onClick={() => setStatusFilter("rejected")}
+                className="text-xs h-8 rounded-xl font-bold text-red-600 border-red-500/30"
               >
-                Paused ({ads.filter((a: any) => a.status === "paused").length})
+                Rejected ({ads.filter((a: any) => a.status === "rejected").length})
+              </Button>
+              <Button
+                variant={statusFilter === "inactive" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("inactive")}
+                className="text-xs h-8 rounded-xl font-bold text-muted-foreground"
+              >
+                Disabled ({ads.filter((a: any) => a.status === "inactive").length})
               </Button>
             </div>
           </div>
 
-          {/* Ad Cards List */}
+          {/* Placement Filter Bar */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <span className="text-muted-foreground font-bold text-[11px] shrink-0">Filter Placement:</span>
+            {["all", "home", "shop", "listings", "blog", "dashboard"].map((p) => (
+              <Button
+                key={p}
+                variant={placementFilter === p ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setPlacementFilter(p)}
+                className={`h-7 text-[11px] rounded-lg font-semibold capitalize ${
+                  placementFilter === p ? "bg-muted font-bold" : "text-muted-foreground"
+                }`}
+              >
+                {p === "all" ? "All Areas" : p}
+              </Button>
+            ))}
+          </div>
+
+          {/* Advertisement Cards List */}
           <div className="space-y-3">
             {filteredAds.map((a: any) => {
               const isExpired = a.ends_at && isPast(new Date(a.ends_at));
@@ -484,17 +703,34 @@ export default function AdminAds() {
               const clicks = Number(a.clicks || 0);
               const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(1) : "0.0";
               const costAmount = Number(a.cost_amount || 0);
+              const advertiserName =
+                a.advertiser_profile?.display_name ||
+                a.advertiser_profile?.username ||
+                a.advertiser_profile?.email ||
+                a.ggd_response?.advertiser_name ||
+                "Bethelincovibe Advertiser";
+              const advertiserWhatsapp =
+                a.advertiser_profile?.whatsapp ||
+                a.ggd_response?.whatsapp_number ||
+                null;
 
               return (
                 <Card key={a.id} className="border-border/80 shadow-xs rounded-2xl overflow-hidden bg-card hover:border-primary/40 transition">
                   <CardContent className="p-4 flex flex-col sm:flex-row gap-4 items-start">
-                    {/* Creative image thumbnail */}
+                    {/* Creative banner/flyer thumbnail with click-to-preview Lightbox */}
                     {a.image_url ? (
-                      <div className="h-24 w-36 shrink-0 rounded-xl overflow-hidden bg-muted border relative">
-                        <img src={a.image_url} className="h-full w-full object-cover" alt={a.title} />
+                      <div
+                        onClick={() => setPreviewCreative({ url: a.image_url, title: a.title })}
+                        className="h-28 w-40 shrink-0 rounded-xl overflow-hidden bg-muted border relative group cursor-pointer shadow-xs"
+                        title="Click to view full resolution flyer"
+                      >
+                        <img src={a.image_url} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105" alt={a.title} />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white">
+                          <Maximize2 className="h-5 w-5" />
+                        </div>
                       </div>
                     ) : (
-                      <div className="h-24 w-36 shrink-0 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground border">
+                      <div className="h-28 w-40 shrink-0 rounded-xl bg-muted/60 flex items-center justify-center text-muted-foreground border">
                         <Megaphone className="h-6 w-6 opacity-40" />
                       </div>
                     )}
@@ -508,37 +744,78 @@ export default function AdminAds() {
                             <Badge className="bg-rose-500/15 text-rose-600 border-rose-500/30 text-[10px] font-extrabold">
                               EXPIRED
                             </Badge>
+                          ) : a.status === "active" ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px] font-extrabold">
+                              VERIFIED & ACTIVE
+                            </Badge>
+                          ) : a.status === "pending" ? (
+                            <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px] font-extrabold">
+                              PENDING REVIEW
+                            </Badge>
+                          ) : a.status === "paused" ? (
+                            <Badge className="bg-blue-500/15 text-blue-600 border-blue-500/30 text-[10px] font-extrabold">
+                              PAUSED
+                            </Badge>
+                          ) : a.status === "rejected" ? (
+                            <Badge className="bg-red-500/15 text-red-600 border-red-500/30 text-[10px] font-extrabold">
+                              REJECTED
+                            </Badge>
                           ) : (
-                            <Badge variant={a.status === "active" ? "default" : a.status === "pending" ? "secondary" : "destructive"} className="text-[10px] font-extrabold">
-                              {a.status.toUpperCase()}
+                            <Badge variant="outline" className="text-[10px] font-extrabold">
+                              {a.status?.toUpperCase() || "DISABLED"}
                             </Badge>
                           )}
+
                           <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground">
-                            {a.source || "web"}
+                            {a.source || "user"}
                           </Badge>
-                          {a.ggd_ad_id ? (
+
+                          {a.ggd_ad_id && (
                             <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-[9px] font-extrabold flex items-center gap-1">
                               <Globe className="h-2.5 w-2.5" /> GGD Synced
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="text-[9px] text-muted-foreground/70 font-medium">
-                              GGD: Pending
                             </Badge>
                           )}
                         </div>
 
                         {/* Cost Placed Badge */}
-                        <div className="flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 font-extrabold text-xs px-2.5 py-1 rounded-xl border border-emerald-500/20">
+                        <div className="flex items-center gap-1 bg-emerald-500/10 text-emerald-600 font-extrabold text-xs px-2.5 py-1 rounded-xl border border-emerald-500/20">
                           <DollarSign className="h-3 w-3" /> ₦{costAmount.toLocaleString()} ({a.duration_days || 0}d)
                         </div>
                       </div>
 
-                      {/* URL */}
+                      {/* Advertiser / Business Name & Contact Row */}
+                      <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
+                        <span className="flex items-center gap-1 font-semibold text-foreground">
+                          <User className="h-3.5 w-3.5 text-primary" /> {advertiserName}
+                        </span>
+                        {advertiserWhatsapp && (
+                          <a
+                            href={`https://wa.me/${advertiserWhatsapp.replace(/[^0-9]/g, "")}?text=${encodeURIComponent(`Hello, I am contacting you regarding your advertisement "${a.title}" on Bethelincovibe.`)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-1 text-emerald-600 hover:underline font-bold"
+                          >
+                            <MessageCircle className="h-3.5 w-3.5" /> WhatsApp Contact
+                          </a>
+                        )}
+                        {a.advertiser_profile?.email && (
+                          <span className="text-muted-foreground text-[11px]">
+                            ({a.advertiser_profile.email})
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Description if present */}
+                      {a.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2">{a.description}</p>
+                      )}
+
+                      {/* Destination / Target URL */}
                       <a
                         href={a.target_url}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-primary hover:underline flex items-center gap-1 truncate font-medium"
+                        className="text-xs text-primary hover:underline flex items-center gap-1 truncate font-medium max-w-lg"
                       >
                         {a.target_url} <ExternalLink className="h-3 w-3 shrink-0" />
                       </a>
@@ -560,48 +837,55 @@ export default function AdminAds() {
                             <Clock className="h-3.5 w-3.5" /> No expiry set
                           </span>
                         )}
+                        {a.rejection_reason && a.status === "rejected" && (
+                          <span className="text-xs text-red-500 font-medium">
+                            Reason: {a.rejection_reason}
+                          </span>
+                        )}
                       </div>
 
-                      {/* Placements & Performance */}
-                      <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-border/40">
+                      {/* Placements & Performance Metrics */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/40">
                         <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-[11px] font-bold text-muted-foreground">Placements:</span>
-                          {(a.placement || "blog").split(",").map((p: string) => (
-                            <Badge key={p} variant="secondary" className="text-[10px] font-bold px-2 py-0">
+                          {(a.placement || "home,shop,listings,blog,dashboard").split(",").map((p: string) => (
+                            <Badge key={p} variant="secondary" className="text-[10px] font-bold px-2 py-0 capitalize">
                               {p.trim()}
                             </Badge>
                           ))}
                         </div>
 
-                        {/* Metrics */}
+                        {/* Metrics: Real Impressions, Clicks, CTR */}
                         <div className="flex items-center gap-3 text-xs font-semibold text-muted-foreground">
-                          <span className="flex items-center gap-1" title="Impressions">
+                          <span className="flex items-center gap-1" title="Real Impressions">
                             <Eye className="h-3.5 w-3.5 text-primary" /> {impressions.toLocaleString()}
                           </span>
-                          <span className="flex items-center gap-1" title="Clicks">
+                          <span className="flex items-center gap-1" title="Real Clicks">
                             <MousePointer className="h-3.5 w-3.5 text-emerald-500" /> {clicks.toLocaleString()}
                           </span>
-                          <span className="text-[11px] font-bold text-foreground bg-muted px-1.5 py-0.5 rounded">
+                          <span className="text-[11px] font-bold text-foreground bg-muted px-2 py-0.5 rounded-md">
                             {ctr}% CTR
                           </span>
                         </div>
                       </div>
 
-                      {/* Pending Review Placement Selector */}
+                      {/* Pending Review Verification & Placement Selector */}
                       {a.status === "pending" && (
-                        <div className="mt-2 space-y-2 border-t pt-2 bg-amber-500/5 p-3 rounded-xl border border-amber-500/20">
+                        <div className="mt-2 space-y-2.5 border-t pt-2.5 bg-amber-500/5 p-3.5 rounded-2xl border border-amber-500/20">
                           <div>
-                            <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 mb-1.5">Pick placement(s) to approve:</p>
+                            <p className="text-xs font-bold text-amber-700 dark:text-amber-400 mb-1.5">
+                              Select placements to approve and place live:
+                            </p>
                             <div className="flex flex-wrap gap-1.5">
                               {PLACEMENTS.map((p) => {
-                                const picks = adPlacements[a.id] || ["blog"];
+                                const picks = adPlacements[a.id] || ["home", "shop", "blog", "dashboard", "listings"];
                                 const checked = picks.includes(p.key);
                                 return (
                                   <button
                                     type="button"
                                     key={p.key}
                                     onClick={() => togglePlacement(a.id, p.key)}
-                                    className={`text-[11px] font-bold rounded-lg border px-2.5 py-1 transition ${
+                                    className={`text-[11px] font-bold rounded-xl border px-3 py-1 transition ${
                                       checked
                                         ? "bg-primary text-primary-foreground border-primary shadow-xs"
                                         : "bg-background hover:bg-muted text-foreground border-border/80"
@@ -614,14 +898,18 @@ export default function AdminAds() {
                             </div>
                           </div>
                           <div className="flex gap-2 items-center flex-wrap pt-1">
-                            <Button size="sm" onClick={() => approve(a.id)} className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white">
-                              <Check className="h-3.5 w-3.5 mr-1" /> Approve & Place Live
+                            <Button
+                              size="sm"
+                              onClick={() => approve(a.id)}
+                              className="rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs"
+                            >
+                              <Check className="h-3.5 w-3.5 mr-1" /> Approve & Go Live
                             </Button>
                             <Input
-                              placeholder="Reason if rejecting"
+                              placeholder="Feedback reason if rejecting"
                               value={rejectReason[a.id] || ""}
                               onChange={(e) => setRejectReason({ ...rejectReason, [a.id]: e.target.value })}
-                              className="h-8 text-xs flex-1 min-w-[140px] max-w-xs rounded-xl"
+                              className="h-8 text-xs flex-1 min-w-[160px] max-w-xs rounded-xl"
                             />
                             <Button size="sm" variant="destructive" onClick={() => reject(a.id)} className="rounded-xl font-bold">
                               <X className="h-3.5 w-3.5 mr-1" /> Reject
@@ -632,7 +920,7 @@ export default function AdminAds() {
 
                       {/* Action Buttons Toolbar */}
                       <div className="mt-2 flex flex-wrap gap-1.5 border-t border-border/40 pt-2">
-                        {/* Reactivate / Extend Button */}
+                        {/* Reactivate / Extend Duration */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -643,10 +931,10 @@ export default function AdminAds() {
                           className="rounded-xl text-xs font-bold text-emerald-600 hover:bg-emerald-500/10 border-emerald-500/30"
                         >
                           <RefreshCw className="h-3 w-3 mr-1" />
-                          {isExpired ? "Reactivate Ad" : "Extend Duration"}
+                          {isExpired ? "Reactivate Campaign" : "Extend Duration"}
                         </Button>
 
-                        {/* Syndicate to GGD Ad Network Button */}
+                        {/* Syndicate to GGD Ad Network */}
                         <Button
                           size="sm"
                           variant="outline"
@@ -668,24 +956,38 @@ export default function AdminAds() {
                           {a.ggd_ad_id ? "Re-sync GGD" : "Syndicate GGD"}
                         </Button>
 
+                        {/* Pause / Resume Controls */}
                         {a.status === "active" && !isExpired && (
                           <Button size="sm" variant="outline" onClick={() => pause(a.id)} className="rounded-xl text-xs font-semibold">
                             <Pause className="h-3 w-3 mr-1" /> Pause
                           </Button>
                         )}
                         {a.status === "paused" && (
-                          <Button size="sm" variant="outline" onClick={() => resume(a.id)} className="rounded-xl text-xs font-semibold">
+                          <Button size="sm" variant="outline" onClick={() => resume(a.id)} className="rounded-xl text-xs font-semibold text-emerald-600 border-emerald-500/30">
                             <Play className="h-3 w-3 mr-1" /> Resume
                           </Button>
                         )}
+
+                        {/* Deactivate / Disable */}
                         {(a.status === "active" || a.status === "paused") && (
                           <Button size="sm" variant="outline" onClick={() => deactivate(a.id)} className="rounded-xl text-xs font-semibold text-muted-foreground">
                             <Power className="h-3 w-3 mr-1" /> Deactivate
                           </Button>
                         )}
+
+                        {/* Re-activate rejected / inactive */}
+                        {(a.status === "rejected" || a.status === "inactive") && (
+                          <Button size="sm" variant="outline" onClick={() => resume(a.id)} className="rounded-xl text-xs font-semibold text-emerald-600 border-emerald-500/30">
+                            <Check className="h-3 w-3 mr-1" /> Re-activate
+                          </Button>
+                        )}
+
+                        {/* Edit details */}
                         <Button size="sm" variant="outline" onClick={() => setEditAd({ ...a })} className="rounded-xl text-xs font-semibold">
                           <Pencil className="h-3 w-3 mr-1" /> Edit
                         </Button>
+
+                        {/* Delete permanently */}
                         <Button size="sm" variant="destructive" onClick={() => removeAd(a.id)} className="rounded-xl text-xs font-semibold">
                           <Trash2 className="h-3 w-3 mr-1" /> Delete
                         </Button>
@@ -701,9 +1003,220 @@ export default function AdminAds() {
             <Card className="p-8 text-center rounded-3xl border-dashed">
               <Megaphone className="h-10 w-10 text-muted-foreground mx-auto mb-2 opacity-50" />
               <p className="text-sm font-bold">No Advertisements Found</p>
-              <p className="text-xs text-muted-foreground mt-1">Try clearing your search query or switching tabs.</p>
+              <p className="text-xs text-muted-foreground mt-1">Try clearing your search query or switching filters.</p>
             </Card>
           )}
+
+          {/* Lightbox Preview Modal for Creative Flyer/Banner */}
+          <Dialog open={!!previewCreative} onOpenChange={(o) => !o && setPreviewCreative(null)}>
+            <DialogContent className="max-w-2xl rounded-3xl p-4 bg-background/95 backdrop-blur-md">
+              <DialogHeader>
+                <DialogTitle className="text-base font-black truncate">{previewCreative?.title || "Creative Asset Preview"}</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Full resolution advertisement flyer preview
+                </DialogDescription>
+              </DialogHeader>
+              {previewCreative && (
+                <div className="mt-2 flex items-center justify-center max-h-[75vh] overflow-hidden rounded-2xl bg-black/90 p-2">
+                  <img
+                    src={previewCreative.url}
+                    alt={previewCreative.title}
+                    className="max-h-[70vh] w-full object-contain rounded-xl"
+                  />
+                </div>
+              )}
+              <DialogFooter className="mt-2">
+                <Button variant="outline" onClick={() => setPreviewCreative(null)} className="rounded-xl text-xs">
+                  Close Preview
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Create New Advertisement Modal Dialog */}
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto rounded-3xl">
+              <DialogHeader>
+                <DialogTitle className="text-base font-black flex items-center gap-2">
+                  <Plus className="h-4 w-4 text-primary" /> Create & Publish Advertisement
+                </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Upload a creative flyer or banner, specify placements, and launch the campaign live.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-4 pt-2">
+                {/* Title */}
+                <div>
+                  <Label className="text-xs font-bold">Campaign Title *</Label>
+                  <Input
+                    placeholder="e.g. 50% Off WhatsApp Marketing Bundle"
+                    value={createTitle}
+                    onChange={(e) => setCreateTitle(e.target.value)}
+                    className="rounded-xl text-xs mt-1"
+                  />
+                </div>
+
+                {/* Advertiser Name & WhatsApp Contact */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-bold">Advertiser / Business Name</Label>
+                    <Input
+                      placeholder="e.g. Bethel Tech Services"
+                      value={createAdvertiser}
+                      onChange={(e) => setCreateAdvertiser(e.target.value)}
+                      className="rounded-xl text-xs mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold">WhatsApp Conversion Contact</Label>
+                    <Input
+                      placeholder="e.g. +2348012345678"
+                      value={createWhatsapp}
+                      onChange={(e) => setCreateWhatsapp(e.target.value)}
+                      className="rounded-xl text-xs mt-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Destination Target URL */}
+                <div>
+                  <Label className="text-xs font-bold">Destination URL * (Click Target)</Label>
+                  <Input
+                    placeholder="https://example.com/special-offer"
+                    value={createTargetUrl}
+                    onChange={(e) => setCreateTargetUrl(e.target.value)}
+                    className="rounded-xl text-xs mt-1"
+                  />
+                </div>
+
+                {/* Creative Flyer / Banner Upload */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold">Creative Flyer or Banner Asset *</Label>
+                  <div className="flex flex-col sm:flex-row gap-2 items-start">
+                    <div className="relative flex-1 w-full">
+                      <Input
+                        placeholder="https://... or upload below"
+                        value={createImageUrl}
+                        onChange={(e) => setCreateImageUrl(e.target.value)}
+                        className="rounded-xl text-xs"
+                      />
+                    </div>
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleCreativeFileUpload}
+                        className="hidden"
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isUploadingCreative}
+                        asChild
+                        className="rounded-xl text-xs font-bold h-9 gap-1"
+                      >
+                        <span>
+                          <Upload className="h-3.5 w-3.5" />
+                          {isUploadingCreative ? "Uploading..." : "Upload Flyer"}
+                        </span>
+                      </Button>
+                    </label>
+                  </div>
+
+                  {/* Image Preview Box */}
+                  {createImageUrl && (
+                    <div className="h-32 w-full rounded-2xl overflow-hidden border bg-muted/40 relative">
+                      <img
+                        src={createImageUrl}
+                        alt="Creative preview"
+                        className="h-full w-full object-contain"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                {/* Placements */}
+                <div>
+                  <Label className="text-xs font-bold mb-1.5 block">Assigned Placements *</Label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {PLACEMENTS.map((p) => {
+                      const isChecked = createPlacements.includes(p.key);
+                      return (
+                        <button
+                          type="button"
+                          key={p.key}
+                          onClick={() => {
+                            setCreatePlacements((prev) =>
+                              prev.includes(p.key) ? prev.filter((k) => k !== p.key) : [...prev, p.key]
+                            );
+                          }}
+                          className={`text-[11px] font-bold rounded-xl border px-3 py-1 transition ${
+                            isChecked
+                              ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                              : "bg-background hover:bg-muted text-foreground border-border/80"
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Duration & Initial Status */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs font-bold">Duration (Days)</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      max={365}
+                      value={createDuration}
+                      onChange={(e) => setCreateDuration(Math.max(1, Number(e.target.value)))}
+                      className="rounded-xl text-xs mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold">Status</Label>
+                    <select
+                      value={createStatus}
+                      onChange={(e: any) => setCreateStatus(e.target.value)}
+                      className="w-full h-9 rounded-xl border border-input bg-background px-3 py-1 text-xs font-bold mt-1"
+                    >
+                      <option value="active">Active (Publish Live Immediately)</option>
+                      <option value="pending">Pending (Review First)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Description */}
+                <div>
+                  <Label className="text-xs font-bold">Campaign Description (Optional)</Label>
+                  <Textarea
+                    placeholder="Short description of the offer or service..."
+                    value={createDescription}
+                    onChange={(e) => setCreateDescription(e.target.value)}
+                    className="rounded-xl text-xs mt-1"
+                    rows={2}
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2 pt-2">
+                <Button variant="outline" onClick={() => setIsCreateModalOpen(false)} className="rounded-xl">
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleCreateNewAd}
+                  disabled={isSubmittingNewAd}
+                  className="rounded-xl font-bold bg-primary text-primary-foreground shadow-md"
+                >
+                  {isSubmittingNewAd ? "Publishing..." : "Launch Advertisement"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Reactivate & Extend Modal Dialog */}
           <Dialog open={!!reactivateAd} onOpenChange={(o) => !o && setReactivateAd(null)}>
@@ -712,6 +1225,9 @@ export default function AdminAds() {
                 <DialogTitle className="text-base font-black flex items-center gap-2">
                   <RefreshCw className="h-4 w-4 text-emerald-500" /> Reactivate & Extend Campaign
                 </DialogTitle>
+                <DialogDescription className="text-xs">
+                  Extend live dates for verified advertising delivery
+                </DialogDescription>
               </DialogHeader>
               {reactivateAd && (
                 <div className="space-y-4 pt-2">
@@ -762,34 +1278,54 @@ export default function AdminAds() {
           {/* Edit Ad Modal Dialog */}
           <Dialog open={!!editAd} onOpenChange={(o) => !o && setEditAd(null)}>
             <DialogContent className="max-w-md rounded-3xl">
-              <DialogHeader><DialogTitle className="text-base font-bold">Edit Advertisement Details</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle className="text-base font-bold">Edit Advertisement Details</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Update campaign creative parameters and destination URLs
+                </DialogDescription>
+              </DialogHeader>
               {editAd && (
                 <div className="space-y-3 pt-2">
                   <div>
                     <Label className="text-xs font-bold">Title</Label>
-                    <Input value={editAd.title || ""} onChange={(e) => setEditAd({ ...editAd, title: e.target.value })} className="rounded-xl text-xs" />
+                    <Input value={editAd.title || ""} onChange={(e) => setEditAd({ ...editAd, title: e.target.value })} className="rounded-xl text-xs mt-1" />
                   </div>
                   <div>
                     <Label className="text-xs font-bold">Description</Label>
-                    <Textarea value={editAd.description || ""} onChange={(e) => setEditAd({ ...editAd, description: e.target.value })} className="rounded-xl text-xs" rows={2} />
+                    <Textarea value={editAd.description || ""} onChange={(e) => setEditAd({ ...editAd, description: e.target.value })} className="rounded-xl text-xs mt-1" rows={2} />
                   </div>
                   <div>
-                    <Label className="text-xs font-bold">Target URL</Label>
-                    <Input value={editAd.target_url || ""} onChange={(e) => setEditAd({ ...editAd, target_url: e.target.value })} className="rounded-xl text-xs" />
+                    <Label className="text-xs font-bold">Target Destination URL</Label>
+                    <Input value={editAd.target_url || ""} onChange={(e) => setEditAd({ ...editAd, target_url: e.target.value })} className="rounded-xl text-xs mt-1" />
                   </div>
                   <div>
-                    <Label className="text-xs font-bold">Image URL</Label>
-                    <Input value={editAd.image_url || ""} onChange={(e) => setEditAd({ ...editAd, image_url: e.target.value })} className="rounded-xl text-xs" />
+                    <Label className="text-xs font-bold">Banner / Flyer Image URL</Label>
+                    <Input value={editAd.image_url || ""} onChange={(e) => setEditAd({ ...editAd, image_url: e.target.value })} className="rounded-xl text-xs mt-1" />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs font-bold">Duration (days)</Label>
-                      <Input type="number" value={editAd.duration_days || 0} onChange={(e) => setEditAd({ ...editAd, duration_days: Number(e.target.value) })} className="rounded-xl text-xs" />
+                      <Input type="number" value={editAd.duration_days || 0} onChange={(e) => setEditAd({ ...editAd, duration_days: Number(e.target.value) })} className="rounded-xl text-xs mt-1" />
                     </div>
                     <div>
                       <Label className="text-xs font-bold">Placement (comma-separated)</Label>
-                      <Input value={editAd.placement || ""} onChange={(e) => setEditAd({ ...editAd, placement: e.target.value })} className="rounded-xl text-xs" />
+                      <Input value={editAd.placement || ""} onChange={(e) => setEditAd({ ...editAd, placement: e.target.value })} className="rounded-xl text-xs mt-1" />
                     </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold">Status</Label>
+                    <select
+                      value={editAd.status || "active"}
+                      onChange={(e: any) => setEditAd({ ...editAd, status: e.target.value })}
+                      className="w-full h-9 rounded-xl border border-input bg-background px-3 py-1 text-xs font-bold mt-1"
+                    >
+                      <option value="active">Active</option>
+                      <option value="pending">Pending</option>
+                      <option value="paused">Paused</option>
+                      <option value="expired">Expired</option>
+                      <option value="rejected">Rejected</option>
+                      <option value="inactive">Disabled / Inactive</option>
+                    </select>
                   </div>
                 </div>
               )}
@@ -801,10 +1337,12 @@ export default function AdminAds() {
           </Dialog>
         </TabsContent>
 
+        {/* Tab 2: GGD Ad Network Panel */}
         <TabsContent value="ggd" className="mt-4">
           <AdminGgdNetworkPanel />
         </TabsContent>
 
+        {/* Tab 3: API Keys */}
         <TabsContent value="keys" className="space-y-3 mt-4">
           <Card className="rounded-3xl border-border/80">
             <CardHeader><CardTitle className="text-base flex items-center gap-2 font-bold"><Key className="h-4 w-4 text-primary" />Create Developer API Key</CardTitle></CardHeader>
@@ -838,6 +1376,7 @@ export default function AdminAds() {
           ))}
         </TabsContent>
 
+        {/* Tab 4: Embed Code */}
         <TabsContent value="embed" className="space-y-3 mt-4">
           <Card className="rounded-3xl border-border/80">
             <CardHeader>

@@ -2,14 +2,16 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import LiveRotatingAdvert, { AdvertItem } from "@/components/ads/LiveRotatingAdvert";
-import { fetchGgdAds, trackGgdEvent } from "@/services/ggdAdNetworkService";
 
 export interface ProgrammaticAdBannerProps {
   placement?:
+    | "home"
+    | "homepage"
     | "blog"
     | "dashboard"
     | "shop"
     | "listings"
+    | "directory"
     | "header"
     | "footer"
     | "sidebar"
@@ -24,106 +26,23 @@ export interface ProgrammaticAdBannerProps {
 }
 
 const PLACEMENT_ALIASES: Record<string, string[]> = {
-  shop: ["marketplace", "shop", "products", "store", "all"],
-  marketplace: ["marketplace", "shop", "products", "store", "all"],
-  products: ["marketplace", "products", "shop", "store", "all"],
-  blog: ["blog", "article", "in_article", "editorial", "all"],
-  dashboard: ["dashboard", "user_dashboard", "all"],
-  listings: ["listings", "services", "businesses", "directory", "all"],
-  services: ["services", "listings", "businesses", "directory", "all"],
-  businesses: ["businesses", "listings", "services", "directory", "all"],
   home: ["home", "homepage", "all"],
+  homepage: ["home", "homepage", "all"],
+  shop: ["shop", "marketplace", "products", "store", "all"],
+  marketplace: ["shop", "marketplace", "products", "store", "all"],
+  products: ["shop", "products", "marketplace", "store", "all"],
+  listings: ["listings", "directory", "businesses", "services", "all"],
+  directory: ["directory", "listings", "businesses", "services", "all"],
+  businesses: ["businesses", "directory", "listings", "services", "all"],
+  services: ["services", "listings", "businesses", "directory", "all"],
+  blog: ["blog", "article", "in_article", "editorial", "all"],
+  article: ["blog", "article", "in_article", "editorial", "all"],
+  in_article: ["blog", "article", "in_article", "editorial", "all"],
+  dashboard: ["dashboard", "user_dashboard", "all"],
   header: ["header", "all"],
   footer: ["footer", "all"],
   sidebar: ["sidebar", "all"],
-};
-
-// High-converting Curated Ecosystem Spotlights with deep consumer psychology & trust triggers
-const CURATED_ECOSYSTEM_ADS: Record<string, AdvertItem[]> = {
-  default: [
-    {
-      id: "curated-vip-seller",
-      title: "Get Verified Blue Checkmark — 10x Inquiries in Nigeria",
-      description:
-        "Join 1,800+ top Nigerian merchants. Verified sellers receive prioritized search ranking, direct WhatsApp inquiries & zero escrow hold delays.",
-      image_url: "/logo.png",
-      target_url: "/businesses/list",
-      sponsor_name: "Bethelincovibe VIP Merchant",
-      badge_text: "Verified Spotlight",
-      urgency_tag: "⚡ High Demand — Instant Verification",
-      social_proof: "Over 1,400+ shoppers visited today",
-      is_verified: true,
-    },
-    {
-      id: "curated-ai-studio",
-      title: "Queen AI Marketing Studio — Auto-Create Product Videos & Ads",
-      description:
-        "Generate 3D vector graphics, promotional flyers, voiceovers in Nigerian accents, and social media captions in under 30 seconds.",
-      image_url: "/logo.png",
-      target_url: "/ai-assistant",
-      sponsor_name: "Queen AI Engine",
-      badge_text: "Smart Tool",
-      urgency_tag: "🚀 100% Free for Bethelincovibe Users",
-      social_proof: "Generated 12,000+ creative designs this month",
-      is_verified: true,
-    },
-    {
-      id: "curated-escrow-logistics",
-      title: "Sell Nationwide Across All 36 Nigerian States",
-      description:
-        "Seamless delivery with verified courier partners from Lagos to Abuja, Port Harcourt, Kano & beyond. Safe escrow buyer protection.",
-      image_url: "/logo.png",
-      target_url: "/products",
-      sponsor_name: "Nationwide Logistics",
-      badge_text: "Live Network",
-      urgency_tag: "🛡️ 100% Buyer & Seller Protection",
-      social_proof: "Active across Lagos, Abuja & 34 States",
-      is_verified: true,
-    },
-  ],
-  blog: [
-    {
-      id: "curated-blog-startup",
-      title: "Scale Your Nigerian Startup with Expert Guides & Blueprints",
-      description:
-        "Read verified case studies, CAC registration workflows, export-import guides, and digital payment playbooks written by top Lagos founders.",
-      image_url: "/logo.png",
-      target_url: "/blog/category/startup-guides",
-      sponsor_name: "Bethel Business Academy",
-      badge_text: "Trending Guide",
-      urgency_tag: "📚 Read Today's Top Story",
-      social_proof: "4.8k entrepreneurs read this week",
-      is_verified: true,
-    },
-    {
-      id: "curated-blog-ad-platform",
-      title: "Promote Your Brand on Bethelincovibe TV & Newsletters",
-      description:
-        "Reach over 50,000 active Nigerian buyers, business owners, and wholesale importers daily. High CTR guaranteed.",
-      image_url: "/logo.png",
-      target_url: "/advertise",
-      sponsor_name: "Bethel Ad Network",
-      badge_text: "Ad Space",
-      urgency_tag: "🎯 Target by State & Category",
-      social_proof: "Top ROI ad channel for Nigerian SMEs",
-      is_verified: true,
-    },
-  ],
-  dashboard: [
-    {
-      id: "curated-dash-boost",
-      title: "Boost Your Store Visibility by 300% This Week",
-      description:
-        "Feature your products on the Bethelincovibe homepage banner and category top-picks. Direct WhatsApp leads sent straight to your phone.",
-      image_url: "/logo.png",
-      target_url: "/dashboard/analytics",
-      sponsor_name: "Merchant Accelerator",
-      badge_text: "Growth Deal",
-      urgency_tag: "🔥 Limited Placement Slots Available",
-      social_proof: "98% satisfaction from Nigerian merchants",
-      is_verified: true,
-    },
-  ],
+  all: ["all", "home", "shop", "listings", "blog", "dashboard"],
 };
 
 export default function ProgrammaticAdBanner({
@@ -147,7 +66,7 @@ export default function ProgrammaticAdBanner({
     ((targetPlacement === "blog" || targetPlacement === "article" || targetPlacement === "in_article") &&
       flags.ads_blog === false) ||
     (targetPlacement === "dashboard" && flags.ads_dashboard === false) ||
-    ((targetPlacement === "listings" || targetPlacement === "services" || targetPlacement === "businesses") &&
+    ((targetPlacement === "listings" || targetPlacement === "services" || targetPlacement === "businesses" || targetPlacement === "directory") &&
       flags.ads_directory === false);
 
   useEffect(() => {
@@ -173,9 +92,14 @@ export default function ProgrammaticAdBanner({
             "ads_global_enabled",
             "ads_provider_native",
             `ad_placement_${targetPlacement}_enabled`,
+            "ad_placement_home_enabled",
             "ad_placement_marketplace_enabled",
             "ad_placement_shop_enabled",
             "ad_placement_products_enabled",
+            "ad_placement_listings_enabled",
+            "ad_placement_directory_enabled",
+            "ad_placement_blog_enabled",
+            "ad_placement_dashboard_enabled",
             ...placementSettingKeys,
             "ad_watermark_text",
             "ad_watermark_url",
@@ -215,39 +139,7 @@ export default function ProgrammaticAdBanner({
 
         const fetchedAds: AdvertItem[] = [];
 
-        // Strategy A: Security Definer RPC serve_random_ad with alias candidate loop
-        for (const candidateKey of candidateKeys) {
-          try {
-            const { data: rpcAd, error: rpcErr } = await supabase.rpc("serve_random_ad", {
-              _placement: candidateKey,
-            });
-
-            if (!rpcErr && rpcAd) {
-              const items = Array.isArray(rpcAd) ? rpcAd : [rpcAd];
-              items.forEach((item: any) => {
-                if (item && item.id && item.image_url && !fetchedAds.some((a) => a.id === item.id)) {
-                  fetchedAds.push({
-                    id: item.id,
-                    title: item.title,
-                    description: item.description,
-                    image_url: item.image_url,
-                    target_url: item.target_url || item.click_url,
-                    click_url: item.click_url,
-                    sponsor_name: item.sponsor_name || "Verified Partner",
-                    badge_text: "Live Sponsor",
-                    urgency_tag: "⚡ Exclusive Partner Offer",
-                    social_proof: "Verified advertiser on Bethelincovibe",
-                    is_verified: true,
-                  });
-                }
-              });
-            }
-          } catch {
-            // continue checking
-          }
-        }
-
-        // Strategy B: Direct query for user_ads table
+        // Strategy A: Direct query for user_ads table (works when user has read access, e.g. authenticated/admin)
         try {
           const { data: directAds } = await supabase
             .from("user_ads")
@@ -260,6 +152,7 @@ export default function ProgrammaticAdBanner({
               if (a.status !== "active" && a.status !== "approved") return false;
               if (a.starts_at && new Date(a.starts_at).getTime() > now) return false;
               if (a.ends_at && new Date(a.ends_at).getTime() < now) return false;
+              if (!a.image_url) return false;
               if (!a.placement || a.placement === "all") return true;
               const places = a.placement.toLowerCase().split(",").map((p: string) => p.trim());
               return places.some((p: string) => candidateKeys.includes(p) || p === "all");
@@ -277,57 +170,96 @@ export default function ProgrammaticAdBanner({
                   click_url: item.click_url,
                   sponsor_name: item.sponsor_name || "Verified Partner",
                   badge_text: "Verified Ad",
-                  urgency_tag: "🔥 Active Live Campaign",
-                  social_proof: "1,200+ daily views",
+                  urgency_tag: "🔥 Active Verified Campaign",
+                  social_proof: "Verified sponsor on Bethelincovibe TV",
                   is_verified: true,
                   display_template: ggdData.display_template || item.display_template || undefined,
                   experience_type: ggdData.experience_type || item.experience_type || undefined,
                   experience_config: ggdData.experience_config || item.experience_config || undefined,
+                  whatsapp_number: ggdData.whatsapp_number || item.whatsapp_number || undefined,
                 });
               }
             });
           }
         } catch {}
 
-        // Strategy C: Live GGD Ad Network partner ads integration
-        try {
-          const ggdRes = await fetchGgdAds(6);
-          if (ggdRes.success && ggdRes.ads && ggdRes.ads.length > 0) {
-            ggdRes.ads.forEach((item) => {
-              if (item.image_url && !fetchedAds.some((a) => a.id === item.id)) {
-                fetchedAds.push({
-                  id: item.id,
-                  title: item.title,
-                  description: item.description,
-                  image_url: item.image_url,
-                  target_url: item.target_url,
-                  click_url: item.target_url,
-                  sponsor_name: "GGD Partner Network",
-                  badge_text: "GGD Ad Network",
-                  urgency_tag: "🌐 Live Network Sponsor",
-                  social_proof: "Syndicated via GGD Ad Network",
-                  is_verified: true,
+        // Strategy B: Security Definer RPC serve_random_ad (works universally for any user / anon without RLS restriction)
+        for (const candidateKey of candidateKeys) {
+          try {
+            // Sample multiple times to discover distinct active ads if multiple exist for this placement
+            for (let attempt = 0; attempt < 3; attempt++) {
+              const { data: rpcAd, error: rpcErr } = await supabase.rpc("serve_random_ad", {
+                _placement: candidateKey,
+              });
+
+              if (!rpcErr && rpcAd) {
+                const items = Array.isArray(rpcAd) ? rpcAd : [rpcAd];
+                let foundNew = false;
+                items.forEach((item: any) => {
+                  if (item && item.id && item.image_url && !fetchedAds.some((a) => a.id === item.id)) {
+                    foundNew = true;
+                    fetchedAds.push({
+                      id: item.id,
+                      title: item.title,
+                      description: item.description,
+                      image_url: item.image_url,
+                      target_url: item.target_url || item.click_url,
+                      click_url: item.click_url,
+                      sponsor_name: item.sponsor_name || "Verified Partner",
+                      badge_text: "Verified Ad",
+                      urgency_tag: "⚡ Exclusive Partner Offer",
+                      social_proof: "Verified advertiser on Bethelincovibe TV",
+                      is_verified: true,
+                    });
+                  }
                 });
+                if (!foundNew && attempt > 0) break;
+              } else {
+                break;
               }
-            });
+            }
+          } catch {
+            // continue checking other candidate placements
           }
-        } catch (e) {
-          console.debug("GGD ad fetch note:", e);
         }
 
-        // Strategy D: Curated high-converting ecosystem spots for live psychology-driven rotation
-        const curatedCategory =
-          CURATED_ECOSYSTEM_ADS[targetPlacement] ||
-          (targetPlacement.includes("blog") ? CURATED_ECOSYSTEM_ADS.blog : null) ||
-          (targetPlacement.includes("dash") ? CURATED_ECOSYSTEM_ADS.dashboard : null) ||
-          CURATED_ECOSYSTEM_ADS.default;
-
-        curatedCategory.forEach((curatedAd) => {
-          if (!fetchedAds.some((a) => a.id === curatedAd.id)) {
-            fetchedAds.push(curatedAd);
+        // Strategy C: Ad-server Edge Function as an additional source if direct/rpc didn't return any
+        if (fetchedAds.length === 0) {
+          try {
+            const edgeRes = await fetch(
+              `https://gndcgttnpxsjufmehgyi.supabase.co/functions/v1/ad-server?placement=${encodeURIComponent(
+                targetPlacement
+              )}`
+            );
+            if (edgeRes.ok) {
+              const edgeData = await edgeRes.json();
+              if (edgeData?.ad && edgeData.ad.id && edgeData.ad.image_url) {
+                const item = edgeData.ad;
+                if (!fetchedAds.some((a) => a.id === item.id)) {
+                  fetchedAds.push({
+                    id: item.id,
+                    title: item.title,
+                    description: item.description,
+                    image_url: item.image_url,
+                    target_url: item.click_url || item.target_url,
+                    click_url: item.click_url,
+                    sponsor_name: "Verified Sponsor",
+                    badge_text: "Verified Ad",
+                    urgency_tag: "⚡ Exclusive Partner Offer",
+                    social_proof: "Verified advertiser on Bethelincovibe TV",
+                    is_verified: true,
+                  });
+                }
+              }
+            }
+          } catch {
+            // Ignore edge function error
           }
-        });
+        }
 
+        // STRICT REQUIREMENT:
+        // No fake fallbacks, no curated demo banners, no static placeholders.
+        // If there is no real, verified, approved, and currently active ad, fetchedAds is empty.
         if (isMounted) {
           setWatermark(watermarkInfo);
           setAdsList(fetchedAds);
@@ -347,29 +279,29 @@ export default function ProgrammaticAdBanner({
   }, [placement, isFeatureDisabled, targetPlacement]);
 
   const handleImpression = async (ad: AdvertItem) => {
-    if (!ad || !ad.id || ad.id.startsWith("curated-")) return;
-    // Track on GGD Ad Network if it's a GGD ad
-    if (ad.sponsor_name === "GGD Partner Network" || ad.badge_text === "GGD Ad Network") {
-      trackGgdEvent(ad.id, "impression");
-    }
+    if (!ad || !ad.id) return;
     try {
       await supabase.from("ad_events").insert({
         ad_id: ad.id,
         event_type: "impression",
         page_path: window.location.pathname,
       });
-    } catch {}
+    } catch {
+      // Ignored if client lacks insert policy; serve_random_ad RPC and ad-server already increment impressions server-side
+    }
   };
 
   const handleAdClick = async (ad: AdvertItem) => {
-    if (!ad || !ad.id || ad.id.startsWith("curated-")) return;
-    // Track on GGD Ad Network if it's a GGD ad
-    if (ad.sponsor_name === "GGD Partner Network" || ad.badge_text === "GGD Ad Network") {
-      trackGgdEvent(ad.id, "click");
-    }
+    if (!ad || !ad.id) return;
     try {
-      await supabase.rpc("record_ad_click", { _ad_id: ad.id });
+      // Call security definer RPC to record click
+      const { data: targetUrl } = await supabase.rpc("record_ad_click", { _ad_id: ad.id });
+      if (targetUrl && typeof targetUrl === "string") {
+        window.open(targetUrl, "_blank", "noopener,noreferrer");
+        return;
+      }
     } catch {
+      // Fallback direct update if RPC is unavailable
       try {
         const currentClicks = Number(ad.clicks || 0);
         await supabase
@@ -378,8 +310,15 @@ export default function ProgrammaticAdBanner({
           .eq("id", ad.id);
       } catch {}
     }
+
+    // Navigate to ad target URL
+    const destination = ad.target_url || ad.click_url;
+    if (destination) {
+      window.open(destination, "_blank", "noopener,noreferrer");
+    }
   };
 
+  // If there are no real verified active advertisements, collapse and hide the container completely
   if (adsList.length === 0) return null;
 
   return (
