@@ -3,7 +3,7 @@
  * 
  * Connects the Promotion Order Dispute Resolution process to the platform's
  * Gemini AI intelligence engine to evaluate deliverables, proof submissions,
- * buyer complaints, and escrow rules with creative, fair, non-disruptive,
+ * buyer complaints, and buyer protection rules with creative, fair, non-disruptive,
  * and context-aware recommendations.
  */
 
@@ -53,7 +53,7 @@ Your task is to analyze the following disputed promotion order objectively, inte
 DISPUTED ORDER DETAILS:
 - Order Reference: #${order.order_reference}
 - Package Name: ${packageTitle}
-- Escrow Value: ₦${amount.toLocaleString()}
+- Order Value: ₦${amount.toLocaleString()}
 - Target Platforms: ${targetPlatforms.join(", ") || "WhatsApp / Social Media"}
 - Stated Dispute Reason by Buyer: "${disputeReason}"
 - Proof of Work Description by Promoter: "${proofText}"
@@ -85,7 +85,7 @@ RULES & OBJECTIVES:
   "suggestedAdminJustification": "Official text for the admin resolution field (2-4 sentences)",
   "businessGuidanceNote": "Polite, constructive guidance for the business owner",
   "promoterGuidanceNote": "Constructive professional feedback for the promoter",
-  "policyReference": "Section of Bethelincovibe Escrow & Fair Promotion Guarantee",
+  "policyReference": "Section of Bethelincovibe Buyer Protection & Fair Promotion Guarantee",
   "creativeSolutionSuggestion": "Creative win-win recommendation (e.g., offering a complimentary 24h bonus repost or direct coupon)"
 }`;
 
@@ -185,13 +185,13 @@ function generateHeuristicDisputeRecommendation(order: PromotionOrder): AIDisput
       ],
     },
     suggestedAdminJustification: isRelease
-      ? "After thorough inspection of the submitted broadcast proof and campaign timeline, the promotional deliverables meet contractual standards. Escrow released to promoter."
+      ? "After thorough inspection of the submitted broadcast proof and campaign timeline, the promotional deliverables meet contractual standards. Payout released to promoter."
       : isRefund
       ? "The promoter failed to provide verifiable broadcast proof or channel links within the delivery window. Full refund issued back to business wallet."
       : "Arbitration determined partial fulfillment. A mutual settlement has been recorded to uphold platform equity.",
     businessGuidanceNote: "Promotional campaigns provide verified reach and exposure. For maximum sales conversion, pair broad promotion with tailored product discounts and prompt WhatsApp replies.",
     promoterGuidanceNote: "Always include crystal-clear view/status count timestamps and direct live links in proof submissions to eliminate dispute delays.",
-    policyReference: "Bethelincovibe Escrow Fair Trade & Proof Verification Standard (Sec 4.2)",
+    policyReference: "Bethelincovibe Buyer Protection & Proof Verification Standard (Sec 4.2)",
     creativeSolutionSuggestion: "Offer a complimentary 24-hour spotlight broadcast to solidify trust between both parties.",
     generatedAt: new Date().toISOString(),
   };

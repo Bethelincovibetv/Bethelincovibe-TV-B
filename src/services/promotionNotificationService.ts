@@ -185,7 +185,7 @@ export async function notifyOrderCreated(order: {
 }
 
 /**
- * Event: Payment Verified / Escrow Funded -> Notify Promoter to Start Work
+ * Event: Payment Verified / Order Secured -> Notify Promoter to Start Work
  */
 export async function notifyPaymentVerified(order: {
   id: string;
@@ -197,8 +197,8 @@ export async function notifyPaymentVerified(order: {
   return await dispatchPromotionNotification({
     userId: order.promoter_user_id,
     eventType: "payment_verified",
-    title: "Promotion Escrow Funded & Active! 💰",
-    body: `Payment of ₦${order.amount.toLocaleString()} for order #${order.order_reference} is verified and locked in escrow. You can now execute and deliver the campaign!`,
+    title: "Promotion Payment Secured & Active! 💰",
+    body: `Payment of ₦${order.amount.toLocaleString()} for order #${order.order_reference} is verified and secured. You can now execute and deliver the campaign!`,
     url: `/dashboard/promoter/orders/${order.id}`,
     type: "order",
     orderId: order.id,
@@ -266,7 +266,7 @@ export async function notifySettlementCompleted(order: {
     userId: order.promoter_user_id,
     eventType: "settlement_completed",
     title: "Promotion Earnings Credited to Wallet! 💵",
-    body: `Escrow released! ₦${order.net_amount.toLocaleString()} has been credited to your promoter wallet for order #${order.order_reference}.`,
+    body: `Payment cleared! ₦${order.net_amount.toLocaleString()} has been credited to your promoter wallet for order #${order.order_reference}.`,
     url: `/dashboard/promoter/orders/${order.id}`,
     type: "wallet",
     orderId: order.id,
@@ -304,7 +304,7 @@ export async function notifyDisputeOpened(order: {
     userId: order.promoter_user_id,
     eventType: "dispute_opened",
     title: "Dispute Opened on Order ⚠️",
-    body: `A dispute has been opened for order #${order.order_reference}. An administrator will arbitrate the order deliverables and escrow.`,
+    body: `A dispute has been opened for order #${order.order_reference}. An administrator will arbitrate the order deliverables and payment.`,
     url: `/dashboard/promoter/orders/${order.id}`,
     type: "dispute",
     orderId: order.id,
@@ -347,8 +347,8 @@ export async function notifyDisputeResolved(order: {
     eventType: "dispute_resolved",
     title: "Dispute Arbitration Completed ⚖️",
     body: isReleasedToPromoter
-      ? `The administrator resolved dispute #${order.order_reference} in your favor. Escrow earnings have been credited to your wallet!`
-      : `The administrator resolved dispute #${order.order_reference} in favor of the business. Escrow was refunded.`,
+      ? `The administrator resolved dispute #${order.order_reference} in your favor. Campaign earnings have been credited to your wallet!`
+      : `The administrator resolved dispute #${order.order_reference} in favor of the business. Funds were refunded to buyer.`,
     url: `/dashboard/promoter/orders/${order.id}`,
     type: "dispute",
     orderId: order.id,

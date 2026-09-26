@@ -664,7 +664,7 @@ export function calculateOrderSlaStatus(order: any): OrderSlaStatus {
   if (["approved", "completed"].includes(status)) {
     return {
       slaType: "completed",
-      title: "Execution & Escrow Settled",
+      title: "Order Completed & Settled",
       subtitle: "Deliverables verified and payouts released successfully.",
       deadlineDate: null,
       timeRemainingMs: 0,
@@ -712,8 +712,8 @@ export function calculateOrderSlaStatus(order: any): OrderSlaStatus {
   if (status === "pending_payment") {
     return {
       slaType: "none",
-      title: "Awaiting Escrow Deposit",
-      subtitle: "Turnaround timer begins once payment is verified into escrow.",
+      title: "Awaiting Payment Confirmation",
+      subtitle: "Turnaround timer begins once payment is verified and secured.",
       deadlineDate: null,
       timeRemainingMs: 0,
       isUrgent: false,

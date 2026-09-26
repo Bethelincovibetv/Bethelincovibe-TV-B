@@ -161,7 +161,7 @@ export default function AdminPromotionDisputes() {
 
       if (arbitrationAction === "release_to_promoter") {
         toast.success(
-          `Dispute resolved in promoter's favor! ₦${(res.order?.amount || selectedOrder.amount).toLocaleString()} escrow released & settled.`
+          `Dispute resolved in promoter's favor! ₦${(res.order?.amount || selectedOrder.amount).toLocaleString()} payout released & settled.`
         );
       } else {
         toast.success(
@@ -197,7 +197,7 @@ export default function AdminPromotionDisputes() {
                 Promotion Dispute Arbitration
               </h1>
               <p className="text-xs text-muted-foreground">
-                Review contested promotion deliverables, inspect evidence & arbitrate escrow releases
+                Review contested promotion deliverables, inspect evidence & arbitrate campaign settlements
               </p>
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function AdminPromotionDisputes() {
           <CardContent className="p-5 flex items-center justify-between">
             <div>
               <span className="text-xs font-bold text-muted-foreground block">
-                Escrow Held in Dispute
+                Order Funds Held in Dispute
               </span>
               <span className="text-2xl font-extrabold text-foreground mt-1 block">
                 {formatNaira(pendingDisputes.reduce((sum, o) => sum + (o.amount || 0), 0))}
@@ -371,7 +371,7 @@ export default function AdminPromotionDisputes() {
                     {/* Column 1: Financial & Campaign */}
                     <div className="space-y-1.5 bg-muted/30 p-3.5 rounded-xl border border-border/40">
                       <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-                        Campaign & Escrow
+                        Campaign & Settlement
                       </span>
                       <p className="font-bold text-foreground text-sm">
                         {order.package?.title || "Promotion Campaign"}
@@ -380,7 +380,7 @@ export default function AdminPromotionDisputes() {
                         <span className="text-base font-extrabold text-foreground">
                           {formatNaira(order.amount)}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">Escrow Locked</span>
+                        <span className="text-[11px] text-muted-foreground">Funds Secured</span>
                       </div>
                     </div>
 
@@ -515,7 +515,7 @@ export default function AdminPromotionDisputes() {
                 </div>
                 <DialogTitle className="text-lg font-bold">
                   {arbitrationAction === "release_to_promoter"
-                    ? "Arbitrate: Release Escrow to Promoter"
+                    ? "Arbitrate: Release Payout to Promoter"
                     : "Arbitrate: Refund Business & Cancel Order"}
                 </DialogTitle>
               </div>
@@ -592,7 +592,7 @@ export default function AdminPromotionDisputes() {
                 {arbitrationAction === "release_to_promoter" ? (
                   <p>
                     <strong>Action Summary:</strong> This decision upholds the promoter's delivery.
-                    The order will transition to <em>approved</em> and immediately trigger escrow settlement, crediting the promoter's wallet with their net earnings minus the 10% platform fee.
+                    The order will transition to <em>approved</em> and immediately trigger payout settlement, crediting the promoter's wallet with their net earnings minus the 10% platform fee.
                   </p>
                 ) : (
                   <p>

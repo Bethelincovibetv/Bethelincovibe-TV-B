@@ -54,7 +54,7 @@ export default function BusinessPromotionOrders() {
             variant="outline"
             className="text-[11px] font-bold bg-blue-500/10 text-blue-600 border-blue-500/30"
           >
-            Escrow Funded
+            Payment Secured
           </Badge>
         );
       case "in_progress":
@@ -118,7 +118,7 @@ export default function BusinessPromotionOrders() {
               Step 6 • Booking Foundation
             </AlertTitle>
             <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-              Your promotion orders are stored with status <span className="font-semibold text-foreground">pending_payment</span>. In the next release, you will be able to fund orders through our escrow payment system.
+              Track and manage all your active promotion orders, deliverable approvals, and direct campaign payments in real-time.
             </AlertDescription>
           </div>
         </Alert>

@@ -16,15 +16,12 @@ import {
   ArrowLeft, Megaphone, Upload, Wallet, Sparkles, Image as ImageIcon,
   BarChart3, RefreshCw, Clock, Calendar, CheckCircle2, AlertCircle,
   ExternalLink, Eye, MousePointer, PlusCircle, TrendingUp, Copy, Check,
-  Globe, Layout, Gift, MessageSquare, Gamepad2, Layers, Smartphone, PlayCircle,
-  Maximize2
+  Globe, Layout, Layers, Smartphone, PlayCircle, Maximize2
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, formatDistanceToNow, isPast } from "date-fns";
 import FrontendSpecialistWidget from "@/components/ai/FrontendSpecialistWidget";
-import { publishAdToGgd, getGgdConfig } from "@/services/ggdAdNetworkService";
 import LiveRotatingAdvert, { AdvertItem } from "@/components/ads/LiveRotatingAdvert";
-import { CreativeExperienceType, CreativeExperienceConfig } from "@/components/ads/CreativeAdExperience";
 
 export const PLACEMENT_OPTIONS = [
   { id: "blog", label: "Blog Articles & Guides", desc: "Shown across top editorial stories & sourcing posts" },
@@ -68,33 +65,6 @@ export const DISPLAY_TEMPLATE_OPTIONS = [
   },
 ];
 
-export const CREATIVE_EXPERIENCE_OPTIONS = [
-  {
-    id: "static" as const,
-    label: "Standard Direct Click",
-    desc: "Classic direct ad. Clean click to your landing URL or WhatsApp without extra interactive steps.",
-    badge: "Simple & Clean",
-  },
-  {
-    id: "interactive" as const,
-    label: "Interactive Promo Voucher Reveal",
-    desc: "Visitors tap or scratch an interactive coupon to uncover a promo discount code before claiming.",
-    badge: "Boosts Leads 3x",
-  },
-  {
-    id: "conversational" as const,
-    label: "Conversational Inquiry Assistant",
-    desc: "Embeds quick interactive FAQ chips to answer buyer questions on the spot before they message you.",
-    badge: "Best for Services",
-  },
-  {
-    id: "minigame" as const,
-    label: "Catchy Reaction Challenge",
-    desc: "A fun 5-second tap reaction mini-game where customers catch prizes to unlock an exclusive VIP perk.",
-    badge: "Engaging & Viral",
-  },
-];
-
 export default function UserAds() {
   const { user, loading } = useAuth();
   const [wallet, setWallet] = useState<any>(null);
@@ -114,26 +84,8 @@ export default function UserAds() {
     "listings",
   ]);
 
-  // Display Template & Creative Experience State
+  // Display Template State
   const [displayTemplate, setDisplayTemplate] = useState<"full_flyer" | "banner" | "card" | "featured" | "compact">("full_flyer");
-  const [experienceType, setExperienceType] = useState<CreativeExperienceType>("static");
-  
-  // Interactive voucher config
-  const [promoCode, setPromoCode] = useState("SPECIAL20");
-  const [discountPercentage, setDiscountPercentage] = useState("20% OFF");
-  const [urgencyNote, setUrgencyNote] = useState("Limited time offer - Valid for first 50 shoppers!");
-  
-  // Minigame config
-  const [rewardTitle, setRewardTitle] = useState("VIP 25% Off Deal Unlocked!");
-  const [rewardSubtitle, setRewardSubtitle] = useState("Present this code at checkout to claim your bonus discount.");
-  
-  // Conversational FAQ config
-  const [faqQ1, setFaqQ1] = useState("Do you deliver nationwide across Nigeria?");
-  const [faqA1, setFaqA1] = useState("Yes, we provide swift nationwide door-to-door delivery with live tracking.");
-  const [faqQ2, setFaqQ2] = useState("How can I make payment safely?");
-  const [faqA2, setFaqA2] = useState("We accept Escrow, direct bank transfer, and card payments through verified checkout.");
-  const [faqQ3, setFaqQ3] = useState("Can I speak with a representative directly?");
-  const [faqA3, setFaqA3] = useState("Click our WhatsApp button anytime to chat with our customer support team.");
 
   // Live preview & modal state
   const [showLivePreview, setShowLivePreview] = useState(true);
@@ -220,31 +172,13 @@ export default function UserAds() {
     setSubmitting(true);
     const placementString = selectedPlacements.join(",");
 
-    const expConfig: any = {};
-    if (experienceType === "interactive") {
-      expConfig.promo_code = promoCode.trim() || "SPECIAL20";
-      expConfig.discount_percentage = discountPercentage.trim() || "20% OFF";
-      expConfig.urgency_note = urgencyNote.trim() || "Limited time offer!";
-    } else if (experienceType === "conversational") {
-      const faqs = [];
-      if (faqQ1.trim() && faqA1.trim()) faqs.push({ question: faqQ1.trim(), answer: faqA1.trim() });
-      if (faqQ2.trim() && faqA2.trim()) faqs.push({ question: faqQ2.trim(), answer: faqA2.trim() });
-      if (faqQ3.trim() && faqA3.trim()) faqs.push({ question: faqQ3.trim(), answer: faqA3.trim() });
-      if (faqs.length > 0) expConfig.faqs = faqs;
-    } else if (experienceType === "minigame") {
-      expConfig.reward_title = rewardTitle.trim() || "VIP 25% Off Deal Unlocked!";
-      expConfig.reward_subtitle = rewardSubtitle.trim() || "Present this code at checkout to claim your bonus discount.";
-    }
-
     const creativePayload = {
       display_template: displayTemplate,
-      experience_type: experienceType,
-      experience_config: expConfig,
+      experience_type: "static",
+      experience_config: {},
     };
 
     try {
-      let createdAdId: string | undefined = undefined;
-
       // 1. Attempt edge function submission first
       let edgeSuccess = false;
       try {
@@ -261,7 +195,6 @@ export default function UserAds() {
         });
         if (!error && !(data as any)?.error) {
           edgeSuccess = true;
-          createdAdId = (data as any)?.ad?.id || (data as any)?.id;
         }
       } catch {
         edgeSuccess = false;
@@ -296,7 +229,7 @@ export default function UserAds() {
         const now = new Date();
         const ends = new Date(now.getTime() + duration * 86400000);
 
-        const { data: insertedRow, error: dbError } = await supabase.from("user_ads").insert({
+        const { error: dbError } = await supabase.from("user_ads").insert({
           user_id: user.id,
           title: title.trim(),
           description: description.trim() || null,
@@ -313,33 +246,12 @@ export default function UserAds() {
           impressions: 0,
           clicks: 0,
           ggd_response: creativePayload as any,
-        }).select("id").maybeSingle();
+        });
 
         if (dbError) throw dbError;
-        if (insertedRow?.id) createdAdId = insertedRow.id;
       }
 
-      // 3. Dual-Publishing System: Automatically Syndicate to GGD Ad Network
-      try {
-        const ggdCfg = await getGgdConfig();
-        if (ggdCfg.enabled && ggdCfg.autoPublish) {
-          const ggdRes = await publishAdToGgd({
-            title: title.trim(),
-            description: description.trim() || undefined,
-            target_url: targetUrl.trim(),
-            image_url: imageUrl || undefined,
-            duration_days: duration,
-            local_ad_id: createdAdId,
-          });
-          if (ggdRes.success) {
-            console.log("Dual-publishing to GGD Network succeeded:", ggdRes.ggd_ad_id);
-          }
-        }
-      } catch (ggdErr) {
-        console.warn("GGD dual-publishing notice:", ggdErr);
-      }
-
-      toast.success("Ad campaign successfully created & published! Also syndicated to GGD Ad Network.");
+      toast.success("Ad campaign successfully created & published!");
       setTitle("");
       setDescription("");
       setTargetUrl("");
@@ -366,31 +278,6 @@ export default function UserAds() {
     if (meta.display_template) {
       setDisplayTemplate(meta.display_template);
     }
-    if (meta.experience_type) {
-      setExperienceType(meta.experience_type);
-    }
-    if (meta.experience_config) {
-      const cfg = meta.experience_config;
-      if (cfg.promo_code) setPromoCode(cfg.promo_code);
-      if (cfg.discount_percentage) setDiscountPercentage(cfg.discount_percentage);
-      if (cfg.urgency_note) setUrgencyNote(cfg.urgency_note);
-      if (cfg.reward_title) setRewardTitle(cfg.reward_title);
-      if (cfg.reward_subtitle) setRewardSubtitle(cfg.reward_subtitle);
-      if (Array.isArray(cfg.faqs)) {
-        if (cfg.faqs[0]) {
-          setFaqQ1(cfg.faqs[0].question || "");
-          setFaqA1(cfg.faqs[0].answer || "");
-        }
-        if (cfg.faqs[1]) {
-          setFaqQ2(cfg.faqs[1].question || "");
-          setFaqA2(cfg.faqs[1].answer || "");
-        }
-        if (cfg.faqs[2]) {
-          setFaqQ3(cfg.faqs[2].question || "");
-          setFaqA3(cfg.faqs[2].answer || "");
-        }
-      }
-    }
     toast.success(`Loaded "${ad.title}" into creator. Review details and publish below!`);
     window.scrollTo({ top: 420, behavior: "smooth" });
   };
@@ -413,19 +300,8 @@ export default function UserAds() {
       social_proof: "Over 3,400+ satisfied buyers",
       is_verified: true,
       display_template: displayTemplate,
-      experience_type: experienceType,
-      experience_config: {
-        promo_code: promoCode.trim() || "SPECIAL20",
-        discount_percentage: discountPercentage.trim() || "20% OFF",
-        urgency_note: urgencyNote.trim() || "Limited time offer - Valid for first 50 shoppers!",
-        reward_title: rewardTitle.trim() || "VIP 25% Off Deal Unlocked!",
-        reward_subtitle: rewardSubtitle.trim() || "Present this coupon to claim your exclusive discount.",
-        faqs: [
-          { question: faqQ1.trim(), answer: faqA1.trim() },
-          ...(faqQ2.trim() && faqA2.trim() ? [{ question: faqQ2.trim(), answer: faqA2.trim() }] : []),
-          ...(faqQ3.trim() && faqA3.trim() ? [{ question: faqQ3.trim(), answer: faqA3.trim() }] : []),
-        ].filter((f) => f.question && f.answer),
-      },
+      experience_type: "static",
+      experience_config: {},
     };
   }, [
     title,
@@ -433,18 +309,6 @@ export default function UserAds() {
     imageUrl,
     targetUrl,
     displayTemplate,
-    experienceType,
-    promoCode,
-    discountPercentage,
-    urgencyNote,
-    rewardTitle,
-    rewardSubtitle,
-    faqQ1,
-    faqA1,
-    faqQ2,
-    faqA2,
-    faqQ3,
-    faqA3,
     user,
   ]);
 
@@ -689,7 +553,7 @@ export default function UserAds() {
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
                 <Label className="text-xs font-bold flex items-center gap-1.5">
-                  <Layout className="h-3.5 w-3.5 text-primary" /> 1. Select Display Template Layout *
+                  <Layout className="h-3.5 w-3.5 text-primary" /> Select Display Template Layout *
                 </Label>
                 <Badge variant="outline" className="text-[10px] font-semibold text-primary">
                   {DISPLAY_TEMPLATE_OPTIONS.find((t) => t.id === displayTemplate)?.badge}
@@ -729,194 +593,15 @@ export default function UserAds() {
               </div>
             </div>
 
-            {/* Step 3: Choose Creative Ad Experience Engine */}
-            <div className="space-y-2 pt-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-bold flex items-center gap-1.5">
-                  <Sparkles className="h-3.5 w-3.5 text-amber-500" /> 2. Creative Ad Experience Engine (Optional Boost)
-                </Label>
-                <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px] font-extrabold">
-                  {CREATIVE_EXPERIENCE_OPTIONS.find((e) => e.id === experienceType)?.badge}
-                </Badge>
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Normal advertising remains simple. You can keep it as Standard Direct Click or turn on interactive engagement to boost leads and retention.
-              </p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
-                {CREATIVE_EXPERIENCE_OPTIONS.map((exp) => {
-                  const isSelected = experienceType === exp.id;
-                  return (
-                    <div
-                      key={exp.id}
-                      onClick={() => setExperienceType(exp.id)}
-                      className={`p-3 rounded-2xl border cursor-pointer transition text-left flex flex-col justify-between ${
-                        isSelected
-                          ? "bg-amber-500/10 border-amber-500 shadow-xs ring-1 ring-amber-500/40"
-                          : "bg-muted/20 border-border/70 hover:bg-muted/40"
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between gap-1 mb-1">
-                          <span className="font-extrabold text-xs text-foreground flex items-center gap-1.5">
-                            {exp.id === "static" && <ExternalLink className="h-3.5 w-3.5 text-primary" />}
-                            {exp.id === "interactive" && <Gift className="h-3.5 w-3.5 text-amber-500" />}
-                            {exp.id === "conversational" && <MessageSquare className="h-3.5 w-3.5 text-cyan-500" />}
-                            {exp.id === "minigame" && <Gamepad2 className="h-3.5 w-3.5 text-rose-500" />}
-                            {exp.label}
-                          </span>
-                          <span
-                            className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
-                              isSelected
-                                ? "bg-amber-500 text-white"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {exp.badge}
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-muted-foreground leading-snug">{exp.desc}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Dynamic Experience Configuration Inputs */}
-            {experienceType === "interactive" && (
-              <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/30 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
-                  <Gift className="h-4 w-4" /> Interactive Voucher Setup
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <Label className="text-[11px] font-bold block mb-1">Discount Tag *</Label>
-                    <Input
-                      value={discountPercentage}
-                      onChange={(e) => setDiscountPercentage(e.target.value)}
-                      placeholder="e.g. 20% OFF or ₦5,000 Off"
-                      className="text-xs h-9 rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] font-bold block mb-1">Promo Voucher Code *</Label>
-                    <Input
-                      value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                      placeholder="e.g. SPECIAL20"
-                      className="text-xs h-9 rounded-xl uppercase font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] font-bold block mb-1">Urgency Note</Label>
-                    <Input
-                      value={urgencyNote}
-                      onChange={(e) => setUrgencyNote(e.target.value)}
-                      placeholder="e.g. Valid for first 50 shoppers!"
-                      className="text-xs h-9 rounded-xl"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {experienceType === "conversational" && (
-              <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/30 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-cyan-700 dark:text-cyan-400">
-                  <MessageSquare className="h-4 w-4" /> Interactive FAQ Prompts Setup
-                </div>
-                <p className="text-[11px] text-muted-foreground">
-                  Provide 2-3 common buyer questions so prospects get quick confidence before messaging you.
-                </p>
-                <div className="space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Input
-                      value={faqQ1}
-                      onChange={(e) => setFaqQ1(e.target.value)}
-                      placeholder="Question 1: Do you deliver nationwide?"
-                      className="text-xs h-9 rounded-xl"
-                    />
-                    <Input
-                      value={faqA1}
-                      onChange={(e) => setFaqA1(e.target.value)}
-                      placeholder="Answer 1: Yes, door-to-door delivery with tracking."
-                      className="text-xs h-9 rounded-xl"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Input
-                      value={faqQ2}
-                      onChange={(e) => setFaqQ2(e.target.value)}
-                      placeholder="Question 2: How can I make payment safely?"
-                      className="text-xs h-9 rounded-xl"
-                    />
-                    <Input
-                      value={faqA2}
-                      onChange={(e) => setFaqA2(e.target.value)}
-                      placeholder="Answer 2: Escrow, bank transfer, and card payment accepted."
-                      className="text-xs h-9 rounded-xl"
-                    />
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <Input
-                      value={faqQ3}
-                      onChange={(e) => setFaqQ3(e.target.value)}
-                      placeholder="Question 3: Can I speak directly on WhatsApp?"
-                      className="text-xs h-9 rounded-xl"
-                    />
-                    <Input
-                      value={faqA3}
-                      onChange={(e) => setFaqA3(e.target.value)}
-                      placeholder="Answer 3: Yes! Click WhatsApp button to chat instantly."
-                      className="text-xs h-9 rounded-xl"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {experienceType === "minigame" && (
-              <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/30 space-y-3">
-                <div className="flex items-center gap-2 text-xs font-bold text-rose-700 dark:text-rose-400">
-                  <Gamepad2 className="h-4 w-4" /> Catchy Reaction Challenge Setup
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <Label className="text-[11px] font-bold block mb-1">Reward Headline *</Label>
-                    <Input
-                      value={rewardTitle}
-                      onChange={(e) => setRewardTitle(e.target.value)}
-                      placeholder="e.g. VIP 25% Off Deal Unlocked!"
-                      className="text-xs h-9 rounded-xl"
-                    />
-                  </div>
-                  <div>
-                    <Label className="text-[11px] font-bold block mb-1">Claim Instruction *</Label>
-                    <Input
-                      value={rewardSubtitle}
-                      onChange={(e) => setRewardSubtitle(e.target.value)}
-                      placeholder="e.g. Present code BETHEL25 at checkout to claim."
-                      className="text-xs h-9 rounded-xl"
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Live Interactive Preview */}
             <div className="p-4 bg-muted/30 rounded-3xl border border-border/80 space-y-3">
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <PlayCircle className="h-4 w-4 text-primary" />
-                  <span className="text-xs font-extrabold text-foreground">Interactive Live Preview</span>
+                  <span className="text-xs font-extrabold text-foreground">Live Ad Banner Preview</span>
                   <Badge variant="outline" className="text-[10px] font-mono">
                     {displayTemplate.toUpperCase()}
                   </Badge>
-                  {experienceType !== "static" && (
-                    <Badge className="text-[10px] bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/30 font-extrabold">
-                      {experienceType.toUpperCase()}
-                    </Badge>
-                  )}
                 </div>
                 <Button
                   type="button"
@@ -932,7 +617,7 @@ export default function UserAds() {
               {showLivePreview && (
                 <div className="pt-1">
                   <p className="text-[11px] text-muted-foreground mb-3">
-                    This is how your advert will look to visitors across the network. Feel free to interact with buttons, zoom the flyer, or test experiences directly!
+                    This is how your advert will look to visitors across the platform.
                   </p>
                   <div className="rounded-2xl border border-border/70 overflow-hidden bg-background p-2 sm:p-4 shadow-inner">
                     <LiveRotatingAdvert
@@ -1006,10 +691,6 @@ export default function UserAds() {
               <div>
                 <p className="text-xs text-muted-foreground font-semibold">Total Campaign Cost ({duration} days)</p>
                 <p className="text-2xl font-black text-primary">₦{totalCost.toLocaleString()}</p>
-                <div className="flex items-center gap-1.5 text-[11px] text-purple-600 dark:text-purple-400 font-bold mt-1">
-                  <Globe className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                  <span>2-in-1 Publishing: Simultaneously syndicated to GGD Ad Network</span>
-                </div>
                 {balance < totalCost && (
                   <p className="text-[11px] text-rose-500 font-semibold mt-0.5">
                     Needs ₦{(totalCost - balance).toLocaleString()} more in wallet
@@ -1098,29 +779,9 @@ export default function UserAds() {
                             <Badge variant="outline" className="text-[9px] font-semibold flex items-center gap-1">
                               <Layout className="h-2.5 w-2.5 text-primary" /> {adTemplate.replace("_", " ").toUpperCase()}
                             </Badge>
-                            {adExp === "interactive" && (
-                              <Badge className="bg-amber-500/15 text-amber-600 border-amber-500/30 text-[9px] font-extrabold flex items-center gap-1">
-                                <Gift className="h-2.5 w-2.5" /> Voucher Reveal
-                              </Badge>
-                            )}
-                            {adExp === "conversational" && (
-                              <Badge className="bg-cyan-500/15 text-cyan-600 border-cyan-500/30 text-[9px] font-extrabold flex items-center gap-1">
-                                <MessageSquare className="h-2.5 w-2.5" /> FAQ Assistant
-                              </Badge>
-                            )}
-                            {adExp === "minigame" && (
-                              <Badge className="bg-rose-500/15 text-rose-600 border-rose-500/30 text-[9px] font-extrabold flex items-center gap-1">
-                                <Gamepad2 className="h-2.5 w-2.5" /> Reaction Challenge
-                              </Badge>
-                            )}
                             {a.placement && (
                               <Badge variant="outline" className="text-[9px] font-semibold">
                                 {a.placement}
-                              </Badge>
-                            )}
-                            {a.ggd_ad_id && (
-                              <Badge className="bg-purple-500/15 text-purple-600 border-purple-500/30 text-[9px] font-extrabold flex items-center gap-1">
-                                <Globe className="h-2.5 w-2.5" /> GGD Synced
                               </Badge>
                             )}
                           </div>
@@ -1218,7 +879,7 @@ export default function UserAds() {
               <PlayCircle className="h-4 w-4 text-primary" /> Live Ad Interactive Test Bench
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Test full customer interactions including flyer lightboxes, voucher reveals, and live buttons.
+              Preview how your standard banner advert renders with live image and action button routing.
             </DialogDescription>
           </DialogHeader>
 
@@ -1232,21 +893,18 @@ export default function UserAds() {
               target_url: previewAdModal.target_url,
               click_url: previewAdModal.target_url,
               sponsor_name: user?.user_metadata?.full_name || "Verified Brand Partner",
-              badge_text: "Live Network Ad",
+              badge_text: "Live Ad",
               is_verified: true,
               display_template: meta.display_template || "full_flyer",
-              experience_type: meta.experience_type || "static",
-              experience_config: meta.experience_config || {},
+              experience_type: "static",
+              experience_config: {},
             };
 
             return (
               <div className="space-y-4 pt-1">
                 <div className="flex items-center justify-between text-xs px-1">
                   <span className="font-semibold text-muted-foreground">
-                    Template: <strong className="text-foreground">{item.display_template}</strong>
-                  </span>
-                  <span className="font-semibold text-muted-foreground">
-                    Experience: <strong className="text-foreground">{item.experience_type}</strong>
+                    Layout: <strong className="text-foreground">{item.display_template}</strong>
                   </span>
                 </div>
                 <div className="rounded-2xl border border-border/70 overflow-hidden bg-muted/20 p-3 sm:p-4 shadow-inner">

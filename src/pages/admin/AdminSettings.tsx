@@ -294,15 +294,6 @@ export default function AdminSettings() {
                 </select>
                 <p className="text-[11px] text-muted-foreground">Controls how the ad server picks which active ad to show next.</p>
               </div>
-              <div className="pt-2 border-t flex items-center gap-3">
-                <input type="checkbox" id="ai_interactive_ads_enabled"
-                  checked={get("ai_interactive_ads_enabled") === "true"}
-                  onChange={(e) => set("ai_interactive_ads_enabled", e.target.checked ? "true" : "false")}
-                  className="h-5 w-5 accent-primary" />
-                <Label htmlFor="ai_interactive_ads_enabled" className="cursor-pointer">
-                  Enable AI Programmatic Ads (Gemini turns user creatives into interactive ads)
-                </Label>
-              </div>
             </CardContent>
           </Card>
 

@@ -397,7 +397,7 @@ export default function AdminPromotionTreasury() {
   return (
     <div className="space-y-8 p-4 md:p-8 max-w-7xl mx-auto pb-24">
       <Helmet>
-        <title>Promotion Treasury & Escrow Ledger | Admin Hub</title>
+        <title>Promotion Treasury & Settlement Ledger | Admin Hub</title>
       </Helmet>
 
       {/* Header */}
@@ -408,10 +408,10 @@ export default function AdminPromotionTreasury() {
             Administrative Financial Gateway
           </div>
           <h1 className="text-3xl font-black tracking-tight text-foreground mt-1">
-            Promotion Treasury & Escrow Ledger
+            Promotion Treasury & Settlement Ledger
           </h1>
           <p className="text-muted-foreground text-sm mt-1 max-w-2xl">
-            Authoritative platform GMV, platform commission ledger, active promotion escrow
+            Authoritative platform GMV, platform commission ledger, active promotion payment
             custody, and promoter bank withdrawal disbursements.
           </p>
         </div>
@@ -474,12 +474,12 @@ export default function AdminPromotionTreasury() {
           </CardContent>
         </Card>
 
-        {/* Active Escrow Custody */}
+        {/* Active Payment Custody */}
         <Card className="border-border/60 bg-gradient-to-br from-card to-card/80 shadow-sm relative overflow-hidden">
           <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full blur-2xl -mr-8 -mt-8" />
           <CardHeader className="p-4 pb-2">
             <CardDescription className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
-              Active Escrow Custody
+              Active Payment Custody
               <ShieldCheck className="h-4 w-4 text-blue-500" />
             </CardDescription>
             <CardTitle className="text-2xl font-black text-blue-600">
@@ -557,7 +557,7 @@ export default function AdminPromotionTreasury() {
             </TabsTrigger>
             <TabsTrigger value="escrow" className="flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" />
-              Escrow Custody ({activeEscrowOrders.length})
+              Payment Custody ({activeEscrowOrders.length})
             </TabsTrigger>
             <TabsTrigger value="reconciliation" className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
@@ -778,7 +778,7 @@ export default function AdminPromotionTreasury() {
           </Card>
         </TabsContent>
 
-        {/* TAB 2: ACTIVE ESCROW CUSTODY LEDGER */}
+        {/* TAB 2: ACTIVE PAYMENT CUSTODY LEDGER */}
         <TabsContent value="escrow" className="space-y-4">
           <Card className="border-border/60 overflow-hidden shadow-sm">
             <CardHeader className="bg-muted/30 border-b border-border/40 p-4">
@@ -788,7 +788,7 @@ export default function AdminPromotionTreasury() {
                     Active Promotion Orders in Custody
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Escrow funds safely held in platform custody awaiting campaign proof approval or dispute resolution.
+                    Order funds safely secured in platform custody awaiting campaign proof approval or dispute resolution.
                   </CardDescription>
                 </div>
                 <Badge variant="outline" className="bg-blue-500/10 text-blue-600 border-blue-500/30 font-bold">
@@ -801,7 +801,7 @@ export default function AdminPromotionTreasury() {
               {activeEscrowOrders.length === 0 ? (
                 <div className="p-12 text-center text-muted-foreground">
                   <ShieldCheck className="h-10 w-10 text-muted-foreground/40 mx-auto mb-3" />
-                  <p className="font-semibold text-foreground">No active orders in escrow</p>
+                  <p className="font-semibold text-foreground">No active orders in custody</p>
                   <p className="text-xs text-muted-foreground mt-1">
                     All paid promotion campaigns have either completed and settled, or refunded.
                   </p>

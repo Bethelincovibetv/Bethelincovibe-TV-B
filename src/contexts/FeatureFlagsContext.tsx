@@ -6,7 +6,7 @@ export type FeatureKey =
   // Core Commerce & Marketplace
   | "products" | "businesses" | "business_listing" | "business_boost" | "sales_pages" | "user_leads" | "matchmaker"
   // AI & Creative Studios
-  | "graphic_designer" | "logo_creator" | "video_creator" | "coach" | "ai_blogger" | "ai_admin" | "ai_recommender"
+  | "graphic_designer" | "logo_creator" | "video_creator" | "coach" | "ai_blogger" | "ai_admin" | "ai_recommender" | "business_concierge"
   // WhatsApp & Communication
   | "whatsapp_engine"
   // Advertising & Ad Placements
@@ -45,6 +45,7 @@ export const FEATURE_META: FeatureMetaItem[] = [
   { key: "ai_blogger", label: "AI Blogger Studio", category: "ai_creative", description: "Autonomous AI Blogging and content scheduling studio for automated articles" },
   { key: "ai_admin", label: "Executive AI Admin Console", category: "ai_creative", description: "AI Strategy Director, revenue analytics & platform intelligence console" },
   { key: "ai_recommender", label: "AI Business Recommender & Match Assistant", category: "ai_creative", description: "Maya smart business-matching assistant, intent pattern detection, dynamic behavioural scoring and curated recommendations" },
+  { key: "business_concierge", label: "Business Listing Concierge Bot & 3D Virtual Greeter", category: "ai_creative", description: "Interactive 3D Virtual Concierge & audio speech greeter on business profiles (/businesses/:slug) and Queen concierge auto-setup" },
 
   // WhatsApp & Communication
   { key: "whatsapp_engine", label: "WhatsApp Status Engine", category: "communication", description: "Mutual Google Contacts exchange, audience growth, and status ad monetization (/whatsapp-engine)" },

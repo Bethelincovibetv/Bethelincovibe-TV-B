@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import BrandedLoader from "@/components/BrandedLoader";
 import { trackRecommenderSignal } from "@/lib/aiBusinessRecommenderEngine";
 import Business3DAIAvatarGreeter from "@/components/greeter/Business3DAIAvatarGreeter";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 type Biz = any;
 
@@ -43,6 +44,7 @@ function track(businessId: string, type: string) {
 }
 
 export default function BusinessProfile() {
+  const { flags } = useFeatureFlags();
   const { slug } = useParams();
   const [biz, setBiz] = useState<Biz | null>(null);
   const [images, setImages] = useState<any[]>([]);
@@ -381,13 +383,15 @@ export default function BusinessProfile() {
           </Card>
 
           {/* 3D AI Greeter Avatar & Virtual Concierge */}
-          <div className="mt-5">
-            <Business3DAIAvatarGreeter
-              business={biz}
-              products={products}
-              services={services}
-            />
-          </div>
+          {flags.business_concierge !== false && (
+            <div className="mt-5">
+              <Business3DAIAvatarGreeter
+                business={biz}
+                products={products}
+                services={services}
+              />
+            </div>
+          )}
 
           {/* WhatsApp Community Banner */}
           {waGroupUrl && (

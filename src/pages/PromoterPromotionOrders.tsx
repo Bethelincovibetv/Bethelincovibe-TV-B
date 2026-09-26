@@ -62,7 +62,7 @@ export default function PromoterPromotionOrders() {
             variant="outline"
             className="text-[11px] font-bold bg-blue-500/10 text-blue-600 border-blue-500/30"
           >
-            Escrow Funded
+            Payment Verified
           </Badge>
         );
       case "in_progress":

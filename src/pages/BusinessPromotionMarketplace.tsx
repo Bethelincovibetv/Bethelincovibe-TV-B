@@ -172,7 +172,7 @@ export default function BusinessPromotionMarketplace() {
             </AlertTitle>
             <AlertDescription className="text-xs text-amber-700/90 dark:text-amber-300/80 mt-0.5 leading-relaxed">
               Browse verified promoters and inspect transparent package pricing in Naira (₦).
-              Direct on-platform order booking, escrow protection, and Paystack checkout will unlock in the upcoming booking release.
+              Direct on-platform order booking, verified payment security, and Paystack checkout will unlock in the upcoming booking release.
             </AlertDescription>
           </div>
         </Alert>

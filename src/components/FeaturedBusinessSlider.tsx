@@ -51,7 +51,7 @@ const FLAGSHIP_DIRECTORY_SHOWCASE = [
     reviews_count: 342,
     featured: true,
     categories: { name: "Media & Commercial Production", slug: "media" },
-    services: ["Commercial Video", "Brand Storytelling", "Studio Rental", "Escrow Verified"]
+    services: ["Commercial Video", "Brand Storytelling", "Studio Rental", "CAC Verified"]
   },
   {
     id: "supreme-solar-lagos",
@@ -95,7 +95,7 @@ const FLAGSHIP_DIRECTORY_SHOWCASE = [
     reviews_count: 312,
     featured: true,
     categories: { name: "Logistics & Freight Forwarding", slug: "logistics" },
-    services: ["Same-Day Dispatch", "Live GPS Tracking", "Merchant Bulk Rates", "Secure Escrow Delivery"]
+    services: ["Same-Day Dispatch", "Live GPS Tracking", "Merchant Bulk Rates", "Secure Direct Delivery"]
   }
 ];
 
@@ -173,9 +173,9 @@ export default function FeaturedBusinessSlider() {
   const categoryName = (current as any)?.categories?.name || "Verified Enterprise";
 
   return (
-    <section className="container mx-auto px-4 py-8">
+    <section className="container mx-auto px-4 py-4 sm:py-5">
       {/* Header bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
           <Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-300 border-amber-500/30 text-xs font-black uppercase tracking-wider px-2.5 py-1 flex items-center gap-1.5">
             <Sparkles className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
@@ -183,7 +183,7 @@ export default function FeaturedBusinessSlider() {
           </Badge>
           <span className="text-xs text-muted-foreground hidden sm:inline">•</span>
           <span className="text-xs text-muted-foreground hidden sm:inline">
-            Verified Nigerian businesses with nationwide delivery &amp; Escrow
+            Verified Nigerian businesses with physical locations &amp; nationwide delivery
           </span>
         </div>
 
@@ -249,60 +249,60 @@ export default function FeaturedBusinessSlider() {
         <div
           onMouseEnter={() => setIsPaused(true)}
           onMouseLeave={() => setIsPaused(false)}
-          className="relative rounded-3xl border-2 border-primary/20 bg-gradient-to-br from-card via-card to-muted/20 shadow-xl overflow-hidden transition-all hover:border-primary/40 hover:shadow-2xl"
+          className="relative rounded-2xl border border-primary/20 bg-gradient-to-br from-card via-card to-muted/20 shadow-md overflow-hidden transition-all hover:border-primary/40"
         >
           {/* Top Google Ad Discloser & Verification Header */}
-          <div className="px-4 sm:px-6 py-2.5 bg-muted/40 border-b border-border/80 flex items-center justify-between flex-wrap gap-2 text-xs">
+          <div className="px-3 sm:px-4 py-2 bg-muted/40 border-b border-border/80 flex items-center justify-between flex-wrap gap-2 text-xs">
             <div className="flex items-center gap-2">
-              <span className="font-black text-[11px] tracking-wider uppercase px-2 py-0.5 rounded-md bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
+              <span className="font-black text-[10px] tracking-wider uppercase px-1.5 py-0.5 rounded bg-neutral-900 text-white dark:bg-white dark:text-neutral-900">
                 Ad
               </span>
-              <span className="text-muted-foreground font-medium">
+              <span className="text-muted-foreground font-medium text-[11px]">
                 Sponsor Spotlight • Bethelincovibe Verified
               </span>
               <span className="text-muted-foreground hidden sm:inline">•</span>
-              <span className="text-emerald-600 dark:text-emerald-400 font-bold hidden sm:inline flex items-center gap-1">
-                <ShieldCheck className="h-3.5 w-3.5" /> CAC Verified Enterprise
+              <span className="text-emerald-600 dark:text-emerald-400 font-bold hidden sm:inline flex items-center gap-1 text-[11px]">
+                <ShieldCheck className="h-3 w-3" /> CAC Verified Enterprise
               </span>
             </div>
 
             <div className="flex items-center gap-3 text-muted-foreground">
-              <span className="text-[11px] font-mono text-primary font-bold">
+              <span className="text-[11px] font-mono text-primary font-bold hidden sm:inline">
                 bethelincovibe.com/businesses/{current.slug || current.id}
               </span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <span className="cursor-help text-[11px] bg-background border px-1.5 py-0.5 rounded text-muted-foreground">
+                    <span className="cursor-help text-[10px] bg-background border px-1.5 py-0.5 rounded text-muted-foreground">
                       Why this ad?
                     </span>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs text-xs p-3">
-                    This verified merchant is spotlighted based on stellar buyer ratings, verified CAC documentation, and prompt escrow delivery fulfillment.
+                    This verified merchant is spotlighted based on stellar buyer ratings, verified CAC documentation, and prompt delivery fulfillment.
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
           </div>
 
-          {/* Core Ad Body */}
-          <div className="p-4 sm:p-6 lg:p-7 grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+          {/* Core Ad Body (Compact & Reduced Size) */}
+          <div className="p-3.5 sm:p-4 lg:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 items-center">
             {/* LEFT COLUMN: Visual Media Card */}
-            <div className="lg:col-span-5 space-y-3">
-              <div className="relative rounded-2xl overflow-hidden aspect-video sm:aspect-4/3 bg-muted border border-border shadow-md group">
+            <div className="lg:col-span-4 space-y-2">
+              <div className="relative rounded-xl overflow-hidden aspect-[16/9] max-h-44 sm:max-h-48 bg-muted border border-border shadow-xs group">
                 <img
                   src={
                     current.cover_url ||
                     "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800&q=80"
                   }
                   alt={current.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
 
                 {/* Floating Logo & Name Overlay */}
-                <div className="absolute bottom-3 left-3 right-3 flex items-center gap-3">
-                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl border-2 border-white bg-white p-1 shadow-xl overflow-hidden shrink-0 flex items-center justify-center">
+                <div className="absolute bottom-2.5 left-2.5 right-2.5 flex items-center gap-2.5">
+                  <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl border border-white bg-white p-0.5 shadow-md overflow-hidden shrink-0 flex items-center justify-center">
                     {current.logo_url ? (
                       <img
                         src={current.logo_url}
@@ -313,42 +313,42 @@ export default function FeaturedBusinessSlider() {
                       <BusinessDefaultLogo
                         name={current.name}
                         category={categoryName}
-                        size="md"
+                        size="sm"
                         className="w-full h-full"
                       />
                     )}
                   </div>
                   <div className="text-white drop-shadow-md min-w-0 flex-1">
                     <div className="flex items-center gap-1">
-                      <span className="font-extrabold text-sm sm:text-base truncate">
+                      <span className="font-extrabold text-xs sm:text-sm truncate">
                         {current.name}
                       </span>
                       {(current.is_verified || current.verified) && (
-                        <CheckCircle2 className="h-4 w-4 text-sky-400 fill-sky-400 shrink-0" />
+                        <CheckCircle2 className="h-3.5 w-3.5 text-sky-400 fill-sky-400 shrink-0" />
                       )}
                     </div>
-                    <p className="text-[11px] text-white/80 font-medium truncate">
+                    <p className="text-[10px] text-white/80 font-medium truncate">
                       {categoryName}
                     </p>
                   </div>
                 </div>
 
                 {/* Badge on Media */}
-                <div className="absolute top-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-neutral-950/85 border border-amber-400/60 text-amber-300 font-extrabold text-xs shadow-xl backdrop-blur-md">
-                  <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-                  <span>Verified Partner</span>
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <div className="absolute top-2 right-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-neutral-950/85 border border-amber-400/60 text-amber-300 font-extrabold text-[10px] shadow-md backdrop-blur-md">
+                  <ShieldCheck className="h-3 w-3 text-amber-400" />
+                  <span>Verified</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                 </div>
               </div>
 
               {/* Quick Trust Ribbons */}
-              <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1.5">
-                  <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" />
-                  <span>CAC &amp; Escrow Protected</span>
+              <div className="grid grid-cols-2 gap-1.5 text-[10px]">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-semibold flex items-center gap-1">
+                  <ShieldCheck className="h-3 w-3 shrink-0 text-emerald-500" />
+                  <span>CAC Verified</span>
                 </div>
-                <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 text-primary font-semibold flex items-center gap-1.5">
-                  <Truck className="h-4 w-4 shrink-0" />
+                <div className="p-1.5 rounded-lg bg-primary/10 border border-primary/20 text-primary font-semibold flex items-center gap-1">
+                  <Truck className="h-3 w-3 shrink-0" />
                   <span>Nationwide Waybill</span>
                 </div>
               </div>
@@ -396,7 +396,7 @@ export default function FeaturedBusinessSlider() {
               {/* Description Snippet */}
               <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed line-clamp-3">
                 {current.description ||
-                  `Verified Nigerian supplier offering premium ${categoryName.toLowerCase()}, nationwide courier dispatch, wholesale pricing, and instant Escrow checkout.`}
+                  `Verified Nigerian supplier offering premium ${categoryName.toLowerCase()}, nationwide courier dispatch, wholesale pricing, and verified buyer protection.`}
               </p>
 
               {/* Google Ad Callout Extensions (Pill highlights) */}
@@ -408,7 +408,7 @@ export default function FeaturedBusinessSlider() {
                   ✓ Wholesale &amp; Retail Orders
                 </span>
                 <span className="text-[11px] px-2.5 py-1 rounded-lg bg-muted border border-border text-foreground font-medium">
-                  ✓ Paystack / Bank Transfer Escrow
+                  ✓ Paystack / Bank Transfer Protected
                 </span>
                 <span className="text-[11px] px-2.5 py-1 rounded-lg bg-muted border border-border text-foreground font-medium">
                   ✓ Same-Day Dispatch
@@ -602,7 +602,7 @@ export default function FeaturedBusinessSlider() {
                   </div>
 
                   <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">
-                    {biz.description || `Verified Nigerian enterprise offering ${bizCat.toLowerCase()} with Escrow protection.`}
+                    {biz.description || `Verified Nigerian enterprise offering ${bizCat.toLowerCase()} with Buyer Protection.`}
                   </p>
                 </div>
 

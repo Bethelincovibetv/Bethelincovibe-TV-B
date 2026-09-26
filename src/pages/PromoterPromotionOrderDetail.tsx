@@ -119,16 +119,16 @@ export default function PromoterPromotionOrderDetail() {
     try {
       const res = await releaseEscrowAndSettleOrder(order.id, user?.id);
       if (res.error || !res.order) {
-        toast.error(res.error || "Failed to release escrow settlement");
+        toast.error(res.error || "Failed to release payment settlement");
       } else {
         setOrder(res.order);
         if (res.settlement) {
           setSettlement(res.settlement);
         }
-        toast.success("Escrow settled! Net earnings credited to your wallet.");
+        toast.success("Payment settled! Net earnings credited to your wallet.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to settle escrow");
+      toast.error(err.message || "Failed to settle payment");
     } finally {
       setSettling(false);
     }
@@ -380,14 +380,14 @@ export default function PromoterPromotionOrderDetail() {
             </div>
           </div>
 
-          {/* 1. Paid Escrow: Accept / Decline Action Banner */}
+          {/* 1. Paid Order: Accept / Decline Action Banner */}
           {isPaidEscrow && (
             <div className="p-5 rounded-2xl bg-blue-500/10 border border-blue-500/30 space-y-4">
               <div className="flex items-start gap-3">
                 <ShieldCheck className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                 <div className="space-y-1">
                   <h3 className="text-sm font-bold text-blue-900 dark:text-blue-100">
-                    Order Funded in Escrow ({formatNaira(order.amount)})
+                    Order Payment Secured ({formatNaira(order.amount)})
                   </h3>
                   <p className="text-xs text-blue-800/80 dark:text-blue-200/80 leading-relaxed">
                     The client has funded this order. Please review the campaign brief and accept to start the broadcast timer, or decline if you cannot fulfill the schedule.
@@ -477,7 +477,7 @@ export default function PromoterPromotionOrderDetail() {
                   Proof Under 48-Hour Business Review
                 </AlertTitle>
                 <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-                  Your delivery proof (Version {(order as any).proof_version || 1}) has been submitted to the client. The client has 48 hours to approve, request revisions, or raise inquiries. If no action is taken within 48 hours, escrow auto-approval will trigger automatically.
+                  Your delivery proof (Version {(order as any).proof_version || 1}) has been submitted to the client. The client has 48 hours to approve, request revisions, or raise inquiries. If no action is taken within 48 hours, auto-approval will trigger automatically.
                 </AlertDescription>
                 {(order as any).review_deadline && (
                   <div className="pt-1 text-[11px] text-muted-foreground font-mono">
@@ -496,7 +496,7 @@ export default function PromoterPromotionOrderDetail() {
                   <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
                   <div className="space-y-1">
                     <h3 className="text-sm font-bold text-emerald-950 dark:text-emerald-100">
-                      {isCompleted ? "Escrow Settled & Credited to Wallet" : "Deliverables Approved — Ready for Escrow Release"}
+                      {isCompleted ? "Payment Settled & Credited to Wallet" : "Deliverables Approved — Ready for Payout"}
                     </h3>
                     <p className="text-xs text-muted-foreground leading-relaxed">
                       {isCompleted
@@ -522,7 +522,7 @@ export default function PromoterPromotionOrderDetail() {
                       ) : (
                         <>
                           <ShieldCheck className="h-3.5 w-3.5" />
-                          <span>Release Escrow to Wallet</span>
+                          <span>Transfer Payout to Wallet</span>
                         </>
                       )}
                     </Button>
@@ -545,7 +545,7 @@ export default function PromoterPromotionOrderDetail() {
               {/* Settlement Financial Breakdown */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-emerald-500/20 text-xs">
                 <div className="p-3 rounded-xl bg-background/80 border border-border/60">
-                  <span className="text-muted-foreground block text-[11px]">Gross Order Escrow</span>
+                  <span className="text-muted-foreground block text-[11px]">Gross Order Amount</span>
                   <span className="font-bold text-foreground text-sm">{formatNaira(order.amount)}</span>
                 </div>
                 <div className="p-3 rounded-xl bg-background/80 border border-border/60">
@@ -576,7 +576,7 @@ export default function PromoterPromotionOrderDetail() {
                   Order Disputed
                 </AlertTitle>
                 <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-                  The client raised a dispute: &ldquo;{(order as any).dispute_reason}&rdquo;. Escrow funds are safely frozen while our support team reviews the submission.
+                  The client raised a dispute: &ldquo;{(order as any).dispute_reason}&rdquo;. Payout funds are safely held while our support team reviews the submission.
                 </AlertDescription>
               </div>
             </Alert>
@@ -972,7 +972,7 @@ export default function PromoterPromotionOrderDetail() {
           <DialogHeader>
             <DialogTitle className="text-base font-bold">Decline Promotion Order</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Please provide a reason for declining this order. The client will be notified and escrow refunded.
+              Please provide a reason for declining this order. The client will be notified and payment refunded.
             </DialogDescription>
           </DialogHeader>
 

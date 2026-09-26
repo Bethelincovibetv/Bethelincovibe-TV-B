@@ -201,28 +201,28 @@ const ADVERT_SECTIONS: AdvertSection[] = [
     visualType: "whatsapp",
   },
   {
-    id: "escrow",
+    id: "settlement",
     number: 5,
-    badge: "100% Scam-Free",
+    badge: "Instant Settlement",
     badgeColor: "bg-amber-500/20 text-emerald-400 border-emerald-500/30",
-    title: "5. Escrow Protected Treasury & Instant Nigerian Bank Payouts",
-    tagline: "Trade safely with automated buyer protection and instant merchant settlement",
+    title: "5. Automated Settlement Treasury & Instant Nigerian Bank Payouts",
+    tagline: "Trade safely with automated buyer protection and instant merchant bank settlement",
     description:
-      "Never worry about online scams again. When a customer buys via Bethelincovibe TV, the funds are safely secured in Escrow. Once the waybill is delivered and confirmed, money is instantly transferred to the seller's bank.",
+      "Experience seamless, secure commerce. When a customer pays via Bethelincovibe TV, the order is verified and secured. Once delivery is confirmed, earnings are directly disbursed to the promoter and merchant bank accounts.",
     icon: ShieldCheck,
     accentGradient: "from-emerald-600 via-yellow-600 to-amber-600",
     primaryAction: {
-      label: "Open Escrow Wallet",
+      label: "Open Payout Wallet",
       url: "/dashboard/wallet",
     },
     features: [
       {
-        title: "Automated Milestone Escrow",
-        desc: "Buyer money is locked in a secure Paystack custody treasury until delivery inspection.",
+        title: "Automated Bank Settlement",
+        desc: "Order funds are securely reconciled via Paystack until delivery inspection.",
       },
       {
         title: "Zero Scam Risk Guarantee",
-        desc: "If a seller fails to ship, buyer receives an instant 100% refund without tedious delays.",
+        desc: "If an order is not delivered, buyer receives an instant 100% refund without tedious delays.",
       },
       {
         title: "Instant Bank Withdrawals",
@@ -679,7 +679,7 @@ export default function Platform3DAnimatedAdvert() {
               </div>
             )}
 
-            {/* SCENE 5: ESCROW TREASURY */}
+            {/* SCENE 5: SETTLEMENT TREASURY */}
             {currentSection.visualType === "escrow" && (
               <div
                 className="space-y-3 my-auto transition-transform duration-500 ease-out"
@@ -689,28 +689,28 @@ export default function Platform3DAnimatedAdvert() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-5 w-5 text-emerald-400" />
-                      <span className="text-xs font-bold text-white">Escrow Vault</span>
+                      <span className="text-xs font-bold text-white">Settlement Vault</span>
                     </div>
                     <Badge className="bg-emerald-500/20 text-emerald-400 text-[9px]">Paystack Settled</Badge>
                   </div>
 
                   <div className="p-3 rounded-xl bg-black/50 border border-white/10 space-y-2">
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-neutral-400">Held in Escrow:</span>
+                      <span className="text-neutral-400">Secured Order Value:</span>
                       <span className="font-black text-white">₦185,000</span>
                     </div>
                     <div className="flex items-center justify-between text-xs">
-                      <span className="text-neutral-400">Waybill Delivery:</span>
+                      <span className="text-neutral-400">Deliverable Proof:</span>
                       <span className="font-bold text-emerald-400">Confirmed by Buyer</span>
                     </div>
                     <div className="h-1 w-full bg-emerald-500/50 rounded-full" />
                     <div className="text-[10px] text-center text-emerald-400 font-bold">
-                      ✓ Payout Released to Seller Bank Account
+                      ✓ Instant Payout Credited to Seller Bank Account
                     </div>
                   </div>
 
                   <div className="text-center text-[10px] text-neutral-400 font-mono">
-                    Zero Chargeback Fraud • 100% Guaranteed
+                    Direct Bank Settlement • 100% Guaranteed
                   </div>
                 </div>
               </div>

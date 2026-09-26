@@ -1106,7 +1106,7 @@ Are you ready to elevate your business without paying crazy middlemen markups?
 
 ✅ 100% Verified Quality Inspected
 ✅ Same-Day Dispatch in Lagos | Fast Nationwide Delivery
-✅ Pay on Delivery / Secure Paystack Escrow Available
+✅ Pay on Delivery / Secure Paystack Payment Available
 
 🎁 SPECIAL BONUS: First 20 buyers this week receive a complimentary bonus gift + 10% discount on their next order.
 
@@ -1168,7 +1168,7 @@ Here is your custom sales strategy for **"${userMessage}"**:
 - **Clearing Hubs**: Ensure your freight forwarder provides inclusive terminal and customs handling at Apapa/Tin Can ports or NAHCO/SAHCO air cargo sheds.
 
 #### **3. Currency Settlement & FX Safety**
-- Avoid black-market wire transfers to unknown broker accounts. Utilize official RMB/USD trade settlement channels or verified freight forwarding escrow.`;
+- Avoid black-market wire transfers to unknown broker accounts. Utilize official RMB/USD trade settlement channels or verified freight forwarding settlement partners.`;
     }
 
     return `### 🎬 Viral 30-Second Video Reel Script by ${agent.name}

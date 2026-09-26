@@ -35,7 +35,7 @@ export default function Disclaimer() {
           The business profiles, product inventories, wholesale batches, and service offerings featured on Bethelincovibe TV are submitted by independent entrepreneurs, suppliers, and merchants.
         </p>
         <ul>
-          <li><strong>No Universal Warranty:</strong> Unless explicitly verified under an official Bethelincovibe TV guarantee or escrow program, Bethelincovibe TV does not warrant the quality, safety, delivery, or legality of items listed by third-party sellers.</li>
+          <li><strong>No Universal Warranty:</strong> Unless explicitly verified under an official Bethelincovibe TV merchant badge, Bethelincovibe TV does not warrant the quality, safety, delivery, or legality of items listed by third-party sellers. Bethelincovibe TV does not offer or operate an escrow service.</li>
           <li><strong>Buyer &amp; Seller Diligence:</strong> We strongly urge all parties to inspect goods, agree on clear payment terms, and conduct standard commercial diligence before releasing funds.</li>
         </ul>
 

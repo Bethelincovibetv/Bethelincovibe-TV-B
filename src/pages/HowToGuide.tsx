@@ -55,7 +55,7 @@ interface FeatureGuide {
   proTips: string[];
   faqs?: { q: string; a: string }[];
   isUpcoming?: boolean;
-  mockupType: "flyer_studio" | "logo_creator" | "profile_qr" | "directory_inquiry" | "sales_page" | "ai_coach" | "inventory" | "wallet" | "whatsapp_bot" | "escrow";
+  mockupType: "flyer_studio" | "logo_creator" | "profile_qr" | "directory_inquiry" | "sales_page" | "ai_coach" | "inventory" | "wallet" | "whatsapp_bot";
 }
 
 const GUIDES_DATA: FeatureGuide[] = [
@@ -88,7 +88,7 @@ const GUIDES_DATA: FeatureGuide[] = [
     ],
     expectedResult: {
       format: "Interactive 3D Virtual Showroom (60 FPS)",
-      details: "Full spatial 3D experience with camera controls, VIP showcase pedestals, Escrow checkout counter, and sound synthesis."
+      details: "Full spatial 3D experience with camera controls, VIP showcase pedestals, direct Paystack checkout counter, and sound synthesis."
     },
     nextSteps: [
       "Share your 3D store link in your WhatsApp status and Instagram bio.",
@@ -475,39 +475,39 @@ const GUIDES_DATA: FeatureGuide[] = [
     mockupType: "whatsapp_bot"
   },
   {
-    id: "upcoming-escrow",
-    title: "Multi-Vendor Escrow & Buyer Protection (COMING SOON)",
+    id: "upcoming-instant-settlement",
+    title: "Instant Multi-Channel Merchant Settlements (COMING SOON)",
     category: "upcoming",
     categoryLabel: "Upcoming Roadmap",
     badge: "COMING SOON",
     badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
     gradient: "from-blue-500 via-indigo-600 to-purple-600",
     icon: ShieldCheck,
-    summary: "A secure escrow payment system that holds buyer funds safely until goods are delivered across Nigeria and confirmed, eliminating online fraud.",
+    summary: "Direct verified payouts and automated sales reconciliations to Nigerian bank accounts via Paystack and Flutterwave rails.",
     estimatedTime: "Coming Q3",
     isUpcoming: true,
-    whatIsThis: "A trusted intermediary checkout engine that protects both buyers and sellers against online scams.",
-    problemSolved: "Buyers refusing to pay before delivery, and sellers refusing to dispatch without upfront payment. Escrow satisfies both parties completely.",
-    whyUseIt: "Eliminates payment-on-delivery risks, fake transfer alerts, and customer ghosting upon dispatch.",
+    whatIsThis: "Automated merchant payout architecture delivering instant settlements to Nigerian bank accounts.",
+    problemSolved: "Manual transfer delays, reconciliation errors, and multi-day payout processing bottlenecks.",
+    whyUseIt: "Provides automated bank payouts as soon as transactions are processed on your sales pages.",
     whatToEnter: [
-      { label: "Dispatch Waybill / Tracking ID", placeholder: "E.g. GIGM-1029384", advice: "Proof of dispatch to unlock settlement." }
+      { label: "Nigerian Bank NUBAN Account Number", placeholder: "E.g. 0123456789 (Access, GTBank, Zenith)", advice: "Verified account for automated instant transfers." }
     ],
     steps: [
-      { step: 1, title: "Buyer Pays into Secure Escrow", desc: "Customer deposits payment on your sales page; funds are locked in verified vault.", fieldExample: "Seller receives instant dispatch authorization." },
-      { step: 2, title: "Merchant Dispatches Goods", desc: "Merchant sends item via verified courier partner and enters waybill number.", fieldExample: "Buyer receives live tracking link." },
-      { step: 3, title: "Instant Payout Release", desc: "Upon delivery confirmation or buyer inspection, funds are released to your Nigerian bank account.", fieldExample: "Zero chargeback risk." }
+      { step: 1, title: "Customer Completes Payment", desc: "Customer pays securely on your verified product or sales page.", fieldExample: "Instant transaction alert generated." },
+      { step: 2, title: "Automated Payment Reconciliation", desc: "Payment is verified via secure payment gateway webhooks.", fieldExample: "Transaction status updated to paid in real-time." },
+      { step: 3, title: "Instant Bank Disbursement", desc: "Settlement is routed directly to your connected bank account.", fieldExample: "Automated SMS/Email receipt sent to customer and seller." }
     ],
     expectedResult: {
-      format: "Fraud-Free Commercial Settlement Vault",
-      details: "Protected payments, automated courier dispatch verification, and instant bank disbursement."
+      format: "Automated Multi-Channel Settlement",
+      details: "Real-time payment verification, zero reconciliation bottlenecks, and instant direct bank disbursements."
     },
     nextSteps: [
-      "Ensure your CAC business verification is completed to qualify for lowest escrow fee tiers."
+      "Ensure your CAC business verification is completed to qualify for lowest transaction fee tiers."
     ],
     proTips: [
-      "Displaying the 'Verified Escrow Protected' badge on your sales page increases buyer checkout rate by 65%."
+      "Linking your verified Nigerian bank account enables same-day processing for sales page orders."
     ],
-    mockupType: "escrow"
+    mockupType: "wallet"
   }
 ];
 

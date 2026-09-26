@@ -98,7 +98,7 @@ export const HUMOUR_DIALOGUE_TEMPLATES: Record<string, DialogueTemplate> = {
       ],
       pitches: [
         "We recommend this accredited enterprise for quality execution and certified standards.",
-        "This verified provider offers competitive pricing and vetted escrow protection.",
+        "This verified provider offers competitive pricing and vetted buyer protection.",
         "Review their portfolio and direct contact channels below.",
       ],
     },
@@ -220,7 +220,7 @@ export const HUMOUR_DIALOGUE_TEMPLATES: Record<string, DialogueTemplate> = {
         "Based on your interest in bespoke apparel, luxury accessories, and styling...",
       ],
       pitches: [
-        "This accredited fashion brand offers verified craftsmanship and escrow-protected orders.",
+        "This accredited fashion brand offers verified craftsmanship and buyer-protected orders.",
       ],
     },
     curious: {

@@ -563,7 +563,7 @@ export default function PromoterMarketplaceProfile() {
               </div>
 
               <div className="pt-3 border-t border-border/50 text-[11px] text-muted-foreground leading-relaxed">
-                Reviews can only be submitted by verified businesses who have completed a full escrow-backed campaign with this promoter.
+                Reviews can only be submitted by verified businesses who have completed a full broadcast campaign with this promoter.
               </div>
             </Card>
 

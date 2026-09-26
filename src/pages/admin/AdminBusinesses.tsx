@@ -16,11 +16,16 @@ import AdminBusinessVideosTab from "@/components/admin/business/AdminBusinessVid
 import AdminBusinessAISettingsTab from "@/components/admin/business/AdminBusinessAISettingsTab";
 import AdminBusinessTransactionsTab from "@/components/admin/business/AdminBusinessTransactionsTab";
 import AdminAIBusinessRecommenderTab from "@/components/admin/business/AdminAIBusinessRecommenderTab";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 export default function AdminBusinesses({ defaultTab }: { defaultTab?: string }) {
+  const { flags } = useFeatureFlags();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabFromQuery = searchParams.get("tab") || defaultTab || "directory";
-  const [activeTab, setActiveTab] = useState(tabFromQuery);
+  const initialDefault = flags.business_concierge !== false ? "queen_service" : "directory";
+  const tabFromQuery = searchParams.get("tab") || defaultTab || initialDefault;
+  const [activeTab, setActiveTab] = useState(
+    tabFromQuery === "queen_service" && flags.business_concierge === false ? "directory" : tabFromQuery
+  );
 
   useEffect(() => {
     if (tabFromQuery && tabFromQuery !== activeTab) {
@@ -56,13 +61,15 @@ export default function AdminBusinesses({ defaultTab }: { defaultTab?: string })
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
         <div className="overflow-x-auto pb-1 scrollbar-none">
           <TabsList className="bg-muted/70 p-1 rounded-2xl h-auto inline-flex min-w-full sm:min-w-0">
-            <TabsTrigger
-              value="queen_service"
-              className="rounded-xl px-3.5 py-2 text-xs font-bold gap-1.5 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-sm"
-            >
-              <Crown className="h-4 w-4 fill-current" />
-              👑 Queen AI Concierge
-            </TabsTrigger>
+            {flags.business_concierge !== false && (
+              <TabsTrigger
+                value="queen_service"
+                className="rounded-xl px-3.5 py-2 text-xs font-bold gap-1.5 bg-gradient-to-r from-amber-500/15 to-yellow-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 data-[state=active]:bg-gradient-to-r data-[state=active]:from-amber-600 data-[state=active]:to-yellow-500 data-[state=active]:text-white data-[state=active]:shadow-sm"
+              >
+                <Crown className="h-4 w-4 fill-current" />
+                👑 Queen AI Concierge
+              </TabsTrigger>
+            )}
 
             <TabsTrigger
               value="directory"
@@ -131,9 +138,11 @@ export default function AdminBusinesses({ defaultTab }: { defaultTab?: string })
         </div>
 
         {/* Tab Contents */}
-        <TabsContent value="queen_service" className="space-y-6 m-0 focus-visible:outline-none">
-          <AdminQueenServiceTab />
-        </TabsContent>
+        {flags.business_concierge !== false && (
+          <TabsContent value="queen_service" className="space-y-6 m-0 focus-visible:outline-none">
+            <AdminQueenServiceTab />
+          </TabsContent>
+        )}
 
         <TabsContent value="ai_recommender" className="space-y-6 m-0 focus-visible:outline-none">
           <AdminAIBusinessRecommenderTab />

@@ -368,7 +368,7 @@ Respond in a warm, polished, executive corporate tone in 1 to 2 crisp, elegant s
             keyItems.join(", ") || "certified products and commercial services"
           }. You can browse our complete catalog below or chat on WhatsApp!`;
         } else if (lowerQ.includes("price") || lowerQ.includes("cost") || lowerQ.includes("quote")) {
-          answerText = `Our pricing is competitive with guaranteed escrow terms. You can review individual prices below or message our sales desk for wholesale quotes!`;
+          answerText = `Our pricing is competitive with verified buyer protection. You can review individual prices below or message our sales desk for wholesale quotes!`;
         } else if (lowerQ.includes("location") || lowerQ.includes("where") || lowerQ.includes("address")) {
           answerText = `We are based in ${
             [business.address, business.city, business.state].filter(Boolean).join(", ") || "Lagos, Nigeria"
@@ -465,7 +465,7 @@ Respond in a warm, polished, executive corporate tone in 1 to 2 crisp, elegant s
                 <ShieldCheck className="h-3 w-3 mr-1 text-amber-400" /> Verified Host
               </Badge>
               <Badge className="bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold px-2 py-0.5">
-                Escrow Protected
+                Buyer Protected
               </Badge>
             </div>
             <p className="text-xs text-slate-300 line-clamp-1 mt-0.5">

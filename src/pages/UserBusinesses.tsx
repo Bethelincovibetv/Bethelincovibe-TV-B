@@ -19,9 +19,11 @@ import AILogoGeneratorModal from "@/components/AILogoGeneratorModal";
 import QueenServiceConciergeModal from "@/components/admin/business/QueenServiceConciergeModal";
 import Business3DAIAvatarGreeter from "@/components/greeter/Business3DAIAvatarGreeter";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 
 export default function UserBusinesses() {
   const { user, loading } = useAuth();
+  const { flags } = useFeatureFlags();
   const [items, setItems] = useState<any[]>([]);
   const [stats, setStats] = useState<Record<string, any>>({});
   const [busy, setBusy] = useState(true);
@@ -205,30 +207,34 @@ export default function UserBusinesses() {
                           <Link to={`/businesses/${b.slug}`}><ExternalLink className="h-3.5 w-3.5 mr-1" />View Public Site</Link>
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedGreeterBiz(b);
-                          setGreeterModalOpen(true);
-                        }}
-                        className="rounded-xl font-extrabold border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20"
-                      >
-                        <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-500" />
-                        3D AI Greeter
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          setSelectedQueenBiz(b);
-                          setQueenModalOpen(true);
-                        }}
-                        className="rounded-xl font-bold border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20"
-                      >
-                        <Crown className="h-3.5 w-3.5 mr-1 text-purple-500" />
-                        Queen Concierge AI
-                      </Button>
+                      {flags.business_concierge !== false && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedGreeterBiz(b);
+                            setGreeterModalOpen(true);
+                          }}
+                          className="rounded-xl font-extrabold border-amber-500/50 text-amber-700 dark:text-amber-300 bg-amber-500/10 hover:bg-amber-500/20"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                          3D AI Greeter
+                        </Button>
+                      )}
+                      {flags.business_concierge !== false && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedQueenBiz(b);
+                            setQueenModalOpen(true);
+                          }}
+                          className="rounded-xl font-bold border-purple-500/40 text-purple-700 dark:text-purple-300 bg-purple-500/10 hover:bg-purple-500/20"
+                        >
+                          <Crown className="h-3.5 w-3.5 mr-1 text-purple-500" />
+                          Queen Concierge AI
+                        </Button>
+                      )}
                       <Button
                         size="sm"
                         variant="outline"

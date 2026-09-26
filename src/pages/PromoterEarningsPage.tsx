@@ -90,7 +90,7 @@ export default function PromoterEarningsPage() {
   // Filters & Search
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [activeTab, setActiveTab] = useState<"payouts" | "banks" | "escrow">("payouts");
+  const [activeTab, setActiveTab] = useState<"payouts" | "banks" | "pipeline">("payouts");
 
   // Modals
   const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
@@ -368,11 +368,11 @@ export default function PromoterEarningsPage() {
             </CardContent>
           </Card>
 
-          {/* 4. Active Escrow Locked */}
+          {/* 4. Active Campaigns Pipeline */}
           <Card className="border-border/70 shadow-sm bg-card hover:border-blue-500/40 transition-colors">
             <CardContent className="p-5 space-y-2">
               <div className="flex items-center justify-between text-muted-foreground">
-                <span className="text-xs font-semibold uppercase tracking-wider">Active Escrow</span>
+                <span className="text-xs font-semibold uppercase tracking-wider">Active Campaigns</span>
                 <div className="p-2 rounded-lg bg-blue-500/10 text-blue-500">
                   <Lock className="w-4 h-4" />
                 </div>
@@ -417,9 +417,9 @@ export default function PromoterEarningsPage() {
                 <Building2 className="w-4 h-4" />
                 Bank Settlement Accounts ({bankAccounts.length})
               </TabsTrigger>
-              <TabsTrigger value="escrow" className="gap-2 font-semibold text-xs sm:text-sm">
+              <TabsTrigger value="pipeline" className="gap-2 font-semibold text-xs sm:text-sm">
                 <Lock className="w-4 h-4" />
-                Escrow Pipeline ({activeOrders.length})
+                Campaign Pipeline ({activeOrders.length})
               </TabsTrigger>
             </TabsList>
 
@@ -652,13 +652,13 @@ export default function PromoterEarningsPage() {
             )}
           </TabsContent>
 
-          {/* TAB 3: ACTIVE ESCROW PIPELINE */}
-          <TabsContent value="escrow" className="space-y-4 m-0">
+          {/* TAB 3: ACTIVE CAMPAIGNS PIPELINE */}
+          <TabsContent value="pipeline" className="space-y-4 m-0">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold">Active Escrow Pipeline</h3>
+                <h3 className="text-lg font-bold">Active Campaigns Pipeline</h3>
                 <p className="text-xs text-muted-foreground">
-                  Commissions currently held securely in platform escrow awaiting broadcast delivery & review approval.
+                  Commissions currently in active campaign orders awaiting broadcast delivery & review approval.
                 </p>
               </div>
               <Link to="/dashboard/promoter-orders">
@@ -673,9 +673,9 @@ export default function PromoterEarningsPage() {
                 <div className="p-4 rounded-2xl bg-muted/50 text-muted-foreground w-fit mx-auto">
                   <Lock className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold">No Active Escrow Orders</h3>
+                <h3 className="text-lg font-bold">No Active Campaign Orders</h3>
                 <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-                  You do not have any orders currently locking escrow funds. When businesses book your packages, your prospective earnings will appear here.
+                  You do not have any orders currently active. When businesses book your packages, your prospective earnings will appear here.
                 </p>
               </div>
             ) : (
@@ -695,7 +695,7 @@ export default function PromoterEarningsPage() {
                         </div>
 
                         <div>
-                          <p className="text-xs font-semibold text-muted-foreground">Escrow Net Commission</p>
+                          <p className="text-xs font-semibold text-muted-foreground">Net Commission</p>
                           <p className="text-xl font-black text-emerald-600 dark:text-emerald-400">
                             ₦{netEarning.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                           </p>

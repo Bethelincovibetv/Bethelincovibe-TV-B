@@ -53,7 +53,7 @@ export default function TermsOfService() {
         <ul>
           <li><strong>Accuracy:</strong> All descriptions, pricing, specifications, inventory levels, and images must be truthful and not misleading.</li>
           <li><strong>Prohibited Items:</strong> You may not list illegal, counterfeit, fraudulent, infringing, or restricted goods or services under Nigerian and international laws.</li>
-          <li><strong>Transaction Independence:</strong> Bethelincovibe TV provides discovery, lead capture, and promotion tools. Unless explicitly acting as an escrow agent, contracts for sale, delivery, and warranty obligations exist strictly between the respective buyer and seller.</li>
+          <li><strong>Transaction Independence:</strong> Bethelincovibe TV provides discovery, lead capture, directory indexing, and marketing tools. We do not provide or offer escrow services. Contracts for sale, delivery, and warranty obligations exist strictly between the respective buyer and seller.</li>
           <li><strong>Due Diligence:</strong> We encourage all parties to practice standard commercial due diligence when conducting financial transactions.</li>
         </ul>
 

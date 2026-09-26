@@ -7,7 +7,11 @@ import ErrorBoundary from "./components/ErrorBoundary";
 function mount() {
   const rootElement = document.getElementById("root");
   if (!rootElement) {
-    console.error("Root element #root not found in document.");
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", mount, { once: true });
+      return;
+    }
+    window.addEventListener("load", mount, { once: true });
     return;
   }
 
@@ -28,12 +32,8 @@ function mount() {
   );
 }
 
-// Immediate mount if DOM is ready, otherwise on DOMContentLoaded
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", mount, { once: true });
-} else {
-  mount();
-}
+// Immediate mount - root is always present in index.html above the script tag
+mount();
 
 // Defer non-essential secondary UI helpers safely after initial paint
 if (typeof window !== "undefined") {

@@ -168,7 +168,7 @@ export default function BusinessPromotionOrderDetail() {
       const verifyRes = await verifyPromotionOrderPayment(orderId, reference, user?.id);
       if (verifyRes.ok && verifyRes.order) {
         setOrder(verifyRes.order);
-        toast.success("Payment Confirmed! Your funds are securely held in escrow.");
+        toast.success("Payment Confirmed! Your order funds are verified and secured.");
       } else {
         toast.error(verifyRes.error || "Payment verification could not be completed.");
       }
@@ -215,7 +215,7 @@ export default function BusinessPromotionOrderDetail() {
 
             if (verifyRes.ok && verifyRes.order) {
               setOrder(verifyRes.order);
-              toast.success("Payment Confirmed! Escrow is now funded.");
+              toast.success("Payment Confirmed! Your campaign order is now active.");
             } else {
               toast.error(verifyRes.error || "Payment verification failed.");
             }
@@ -243,7 +243,7 @@ export default function BusinessPromotionOrderDetail() {
 
         if (verifyRes.ok && verifyRes.order) {
           setOrder(verifyRes.order);
-          toast.success("Payment Confirmed! Escrow is now funded.");
+          toast.success("Payment Confirmed! Your campaign order is now active.");
         } else {
           toast.error(verifyRes.error || "Verification failed");
         }
@@ -265,7 +265,7 @@ export default function BusinessPromotionOrderDetail() {
         toast.error(res.error || "Failed to approve deliverables");
       } else {
         setOrder(res.order);
-        toast.success("Deliverables approved! Escrow payment will be released.");
+        toast.success("Deliverables approved! Campaign payout will be released.");
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to approve");
@@ -323,7 +323,7 @@ export default function BusinessPromotionOrderDetail() {
         setOrder(res.order);
         setDisputeDialogOpen(false);
         setDisputeReason("");
-        toast.info("Dispute opened. Escrow release is frozen pending mediation.");
+        toast.info("Dispute opened. Campaign payout is held pending mediation.");
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to open dispute");
@@ -437,7 +437,7 @@ export default function BusinessPromotionOrderDetail() {
                 )}
                 {isPaid && (
                   <Badge variant="outline" className="text-xs font-extrabold bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-                    Payment Confirmed (Escrow Held)
+                    Payment Confirmed (Funds Secured)
                   </Badge>
                 )}
                 {isInProgress && (
@@ -516,7 +516,7 @@ export default function BusinessPromotionOrderDetail() {
                     Payment required before promotion can begin.
                   </AlertTitle>
                   <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Pay securely using Paystack (Debit Card, Bank Transfer, USSD). Your funds will be held safely in escrow until the promoter posts your campaign and you review the verification evidence.
+                    Pay securely using Paystack (Debit Card, Bank Transfer, USSD). Your payment is held safely until the promoter posts your campaign and you review the verification evidence.
                   </AlertDescription>
                 </div>
               </Alert>
@@ -525,7 +525,7 @@ export default function BusinessPromotionOrderDetail() {
                 <div className="space-y-0.5 text-center sm:text-left">
                   <div className="text-xs font-semibold text-foreground flex items-center gap-1.5 justify-center sm:justify-start">
                     <ShieldCheck className="h-4 w-4 text-emerald-500" />
-                    <span>Protected by Bethelincovibe Escrow</span>
+                    <span>Protected by Bethelincovibe Order Security</span>
                   </div>
                   <p className="text-[11px] text-muted-foreground">
                     Promoter only gets paid after you confirm campaign delivery.
@@ -554,16 +554,16 @@ export default function BusinessPromotionOrderDetail() {
             </div>
           )}
 
-          {/* Paid / Escrow State */}
+          {/* Paid / Secured State */}
           {isPaid && (
             <Alert className="bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-50 rounded-2xl">
               <CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 mt-0.5 shrink-0" />
               <div className="space-y-1">
                 <AlertTitle className="text-xs font-bold text-emerald-700 dark:text-emerald-300">
-                  Payment Confirmed — Funds Secured in Escrow
+                  Payment Confirmed — Funds Secured
                 </AlertTitle>
                 <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-                  Your payment of {formatNaira(order.amount)} was verified and is safely locked in escrow. The promoter has been notified to schedule and broadcast your campaign.
+                  Your payment of {formatNaira(order.amount)} was verified and is safely protected. The promoter has been notified to schedule and broadcast your campaign.
                 </AlertDescription>
                 {order.paid_at && (
                   <div className="pt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-mono">
@@ -619,7 +619,7 @@ export default function BusinessPromotionOrderDetail() {
                   Deliverables Approved & Verified
                 </AlertTitle>
                 <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-                  You have confirmed delivery of this promotion. Escrow payout has been authorized for the promoter.
+                  You have confirmed delivery of this promotion. Campaign payout has been authorized for the promoter.
                 </AlertDescription>
                 {order.approved_at && (
                   <div className="pt-1 text-[11px] text-muted-foreground font-mono">
@@ -640,7 +640,7 @@ export default function BusinessPromotionOrderDetail() {
                   Order Successfully Completed & Settled
                 </AlertTitle>
                 <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-                  This campaign was executed, deliverables verified, and escrow payout was credited to the promoter.
+                  This campaign was executed, deliverables verified, and payout was credited to the promoter.
                 </AlertDescription>
                 {order.settled_at && (
                   <div className="pt-1 text-[11px] text-muted-foreground font-mono">
@@ -660,7 +660,7 @@ export default function BusinessPromotionOrderDetail() {
                   Dispute Case Active
                 </AlertTitle>
                 <AlertDescription className="text-xs text-muted-foreground leading-relaxed">
-                  Dispute Reason: &ldquo;{(order as any).dispute_reason}&rdquo;. Escrow funds are locked securely while mediation is handled by the platform team.
+                  Dispute Reason: &ldquo;{(order as any).dispute_reason}&rdquo;. Order funds are locked securely while mediation is handled by the platform team.
                 </AlertDescription>
               </div>
             </Alert>
@@ -1096,7 +1096,7 @@ export default function BusinessPromotionOrderDetail() {
                   <span>{formatNaira(order.amount)}</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
-                  <span>Escrow Protection</span>
+                  <span>Buyer Protection</span>
                   <span className="text-emerald-600 font-semibold">Included (Free)</span>
                 </div>
                 <div className="pt-2 border-t border-border/50 flex justify-between font-bold text-foreground text-sm">
@@ -1160,7 +1160,7 @@ export default function BusinessPromotionOrderDetail() {
               <span>Raise Order Dispute</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Raising a dispute will freeze escrow release. Our support staff will review the deliverable logs and mediate between both parties.
+              Raising a dispute will freeze order payout. Our support staff will review the deliverable logs and mediate between both parties.
             </DialogDescription>
           </DialogHeader>
 

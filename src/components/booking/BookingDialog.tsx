@@ -351,7 +351,7 @@ export const BookingDialog: React.FC<BookingDialogProps> = ({
                     Status: Payment Required
                   </AlertTitle>
                   <AlertDescription className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Creating this order registers your booking request. In the next release, you will complete payment via Paystack or wallet escrow to begin the promotion.
+                    Creating this order registers your booking request. You can complete payment seamlessly via Paystack or wallet balance to begin the promotion.
                   </AlertDescription>
                 </div>
               </Alert>
