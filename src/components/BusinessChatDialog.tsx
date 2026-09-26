@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { MessageCircle, Loader2 } from "lucide-react";
+import { Mail, Loader2 } from "lucide-react";
 
 export default function BusinessChatDialog({
   businessId,
@@ -47,12 +47,12 @@ export default function BusinessChatDialog({
       message: message.trim(),
     });
     // record event (best-effort)
-    supabase.from("business_events").insert({ business_id: businessId, type: "chat_message" });
+    supabase.from("business_events").insert({ business_id: businessId, type: "business_inquiry" });
     setBusy(false);
     if (error) {
       toast.error(error.message);
     } else {
-      toast.success("Message sent — the business will get back to you.");
+      toast.success("Inquiry sent — the business will get back to you.");
       setOpen(false);
       setMessage(serviceTitle ? `Hi, I'm interested in your "${serviceTitle}" service. ` : "");
     }
@@ -62,15 +62,15 @@ export default function BusinessChatDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger || (
-          <Button size="sm" variant="secondary" className="gap-1">
-            <MessageCircle className="h-3.5 w-3.5" /> Chat
+          <Button size="sm" variant="secondary" className="gap-1 font-bold text-xs">
+            <Mail className="h-3.5 w-3.5 text-primary" /> Inquire
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {serviceTitle ? `Inquire about: ${serviceTitle}` : `Chat with ${businessName}`}
+            {serviceTitle ? `Inquire about: ${serviceTitle}` : `Send Inquiry to ${businessName}`}
           </DialogTitle>
         </DialogHeader>
         <form onSubmit={send} className="space-y-3">

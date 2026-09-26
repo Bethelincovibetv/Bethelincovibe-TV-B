@@ -245,10 +245,10 @@ export default function Forum() {
               size="lg"
               className="rounded-2xl h-12 px-6 bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-extrabold shadow-lg shadow-emerald-500/25 hover:shadow-emerald-500/40 hover:scale-[1.02] transition-all gap-2 text-sm sm:text-base border border-emerald-400/30"
             >
-              <Link to="/chat?officialRoom=true">
+              <a href="https://chat.whatsapp.com/sample-bethelincovibe" target="_blank" rel="noopener noreferrer">
                 <img src="/logo.png" alt="Bethelincovibe" className="w-5 h-5 rounded-full object-cover border border-white/40" />
-                <span>BethelincovibeTV Chat Room</span>
-              </Link>
+                <span>Join Lagos WhatsApp Group</span>
+              </a>
             </Button>
 
             <Dialog open={open} onOpenChange={setOpen}>

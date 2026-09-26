@@ -52,7 +52,7 @@
     }
     </script>
 
-    <!-- OneSignal Web Push SDK (load before app scripts so init can attach immediately) -->
+    <!-- OneSignal Web Push SDK (load safely before app scripts) -->
     <script>window.OneSignalDeferred = window.OneSignalDeferred || [];</script>
     <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" async></script>
 
@@ -60,8 +60,15 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
   </head>
 
-  <body>
-    <div id="root"></div>
+  <body class="bg-background text-foreground antialiased min-h-screen">
+    <div id="root">
+      <div style="min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; background: #0b0f19; color: #ffffff; font-family: system-ui, -apple-system, sans-serif; text-align: center; padding: 20px;">
+        <img src="/logo.png" alt="Bethelincovibe TV" style="width: 72px; height: 72px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);" />
+        <div style="font-size: 20px; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px;">Bethelincovibe TV</div>
+        <div style="font-size: 13px; color: #94a3b8; max-width: 320px; margin-bottom: 24px;">Lagos Business Information & Marketplace</div>
+        <div style="width: 40px; height: 4px; background: linear-gradient(90deg, #7c3aed, #ec4899); border-radius: 999px; animation: pulse 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -27,7 +27,6 @@ import BusinessCategory from "./pages/BusinessCategory";
 import BusinessProfile from "./pages/BusinessProfile";
 import ListBusiness from "./pages/ListBusiness";
 import UserBusinesses from "./pages/UserBusinesses";
-import UserMessages from "./pages/UserMessages";
 import EditBusiness from "./pages/EditBusiness";
 import BoostBusiness from "./pages/BoostBusiness";
 import StartupCalculator from "./pages/StartupCalculator";
@@ -327,11 +326,6 @@ const App = () => (
               <Route path="/referrals" element={<FeatureGate feature="referrals"><Referral /></FeatureGate>} />
               <Route path="/dashboard/referrals" element={<FeatureGate feature="referrals"><Referral /></FeatureGate>} />
               <Route path="/dashboard/businesses" element={<FeatureGate feature="businesses"><UserBusinesses /></FeatureGate>} />
-              <Route path="/dashboard/messages" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
-              <Route path="/dashboard/chat" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
-              <Route path="/dashboard/realtime-chat" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
-              <Route path="/chat" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
-              <Route path="/messages" element={<FeatureGate feature="realtime_chat"><UserMessages /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/edit" element={<FeatureGate feature="businesses"><EditBusiness /></FeatureGate>} />
               <Route path="/dashboard/businesses/:id/boost" element={<FeatureGate feature="business_boost"><BoostBusiness /></FeatureGate>} />
               <Route path="/dashboard/profile-edit" element={<UserProfileEdit />} />
@@ -428,6 +422,10 @@ const App = () => (
             {/* Standalone public sales pages (no layout chrome) */}
             <Route path="/sales/:slug" element={<SalesPage />} />
             <Route path="/s/:slug" element={<SalesPage />} />
+
+            {/* Chat route backward compatibility redirects */}
+            <Route path="/chat" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard/chat" element={<Navigate to="/dashboard" replace />} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>

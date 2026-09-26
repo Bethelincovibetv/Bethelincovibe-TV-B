@@ -10,7 +10,7 @@ import {
   onSnapshot,
   Unsubscribe,
 } from "firebase/firestore";
-import { firestoreDb, ensureFirebaseAuth, sanitizeFirestoreObject } from "@/lib/firebaseChat";
+import { firestoreDb, ensureFirebaseAuth, sanitizeFirestoreObject } from "@/lib/firebase";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 import { playNotificationSound } from "@/lib/notificationSound";

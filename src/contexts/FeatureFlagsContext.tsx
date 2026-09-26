@@ -8,7 +8,7 @@ export type FeatureKey =
   // AI & Creative Studios
   | "graphic_designer" | "logo_creator" | "video_creator" | "coach" | "ai_blogger" | "ai_admin" | "ai_recommender"
   // WhatsApp & Communication
-  | "whatsapp_engine" | "realtime_chat"
+  | "whatsapp_engine"
   // Advertising & Ad Placements
   | "advertise" | "ad_earnings" | "ads_marketplace" | "ads_blog" | "ads_dashboard" | "ads_directory" | "promoter_hub"
   // Finance & Wallet
@@ -48,7 +48,6 @@ export const FEATURE_META: FeatureMetaItem[] = [
 
   // WhatsApp & Communication
   { key: "whatsapp_engine", label: "WhatsApp Status Engine", category: "communication", description: "Mutual Google Contacts exchange, audience growth, and status ad monetization (/whatsapp-engine)" },
-  { key: "realtime_chat", label: "Real-time Live Chat & Support", category: "communication", description: "Live messaging and support conversations with buyers, merchants, and staff (/chat)" },
 
   // Advertising & Ad Placements
   { key: "advertise", label: "Advertise With Us Portal", category: "advertising", description: "Public advertising page, self-serve campaign creator, and ad manager (/advertise)" },

@@ -15,7 +15,7 @@ import {
   Unsubscribe,
   updateDoc,
 } from "firebase/firestore";
-import { firestoreDb, ensureFirebaseAuth, sanitizeFirestoreObject } from "@/lib/firebaseChat";
+import { firestoreDb, ensureFirebaseAuth, sanitizeFirestoreObject } from "@/lib/firebase";
 import { sendLivePersonalizedNotification } from "./firebaseRealtimeNotificationService";
 import {
   BusinessRequest,
