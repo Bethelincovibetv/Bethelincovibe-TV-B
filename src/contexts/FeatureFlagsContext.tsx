@@ -127,7 +127,7 @@ const Ctx = createContext<FeatureFlagsContextValue>({
 
 export function FeatureFlagsProvider({ children }: { children: ReactNode }) {
   const [flags, setFlags] = useState<FlagsMap>(() => getCachedFlags().flags);
-  const [loading, setLoading] = useState(() => !getCachedFlags().hasCache);
+  const [loading, setLoading] = useState<boolean>(false);
 
   const load = async () => {
     try {

@@ -6,7 +6,9 @@ let items: Array<{ src: string; caption: string }> = [];
 let index = 0;
 
 function installStyles() {
-  if (document.getElementById(STYLE_ID)) return;
+  if (typeof document === "undefined" || document.getElementById(STYLE_ID)) return;
+  const target = document.head || document.documentElement;
+  if (!target) return;
   const style = document.createElement("style");
   style.id = STYLE_ID;
   style.textContent = `
@@ -27,12 +29,14 @@ function installStyles() {
     #${ROOT_ID} .bicv-count{color:rgba(255,255,255,.58);font-weight:500;margin-left:8px}
     @media (max-width:640px){#${ROOT_ID}{padding:10px}#${ROOT_ID} .bicv-shell{height:94vh}#${ROOT_ID} .bicv-image-wrap{height:calc(100% - 52px)}#${ROOT_ID} img{border-radius:12px}#${ROOT_ID} .bicv-nav{width:38px;height:38px}.bicv-prev{left:2px}.bicv-next{right:2px}#${ROOT_ID} .bicv-caption{font-size:12px;padding:0 42px}}
   `;
-  document.head.appendChild(style);
+  target.appendChild(style);
 }
 
 function ensureRoot() {
+  if (typeof document === "undefined") return null;
   let root = document.getElementById(ROOT_ID);
   if (root) return root;
+  if (!document.body) return null;
   root = document.createElement("div");
   root.id = ROOT_ID;
   root.setAttribute("role", "dialog");
@@ -67,6 +71,7 @@ function show(nextIndex: number) {
   if (!items.length) return;
   index = (nextIndex + items.length) % items.length;
   const root = ensureRoot();
+  if (!root) return;
   const item = items[index];
   const img = root.querySelector("img") as HTMLImageElement | null;
   const caption = root.querySelector(".bicv-caption-text") as HTMLElement | null;
@@ -78,13 +83,14 @@ function show(nextIndex: number) {
   if (caption) caption.textContent = item.caption || "Business gallery photo";
   if (count) count.textContent = items.length > 1 ? `${index + 1} / ${items.length}` : "";
   root.classList.add("is-open");
-  document.body.style.overflow = "hidden";
+  if (document.body) document.body.style.overflow = "hidden";
 }
 
 function closeViewer() {
+  if (typeof document === "undefined") return;
   const root = document.getElementById(ROOT_ID);
   root?.classList.remove("is-open");
-  document.body.style.overflow = "";
+  if (document.body) document.body.style.overflow = "";
 }
 
 function isGalleryAnchor(anchor: HTMLAnchorElement) {

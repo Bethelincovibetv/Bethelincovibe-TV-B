@@ -108,6 +108,7 @@ function setupDraggable(el: HTMLElement) {
 }
 
 function sync() {
+  if (typeof document === "undefined") return;
   const assistants = Array.from(document.querySelectorAll<HTMLElement>('aside[aria-label="AI Business Match Assistant"]'));
   for (const el of assistants) {
     if (isHiddenRoute(window.location.pathname)) {
@@ -122,11 +123,24 @@ function sync() {
 }
 
 export function installAIMatchFloatingGuard() {
-  if (installed || typeof window === "undefined") return;
+  if (installed || typeof window === "undefined" || typeof document === "undefined") return;
   installed = true;
-  sync();
-  const observer = new MutationObserver(sync);
-  observer.observe(document.body, { childList: true, subtree: true });
-  window.addEventListener("popstate", sync);
-  window.addEventListener("resize", sync);
+
+  const init = () => {
+    sync();
+    if (document.body) {
+      try {
+        const observer = new MutationObserver(sync);
+        observer.observe(document.body, { childList: true, subtree: true });
+      } catch {}
+    }
+    window.addEventListener("popstate", sync);
+    window.addEventListener("resize", sync);
+  };
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 }

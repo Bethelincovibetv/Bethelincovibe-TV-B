@@ -7,6 +7,20 @@ import { installAIMatchFloatingGuard } from "./lib/aiMatchFloatingGuard";
 
 // Gracefully handle benign third-party or network rejections without crashing React
 if (typeof window !== "undefined") {
+  const safeToString = (val: any): string => {
+    if (val === null || val === undefined) return "";
+    if (val instanceof Error) return `${val.message} ${val.stack || ""}`;
+    if (typeof val === "string") return val;
+    if (typeof val === "object") {
+      try {
+        return JSON.stringify(val);
+      } catch {
+        return Object.prototype.toString.call(val);
+      }
+    }
+    return String(val);
+  };
+
   const isBenignError = (str: string) => {
     const s = (str || "").toLowerCase();
     return (
@@ -28,58 +42,104 @@ if (typeof window !== "undefined") {
 
   const origConsoleError = console.error;
   console.error = function (...args: any[]) {
-    const fullMsg = args
-      .map((a) => (a instanceof Error ? `${a.message} ${a.stack || ""}` : typeof a === "object" ? JSON.stringify(a) : String(a)))
-      .join(" ");
-    if (isBenignError(fullMsg)) {
-      return;
-    }
+    try {
+      const fullMsg = args.map(safeToString).join(" ");
+      if (isBenignError(fullMsg)) {
+        return;
+      }
+    } catch {}
     origConsoleError.apply(console, args);
   };
 
   const origConsoleWarn = console.warn;
   console.warn = function (...args: any[]) {
-    const fullMsg = args
-      .map((a) => (a instanceof Error ? `${a.message} ${a.stack || ""}` : typeof a === "object" ? JSON.stringify(a) : String(a)))
-      .join(" ");
-    if (isBenignError(fullMsg)) {
-      return;
-    }
+    try {
+      const fullMsg = args.map(safeToString).join(" ");
+      if (isBenignError(fullMsg)) {
+        return;
+      }
+    } catch {}
     origConsoleWarn.apply(console, args);
   };
 
   const origUnhandledRejection = window.onunhandledrejection;
   window.onunhandledrejection = function (event: PromiseRejectionEvent) {
-    const reason = event?.reason;
-    const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();
-    if (isBenignError(msg)) { event?.preventDefault?.(); return true; }
-    if (typeof origUnhandledRejection === "function") return (origUnhandledRejection as any).call(window, event);
+    try {
+      const reason = event?.reason;
+      const msg = safeToString(reason).toLowerCase();
+      if (isBenignError(msg)) {
+        event?.preventDefault?.();
+        return true;
+      }
+    } catch {}
+    if (typeof origUnhandledRejection === "function") {
+      try {
+        return (origUnhandledRejection as any).call(window, event);
+      } catch {}
+    }
   };
+
   const origOnError = window.onerror;
   window.onerror = function (eventOrMessage, source, lineno, colno, error, ...args: any[]) {
-    const msg = (typeof eventOrMessage === "string" ? eventOrMessage : (eventOrMessage as any)?.message || error?.message || "").toLowerCase();
-    if (isBenignError(msg)) return true;
-    if (typeof origOnError === "function") return (origOnError as any).call(window, eventOrMessage, source, lineno, colno, error, ...args);
+    try {
+      const msg = (typeof eventOrMessage === "string" ? eventOrMessage : safeToString(eventOrMessage) + " " + safeToString(error)).toLowerCase();
+      if (isBenignError(msg)) return true;
+    } catch {}
+    if (typeof origOnError === "function") {
+      try {
+        return (origOnError as any).call(window, eventOrMessage, source, lineno, colno, error, ...args);
+      } catch {}
+    }
     return false;
   };
+
   window.addEventListener("unhandledrejection", (event) => {
-    const reason = event.reason;
-    const msg = (reason?.message || reason?.stack || String(reason || "")).toLowerCase();
-    if (isBenignError(msg)) { event.preventDefault?.(); event.stopPropagation?.(); }
-  }, true);
-  window.addEventListener("error", (event) => {
-    const msg = (event.message || event.error?.message || "").toLowerCase();
-    if (isBenignError(msg)) { event.preventDefault?.(); event.stopPropagation?.(); }
+    try {
+      const reason = event.reason;
+      const msg = safeToString(reason).toLowerCase();
+      if (isBenignError(msg)) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+      }
+    } catch {}
   }, true);
 
-  // Business directory gallery photos open inside Bethelincovibe TV instead of navigating away.
-  installBusinessGalleryLightbox();
-  // Business pages stay distraction-free; elsewhere the AI matcher can be moved by the user.
-  installAIMatchFloatingGuard();
+  window.addEventListener("error", (event) => {
+    try {
+      const msg = (event.message || safeToString(event.error)).toLowerCase();
+      if (isBenignError(msg)) {
+        event.preventDefault?.();
+        event.stopPropagation?.();
+      }
+    } catch {}
+  }, true);
+
+  try {
+    // Business directory gallery photos open inside Bethelincovibe TV instead of navigating away.
+    installBusinessGalleryLightbox();
+  } catch {}
+
+  try {
+    // Business pages stay distraction-free; elsewhere the AI matcher can be moved by the user.
+    installAIMatchFloatingGuard();
+  } catch {}
 }
 
-createRoot(document.getElementById("root")!).render(
-  <ErrorBoundary label="Root">
-    <App />
-  </ErrorBoundary>
-);
+function mountApplication() {
+  const rootEl = document.getElementById("root");
+  if (!rootEl) return;
+  
+  createRoot(rootEl).render(
+    <ErrorBoundary label="Root">
+      <App />
+    </ErrorBoundary>
+  );
+}
+
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", mountApplication, { once: true });
+  } else {
+    mountApplication();
+  }
+}
