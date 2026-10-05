@@ -1,16 +1,26 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { listenForForegroundFcm } from "@/lib/fcm";
 import { playNotificationSound } from "@/lib/notificationSound";
 import { useAuth } from "@/contexts/AuthContext";
-import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
+import { getBestUserName, fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 import { toast } from "sonner";
 import { Bell } from "lucide-react";
 
 export default function FcmForegroundListener() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const userName = getBestUserName(user);
+  const [userName, setUserName] = useState<string>(() => getBestUserName(user));
+
+  useEffect(() => {
+    if (user?.id) {
+      const initial = getBestUserName(user);
+      if (initial) setUserName(initial);
+      fetchUserNameById(user.id).then((name) => {
+        if (name) setUserName(name);
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;

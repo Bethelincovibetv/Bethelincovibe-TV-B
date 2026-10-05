@@ -24,8 +24,10 @@ import { PRESET_BUSINESS_CATEGORIES } from "@/lib/businessCategories";
 import { absUrl, ogImageUrl, PAGE_OG_IMAGES, SITE_NAME } from "@/lib/seo";
 import SEO from "@/components/SEO";
 import PostRequestBanner from "@/components/requests/PostRequestBanner";
+import NearMeLocationFilter from "@/components/location/NearMeLocationFilter";
+import { useUserLocation } from "@/lib/userGeolocationService";
 
-type Sort = "recommended" | "newest" | "az" | "za";
+type Sort = "recommended" | "nearest" | "newest" | "az" | "za";
 type ViewMode = "grid" | "list" | "map";
 
 export default function BusinessDirectory() {
@@ -34,6 +36,19 @@ export default function BusinessDirectory() {
   const [search, setSearch] = useState(searchParams.get("q") ?? "");
   const [sort, setSort] = useState<Sort>("recommended");
   const [view, setView] = useState<ViewMode>("grid");
+
+  const {
+    userLocation,
+    detecting,
+    radiusKm,
+    setRadiusKm,
+    onlyNearby,
+    setOnlyNearby,
+    requestLocation,
+    setManualLocation,
+    clearLocation,
+    getDistanceTo,
+  } = useUserLocation();
 
   const { data: categories } = useQuery({
     queryKey: ["business-categories"],
@@ -147,13 +162,44 @@ export default function BusinessDirectory() {
     staleTime: 300_000,
   });
 
+  const withDistance = useMemo(() => {
+    return (businesses ?? []).map((b: any) => {
+      const dist = getDistanceTo(b);
+      return {
+        ...b,
+        distanceKm: dist,
+      };
+    });
+  }, [businesses, getDistanceTo]);
+
   const sorted = useMemo(() => {
-    const list = [...(businesses ?? [])];
-    if (sort === "newest") list.sort((a: any, b: any) => +new Date(b.created_at) - +new Date(a.created_at));
-    if (sort === "az") list.sort((a: any, b: any) => a.name.localeCompare(b.name));
-    if (sort === "za") list.sort((a: any, b: any) => b.name.localeCompare(a.name));
+    let list = [...withDistance];
+
+    // Proximity filtering if active
+    if (onlyNearby && userLocation) {
+      if (radiusKm !== null) {
+        list = list.filter((b) => typeof b.distanceKm === "number" && b.distanceKm <= radiusKm);
+      }
+      list.sort((a, b) => {
+        const distA = typeof a.distanceKm === "number" ? a.distanceKm : 99999;
+        const distB = typeof b.distanceKm === "number" ? b.distanceKm : 99999;
+        return distA - distB;
+      });
+    } else if (sort === "nearest" && userLocation) {
+      list.sort((a, b) => {
+        const distA = typeof a.distanceKm === "number" ? a.distanceKm : 99999;
+        const distB = typeof b.distanceKm === "number" ? b.distanceKm : 99999;
+        return distA - distB;
+      });
+    } else if (sort === "newest") {
+      list.sort((a: any, b: any) => +new Date(b.created_at) - +new Date(a.created_at));
+    } else if (sort === "az") {
+      list.sort((a: any, b: any) => a.name.localeCompare(b.name));
+    } else if (sort === "za") {
+      list.sort((a: any, b: any) => b.name.localeCompare(a.name));
+    }
     return list;
-  }, [businesses, sort]);
+  }, [withDistance, onlyNearby, userLocation, radiusKm, sort]);
 
   const activeCategory = categories?.find((c: any) => c.slug === categorySlug);
   const title = activeCategory
@@ -255,7 +301,22 @@ export default function BusinessDirectory() {
             )}
           </div>
 
-          <div className="mt-2.5 flex items-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <NearMeLocationFilter
+              userLocation={userLocation}
+              detecting={detecting}
+              radiusKm={radiusKm}
+              setRadiusKm={setRadiusKm}
+              onlyNearby={onlyNearby}
+              setOnlyNearby={setOnlyNearby}
+              onRequestLocation={requestLocation}
+              onClearLocation={clearLocation}
+              onSelectManualLocation={setManualLocation}
+              filteredCount={sorted.length}
+              totalCount={businesses?.length || 0}
+              label="businesses"
+            />
+
             <Select value={sort} onValueChange={(v) => setSort(v as Sort)}>
               <SelectTrigger className="h-9 w-[150px] rounded-full text-xs" aria-label="Sort listings">
                 <SlidersHorizontal className="mr-1 h-3.5 w-3.5" />
@@ -263,6 +324,7 @@ export default function BusinessDirectory() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="recommended">Recommended</SelectItem>
+                <SelectItem value="nearest">Nearest to me 📍</SelectItem>
                 <SelectItem value="newest">Newest first</SelectItem>
                 <SelectItem value="az">Name A–Z</SelectItem>
                 <SelectItem value="za">Name Z–A</SelectItem>

@@ -49,6 +49,7 @@ import AdminContacts from "./pages/admin/AdminContacts";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
 import Disclaimer from "./pages/Disclaimer";
+import LegalHub from "./pages/LegalHub";
 import AdminAIBlogger from "./pages/admin/AdminAIBlogger";
 import AdminPlatformAI from "./pages/admin/AdminPlatformAI";
 import AdminNotifications from "./pages/admin/AdminNotifications";
@@ -352,6 +353,7 @@ const App = () => (
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/terms-of-service" element={<TermsOfService />} />
               <Route path="/disclaimer" element={<Disclaimer />} />
+              <Route path="/legal" element={<LegalHub />} />
               <Route path="/learn" element={<FeatureGate feature="learn"><Learn /></FeatureGate>} />
               <Route path="/forum" element={<FeatureGate feature="forum"><Forum /></FeatureGate>} />
               <Route path="/forum/category/:category" element={<FeatureGate feature="forum"><Forum /></FeatureGate>} />

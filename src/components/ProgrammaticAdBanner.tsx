@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useFeatureFlags } from "@/contexts/FeatureFlagsContext";
 import LiveRotatingAdvert, { AdvertItem } from "@/components/ads/LiveRotatingAdvert";
+import { fetchGgdAds, trackGgdEvent } from "@/services/ggdAdNetworkService";
 
 export interface ProgrammaticAdBannerProps {
   placement?:
@@ -255,6 +256,32 @@ export default function ProgrammaticAdBanner({
           } catch {
             // Ignore edge function error
           }
+        }
+
+        // Strategy D: GGD Ad Network Direct API Integration
+        try {
+          const ggdResult = await fetchGgdAds(5);
+          if (ggdResult.success && Array.isArray(ggdResult.ads) && ggdResult.ads.length > 0) {
+            ggdResult.ads.forEach((item) => {
+              if (item.image_url && !fetchedAds.some((a) => a.id === item.id)) {
+                fetchedAds.push({
+                  id: item.id,
+                  title: item.title,
+                  description: item.description || "Exclusive verified offer on GGD Ad Network",
+                  image_url: item.image_url,
+                  target_url: item.target_url,
+                  click_url: item.target_url,
+                  sponsor_name: "GGD Partner Sponsor",
+                  badge_text: "GGD Direct Ad",
+                  urgency_tag: "⚡ GGD Ad Network",
+                  social_proof: "Verified partner offer on GGD Network",
+                  is_verified: true,
+                });
+              }
+            });
+          }
+        } catch {
+          // Ignore GGD ad network error
         }
 
         // STRICT REQUIREMENT:

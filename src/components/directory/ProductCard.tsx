@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, ShoppingBag, Sparkles, Package, Download, CheckCircle2, ShieldCheck, ArrowRight } from "lucide-react";
+import { MapPin, ShoppingBag, Sparkles, Package, Download, CheckCircle2, ShieldCheck, Heart, ArrowUpRight } from "lucide-react";
 import digitalGoods3D from "@/assets/images/digital_goods_3d_1787915095364.jpg";
 import physicalGoods3D from "@/assets/images/physical_goods_3d_1787915108745.jpg";
 import { getProductCategoryInfo } from "@/lib/productAIEngine";
@@ -36,12 +36,14 @@ export default function ProductCard({
   rankBadge,
   isNewArrival,
   timeAgo,
+  distanceKm,
 }: {
   product: DirectoryProduct;
   view?: "grid" | "list";
   rankBadge?: { rank: number; label?: string };
   isNewArrival?: boolean;
   timeAgo?: string;
+  distanceKm?: number | null;
 }) {
   const imgs: string[] = Array.isArray(p.images) ? p.images : [];
   const hero = p.cover_image || imgs[0] || null;
@@ -51,101 +53,107 @@ export default function ProductCard({
   const isDigital = catInfo.type === "digital";
 
   const media = (
-    <>
+    <div className="relative aspect-[4/3] sm:aspect-square w-full overflow-hidden bg-muted">
       {hero ? (
         <img
           src={hero}
-          alt={`${p.name} for sale in Lagos`}
+          alt={`${p.name} for sale`}
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"
-          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-108"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
         />
       ) : (
-        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-primary/90 via-primary to-accent">
+        <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-gradient-to-br from-emerald-500/10 via-primary/10 to-accent/10">
           <img
             src={isDigital ? digitalGoods3D : physicalGoods3D}
             alt={p.name}
-            className="h-full w-full object-cover opacity-90 transition-transform duration-500 group-hover:scale-108"
+            className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-105"
             referrerPolicy="no-referrer"
           />
         </div>
       )}
 
-      {/* Featured / Type Overlay Badges */}
-      <div className="absolute top-2.5 left-2.5 right-2.5 flex items-center justify-between pointer-events-none gap-1">
+      {/* Top Overlay Badges (Jiji Marketplace style) */}
+      <div className="absolute top-1.5 left-1.5 right-1.5 flex items-center justify-between pointer-events-none gap-1">
         {rankBadge ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-rose-600 via-orange-600 to-amber-500 px-2.5 py-0.5 text-[10px] font-black text-white shadow-lg border border-white/40 uppercase tracking-wider">
-            <span className="text-xs">🔥</span> #{rankBadge.rank} {rankBadge.label || "Trending"}
+          <span className="inline-flex items-center gap-1 rounded-md bg-rose-600 text-white px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm">
+            🔥 #{rankBadge.rank} {rankBadge.label || "Top"}
           </span>
         ) : isNewArrival ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-600 to-cyan-500 px-2.5 py-0.5 text-[10px] font-black text-white shadow-lg border border-white/40 uppercase tracking-wider">
-            <Sparkles className="h-2.5 w-2.5" /> New {timeAgo ? `• ${timeAgo}` : ""}
+          <span className="inline-flex items-center gap-1 rounded-md bg-cyan-600 text-white px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm">
+            <Sparkles className="h-2.5 w-2.5" /> New
           </span>
         ) : p.featured ? (
-          <Badge className="h-6 gap-1 bg-gradient-to-r from-amber-500 to-orange-500 text-[10px] font-black text-white shadow-md border-0 uppercase tracking-wider">
-            <Sparkles className="h-3 w-3" /> Featured
-          </Badge>
+          <span className="inline-flex items-center gap-0.5 rounded-md bg-amber-500 text-white px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider shadow-sm">
+            ⭐ TOP
+          </span>
         ) : (
           <span />
         )}
 
-        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-md ${
-          isDigital
-            ? "bg-purple-900/90 text-purple-200 border border-purple-400/40"
-            : "bg-emerald-900/90 text-emerald-200 border border-emerald-400/40"
-        }`}>
-          {isDigital ? <Download className="h-2.5 w-2.5" /> : <Package className="h-2.5 w-2.5" />}
-          {isDigital ? "Digital" : "Physical"}
+        <span
+          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[9px] font-extrabold uppercase tracking-wider shadow-xs ${
+            isDigital
+              ? "bg-purple-900/90 text-purple-200 border border-purple-400/30"
+              : "bg-emerald-900/90 text-emerald-200 border border-emerald-400/30"
+          }`}
+        >
+          {isDigital ? <Download className="h-2 w-2" /> : <Package className="h-2 w-2" />}
+          {isDigital ? "Digital" : "Goods"}
         </span>
       </div>
-    </>
+
+      {/* Category Tag overlay in bottom corner */}
+      <span className="absolute bottom-1.5 left-1.5 rounded-md bg-black/70 backdrop-blur-xs px-1.5 py-0.5 text-[9px] font-bold text-white shadow-xs">
+        {catInfo.name}
+      </span>
+    </div>
   );
 
+  // Jiji-style List View (compact, space-efficient, zero bloated padding)
   if (view === "list") {
     return (
       <Link to={to} className="group block">
-        <article className="relative flex flex-col sm:flex-row gap-4 rounded-3xl border border-border/80 bg-card p-4 transition-all duration-300 hover:border-primary/50 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.995]">
-          <div className="relative h-44 sm:h-36 sm:w-36 shrink-0 overflow-hidden rounded-2xl bg-muted border border-border/50 shadow-inner">
+        <article className="relative flex flex-row gap-3 rounded-2xl border border-border/70 bg-card p-2 sm:p-2.5 transition-all duration-200 hover:border-emerald-500/70 hover:shadow-md active:scale-[0.995]">
+          <div className="relative h-24 w-28 sm:h-28 sm:w-36 shrink-0 overflow-hidden rounded-xl bg-muted border border-border/40">
             {media}
           </div>
-          <div className="min-w-0 flex-1 flex flex-col justify-between space-y-2">
+          <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-primary">
-                  {catInfo.name}
+              <div className="flex items-center gap-1.5 text-[10px]">
+                <span className="inline-flex items-center gap-0.5 font-bold text-emerald-600 dark:text-emerald-400">
+                  <ShieldCheck className="h-3 w-3 text-emerald-500" /> Verified Seller
                 </span>
-                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" /> Verified Seller
-                </span>
+                {p.condition && (
+                  <span className="text-muted-foreground capitalize">• {p.condition}</span>
+                )}
               </div>
-              <h3 className="text-base sm:text-lg font-black leading-snug text-foreground group-hover:text-primary transition-colors line-clamp-1">
+              <h3 className="text-xs sm:text-sm font-bold text-foreground group-hover:text-emerald-600 transition-colors line-clamp-2 mt-0.5 leading-snug">
                 {p.name}
               </h3>
-              {p.description && (
-                <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
-                  {p.description}
-                </p>
-              )}
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-border/60">
+            <div className="flex items-baseline justify-between pt-1 border-t border-border/40 gap-2">
               <div>
-                <p className="text-lg sm:text-xl font-black text-primary tracking-tight">
+                <p className="text-sm sm:text-base font-extrabold text-emerald-600 dark:text-emerald-400 tracking-tight">
                   {formatPrice(p.price, p.currency)}
                 </p>
-                <div className="flex items-center gap-3 text-[11px] font-medium text-muted-foreground">
+                <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
                   {p.location && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3 w-3 text-primary" /> {p.location}
+                    <span className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground font-medium">
+                      <MapPin className="h-2.5 w-2.5 text-primary" /> {p.location}
                     </span>
                   )}
-                  {p.condition && <span className="capitalize">• {p.condition}</span>}
+                  {typeof distanceKm === "number" && (
+                    <span className="inline-flex items-center font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-100/80 dark:bg-emerald-950/80 px-1.5 py-0.2 rounded text-[9px] border border-emerald-500/30">
+                      📍 {distanceKm < 1 ? "<1 km away" : `${distanceKm.toFixed(1)} km away`}
+                    </span>
+                  )}
                 </div>
               </div>
-
-              <span className="inline-flex items-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-black text-primary-foreground shadow-sm transition-transform group-hover:scale-105">
-                <ShoppingBag className="h-3.5 w-3.5" /> View Details
+              <span className="inline-flex items-center gap-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-2.5 py-1 transition-colors">
+                View <ArrowUpRight className="h-3 w-3" />
               </span>
             </div>
           </div>
@@ -154,51 +162,52 @@ export default function ProductCard({
     );
   }
 
+  // Jiji-style Grid Card (Tight padding, high information density, attractive, free)
   return (
     <Link to={to} className="group block h-full">
-      <article className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-border/80 bg-card transition-all duration-300 hover:border-primary/50 hover:-translate-y-1 hover:shadow-xl active:scale-[0.99]">
-        {/* 3D Media Aspect */}
-        <div className="relative aspect-square overflow-hidden bg-muted">
-          {media}
-          <span className="absolute bottom-2.5 left-2.5 rounded-xl bg-background/90 px-2.5 py-1 text-[11px] font-black text-foreground backdrop-blur-md shadow-xs border border-border/60">
-            {catInfo.name}
-          </span>
-        </div>
+      <article className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card hover:border-emerald-500/70 hover:shadow-md transition-all duration-200 active:scale-[0.99] font-sans">
+        {/* Crisp Photo */}
+        {media}
 
-        {/* Content Body */}
-        <div className="flex flex-1 flex-col justify-between p-4 space-y-3 bg-gradient-to-b from-card to-card/80">
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="inline-flex items-center gap-1 font-bold text-emerald-600 dark:text-emerald-400">
-                <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Lagos Verified
-              </span>
-              {p.condition && (
-                <span className="rounded-md bg-muted px-2 py-0.5 font-bold uppercase text-[9px] tracking-wider text-muted-foreground">
-                  {p.condition}
-                </span>
-              )}
-            </div>
+        {/* Content Body: tight padding, zero waste */}
+        <div className="flex flex-1 flex-col justify-between p-2 sm:p-2.5 space-y-1">
+          <div>
+            {/* Nigerian Jiji Signature BOLD GREEN Price */}
+            <p className="text-sm sm:text-base font-black text-emerald-600 dark:text-emerald-400 tracking-tight leading-none mb-1">
+              {formatPrice(p.price, p.currency)}
+            </p>
 
-            <h3 className="line-clamp-2 text-sm sm:text-base font-black leading-snug text-foreground group-hover:text-primary transition-colors">
+            {/* Product Title (2 lines max) */}
+            <h3 className="line-clamp-2 text-xs sm:text-[13px] font-bold leading-snug text-foreground group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
               {p.name}
             </h3>
           </div>
 
-          <div className="space-y-2 pt-2 border-t border-border/60">
-            <div className="flex items-baseline justify-between">
-              <p className="text-base sm:text-lg font-black text-primary tracking-tight">
-                {formatPrice(p.price, p.currency)}
-              </p>
-              {p.location && (
-                <p className="flex items-center gap-1 truncate text-[11px] font-medium text-muted-foreground max-w-[120px]">
-                  <MapPin className="h-3 w-3 shrink-0 text-primary" /> {p.location}
-                </p>
-              )}
+          <div className="pt-1 border-t border-border/40 space-y-1">
+            <div className="flex items-center justify-between text-[10px] text-muted-foreground gap-1">
+              <span className="inline-flex items-center gap-0.5 font-medium truncate max-w-[105px]">
+                <MapPin className="h-2.5 w-2.5 text-emerald-500 shrink-0" />
+                {p.location || "Lagos, Nigeria"}
+              </span>
+              {typeof distanceKm === "number" ? (
+                <span className="font-extrabold text-emerald-700 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-950/80 px-1 py-0.2 rounded text-[9px] shrink-0 border border-emerald-500/25">
+                  {distanceKm < 1 ? "<1km" : `${distanceKm.toFixed(1)}km`}
+                </span>
+              ) : p.condition ? (
+                <span className="font-semibold text-muted-foreground uppercase text-[9px] shrink-0">
+                  {p.condition}
+                </span>
+              ) : null}
             </div>
 
-            <span className="inline-flex w-full items-center justify-center gap-1.5 rounded-2xl bg-primary px-3 py-2 text-xs font-black text-primary-foreground shadow-xs transition-all group-hover:bg-primary/90 group-hover:shadow-md">
-              <ShoppingBag className="h-3.5 w-3.5" /> View Listing <ArrowRight className="h-3 w-3 ml-0.5 transition-transform group-hover:translate-x-1" />
-            </span>
+            <div className="flex items-center justify-between text-[10px] font-bold text-emerald-600 dark:text-emerald-400 pt-0.5">
+              <span className="inline-flex items-center gap-0.5">
+                <CheckCircle2 className="h-2.5 w-2.5 text-emerald-500" /> Verified
+              </span>
+              <span className="text-[10px] text-muted-foreground font-semibold group-hover:text-emerald-600 flex items-center gap-0.5">
+                Details <ArrowUpRight className="h-2.5 w-2.5" />
+              </span>
+            </div>
           </div>
         </div>
       </article>

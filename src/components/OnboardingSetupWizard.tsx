@@ -240,11 +240,15 @@ export default function OnboardingSetupWizard({
 
       // Record congratulations notification in system
       try {
-        const uName = displayName.trim() || profile?.display_name || profile?.username || "Entrepreneur";
+        const uName = displayName.trim() || profile?.display_name?.trim() || profile?.username?.trim() || getBestUserName(user, profile);
+        const titleText = uName ? `🎉 Congratulations ${uName}, Your Business Profile is Complete!` : `🎉 Congratulations, Your Business Profile is Complete!`;
+        const bodyText = uName
+          ? `Hi ${uName}, your business "${bizName || displayName}" is now active, verified, and featured on the Lagos Business Directory.`
+          : `Your business "${bizName || displayName}" is now active, verified, and featured on the Lagos Business Directory.`;
         await supabase.from("user_notifications").insert({
           user_id: user.id,
-          title: `🎉 Congratulations ${uName}, Your Business Profile is Complete!`,
-          body: `Hi ${uName}, your business "${bizName || displayName}" is now active, verified, and featured on the Lagos Business Directory.`,
+          title: titleText,
+          body: bodyText,
           type: "system",
           url: profile?.username ? `/u/${profile.username}` : "/dashboard",
         });

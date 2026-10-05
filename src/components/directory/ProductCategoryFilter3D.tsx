@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Sparkles, Package, Download, UtensilsCrossed, ChevronRight, Grid3X3, Layers } from "lucide-react";
+import { Sparkles, Package, Download, ChevronRight, Grid3X3, Layers } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,7 +9,6 @@ import {
   DIGITAL_PRODUCT_CATEGORIES,
   ALL_PRODUCT_CATEGORIES,
 } from "@/lib/productAIEngine";
-import digitalGoods3D from "@/assets/images/digital_goods_3d_1787915095364.jpg";
 import physicalGoods3D from "@/assets/images/physical_goods_3d_1787915108745.jpg";
 
 interface ProductCategoryFilter3DProps {
@@ -39,219 +38,174 @@ export default function ProductCategoryFilter3D({
       : ALL_PRODUCT_CATEGORIES;
 
   return (
-    <div className="space-y-4 rounded-3xl border-2 border-border/80 bg-gradient-to-b from-card to-card/60 p-4 sm:p-6 shadow-xl backdrop-blur-md">
-      {/* 1. Header & 3D Product Type Switcher */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between border-b border-border/60 pb-5">
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary/10 border border-primary/20 text-primary text-xs font-black uppercase tracking-wider">
-            <Layers className="h-3.5 w-3.5" />
-            <span>Interactive Marketplace Filters</span>
+    <div className="space-y-2.5 rounded-2xl border border-border/80 bg-card p-2.5 sm:p-3.5 shadow-xs">
+      {/* 1. Header & Jiji-style Sleek Product Type Switcher */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between border-b border-border/50 pb-2.5">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+            <Layers className="h-4 w-4" />
           </div>
-          <h2 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
-            Browse by Product Type & Category
-          </h2>
-          <p className="text-xs sm:text-sm font-medium text-muted-foreground">
-            Explore {totalCount > 0 ? `${totalCount} verified listings` : "thousands of products"} across physical goods and instant digital downloads.
-          </p>
+          <div>
+            <h2 className="text-sm sm:text-base font-extrabold text-foreground tracking-tight flex items-center gap-1.5">
+              Categories &amp; Market Filters
+              {totalCount > 0 && (
+                <span className="text-[11px] font-semibold text-muted-foreground">
+                  ({totalCount} items)
+                </span>
+              )}
+            </h2>
+          </div>
         </div>
 
-        {/* 3D Product Type Selectors */}
-        <div className="grid grid-cols-3 gap-2 sm:gap-3 shrink-0">
-          {/* All Types */}
+        {/* Compact Product Type Selectors (Jiji style) */}
+        <div className="inline-flex p-1 rounded-xl bg-muted/60 border border-border/60 self-start sm:self-auto">
           <button
             onClick={() => {
               onSelectProductType("all");
               onSelectCategory("all");
             }}
-            className={`group relative flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl border-2 transition-all duration-300 text-center ${
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
               productType === "all"
-                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-[1.02] ring-2 ring-primary/30"
-                : "bg-muted/40 text-foreground border-border/80 hover:border-primary/40 hover:bg-muted/80"
+                ? "bg-emerald-600 text-white shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-background/20 backdrop-blur-md flex items-center justify-center mb-1.5 shadow-inner">
-              <Sparkles className={`h-5 w-5 ${productType === "all" ? "text-primary-foreground" : "text-primary"}`} />
-            </div>
-            <span className="text-xs sm:text-sm font-black leading-tight">All Market</span>
-            <span className={`text-[10px] font-semibold mt-0.5 ${productType === "all" ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-              Full Catalog
-            </span>
+            All Market
           </button>
 
-          {/* Physical & Food */}
           <button
             onClick={() => {
               onSelectProductType("physical");
               onSelectCategory("all");
             }}
-            className={`group relative flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl border-2 transition-all duration-300 text-center overflow-hidden ${
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
               productType === "physical"
-                ? "bg-gradient-to-br from-amber-500 to-orange-600 text-white border-amber-500 shadow-lg shadow-amber-500/25 scale-[1.02] ring-2 ring-amber-500/30"
-                : "bg-muted/40 text-foreground border-border/80 hover:border-amber-500/40 hover:bg-muted/80"
+                ? "bg-amber-600 text-white shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <div className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-xl overflow-hidden mb-1.5 shadow-inner border border-white/20">
-              <img
-                src={physicalGoods3D}
-                alt="Physical"
-                className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <span className="text-xs sm:text-sm font-black leading-tight flex items-center gap-1">
-              Physical & Food
-            </span>
-            <span className={`text-[10px] font-semibold mt-0.5 ${productType === "physical" ? "text-white/90" : "text-muted-foreground"}`}>
-              Lagos Delivery
-            </span>
+            Physical &amp; Food
           </button>
 
-          {/* Digital Products */}
           <button
             onClick={() => {
               onSelectProductType("digital");
               onSelectCategory("all");
             }}
-            className={`group relative flex flex-col items-center justify-center p-2.5 sm:p-3 rounded-2xl border-2 transition-all duration-300 text-center overflow-hidden ${
+            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
               productType === "digital"
-                ? "bg-gradient-to-br from-purple-600 to-indigo-700 text-white border-purple-500 shadow-lg shadow-purple-500/25 scale-[1.02] ring-2 ring-purple-500/30"
-                : "bg-muted/40 text-foreground border-border/80 hover:border-purple-500/40 hover:bg-muted/80"
+                ? "bg-purple-600 text-white shadow-xs"
+                : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            <div className="relative h-9 w-9 sm:h-10 sm:w-10 rounded-xl overflow-hidden mb-1.5 shadow-inner border border-white/20">
-              <img
-                src={digitalGoods3D}
-                alt="Digital"
-                className="h-full w-full object-cover transition-transform group-hover:scale-110"
-                referrerPolicy="no-referrer"
-              />
-            </div>
-            <span className="text-xs sm:text-sm font-black leading-tight flex items-center gap-1">
-              Digital Assets
-            </span>
-            <span className={`text-[10px] font-semibold mt-0.5 ${productType === "digital" ? "text-white/90" : "text-muted-foreground"}`}>
-              Instant Access
-            </span>
+            Digital Toolkits
           </button>
         </div>
       </div>
 
-      {/* 2. 3D Category Filter Navigation */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">
-              {productType === "digital"
-                ? "Digital Category Collections"
-                : productType === "physical"
-                ? "Physical Goods & Food Categories"
-                : "All Category Collections"}
-            </span>
-            {selectedCategory !== "all" && (
-              <Badge variant="outline" className="text-[10px] font-extrabold bg-primary/10 text-primary border-primary/30">
-                Filtered
-              </Badge>
-            )}
-          </div>
+      {/* 2. Compact Jiji-style Category Filter Chips */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between text-xs">
+          <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+            {productType === "digital"
+              ? "Digital Collections"
+              : productType === "physical"
+              ? "Physical Goods"
+              : "Popular Categories"}
+          </span>
 
           <div className="flex items-center gap-2">
             {selectedCategory !== "all" && (
               <button
                 onClick={() => onSelectCategory("all")}
-                className="text-xs font-bold text-primary hover:underline"
+                className="text-[11px] font-bold text-emerald-600 hover:underline"
               >
-                Reset Filter
+                Clear Filter
               </button>
             )}
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs font-bold h-8 px-2 text-muted-foreground hover:text-foreground"
+              className="text-[11px] font-bold h-6 px-1.5 text-muted-foreground hover:text-foreground"
             >
-              <Grid3X3 className="h-3.5 w-3.5 mr-1" />
-              {isExpanded ? "Collapse" : "Show All"}
+              <Grid3X3 className="h-3 w-3 mr-1" />
+              {isExpanded ? "Collapse" : "All Categories"}
             </Button>
           </div>
         </div>
 
-        {/* 3D Category Cards Carousel / Grid */}
+        {/* Category Cards Carousel / Grid: Space-efficient, lean padding */}
         <div
-          className={`gap-3 pb-2 transition-all ${
+          className={`gap-2 transition-all ${
             isExpanded
-              ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
-              : "flex overflow-x-auto no-scrollbar scroll-smooth snap-x"
+              ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+              : "flex overflow-x-auto no-scrollbar scroll-smooth snap-x pb-1"
           }`}
         >
-          {/* "All Categories" Card */}
+          {/* "All Categories" Pill */}
           <button
             onClick={() => onSelectCategory("all")}
-            className={`group relative shrink-0 snap-start rounded-2xl border-2 p-3 text-left transition-all duration-200 flex items-center gap-3 ${
-              isExpanded ? "w-full" : "w-[200px] sm:w-[220px]"
+            className={`group relative shrink-0 snap-start rounded-xl border p-2 text-left transition-all flex items-center gap-2 ${
+              isExpanded ? "w-full" : "w-[150px] sm:w-[170px]"
             } ${
               selectedCategory === "all"
-                ? "bg-primary text-primary-foreground border-primary shadow-md ring-2 ring-primary/20 scale-[1.02]"
-                : "bg-card/80 text-foreground border-border/80 hover:border-primary/40 hover:shadow-sm"
+                ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                : "bg-muted/40 text-foreground border-border/70 hover:border-emerald-500/50 hover:bg-muted/80"
             }`}
           >
             <div
-              className={`h-11 w-11 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
-                selectedCategory === "all" ? "bg-white/20 text-white" : "bg-primary/10 text-primary"
+              className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
+                selectedCategory === "all" ? "bg-white/20 text-white" : "bg-emerald-500/15 text-emerald-600"
               }`}
             >
-              <Sparkles className="h-5 w-5" />
+              <Sparkles className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs sm:text-sm font-black truncate leading-tight">All Categories</p>
-              <p className={`text-[10px] font-medium truncate ${selectedCategory === "all" ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                Browse everything
+              <p className="text-xs font-bold truncate leading-tight">All Items</p>
+              <p className={`text-[10px] truncate ${selectedCategory === "all" ? "text-white/80" : "text-muted-foreground"}`}>
+                Browse all
               </p>
             </div>
           </button>
 
-          {/* Dynamic 3D Categories */}
+          {/* Dynamic Categories */}
           {currentCategories.map((c) => {
             const isSelected = selectedCategory === c.slug;
+            const count = categoryCounts[c.slug];
             return (
               <button
                 key={c.id}
                 onClick={() => onSelectCategory(c.slug)}
-                className={`group relative shrink-0 snap-start rounded-2xl border-2 p-3 text-left transition-all duration-200 flex items-center gap-3 overflow-hidden ${
-                  isExpanded ? "w-full" : "w-[210px] sm:w-[240px]"
+                className={`group relative shrink-0 snap-start rounded-xl border p-2 text-left transition-all flex items-center gap-2 overflow-hidden ${
+                  isExpanded ? "w-full" : "w-[160px] sm:w-[180px]"
                 } ${
                   isSelected
-                    ? "bg-gradient-to-r from-primary to-accent text-primary-foreground border-primary shadow-lg ring-2 ring-primary/30 scale-[1.02]"
-                    : "bg-card text-foreground border-border/80 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5"
+                    ? "bg-emerald-600 text-white border-emerald-600 shadow-xs"
+                    : "bg-muted/30 text-foreground border-border/70 hover:border-emerald-500/50 hover:bg-muted/70"
                 }`}
               >
-                {/* 3D Image Thumbnail or Vibrant Gradient Container */}
-                <div className="relative h-11 w-11 rounded-xl overflow-hidden shrink-0 border border-border/60 shadow-inner bg-muted">
+                <div className="relative h-7 w-7 rounded-lg overflow-hidden shrink-0 border border-border/40 bg-muted">
                   {c.image3D ? (
                     <img
                       src={c.image3D}
                       alt={c.name}
-                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-115"
+                      className="h-full w-full object-cover"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    <div className={`h-full w-full bg-gradient-to-br ${c.color || "from-primary to-accent"} flex items-center justify-center text-white font-bold text-sm`}>
-                      <Package className="h-5 w-5" />
+                    <div className="h-full w-full bg-emerald-500/20 text-emerald-600 flex items-center justify-center text-xs font-bold">
+                      <Package className="h-3.5 w-3.5" />
                     </div>
-                  )}
-                  {isSelected && (
-                    <div className="absolute inset-0 bg-primary/20 backdrop-blur-[1px]" />
                   )}
                 </div>
 
-                {/* Text Labels & Micro Badge */}
                 <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1.5">
-                    <p className={`text-xs sm:text-sm font-black truncate leading-tight ${isSelected ? "text-primary-foreground" : "text-foreground group-hover:text-primary"}`}>
-                      {c.name}
-                    </p>
-                  </div>
-                  <p className={`text-[10px] font-semibold truncate ${isSelected ? "text-primary-foreground/90" : "text-muted-foreground"}`}>
-                    {c.badge || (c.type === "digital" ? "Digital File" : "Physical Item")}
+                  <p className={`text-xs font-bold truncate leading-tight ${isSelected ? "text-white" : "text-foreground group-hover:text-emerald-600"}`}>
+                    {c.name}
+                  </p>
+                  <p className={`text-[10px] truncate ${isSelected ? "text-white/80" : "text-muted-foreground"}`}>
+                    {count !== undefined ? `${count} items` : c.badge || "Verified"}
                   </p>
                 </div>
               </button>

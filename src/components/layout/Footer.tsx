@@ -30,12 +30,14 @@ export function MinimalFooter() {
           </div>
           <p className="font-medium">© {new Date().getFullYear()} <span className="font-extrabold text-foreground">Bethelincovibe TV</span>. All rights reserved.</p>
         </div>
-        <div className="flex items-center gap-5 font-semibold">
-          <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
-          <span className="text-border">•</span>
-          <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
-          <span className="text-border">•</span>
-          <Link to="/disclaimer" className="hover:text-primary transition-colors">Disclaimer</Link>
+        <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 sm:gap-x-4 font-semibold text-center sm:text-right">
+          <Link to="/privacy-policy" className="hover:text-primary transition-colors whitespace-nowrap">Privacy Policy</Link>
+          <span className="text-border hidden xs:inline">•</span>
+          <Link to="/terms-of-service" className="hover:text-primary transition-colors whitespace-nowrap">Terms of Service</Link>
+          <span className="text-border hidden xs:inline">•</span>
+          <Link to="/disclaimer" className="hover:text-primary transition-colors whitespace-nowrap">Disclaimer</Link>
+          <span className="text-border hidden xs:inline">•</span>
+          <Link to="/legal" className="hover:text-primary transition-colors whitespace-nowrap text-primary">Legal Hub</Link>
         </div>
       </div>
     </footer>
@@ -240,15 +242,25 @@ export default function Footer() {
           </div>
         </div>
 
-        {/* Bottom Legal & Copyright Bar */}
-        <div className="border-t border-border/80 mt-12 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-          <p>© {new Date().getFullYear()} <span className="font-bold text-foreground">Bethelincovibe TV</span>. Built for Nigeria's thriving entrepreneurs.</p>
-          <div className="flex items-center gap-5 font-semibold">
-            <Link to="/about" className="hover:text-primary transition-colors">About</Link>
-            <Link to="/support" className="hover:text-primary transition-colors">Support</Link>
-            <Link to="/privacy-policy" className="hover:text-primary transition-colors">Privacy Policy</Link>
-            <Link to="/terms-of-service" className="hover:text-primary transition-colors">Terms of Service</Link>
-            <Link to="/disclaimer" className="hover:text-primary transition-colors">Disclaimer</Link>
+        {/* Bottom Legal & Copyright Bar - Properly arranged for desktop and mobile with full spelling */}
+        <div className="border-t border-border/80 mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-5 text-xs text-muted-foreground">
+          <div className="flex flex-col sm:flex-row items-center gap-2 text-center sm:text-left">
+            <p>© {new Date().getFullYear()} <span className="font-bold text-foreground">Bethelincovibe TV</span>. Built for Nigeria's thriving entrepreneurs.</p>
+            <span className="hidden sm:inline text-border">•</span>
+            <span className="text-[11px] text-muted-foreground/80">RC / CAC Compliant Ecosystem</span>
+          </div>
+          <div className="flex flex-wrap items-center justify-center md:justify-end gap-x-4 gap-y-2 font-semibold text-center">
+            <Link to="/about" className="hover:text-primary transition-colors whitespace-nowrap">About Us</Link>
+            <span className="text-border hidden sm:inline">•</span>
+            <Link to="/support" className="hover:text-primary transition-colors whitespace-nowrap">Support &amp; Help</Link>
+            <span className="text-border hidden sm:inline">•</span>
+            <Link to="/privacy-policy" className="hover:text-primary transition-colors whitespace-nowrap">Privacy Policy</Link>
+            <span className="text-border hidden sm:inline">•</span>
+            <Link to="/terms-of-service" className="hover:text-primary transition-colors whitespace-nowrap">Terms of Service</Link>
+            <span className="text-border hidden sm:inline">•</span>
+            <Link to="/disclaimer" className="hover:text-primary transition-colors whitespace-nowrap">Disclaimer</Link>
+            <span className="text-border hidden sm:inline">•</span>
+            <Link to="/legal" className="text-primary hover:underline transition-colors whitespace-nowrap font-bold">Legal Hub</Link>
           </div>
         </div>
       </div>

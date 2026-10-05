@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
-import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
+import { getBestUserName, fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 import {
   subscribeToUserRealtimeNotifications,
   subscribeToUserNotificationsList,
@@ -21,10 +21,20 @@ type N = { id: string; title: string; body: string | null; url: string | null; i
 
 export default function NotificationBell() {
   const { user } = useAuth();
-  const userName = getBestUserName(user);
+  const [userName, setUserName] = useState<string>(() => getBestUserName(user));
   const [items, setItems] = useState<N[]>([]);
   const [open, setOpen] = useState(false);
   const [soundEnabled, setSoundState] = useState(() => isNotificationSoundEnabled());
+
+  useEffect(() => {
+    if (user?.id) {
+      const initial = getBestUserName(user);
+      if (initial) setUserName(initial);
+      fetchUserNameById(user.id).then((name) => {
+        if (name) setUserName(name);
+      });
+    }
+  }, [user]);
 
   const toggleSound = (e: React.MouseEvent) => {
     e.stopPropagation();

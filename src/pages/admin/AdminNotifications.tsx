@@ -204,7 +204,8 @@ export default function AdminNotifications() {
             console.warn("RPC broadcast fallback:", rpcErr);
             const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, username, email");
             const notifRecords = (profiles || []).map((p: any) => {
-              const uName = p.display_name?.trim() || p.username?.trim() || (p.email ? p.email.split("@")[0] : "Entrepreneur");
+              const emailPrefix = p.email ? p.email.split("@")[0].replace(/[._\d]+$/, "").replace(/[._-]/g, " ").trim() : "";
+              const uName = p.display_name?.trim() || p.username?.trim() || emailPrefix;
               return {
                 user_id: p.user_id,
                 title: personalizeNotificationTitle(cleanTitle, uName),
@@ -225,12 +226,13 @@ export default function AdminNotifications() {
           const { data: profiles } = await supabase.from("profiles").select("user_id, display_name, username, email").in("user_id", targetUserIds);
           const nameMap = new Map<string, string>();
           (profiles || []).forEach((p: any) => {
-            const uName = p.display_name?.trim() || p.username?.trim() || (p.email ? p.email.split("@")[0] : "Entrepreneur");
+            const emailPrefix = p.email ? p.email.split("@")[0].replace(/[._\d]+$/, "").replace(/[._-]/g, " ").trim() : "";
+            const uName = p.display_name?.trim() || p.username?.trim() || emailPrefix;
             nameMap.set(p.user_id, uName);
           });
 
           const notifRecords = targetUserIds.map((uId) => {
-            const uName = nameMap.get(uId) || "Entrepreneur";
+            const uName = nameMap.get(uId) || "";
             return {
               user_id: uId,
               title: personalizeNotificationTitle(cleanTitle, uName),

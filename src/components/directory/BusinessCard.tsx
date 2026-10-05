@@ -42,6 +42,7 @@ export interface BusinessCardProps {
   view?: "grid" | "list";
   searchTerm?: string;
   boosted?: boolean;
+  distanceKm?: number | null;
 }
 
 export default function BusinessCard({
@@ -51,6 +52,7 @@ export default function BusinessCard({
   view = "grid",
   searchTerm,
   boosted: propBoosted,
+  distanceKm,
 }: BusinessCardProps) {
   const s = business || supplier;
   if (!s) return null;
@@ -129,6 +131,12 @@ export default function BusinessCard({
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <h3 className="truncate text-[15px] sm:text-base font-bold leading-snug group-hover:text-primary">{s.name}</h3>
                   <VerifiedBadge verified={true} size="sm" />
+                  {typeof distanceKm === "number" && isFinite(distanceKm) && (
+                    <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] px-1.5 py-0.2">
+                      <MapPin className="h-2.5 w-2.5" />
+                      {distanceKm < 1 ? "< 1 km" : `${distanceKm} km away`}
+                    </span>
+                  )}
                 </div>
                 {categoryName && <p className="text-xs font-semibold text-primary mt-0.5">{categoryName}</p>}
               </div>
@@ -214,9 +222,15 @@ export default function BusinessCard({
               </div>
             )}
             <div className="min-w-0 flex-1 pt-0.5">
-              <div className="flex items-start gap-1.5">
+              <div className="flex items-start gap-1.5 flex-wrap">
                 <h3 className="truncate text-[15px] sm:text-base font-bold leading-snug group-hover:text-primary">{s.name}</h3>
                 <VerifiedBadge verified={true} size="sm" />
+                {typeof distanceKm === "number" && isFinite(distanceKm) && (
+                  <span className="inline-flex items-center gap-0.5 rounded-md bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-extrabold text-[10px] px-1.5 py-0.2">
+                    <MapPin className="h-2.5 w-2.5" />
+                    {distanceKm < 1 ? "< 1 km" : `${distanceKm} km`}
+                  </span>
+                )}
               </div>
               {s.address && (
                 <p className="mt-0.5 flex items-center gap-1 truncate text-xs text-muted-foreground">

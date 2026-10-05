@@ -17,6 +17,7 @@ import {
   Store,
   Flame,
   CheckCircle2,
+  ShoppingBag,
 } from "lucide-react";
 import { formatPrice, DirectoryProduct } from "@/components/directory/ProductCard";
 import { getProductCategoryInfo } from "@/lib/productAIEngine";
@@ -112,7 +113,7 @@ export default function FeaturedProductSlider({
 
   return (
     <section
-      className={`relative w-full overflow-hidden rounded-3xl border border-primary/20 bg-gradient-to-br from-card/90 via-card to-primary/5 p-4 sm:p-6 shadow-xl backdrop-blur-md transition-all ${className}`}
+      className={`relative w-full overflow-hidden rounded-2xl border border-border/80 bg-card p-2.5 sm:p-3.5 shadow-xs transition-all ${className}`}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
       onTouchStart={() => setIsPaused(true)}
@@ -121,21 +122,20 @@ export default function FeaturedProductSlider({
       aria-label="Featured Products Spotlight"
     >
       {/* Header bar */}
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 text-white shadow-md">
-            <Flame className="h-5 w-5" />
+      <div className="mb-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border/50 pb-2">
+        <div className="flex items-center gap-2">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500 text-white shadow-xs">
+            <Flame className="h-4 w-4" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg sm:text-xl font-black tracking-tight text-foreground">
+            <div className="flex items-center gap-1.5">
+              <h2 className="text-sm sm:text-base font-extrabold tracking-tight text-foreground">
                 {title}
               </h2>
-              <Badge className="h-5 bg-primary/20 text-primary border-primary/30 font-black text-[10px] uppercase tracking-wider">
-                <Sparkles className="mr-1 h-3 w-3" /> Spotlight
-              </Badge>
+              <span className="rounded-md bg-amber-500/10 text-amber-600 font-extrabold text-[10px] px-1.5 py-0.2">
+                TOP Deals
+              </span>
             </div>
-            <p className="text-xs font-medium text-muted-foreground">{subtitle}</p>
           </div>
         </div>
 
@@ -149,28 +149,28 @@ export default function FeaturedProductSlider({
               variant="outline"
               size="icon"
               onClick={prevSlide}
-              className="h-8 w-8 rounded-full border-border/80 bg-background/80 hover:bg-primary hover:text-primary-foreground transition-colors shadow-xs"
+              className="h-7 w-7 rounded-lg border-border/80 bg-background/80 hover:bg-emerald-600 hover:text-white transition-colors"
               aria-label="Previous featured product"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-3.5 w-3.5" />
             </Button>
             <Button
               variant="outline"
               size="icon"
               onClick={nextSlide}
-              className="h-8 w-8 rounded-full border-border/80 bg-background/80 hover:bg-primary hover:text-primary-foreground transition-colors shadow-xs"
+              className="h-7 w-7 rounded-lg border-border/80 bg-background/80 hover:bg-emerald-600 hover:text-white transition-colors"
               aria-label="Next featured product"
             >
-              <ChevronRight className="h-4 w-4" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           </div>
         )}
       </div>
 
       {/* Main Spotlight Banner Item */}
-      <div className="relative grid gap-6 lg:grid-cols-12 lg:items-center">
+      <div className="relative grid gap-3 sm:gap-4 lg:grid-cols-12 lg:items-center">
         {/* Left / Top Media Showcase */}
-        <div className="relative overflow-hidden rounded-2xl border border-border/60 bg-muted shadow-inner lg:col-span-6 xl:col-span-5 aspect-[4/3] sm:aspect-[16/10] lg:aspect-[4/3]">
+        <div className="relative overflow-hidden rounded-xl border border-border/60 bg-muted shadow-inner lg:col-span-5 aspect-[16/10] sm:aspect-[16/9] lg:aspect-[4/3]">
           {heroImage ? (
             <img
               src={heroImage}
@@ -217,48 +217,48 @@ export default function FeaturedProductSlider({
         </div>
 
         {/* Right Info & Direct CTAs */}
-        <div className="flex flex-col justify-between space-y-4 lg:col-span-6 xl:col-span-7">
-          <div className="space-y-2.5">
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" className="font-extrabold text-xs uppercase tracking-wider text-primary border-primary/40 bg-primary/5">
-                <Tag className="mr-1 h-3 w-3" /> {catInfo.name}
+        <div className="flex flex-col justify-between space-y-2.5 lg:col-span-7">
+          <div className="space-y-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline" className="font-extrabold text-[10px] uppercase tracking-wider text-emerald-600 border-emerald-500/40 bg-emerald-500/5">
+                <Tag className="mr-1 h-2.5 w-2.5" /> {catInfo.name}
               </Badge>
               {currentProduct.location && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground/80" /> {currentProduct.location}
+                <span className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-muted-foreground">
+                  <MapPin className="h-3 w-3 text-emerald-500" /> {currentProduct.location}
                 </span>
               )}
               {currentProduct.condition && (
-                <span className="rounded-md bg-muted px-2 py-0.5 text-[11px] font-bold text-foreground">
-                  Condition: {currentProduct.condition}
+                <span className="rounded-md bg-muted px-1.5 py-0.2 text-[10px] font-bold text-foreground uppercase">
+                  {currentProduct.condition}
                 </span>
               )}
             </div>
 
             <Link to={productUrl} className="group block">
-              <h3 className="text-xl sm:text-2xl lg:text-3xl font-black text-foreground transition-colors group-hover:text-primary leading-tight">
+              <h3 className="text-base sm:text-lg lg:text-xl font-black text-foreground transition-colors group-hover:text-emerald-600 leading-snug">
                 {currentProduct.name}
               </h3>
             </Link>
 
-            <p className="line-clamp-2 sm:line-clamp-3 text-sm font-medium text-muted-foreground leading-relaxed">
+            <p className="line-clamp-2 text-xs font-medium text-muted-foreground leading-relaxed">
               {currentProduct.description ||
                 "Verified listing in Lagos. Instant order and direct seller WhatsApp communication."}
             </p>
 
-            {/* Price & Delivery Highlights */}
-            <div className="flex flex-wrap items-baseline gap-3 pt-1">
-              <div className="text-2xl sm:text-3xl font-black text-primary tracking-tight">
+            {/* Price & Delivery Highlights: Nigerian Jiji Green Price */}
+            <div className="flex flex-wrap items-baseline gap-2.5 pt-0.5">
+              <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400 tracking-tight">
                 {formatPrice(currentProduct.price, currentProduct.currency)}
               </div>
               {currentProduct.stock !== null && currentProduct.stock !== undefined && (
-                <span className="text-xs font-bold text-muted-foreground">
+                <span className="text-[11px] font-bold text-muted-foreground">
                   {currentProduct.stock > 0 ? (
                     <span className="text-emerald-600 dark:text-emerald-400 font-extrabold flex items-center gap-1">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> In Stock ({currentProduct.stock} units)
+                      <CheckCircle2 className="h-3 w-3" /> In Stock ({currentProduct.stock})
                     </span>
                   ) : (
-                    <span className="text-amber-600 dark:text-amber-400 font-bold">Made to order / Instant</span>
+                    <span className="text-amber-600 dark:text-amber-400 font-bold">Made to order</span>
                   )}
                 </span>
               )}
@@ -266,33 +266,22 @@ export default function FeaturedProductSlider({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex flex-wrap items-center gap-3 pt-2">
+          <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40">
             <Button
               asChild
-              size="lg"
-              className="rounded-2xl font-black text-sm px-6 bg-primary text-primary-foreground shadow-md hover:bg-primary/90 active:scale-95 transition-all"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl px-4 py-1.5 h-8 shadow-xs"
             >
               <Link to={productUrl}>
-                {isDigital ? (
-                  <>
-                    <Download className="mr-2 h-4 w-4" /> Download / View Digital Product
-                  </>
-                ) : (
-                  <>
-                    <Package className="mr-2 h-4 w-4" /> View Product &amp; Details
-                  </>
-                )}
+                <ShoppingBag className="mr-1.5 h-3.5 w-3.5" /> View Listing
               </Link>
             </Button>
-
             <Button
               asChild
-              size="lg"
               variant="outline"
-              className="rounded-2xl font-bold text-sm px-5 border-border/90 bg-background/80 hover:bg-muted text-foreground active:scale-95 transition-all"
+              className="font-bold text-xs rounded-xl px-3 py-1.5 h-8 border-border/80"
             >
-              <Link to={productUrl}>
-                <MessageCircle className="mr-2 h-4 w-4 text-emerald-500" /> Contact Seller
+              <Link to="/products">
+                All Products <ArrowRight className="ml-1 h-3 w-3" />
               </Link>
             </Button>
           </div>

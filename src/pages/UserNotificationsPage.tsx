@@ -24,7 +24,7 @@ import {
 import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import { playNotificationSound, isNotificationSoundEnabled, setNotificationSoundEnabled } from "@/lib/notificationSound";
-import { getBestUserName, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
+import { getBestUserName, fetchUserNameById, personalizeNotificationTitle, personalizeNotificationBody } from "@/lib/notificationPersonalizer";
 import {
   subscribeToUserRealtimeNotifications,
   subscribeToUserNotificationsList,
@@ -55,6 +55,17 @@ export default function UserNotificationsPage() {
   const [selectedNotification, setSelectedNotification] = useState<NotificationItem | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [soundEnabled, setSoundState] = useState(() => isNotificationSoundEnabled());
+  const [userName, setUserName] = useState<string>(() => getBestUserName(user));
+
+  useEffect(() => {
+    if (user?.id) {
+      const initial = getBestUserName(user);
+      if (initial) setUserName(initial);
+      fetchUserNameById(user.id).then((name) => {
+        if (name) setUserName(name);
+      });
+    }
+  }, [user]);
 
   const toggleSound = () => {
     const next = !soundEnabled;
@@ -167,8 +178,6 @@ export default function UserNotificationsPage() {
       }
     }
   }, [searchParams, notifications]);
-
-  const userName = getBestUserName(user);
 
   // Filtered notifications calculation (top-level hook)
   const filtered = useMemo(() => {

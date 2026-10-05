@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { playCreditSound } from "@/lib/notificationSound";
-import { getBestUserName } from "@/lib/notificationPersonalizer";
+import { getBestUserName, fetchUserNameById } from "@/lib/notificationPersonalizer";
 
 // Account-based daily login reward — strictly one claim per calendar day per user account.
 export default function DailyRewardClaim() {
@@ -32,14 +32,30 @@ export default function DailyRewardClaim() {
         if (result?.claimed) {
           localStorage.setItem(storageKey, "1");
           const amount = result.amount || 50;
-          const userName = getBestUserName(user);
+          let exactName = getBestUserName(user);
+          if (!exactName) {
+            exactName = await fetchUserNameById(user.id);
+          }
+
+          const notifTitle = exactName
+            ? `🎁 ${exactName}, Daily Free Login Reward: +₦${amount}`
+            : `🎁 Daily Free Login Reward: +₦${amount}`;
+          const notifBody = exactName
+            ? `Hi ${exactName}, you received ₦${amount} free design credits for logging in today. Credits have been added to your wallet.`
+            : `You received ₦${amount} free design credits for logging in today. Credits have been added to your wallet.`;
+          const toastTitle = exactName
+            ? `🎁 ${exactName}, +₦${amount} Daily Free Credits Claimed!`
+            : `🎁 +₦${amount} Daily Free Credits Claimed!`;
+          const toastDesc = exactName
+            ? `Hi ${exactName}, use your free credits for AI Graphic Designs, Flyers, and Logo creations.`
+            : `Use your free credits for AI Graphic Designs, Flyers, and Logo creations.`;
 
           // Ensure private notification record for the user mentioning their name
           try {
             await supabase.from("user_notifications").insert({
               user_id: user.id,
-              title: `🎁 ${userName}, Daily Free Login Reward: +₦${amount}`,
-              body: `Hi ${userName}, you received ₦${amount} free design credits for logging in today. Credits have been added to your wallet.`,
+              title: notifTitle,
+              body: notifBody,
               url: "/dashboard/wallet",
               type: "reward",
               is_read: false,
@@ -47,8 +63,8 @@ export default function DailyRewardClaim() {
           } catch {}
 
           playCreditSound();
-          toast.success(`🎁 ${userName}, +₦${amount} Daily Free Credits Claimed!`, {
-            description: `Hi ${userName}, use your free credits for AI Graphic Designs, Flyers, and Logo creations.`,
+          toast.success(toastTitle, {
+            description: toastDesc,
           });
 
           // Notify any wallet/studio components to update live
